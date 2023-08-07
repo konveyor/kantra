@@ -22,7 +22,7 @@ var (
 )
 
 type Settings struct {
-	RuleSetPath string `env:"RULESET_PATH"`
+	RuleSetPath string `env:"RULESET_PATH" default:"/opt/rulesets/"`
 }
 
 // analyzeCmd represents the analyze command
