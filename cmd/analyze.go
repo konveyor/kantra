@@ -10,20 +10,23 @@ import (
 	"strings"
 
 	"github.com/apex/log"
-	"github.com/codingconcepts/env"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/provider"
+
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
 
 var (
-	listSources bool
-	listTargets bool
+	listSources      bool
+	listTargets      bool
+	skipStaticReport bool
+	sources          []string
+	targets          []string
+	input            string
+	output           string
+	mode             string
 )
-
-type Settings struct {
-	RuleSetPath string `env:"RULESET_PATH" default:"/opt/rulesets/"`
-}
 
 // analyzeCmd represents the analyze command
 var analyzeCmd = &cobra.Command{
@@ -32,8 +35,14 @@ var analyzeCmd = &cobra.Command{
 	// TODO:  need better descriptions
 	Short: "A tool to analyze applications",
 	Long:  ``,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		err := Validate()
+		if err != nil {
+			return err
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-
 		err := AnalyzeFlags()
 		if err != nil {
 			log.Errorf("Failed to execute analyzeFlags")
@@ -46,7 +55,32 @@ func init() {
 
 	analyzeCmd.PersistentFlags().BoolVar(&listSources, "list-sources", false, "List rules for available migration sources")
 	analyzeCmd.PersistentFlags().BoolVar(&listTargets, "list-targets", false, "List rules for available migration targets")
+	analyzeCmd.PersistentFlags().StringArrayVarP(&sources, "source", "s", []string{}, "Source technology to consider for analysis")
+	analyzeCmd.PersistentFlags().StringArrayVarP(&targets, "target", "t", []string{}, "Target technology to consider for analysis")
+	analyzeCmd.PersistentFlags().StringVarP(&input, "input", "i", "", "Path to application source code or a binary")
+	analyzeCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "Path to the directory for analysis output")
+	analyzeCmd.PersistentFlags().BoolVar(&skipStaticReport, "skip-static-report", false, "Do not generate static report")
+	analyzeCmd.PersistentFlags().StringVarP(&mode, "mode", "m", "full", "Analysis mode. Must be one of 'full' or 'source-only'")
+}
 
+func Validate() error {
+	if listSources || listTargets {
+		return nil
+	}
+	stat, err := os.Stat(output)
+	if err != nil {
+		log.Errorf("failed to stat output directory %s", output)
+		return err
+	}
+	if !stat.IsDir() {
+		log.Errorf("output path %s is not a directory", output)
+		return err
+	}
+	if mode != string(provider.FullAnalysisMode) &&
+		mode != string(provider.SourceOnlyAnalysisMode) {
+		return fmt.Errorf("mode must be one of 'full' or 'source-only'")
+	}
+	return nil
 }
 
 func AnalyzeFlags() error {
@@ -72,13 +106,8 @@ func AnalyzeFlags() error {
 }
 
 func readRuleFilesForLabels(label string) ([]string, error) {
-	p := &Settings{}
-	if err := env.Set(p); err != nil {
-		return nil, err
-	}
-
 	var labelsSlice []string
-	err := filepath.WalkDir(p.RuleSetPath, walkRuleSets(p.RuleSetPath, label, &labelsSlice))
+	err := filepath.WalkDir(Settings.RuleSetPath, walkRuleSets(Settings.RuleSetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
