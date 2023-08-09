@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"os"
+
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,6 +20,10 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+//  provider settings file
+type ProviderSettings []provider.Config
+
+// kantra flags
 var (
 	listSources      bool
 	listTargets      bool
@@ -26,6 +33,7 @@ var (
 	input            string
 	output           string
 	mode             string
+	rules            string
 )
 
 // analyzeCmd represents the analyze command
@@ -57,6 +65,7 @@ func init() {
 	analyzeCmd.PersistentFlags().BoolVar(&listTargets, "list-targets", false, "List rules for available migration targets")
 	analyzeCmd.PersistentFlags().StringArrayVarP(&sources, "source", "s", []string{}, "Source technology to consider for analysis")
 	analyzeCmd.PersistentFlags().StringArrayVarP(&targets, "target", "t", []string{}, "Target technology to consider for analysis")
+	analyzeCmd.PersistentFlags().StringVar(&rules, "rules", "", "Rules for analysis")
 	analyzeCmd.PersistentFlags().StringVarP(&input, "input", "i", "", "Path to application source code or a binary")
 	analyzeCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "Path to the directory for analysis output")
 	analyzeCmd.PersistentFlags().BoolVar(&skipStaticReport, "skip-static-report", false, "Do not generate static report")
@@ -94,6 +103,7 @@ func AnalyzeFlags() error {
 			return err
 		}
 		listOptionsFromLabels(sourceSlice, sourceLabel)
+		return nil
 	}
 	if listTargets {
 		targetsSlice, err := readRuleFilesForLabels(targetLabel)
@@ -101,7 +111,9 @@ func AnalyzeFlags() error {
 			return err
 		}
 		listOptionsFromLabels(targetsSlice, targetLabel)
+		return nil
 	}
+
 	return nil
 }
 
@@ -179,4 +191,65 @@ func listOptionsFromLabels(sl []string, label string) {
 	for _, tech := range newSl {
 		fmt.Println(tech)
 	}
+}
+
+func RunAnalyzer() bool {
+	if len(input) > 0 {
+		return true
+	}
+	return false
+}
+
+// build analyzer options
+func BuildOptions() (string, error) {
+	err := setSourceLocation(input)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO: remove hard-coded values
+	options := []string{"--rules-file",
+		rules,
+		"--settings-file",
+		"provider_settings.json",
+		"--output-file",
+		output,
+	}
+	optString := strings.Join(options, " ")
+	return optString, nil
+}
+
+// add location for source code
+func setSourceLocation(input string) error {
+	filename := "provider_settings.json"
+	config := []provider.Config{}
+	jsonFile, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &config)
+	if err != nil {
+		return err
+	}
+
+	for i := range config {
+		if config[i].Name == "java" {
+			for init := range config[i].InitConfig {
+				config[i].InitConfig[init].Location = input
+			}
+		}
+	}
+	newJson, err := json.MarshalIndent(config, "", "	")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = ioutil.WriteFile(filename, newJson, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }

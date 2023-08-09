@@ -26,8 +26,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o kantra main.go
 FROM quay.io/konveyor/analyzer-lsp:latest
 
 RUN mkdir /opt/rulesets
+
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=shim /usr/bin/windup-shim /usr/local/bin
 COPY --from=rulesets /rulesets/default/generated /opt/rulesets
+
+COPY settings.json /analyzer/settings.json
 
 ENTRYPOINT ["kantra"]
