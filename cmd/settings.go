@@ -1,12 +1,21 @@
 package cmd
 
-import "github.com/codingconcepts/env"
+import (
+	"github.com/codingconcepts/env"
+)
 
 var Settings = &Config{}
 
+const (
+	RulesetPath            = "/opt/rulesets"
+	OpenRewriteRecipesPath = "/opt/openrewrite"
+	InputPath              = "/opt/input"
+)
+
 type Config struct {
-	RuleSetPath string `env:"RULESET_PATH" default:"/opt/rulesets/"`
-	CommandName string `env:"CMD_NAME" default:"kantra"`
+	RootCommandName string `env:"CMD_NAME" default:"kantra"`
+	PodmanBinary    string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
+	RunnerImage     string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
 }
 
 func (c *Config) Load() error {
