@@ -4,6 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -17,6 +18,10 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 }
 
+func init() {
+	rootCmd.AddCommand(NewOpenRewriteCommand())
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -25,8 +30,11 @@ func Execute() {
 		log.Fatal("failed to load global settings")
 	}
 
-	rootCmd.Use = Settings.CommandName
-	err = rootCmd.Execute()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	rootCmd.Use = Settings.RootCommandName
+	err = rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)
 	}

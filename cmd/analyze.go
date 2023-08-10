@@ -107,7 +107,7 @@ func AnalyzeFlags() error {
 
 func readRuleFilesForLabels(label string) ([]string, error) {
 	var labelsSlice []string
-	err := filepath.WalkDir(Settings.RuleSetPath, walkRuleSets(Settings.RuleSetPath, label, &labelsSlice))
+	err := filepath.WalkDir(RulesetPath, walkRuleSets(RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}

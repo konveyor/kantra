@@ -4,6 +4,7 @@ FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
 RUN microdnf -y install git
 RUN git clone https://github.com/konveyor/rulesets
+RUN git clone https://github.com/windup/windup-rulesets
 
 # Build the manager binary
 FROM golang:1.18 as builder
@@ -25,9 +26,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o kantra main.go
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 
-RUN mkdir /opt/rulesets
+RUN mkdir /opt/rulesets /opt/openrewrite /opt/input
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=shim /usr/bin/windup-shim /usr/local/bin
 COPY --from=rulesets /rulesets/default/generated /opt/rulesets
+COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 
 ENTRYPOINT ["kantra"]
