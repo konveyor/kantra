@@ -10,6 +10,10 @@ const (
 	RulesetPath            = "/opt/rulesets"
 	OpenRewriteRecipesPath = "/opt/openrewrite"
 	InputPath              = "/opt/input"
+	OutputPath             = "/opt/output"
+	OutputFilePath         = "/opt/output/output.yaml"
+	SourceRepoPath         = "/opt/example"
+	ProviderSettingsPath   = "/opt/settings/settings.json"
 )
 
 type Config struct {
