@@ -20,6 +20,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(NewOpenRewriteCommand())
+	rootCmd.AddCommand(NewAnalyzeCmd())
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

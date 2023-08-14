@@ -1,0 +1,37 @@
+[
+	{
+		"name": "go",
+		"binaryPath": "/usr/bin/generic-external-provider",
+		"initConfig": [
+			{
+				"analysisMode": "full",
+				"providerSpecificConfig": {
+					"dependencyProviderPath": "/usr/bin/golang-dependency-provider",
+					"lspServerPath": "/root/go/bin/gopls",
+					"name": "go"
+				}
+			}
+		]
+	},
+	{
+		"name": "java",
+		"binaryPath": "/jdtls/bin/jdtls",
+		"initConfig": [
+			{
+				"analysisMode": "source-only",
+				"providerSpecificConfig": {
+					"bundles": "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+					"lspServerPath": "/jdtls/bin/jdtls"
+				}
+			}
+		]
+	},
+	{
+		"name": "builtin",
+		"initConfig": [
+			{
+				"analysisMode": ""
+			}
+		]
+	}
+]
