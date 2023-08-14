@@ -18,7 +18,6 @@
 		"binaryPath": "/jdtls/bin/jdtls",
 		"initConfig": [
 			{
-				"location": "/opt/example",
 				"analysisMode": "source-only",
 				"providerSpecificConfig": {
 					"bundles": "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",

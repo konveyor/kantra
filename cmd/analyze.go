@@ -3,8 +3,10 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"os"
 
 	"path/filepath"
@@ -18,9 +20,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
-
-//  provider settings file
-type ProviderSettings []provider.Config
 
 // kantra analyze flags
 type analyzeCommand struct {
@@ -50,13 +49,15 @@ func NewAnalyzeCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := analyzeCmd.AnalyzeFlags()
-			if err != nil {
-				log.Errorf("Failed to execute analyzeFlags", err)
-				return err
+			if analyzeCmd.listSources || analyzeCmd.listTargets {
+				err := analyzeCmd.AnalyzeFlags()
+				if err != nil {
+					log.Errorf("Failed to execute analyzeFlags", err)
+					return err
+				}
+				return nil
 			}
-
-			err = analyzeCmd.Run(cmd.Context())
+			err := analyzeCmd.Run(cmd.Context())
 			if err != nil {
 				log.Errorf("failed to execute analyze command", err)
 				return err
@@ -196,16 +197,47 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
-func (a *analyzeCommand) setOutput() error {
-	outputDir := a.output
+func (a *analyzeCommand) createOutputFile() (string, error) {
 	// if trailing '/' in given output dir, remove it
-	trimmedOutputDir := strings.TrimRight(outputDir, "/")
+	trimmedOutput := strings.TrimRight(a.output, "/")
+	trimmedOutput = strings.TrimRight(a.output, "\\")
 
-	f, err := os.Create(trimmedOutputDir + "/output.yaml")
+	fp := filepath.Join(trimmedOutput, "outout.yaml")
+	outputFile, err := os.Create(fp)
+	if err != nil {
+		return "", err
+	}
+	defer outputFile.Close()
+	return fp, nil
+}
+
+// TODO: *** write all of provider settings here ***
+func (a *analyzeCommand) writeProviderSettings(dir string, settingsFilePath string, sourceAppPath string) error {
+
+	providerConfig := []provider.Config{}
+	jsonFile, err := os.Open(settingsFilePath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer jsonFile.Close()
+	byteValue, err := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(byteValue, &providerConfig)
+	if err != nil {
+		return err
+	}
+	for i := range providerConfig {
+		for init := range providerConfig[i].InitConfig {
+			providerConfig[i].InitConfig[init].Location = sourceAppPath
+		}
+	}
+	providerLocation, err := json.MarshalIndent(providerConfig, "", "	")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(settingsFilePath, providerLocation, 0644)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -213,23 +245,31 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 	if len(a.rules) == 0 {
 		a.rules = RulesetPath
 	}
-	err := a.setOutput()
+	outputFilePath, err := a.createOutputFile()
 	if err != nil {
 		return err
 	}
-	wd, err := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	settingsFilePath := filepath.Join(dir, "settings.json")
+	settingsMountedPath := filepath.Join(InputPath, "settings.json")
+	outputMountedPath := filepath.Join(InputPath, "output.yaml")
+	sourceAppPath := filepath.Join(InputPath, "example")
+	err = a.writeProviderSettings(dir, settingsFilePath, sourceAppPath)
 	if err != nil {
 		return err
 	}
 	volumes := map[string]string{
-		a.input:                   SourceRepoPath,
-		wd + "/settings.json":     ProviderSettingsPath,
-		a.output + "/output.yaml": OutputFilePath,
+		a.input:          sourceAppPath,
+		settingsFilePath: settingsMountedPath,
+		outputFilePath:   outputMountedPath,
 	}
 	args := []string{
-		fmt.Sprintf("--provider-settings=%v", ProviderSettingsPath),
+		fmt.Sprintf("--provider-settings=%v", settingsMountedPath),
 		fmt.Sprintf("--rules=%v", a.rules),
-		fmt.Sprintf("--output-file=%v", OutputFilePath),
+		fmt.Sprintf("--output-file=%v", outputMountedPath),
 	}
 	cmd := NewContainerCommand(
 		ctx,
