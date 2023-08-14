@@ -202,7 +202,7 @@ func (a *analyzeCommand) createOutputFile() (string, error) {
 	trimmedOutput := strings.TrimRight(a.output, "/")
 	trimmedOutput = strings.TrimRight(a.output, "\\")
 
-	fp := filepath.Join(trimmedOutput, "outout.yaml")
+	fp := filepath.Join(trimmedOutput, "output.yaml")
 	outputFile, err := os.Create(fp)
 	if err != nil {
 		return "", err
