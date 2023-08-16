@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -14,10 +15,13 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
@@ -31,7 +35,7 @@ type analyzeCommand struct {
 	input            string
 	output           string
 	mode             string
-	rules            string
+	rules            []string
 }
 
 // analyzeCmd represents the analyze command
@@ -69,7 +73,7 @@ func NewAnalyzeCmd() *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "List rules for available migration targets")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "Source technology to consider for analysis")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "Target technology to consider for analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.rules, "rules", "", "Rules for analysis")
+	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.rules, "rules", []string{}, "filename or directory containing rule files")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "Path to application source code or a binary")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "Path to the directory for analysis output")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "Do not generate static report")
@@ -198,11 +202,7 @@ func listOptionsFromLabels(sl []string, label string) {
 }
 
 func (a *analyzeCommand) createOutputFile() (string, error) {
-	// if trailing '/' in given output dir, remove it
-	trimmedOutput := strings.TrimRight(a.output, "/")
-	trimmedOutput = strings.TrimRight(a.output, "\\")
-
-	fp := filepath.Join(trimmedOutput, "output.yaml")
+	fp := filepath.Join(a.output, "output.yaml")
 	outputFile, err := os.Create(fp)
 	if err != nil {
 		return "", err
@@ -213,7 +213,6 @@ func (a *analyzeCommand) createOutputFile() (string, error) {
 
 // TODO: *** write all of provider settings here ***
 func (a *analyzeCommand) writeProviderSettings(dir string, settingsFilePath string, sourceAppPath string) error {
-
 	providerConfig := []provider.Config{}
 	jsonFile, err := os.Open(settingsFilePath)
 	if err != nil {
@@ -241,23 +240,99 @@ func (a *analyzeCommand) writeProviderSettings(dir string, settingsFilePath stri
 	return nil
 }
 
-func (a *analyzeCommand) Run(ctx context.Context) error {
-	if len(a.rules) == 0 {
-		a.rules = RulesetPath
+func (a *analyzeCommand) getRules(ruleMountedPath string, wd string, dirName string) (map[string]string, error) {
+	rulesMap := make(map[string]string)
+	rulesetNeeded := false
+	err := os.Mkdir(dirName, os.ModePerm)
+	if err != nil {
+		return nil, err
 	}
+	for i, r := range a.rules {
+		stat, err := os.Stat(r)
+		if err != nil {
+			log.Errorf("failed to stat rules %s", r)
+			return nil, err
+		}
+		// move rules files passed into dir to mount
+		if !stat.IsDir() {
+			rulesetNeeded = true
+			destFile := filepath.Join(dirName, fmt.Sprintf("rules%v.yaml", i))
+			err := copyFileContents(r, destFile)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			dirName = r
+		}
+	}
+	if rulesetNeeded {
+		createTempRuleSet(wd, dirName)
+	}
+	// add to volumes
+	rulesMap[dirName] = ruleMountedPath
+	return rulesMap, nil
+}
+
+func copyFileContents(src string, dst string) (err error) {
+	source, err := os.Open(src)
+	if err != nil {
+		return nil
+	}
+	defer source.Close()
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createTempRuleSet(wd string, tempDirName string) error {
+	tempRuleSet := engine.RuleSet{
+		Name:        "ruleset",
+		Description: "temp ruleset",
+	}
+	yamlData, err := yaml.Marshal(&tempRuleSet)
+	if err != nil {
+		return err
+	}
+	fileName := "ruleset.yaml"
+	err = ioutil.WriteFile(fileName, yamlData, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	// move temp ruleset into temp dir
+	rulsetDefault := filepath.Join(wd, "ruleset.yaml")
+	destRuleSet := filepath.Join(tempDirName, "ruleset.yaml")
+	err = copyFileContents(rulsetDefault, destRuleSet)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(rulsetDefault)
+	return nil
+}
+
+func (a *analyzeCommand) Run(ctx context.Context) error {
 	outputFilePath, err := a.createOutputFile()
 	if err != nil {
 		return err
 	}
-	dir, err := os.Getwd()
+	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	settingsFilePath := filepath.Join(dir, "settings.json")
+	// TODO: clean this up
+	settingsFilePath := filepath.Join(wd, "settings.json")
 	settingsMountedPath := filepath.Join(InputPath, "settings.json")
 	outputMountedPath := filepath.Join(InputPath, "output.yaml")
 	sourceAppPath := filepath.Join(InputPath, "example")
-	err = a.writeProviderSettings(dir, settingsFilePath, sourceAppPath)
+	rulesMountedPath := filepath.Join(RulesetPath, "input")
+	tempDirName := filepath.Join(wd, "tempRulesDir")
+	err = a.writeProviderSettings(wd, settingsFilePath, sourceAppPath)
 	if err != nil {
 		return err
 	}
@@ -266,9 +341,22 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 		settingsFilePath: settingsMountedPath,
 		outputFilePath:   outputMountedPath,
 	}
+	var rulePath string
+	if len(a.rules) > 0 {
+		ruleVols, err := a.getRules(rulesMountedPath, wd, tempDirName)
+		if err != nil {
+			return err
+		}
+		maps.Copy(volumes, ruleVols)
+		rulePath = rulesMountedPath
+
+		// use default rulesets if none given
+	} else {
+		rulePath = RulesetPath
+	}
 	args := []string{
 		fmt.Sprintf("--provider-settings=%v", settingsMountedPath),
-		fmt.Sprintf("--rules=%v", a.rules),
+		fmt.Sprintf("--rules=%v", rulePath),
 		fmt.Sprintf("--output-file=%v", outputMountedPath),
 	}
 	cmd := NewContainerCommand(
@@ -281,5 +369,6 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(tempDirName)
 	return nil
 }
