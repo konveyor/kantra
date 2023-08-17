@@ -211,29 +211,54 @@ func (a *analyzeCommand) createOutputFile() (string, error) {
 	return fp, nil
 }
 
-// TODO: *** write all of provider settings here ***
-func (a *analyzeCommand) writeProviderSettings(dir string, settingsFilePath string, sourceAppPath string) error {
-	providerConfig := []provider.Config{}
-	jsonFile, err := os.Open(settingsFilePath)
+func (a *analyzeCommand) writeProviderSettings() error {
+	provConfig := []provider.Config{
+		{
+			Name:       "go",
+			BinaryPath: "/usr/bin/generic-external-provider",
+			InitConfig: []provider.InitConfig{
+				{
+					Location:     "/opt/input/example",
+					AnalysisMode: provider.FullAnalysisMode,
+					ProviderSpecificConfig: map[string]interface{}{
+						"name":                          "go",
+						"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
+						provider.LspServerPathConfigKey: "/root/go/bin/gopls",
+					},
+				},
+			},
+		},
+		{
+			Name:       "java",
+			BinaryPath: "/jdtls/bin/jdtls",
+			InitConfig: []provider.InitConfig{
+				{
+					Location:     "/opt/input/example",
+					AnalysisMode: provider.SourceOnlyAnalysisMode,
+					ProviderSpecificConfig: map[string]interface{}{
+						"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+						provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+					},
+				},
+			},
+		},
+		{
+			Name: "builtin",
+			InitConfig: []provider.InitConfig{
+				{
+					Location:     "/opt/input/example",
+					AnalysisMode: "",
+				},
+			},
+		},
+	}
+
+	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
 	if err != nil {
 		return err
 	}
-	defer jsonFile.Close()
-	byteValue, err := ioutil.ReadAll(jsonFile)
-	err = json.Unmarshal(byteValue, &providerConfig)
-	if err != nil {
-		return err
-	}
-	for i := range providerConfig {
-		for init := range providerConfig[i].InitConfig {
-			providerConfig[i].InitConfig[init].Location = sourceAppPath
-		}
-	}
-	providerLocation, err := json.MarshalIndent(providerConfig, "", "	")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(settingsFilePath, providerLocation, 0644)
+	fileName := "settings.json"
+	err = ioutil.WriteFile(fileName, jsonData, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -330,9 +355,9 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 	settingsMountedPath := filepath.Join(InputPath, "settings.json")
 	outputMountedPath := filepath.Join(InputPath, "output.yaml")
 	sourceAppPath := filepath.Join(InputPath, "example")
-	rulesMountedPath := filepath.Join(RulesetPath, "input")
+	rulesetName := filepath.Join(RulesetPath, "input")
 	tempDirName := filepath.Join(wd, "tempRulesDir")
-	err = a.writeProviderSettings(wd, settingsFilePath, sourceAppPath)
+	err = a.writeProviderSettings()
 	if err != nil {
 		return err
 	}
@@ -341,22 +366,16 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 		settingsFilePath: settingsMountedPath,
 		outputFilePath:   outputMountedPath,
 	}
-	var rulePath string
 	if len(a.rules) > 0 {
-		ruleVols, err := a.getRules(rulesMountedPath, wd, tempDirName)
+		ruleVols, err := a.getRules(rulesetName, wd, tempDirName)
 		if err != nil {
 			return err
 		}
 		maps.Copy(volumes, ruleVols)
-		rulePath = rulesMountedPath
-
-		// use default rulesets if none given
-	} else {
-		rulePath = RulesetPath
 	}
 	args := []string{
 		fmt.Sprintf("--provider-settings=%v", settingsMountedPath),
-		fmt.Sprintf("--rules=%v", rulePath),
+		fmt.Sprintf("--rules=%v", RulesetPath),
 		fmt.Sprintf("--output-file=%v", outputMountedPath),
 	}
 	cmd := NewContainerCommand(
@@ -370,5 +389,6 @@ func (a *analyzeCommand) Run(ctx context.Context) error {
 		return err
 	}
 	defer os.RemoveAll(tempDirName)
+	defer os.Remove("settings.json")
 	return nil
 }
