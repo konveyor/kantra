@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 )
 
-func NewTransformCommand() *cobra.Command {
+func NewTransformCommand(log logr.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "transform",
 
@@ -16,6 +17,6 @@ func NewTransformCommand() *cobra.Command {
 			cmd.Help()
 		},
 	}
-	cmd.AddCommand(NewOpenRewriteCommand())
+	cmd.AddCommand(NewOpenRewriteCommand(log))
 	return cmd
 }

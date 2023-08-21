@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/apex/log"
+	"github.com/go-logr/logr"
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -25,27 +26,58 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var (
+	// application source path inside the container
+	SourceMountPath = filepath.Join(InputPath, "source")
+	// analyzer config files
+	ConfigMountPath = filepath.Join(InputPath, "config")
+	// user provided rules path
+	RulesMountPath = filepath.Join(RulesetPath, "input")
+	// paths to files in the container
+	AnalysisOutputMountPath   = filepath.Join(OutputPath, "output.yaml")
+	DepsOutputMountPath       = filepath.Join(OutputPath, "dependencies.yaml")
+	ProviderSettingsMountPath = filepath.Join(ConfigMountPath, "settings.json")
+)
+
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources      bool
-	listTargets      bool
-	skipStaticReport bool
-	sources          []string
-	targets          []string
-	input            string
-	output           string
-	mode             string
-	rules            []string
+	listSources           bool
+	listTargets           bool
+	skipStaticReport      bool
+	analyzeKnownLibraries bool
+	sources               []string
+	targets               []string
+	input                 string
+	output                string
+	mode                  string
+	rules                 []string
+
+	// tempDirs list of temporary dirs created, used for cleanup
+	tempDirs []string
+	log      logr.Logger
+	// isFileInput is set when input points to a file and not a dir
+	isFileInput bool
 }
 
 // analyzeCmd represents the analyze command
-func NewAnalyzeCmd() *cobra.Command {
-	analyzeCmd := &analyzeCommand{}
+func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
+	analyzeCmd := &analyzeCommand{
+		log: log,
+	}
 
 	analyzeCommand := &cobra.Command{
 		Use:   "analyze",
 		Short: "Analyze application source code",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// TODO (pgaikwad): this is nasty
+			if !cmd.Flags().Lookup("list-sources").Changed &&
+				!cmd.Flags().Lookup("list-targets").Changed {
+				cmd.MarkFlagRequired("input")
+				cmd.MarkFlagRequired("output")
+				if err := cmd.ValidateRequiredFlags(); err != nil {
+					return err
+				}
+			}
 			err := analyzeCmd.Validate()
 			if err != nil {
 				return err
@@ -54,30 +86,43 @@ func NewAnalyzeCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
-				err := analyzeCmd.AnalyzeFlags()
+				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
-					log.Errorf("Failed to execute analyzeFlags", err)
+					log.V(5).Error(err, "failed to list rule labels")
 					return err
 				}
 				return nil
 			}
-			err := analyzeCmd.Run(cmd.Context())
+			err := analyzeCmd.RunAnalysis(cmd.Context())
 			if err != nil {
-				log.Errorf("failed to execute analyze command", err)
+				log.V(5).Error(err, "failed to execute analysis")
+				return err
+			}
+			err = analyzeCmd.GenerateStaticReport(cmd.Context())
+			if err != nil {
+				log.V(5).Error(err, "failed to generate static report")
+				return err
+			}
+			return nil
+		},
+		PostRunE: func(cmd *cobra.Command, args []string) error {
+			err := analyzeCmd.Clean(cmd.Context())
+			if err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "List rules for available migration sources")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "List rules for available migration targets")
-	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "Source technology to consider for analysis")
-	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "Target technology to consider for analysis")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "list rules for available migration sources")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
+	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis")
+	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.rules, "rules", []string{}, "filename or directory containing rule files")
-	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "Path to application source code or a binary")
-	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "Path to the directory for analysis output")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "Do not generate static report")
-	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", "full", "Analysis mode. Must be one of 'full' or 'source-only'")
+	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "path to application source code or a binary")
+	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "path to the directory for analysis output")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "do not generate static report")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
+	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
 
 	return analyzeCommand
 }
@@ -88,12 +133,25 @@ func (a *analyzeCommand) Validate() error {
 	}
 	stat, err := os.Stat(a.output)
 	if err != nil {
-		log.Errorf("failed to stat output directory %s", a.output)
-		return err
+		return fmt.Errorf("failed to stat output directory %s", a.output)
 	}
 	if !stat.IsDir() {
-		log.Errorf("output path %s is not a directory", a.output)
-		return err
+		return fmt.Errorf("output path %s is not a directory", a.output)
+	}
+	stat, err = os.Stat(a.input)
+	if err != nil {
+		return fmt.Errorf("failed to stat input path %s", a.input)
+	}
+	// when input isn't a dir, it's pointing to a binary
+	// we need abs path to mount the file correctly
+	if !stat.Mode().IsDir() {
+		a.input, err = filepath.Abs(a.input)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for input file %s", a.input)
+		}
+		// make sure we mount a file and not a dir
+		SourceMountPath = filepath.Join(SourceMountPath, filepath.Base(a.input))
+		a.isFileInput = true
 	}
 	if a.mode != string(provider.FullAnalysisMode) &&
 		a.mode != string(provider.SourceOnlyAnalysisMode) {
@@ -102,33 +160,58 @@ func (a *analyzeCommand) Validate() error {
 	return nil
 }
 
-func (a *analyzeCommand) AnalyzeFlags() error {
+func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 	// reserved labels
 	sourceLabel := outputv1.SourceTechnologyLabel
 	targetLabel := outputv1.TargetTechnologyLabel
-
-	if a.listSources {
-		sourceSlice, err := a.readRuleFilesForLabels(sourceLabel)
+	runMode := "RUN_MODE"
+	runModeContainer := "container"
+	if os.Getenv(runMode) == runModeContainer {
+		if a.listSources {
+			sourceSlice, err := readRuleFilesForLabels(sourceLabel)
+			if err != nil {
+				a.log.V(5).Error(err, "failed to read rule labels")
+				return err
+			}
+			listOptionsFromLabels(sourceSlice, sourceLabel)
+			return nil
+		}
+		if a.listTargets {
+			targetsSlice, err := readRuleFilesForLabels(targetLabel)
+			if err != nil {
+				a.log.V(5).Error(err, "failed to read rule labels")
+				return err
+			}
+			listOptionsFromLabels(targetsSlice, targetLabel)
+			return nil
+		}
+	} else {
+		volumes, err := a.getRulesVolumes()
 		if err != nil {
 			return err
 		}
-		listOptionsFromLabels(sourceSlice, sourceLabel)
-		return nil
-	}
-	if a.listTargets {
-		targetsSlice, err := a.readRuleFilesForLabels(targetLabel)
+		args := []string{"analyze"}
+		if a.listSources {
+			args = append(args, "--list-sources")
+		} else {
+			args = append(args, "--list-targets")
+		}
+		err = NewContainer().Run(
+			ctx,
+			WithEnv(runMode, runModeContainer),
+			WithVolumes(volumes),
+			WithEntrypointBin("/usr/local/bin/kantra"),
+			WithEntrypointArgs(args...),
+		)
 		if err != nil {
 			return err
 		}
-		listOptionsFromLabels(targetsSlice, targetLabel)
-		return nil
 	}
-
 	return nil
 }
 
-func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) {
-	var labelsSlice []string
+func readRuleFilesForLabels(label string) ([]string, error) {
+	labelsSlice := []string{}
 	err := filepath.WalkDir(RulesetPath, walkRuleSets(RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
@@ -139,7 +222,7 @@ func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) 
 func walkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
 	return func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
-			*labelsSlice, err = readRuleFiles(path, labelsSlice, label)
+			*labelsSlice, err = readRuleFile(path, labelsSlice, label)
 			if err != nil {
 				return err
 			}
@@ -148,7 +231,7 @@ func walkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFu
 	}
 }
 
-func readRuleFiles(filePath string, labelsSlice *[]string, label string) ([]string, error) {
+func readRuleFile(filePath string, labelsSlice *[]string, label string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -201,25 +284,30 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
-func (a *analyzeCommand) createOutputFile() (string, error) {
-	fp := filepath.Join(a.output, "output.yaml")
-	outputFile, err := os.Create(fp)
+func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
+	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	defer outputFile.Close()
-	return fp, nil
-}
+	a.log.V(5).Info("created directory for provider settings", "dir", tempDir)
+	a.tempDirs = append(a.tempDirs, tempDir)
 
-func (a *analyzeCommand) writeProviderSettings() error {
+	otherProvsMountPath := SourceMountPath
+	// when input is a file, it means it's probably a binary
+	// only java provider can work with binaries, all others
+	// continue pointing to the directory instead of file
+	if a.isFileInput {
+		otherProvsMountPath = filepath.Dir(otherProvsMountPath)
+	}
+
 	provConfig := []provider.Config{
 		{
 			Name:       "go",
 			BinaryPath: "/usr/bin/generic-external-provider",
 			InitConfig: []provider.InitConfig{
 				{
-					Location:     "/opt/input/example",
-					AnalysisMode: provider.FullAnalysisMode,
+					Location:     otherProvsMountPath,
+					AnalysisMode: provider.AnalysisMode(a.mode),
 					ProviderSpecificConfig: map[string]interface{}{
 						"name":                          "go",
 						"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
@@ -233,10 +321,11 @@ func (a *analyzeCommand) writeProviderSettings() error {
 			BinaryPath: "/jdtls/bin/jdtls",
 			InitConfig: []provider.InitConfig{
 				{
-					Location:     "/opt/input/example",
-					AnalysisMode: provider.SourceOnlyAnalysisMode,
+					Location:     SourceMountPath,
+					AnalysisMode: provider.AnalysisMode(a.mode),
 					ProviderSpecificConfig: map[string]interface{}{
 						"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+						"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 						provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
 					},
 				},
@@ -246,32 +335,37 @@ func (a *analyzeCommand) writeProviderSettings() error {
 			Name: "builtin",
 			InitConfig: []provider.InitConfig{
 				{
-					Location:     "/opt/input/example",
-					AnalysisMode: "",
+					Location:     otherProvsMountPath,
+					AnalysisMode: provider.AnalysisMode(a.mode),
 				},
 			},
 		},
 	}
-
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
-	if err != nil {
-		return err
-	}
-	fileName := "settings.json"
-	err = ioutil.WriteFile(fileName, jsonData, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *analyzeCommand) getRules(ruleMountedPath string, wd string, dirName string) (map[string]string, error) {
-	rulesMap := make(map[string]string)
-	rulesetNeeded := false
-	err := os.Mkdir(dirName, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
+	err = ioutil.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		tempDir: ConfigMountPath,
+	}, nil
+}
+
+func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
+	if a.rules == nil || len(a.rules) == 0 {
+		return nil, nil
+	}
+	rulesVolumes := make(map[string]string)
+	rulesetNeeded := false
+	tempDir, err := os.MkdirTemp("", "analyze-rules-")
+	if err != nil {
+		return nil, err
+	}
+	a.log.V(5).Info("created directory for rules", "dir", tempDir)
+	a.tempDirs = append(a.tempDirs, tempDir)
 	for i, r := range a.rules {
 		stat, err := os.Stat(r)
 		if err != nil {
@@ -281,21 +375,25 @@ func (a *analyzeCommand) getRules(ruleMountedPath string, wd string, dirName str
 		// move rules files passed into dir to mount
 		if !stat.IsDir() {
 			rulesetNeeded = true
-			destFile := filepath.Join(dirName, fmt.Sprintf("rules%v.yaml", i))
+			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := copyFileContents(r, destFile)
 			if err != nil {
+				log.Errorf("failed to move rules file from %s to %s", r, destFile)
 				return nil, err
 			}
 		} else {
-			dirName = r
+			rulesVolumes[r] = filepath.Join(RulesMountPath, filepath.Base(r))
 		}
 	}
 	if rulesetNeeded {
-		createTempRuleSet(wd, dirName)
+		err = createTempRuleSet(filepath.Join(tempDir, "ruleset.yaml"))
+		if err != nil {
+			log.Error("failed to create ruleset for custom rules")
+			return nil, err
+		}
+		rulesVolumes[tempDir] = filepath.Join(RulesMountPath, filepath.Base(tempDir))
 	}
-	// add to volumes
-	rulesMap[dirName] = ruleMountedPath
-	return rulesMap, nil
+	return rulesVolumes, nil
 }
 
 func copyFileContents(src string, dst string) (err error) {
@@ -316,7 +414,7 @@ func copyFileContents(src string, dst string) (err error) {
 	return nil
 }
 
-func createTempRuleSet(wd string, tempDirName string) error {
+func createTempRuleSet(path string) error {
 	tempRuleSet := engine.RuleSet{
 		Name:        "ruleset",
 		Description: "temp ruleset",
@@ -325,70 +423,197 @@ func createTempRuleSet(wd string, tempDirName string) error {
 	if err != nil {
 		return err
 	}
-	fileName := "ruleset.yaml"
-	err = ioutil.WriteFile(fileName, yamlData, os.ModePerm)
+	err = ioutil.WriteFile(path, yamlData, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	// move temp ruleset into temp dir
-	rulsetDefault := filepath.Join(wd, "ruleset.yaml")
-	destRuleSet := filepath.Join(tempDirName, "ruleset.yaml")
-	err = copyFileContents(rulsetDefault, destRuleSet)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(rulsetDefault)
 	return nil
 }
 
-func (a *analyzeCommand) Run(ctx context.Context) error {
-	outputFilePath, err := a.createOutputFile()
-	if err != nil {
-		return err
-	}
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	// TODO: clean this up
-	settingsFilePath := filepath.Join(wd, "settings.json")
-	settingsMountedPath := filepath.Join(InputPath, "settings.json")
-	outputMountedPath := filepath.Join(InputPath, "output.yaml")
-	sourceAppPath := filepath.Join(InputPath, "example")
-	rulesetName := filepath.Join(RulesetPath, "input")
-	tempDirName := filepath.Join(wd, "tempRulesDir")
-	err = a.writeProviderSettings()
-	if err != nil {
-		return err
-	}
+func (a *analyzeCommand) RunAnalysis(ctx context.Context) error {
 	volumes := map[string]string{
-		a.input:          sourceAppPath,
-		settingsFilePath: settingsMountedPath,
-		outputFilePath:   outputMountedPath,
+		// application source code
+		a.input: SourceMountPath,
+		// output directory
+		a.output: OutputPath,
 	}
+
+	configVols, err := a.getConfigVolumes()
+	if err != nil {
+		a.log.V(5).Error(err, "failed to get config volumes for analysis")
+		return err
+	}
+	maps.Copy(volumes, configVols)
+
 	if len(a.rules) > 0 {
-		ruleVols, err := a.getRules(rulesetName, wd, tempDirName)
+		ruleVols, err := a.getRulesVolumes()
 		if err != nil {
+			a.log.V(5).Error(err, "failed to get rule volumes for analysis")
 			return err
 		}
 		maps.Copy(volumes, ruleVols)
 	}
+
 	args := []string{
-		fmt.Sprintf("--provider-settings=%v", settingsMountedPath),
-		fmt.Sprintf("--rules=%v", RulesetPath),
-		fmt.Sprintf("--output-file=%v", outputMountedPath),
+		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
+		fmt.Sprintf("--rules=%s/", RulesetPath),
+		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
 	}
-	cmd := NewContainerCommand(
+	if !a.analyzeKnownLibraries {
+		args = append(args,
+			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
+	}
+	labelSelector := a.getLabelSelector()
+	if labelSelector != "" {
+		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
+	}
+
+	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
+	depsLogFilePath := filepath.Join(a.output, "dependency.log")
+	// create log files
+	analysisLog, err := os.Create(analysisLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
+	}
+	defer analysisLog.Close()
+	dependencyLog, err := os.Create(depsLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating dependency analysis log file %s", depsLogFilePath)
+	}
+	defer dependencyLog.Close()
+
+	a.log.Info("running source code analysis",
+		"log", analysisLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	// TODO (pgaikwad): run analysis & deps in parallel
+	err = NewContainer().Run(
 		ctx,
+		WithVolumes(volumes),
+		WithStdout(os.Stdout, analysisLog),
+		WithStderr(os.Stdout, analysisLog),
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/bin/konveyor-analyzer"),
-		WithVolumes(volumes),
 	)
-	err = cmd.Run()
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDirName)
-	defer os.Remove("settings.json")
+
+	a.log.Info("running dependency analysis",
+		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	err = NewContainer().Run(
+		ctx,
+		WithStdout(os.Stdout, dependencyLog),
+		WithStderr(os.Stderr, dependencyLog),
+		WithVolumes(volumes),
+		WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
+		WithEntrypointArgs(
+			fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
+			fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
+		),
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
+	if a.skipStaticReport {
+		return nil
+	}
+
+	volumes := map[string]string{
+		a.input:  SourceMountPath,
+		a.output: OutputPath,
+	}
+
+	args := []string{
+		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
+		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
+		fmt.Sprintf("--output-path=%s", filepath.Join("/usr/local/static-report/output.js")),
+		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
+	}
+
+	a.log.Info("generating static report",
+		"output", a.output, "args", strings.Join(args, " "))
+	container := NewContainer()
+	err := container.Run(
+		ctx,
+		WithEntrypointBin("/usr/local/bin/js-bundle-generator"),
+		WithEntrypointArgs(args...),
+		WithVolumes(volumes),
+		// keep container to copy static report
+		WithCleanup(false),
+	)
+	if err != nil {
+		return err
+	}
+
+	err = container.Cp(ctx, "/usr/local/static-report", a.output)
+	if err != nil {
+		return err
+	}
+
+	err = container.Rm(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *analyzeCommand) Clean(ctx context.Context) error {
+	for _, path := range a.tempDirs {
+		err := os.RemoveAll(path)
+		if err != nil {
+			a.log.V(5).Error(err, "failed to delete temporary dir", "dir", path)
+			continue
+		}
+	}
+	return nil
+}
+
+func (a *analyzeCommand) getLabelSelector() string {
+	if (a.sources == nil || len(a.sources) == 0) &&
+		(a.targets == nil || len(a.targets) == 0) {
+		return ""
+	}
+	// default labels are applied everytime either a source or target is specified
+	defaultLabels := []string{"discovery"}
+	targets := []string{}
+	for _, target := range a.targets {
+		targets = append(targets,
+			fmt.Sprintf("%s=%s", outputv1.TargetTechnologyLabel, target))
+	}
+	sources := []string{}
+	for _, source := range a.sources {
+		sources = append(sources,
+			fmt.Sprintf("%s=%s", outputv1.SourceTechnologyLabel, source))
+	}
+	targetExpr := ""
+	if len(targets) > 0 {
+		targetExpr = fmt.Sprintf("(%s)", strings.Join(targets, " || "))
+	}
+	sourceExpr := ""
+	if len(sources) > 0 {
+		sourceExpr = fmt.Sprintf("(%s)", strings.Join(sources, " || "))
+	}
+	if targetExpr != "" {
+		if sourceExpr != "" {
+			// when both targets and sources are present, AND them
+			return fmt.Sprintf("(%s && %s) || (%s)",
+				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
+		} else {
+			// when target is specified, but source is not
+			// use a catch-all expression for source
+			return fmt.Sprintf("(%s && %s) || (%s)",
+				targetExpr, outputv1.SourceTechnologyLabel, strings.Join(defaultLabels, " || "))
+		}
+	}
+	if sourceExpr != "" {
+		// when only source is specified, OR them all
+		return fmt.Sprintf("%s || (%s)",
+			sourceExpr, strings.Join(defaultLabels, " || "))
+	}
+	return ""
 }

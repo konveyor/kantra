@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apex/log"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 )
 
@@ -16,10 +16,13 @@ type openRewriteCommand struct {
 	target      string
 	goal        string
 	miscOpts    string
+	log         logr.Logger
 }
 
-func NewOpenRewriteCommand() *cobra.Command {
-	openRewriteCmd := &openRewriteCommand{}
+func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
+	openRewriteCmd := &openRewriteCommand{
+		log: log,
+	}
 
 	openRewriteCommand := &cobra.Command{
 		Use: "openrewrite",
@@ -34,11 +37,12 @@ func NewOpenRewriteCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := openRewriteCmd.Validate()
 			if err != nil {
+				log.V(5).Error(err, "failed validating input args")
 				return err
 			}
 			err = openRewriteCmd.Run(cmd.Context())
 			if err != nil {
-				log.Errorf("failed to execute openrewrite command", err)
+				log.V(5).Error(err, "failed executing openrewrite recipe")
 				return err
 			}
 			return nil
@@ -59,11 +63,10 @@ func (o *openRewriteCommand) Validate() error {
 
 	stat, err := os.Stat(o.input)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to stat input directory %s", o.input)
 	}
 	if !stat.IsDir() {
-		log.Errorf("input path %s is not a directory", o.input)
-		return err
+		return fmt.Errorf("input path %s is not a directory", o.input)
 	}
 
 	if o.target == "" {
@@ -129,14 +132,15 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("-Drewrite.activeRecipes=%s",
 			strings.Join(recipes[o.target].names, ",")),
 	}
-	cmd := NewContainerCommand(
+	o.log.Info("executing openrewrite recipe",
+		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
+	err := NewContainer().Run(
 		ctx,
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/bin/mvn"),
 		WithVolumes(volumes),
 		WithWorkDir(InputPath),
 	)
-	err := cmd.Run()
 	if err != nil {
 		return err
 	}
