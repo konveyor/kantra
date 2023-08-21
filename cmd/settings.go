@@ -10,6 +10,7 @@ const (
 	RulesetPath            = "/opt/rulesets"
 	OpenRewriteRecipesPath = "/opt/openrewrite"
 	InputPath              = "/opt/input"
+	OutputPath             = "/opt/output"
 )
 
 type Config struct {
