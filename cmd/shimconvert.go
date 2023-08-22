@@ -25,15 +25,24 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 	}
 
 	windupShimCommand := &cobra.Command{
-		Use: "xmlrules",
+		Use: "rules",
 
 		Short: "Convert XML rules to YAML",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			cmd.MarkFlagRequired("input")
+			cmd.MarkFlagRequired("output")
+			if err := cmd.ValidateRequiredFlags(); err != nil {
+				return err
+			}
+
 			err := windupShimCmd.Validate()
 			if err != nil {
 				return err
 			}
-			err = windupShimCmd.Run(cmd.Context())
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := windupShimCmd.Run(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -63,6 +72,7 @@ func (w *windupShimCommand) Validate() error {
 
 func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]string, error) {
 	rulesVolumes := make(map[string]string)
+	mountTempDir := false
 	err := os.Mkdir(tempRuleDir, os.ModePerm)
 	if err != nil {
 		return nil, err
@@ -70,23 +80,26 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 	for _, r := range w.input {
 		stat, err := os.Stat(r)
 		if err != nil {
-			log.Errorf("failed to stat rules %s", r)
+			w.log.V(5).Error(err, "failed to stat rules")
 			return nil, err
 		}
 		// move xml rule files from user into dir to mount
 		if !stat.IsDir() {
+			mountTempDir = true
 			xmlFileName := filepath.Base(r)
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
 			err := copyFileContents(r, destFile)
 			if err != nil {
-				log.Errorf("failed to move rules file from %s to %s", r, destFile)
+				w.log.Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
-			tempRuleDir = r
+			rulesVolumes[r] = filepath.Join(XMLRulePath, filepath.Base(r))
 		}
 	}
-	rulesVolumes[tempRuleDir] = XMLRulePath
+	if mountTempDir {
+		rulesVolumes[tempRuleDir] = XMLRulePath
+	}
 	return rulesVolumes, nil
 }
 
