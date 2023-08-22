@@ -11,6 +11,8 @@ const (
 	OpenRewriteRecipesPath = "/opt/openrewrite"
 	InputPath              = "/opt/input"
 	OutputPath             = "/opt/output"
+	XMLRulePath            = "/opt/xmlrules"
+	ShimOutputPath         = "/opt/shimoutput"
 )
 
 type Config struct {
