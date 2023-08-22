@@ -18,5 +18,6 @@ func NewTransformCommand(log logr.Logger) *cobra.Command {
 		},
 	}
 	cmd.AddCommand(NewOpenRewriteCommand(log))
+	cmd.AddCommand(NewWindupShimCommand(log))
 	return cmd
 }
