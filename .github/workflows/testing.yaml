@@ -1,0 +1,39 @@
+name: Demo Testing
+
+on: ["push", "pull_request"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build image and binary
+        run: |
+          podman build -t localhost/kantra:latest -f Dockerfile .
+          go build -o kantra main.go
+
+      - name: Fetch sample applications
+        run: |
+          git clone https://github.com/konveyor/example-applications
+          git clone https://github.com/ivargrimstad/jakartaee-duke
+
+      - name: Run analysis test and copy output
+        run: |
+          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/ --target cloud-readiness
+      
+      - name: Fail if analysis output does not match expected
+        run: |
+          expected_file=./test-data/analysis-output.yaml
+          actual_file=./output/output.yaml
+          sed 's/^[ \t-]*//' $expected_file | sort > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort > /tmp/actual_file
+          diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+
+      - name: Fail if dependencies output does not match expected
+        run: |
+          expected_file=./test-data/deps-output.yaml
+          actual_file=./output/dependencies.yaml
+          sed 's/^[ \t-]*//' $expected_file | sort > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort > /tmp/actual_file
+          diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
