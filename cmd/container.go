@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -163,7 +164,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		args = append(args, fmt.Sprintf("%s:%s:Z", sourcePath, destPath))
+		args = append(args, fmt.Sprintf("%s:%s:Z",
+			filepath.Clean(sourcePath), filepath.Clean(destPath)))
 	}
 	for k, v := range c.env {
 		args = append(args, "--env")
