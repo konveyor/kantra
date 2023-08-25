@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -60,7 +61,6 @@ func (o *openRewriteCommand) Validate() error {
 	if o.listTargets {
 		return nil
 	}
-
 	stat, err := os.Stat(o.input)
 	if err != nil {
 		return fmt.Errorf("failed to stat input directory %s", o.input)
@@ -75,6 +75,10 @@ func (o *openRewriteCommand) Validate() error {
 
 	if _, found := recipes[o.target]; !found {
 		return fmt.Errorf("unsupported target recipe. use --list-targets to get list of all recipes")
+	}
+	// try to get abs path, if not, continue with relative path
+	if absPath, err := filepath.Abs(o.input); err == nil {
+		o.input = absPath
 	}
 	return nil
 }

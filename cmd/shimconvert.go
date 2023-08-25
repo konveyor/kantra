@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/go-logr/logr"
@@ -58,14 +60,30 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 func (w *windupShimCommand) Validate() error {
 	outputStat, err := os.Stat(w.output)
 	if err != nil {
-		return err
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.MkdirAll(w.output, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create output dir %s", w.output)
+			}
+		} else {
+			return fmt.Errorf("failed to stat output directory %s", w.output)
+		}
 	}
-	if !outputStat.IsDir() {
+	if outputStat != nil && !outputStat.IsDir() {
 		log.Errorf("output path %s is not a directory", w.output)
 		return err
 	}
 	if w.input == nil || len(w.input) == 0 {
 		return fmt.Errorf("input for rule file or directory must not be empty")
+	}
+	// try to get abs path, if not, continue with relative path
+	if absPath, err := filepath.Abs(w.output); err == nil {
+		w.output = absPath
+	}
+	for idx := range w.input {
+		if absPath, err := filepath.Abs(w.input[idx]); err == nil {
+			w.input[idx] = absPath
+		}
 	}
 	return nil
 }
@@ -73,10 +91,6 @@ func (w *windupShimCommand) Validate() error {
 func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]string, error) {
 	rulesVolumes := make(map[string]string)
 	mountTempDir := false
-	err := os.Mkdir(tempRuleDir, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
 	for _, r := range w.input {
 		stat, err := os.Stat(r)
 		if err != nil {
@@ -104,15 +118,16 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 }
 
 func (w *windupShimCommand) Run(ctx context.Context) error {
-	wd, err := os.Getwd()
+	tempDir, err := os.MkdirTemp("", "transform-rules-")
 	if err != nil {
+		w.log.V(5).Error(err, "failed to create temp dir for rules")
 		return err
 	}
-	tempXMLRulesDir := filepath.Join(wd, "xmlrules")
+	defer os.RemoveAll(tempDir)
 	volumes := map[string]string{
 		w.output: ShimOutputPath,
 	}
-	ruleVols, err := w.getRulesVolumes(tempXMLRulesDir)
+	ruleVols, err := w.getRulesVolumes(tempDir)
 	if err != nil {
 		w.log.V(5).Error(err, "failed to get xml rules for conversion")
 		return err
@@ -123,6 +138,8 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
+	w.log.Info("running windup-shim convert command",
+		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
 	err = NewContainer().Run(
 		ctx,
 		WithVolumes(volumes),
@@ -132,6 +149,5 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempXMLRulesDir)
 	return nil
 }

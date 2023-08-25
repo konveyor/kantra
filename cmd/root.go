@@ -29,7 +29,7 @@ func init() {
 	logrusLog := logrus.New()
 	logrusLog.SetOutput(os.Stdout)
 	logrusLog.SetFormatter(&logrus.TextFormatter{})
-	logrusLog.SetLevel(logrus.Level(logLevel))
+	logrusLog.SetLevel(logrus.InfoLevel)
 	log := logrusr.New(logrusLog)
 
 	rootCmd.AddCommand(NewTransformCommand(log))

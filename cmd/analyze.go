@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -133,9 +134,16 @@ func (a *analyzeCommand) Validate() error {
 	}
 	stat, err := os.Stat(a.output)
 	if err != nil {
-		return fmt.Errorf("failed to stat output directory %s", a.output)
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.MkdirAll(a.output, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create output dir %s", a.output)
+			}
+		} else {
+			return fmt.Errorf("failed to stat output directory %s", a.output)
+		}
 	}
-	if !stat.IsDir() {
+	if stat != nil && !stat.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", a.output)
 	}
 	stat, err = os.Stat(a.input)
@@ -156,6 +164,13 @@ func (a *analyzeCommand) Validate() error {
 	if a.mode != string(provider.FullAnalysisMode) &&
 		a.mode != string(provider.SourceOnlyAnalysisMode) {
 		return fmt.Errorf("mode must be one of 'full' or 'source-only'")
+	}
+	// try to get abs path, if not, continue with relative path
+	if absPath, err := filepath.Abs(a.output); err == nil {
+		a.output = absPath
+	}
+	if absPath, err := filepath.Abs(a.input); err == nil {
+		a.input = absPath
 	}
 	return nil
 }
@@ -482,8 +497,8 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context) error {
 	}
 	defer dependencyLog.Close()
 
-	a.log.Info("running source code analysis",
-		"log", analysisLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	// TODO (pgaikwad): run analysis & deps in parallel
 	err = NewContainer().Run(
 		ctx,
