@@ -491,6 +491,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		fmt.Sprintf("--rules=%s/", RulesetPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
+		fmt.Sprintf("--context-lines=%d", 100),
 	}
 	if !a.analyzeKnownLibraries {
 		args = append(args,
