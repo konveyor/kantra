@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -149,7 +150,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 			}
 		}()
 	}
-	args := []string{"run", "-it"}
+	args := []string{"run"}
+	os := runtime.GOOS
 	if c.name != "" {
 		args = append(args, "--name")
 		args = append(args, c.name)
@@ -164,8 +166,14 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		args = append(args, fmt.Sprintf("%s:%s:Z",
-			filepath.Clean(sourcePath), filepath.Clean(destPath)))
+		// TODO: check this on windows
+		if os == "linux" {
+			args = append(args, fmt.Sprintf("%s:%s:Z",
+				filepath.Clean(sourcePath), filepath.Clean(destPath)))
+		} else {
+			args = append(args, fmt.Sprintf("%s:%s",
+				filepath.Clean(sourcePath), filepath.Clean(destPath)))
+		}
 	}
 	for k, v := range c.env {
 		args = append(args, "--env")
