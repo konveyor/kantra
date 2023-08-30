@@ -26,6 +26,7 @@ COPY cmd/ cmd/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o kantra main.go
 RUN CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o darwin-kantra main.go
+RUN CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -o windows-kantra main.go
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 
