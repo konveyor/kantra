@@ -34,6 +34,7 @@ RUN mkdir /opt/rulesets /opt/rulesets/input /opt/openrewrite /opt/input /opt/out
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
+COPY --from=builder /workspace/windows-kantra /usr/local/bin/windows-kantra
 COPY --from=shim /usr/bin/windup-shim /usr/local/bin
 COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
