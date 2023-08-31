@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"math"
 	"os"
 
 	"github.com/bombsimon/logrusr/v3"
@@ -13,27 +14,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	noCleanupFlag = "no-cleanup"
+)
+
+var logLevel uint32
+var noCleanup bool
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	// TODO: better descriptions
 	Short:        "A cli tool for analysis and transformation of applications",
 	Long:         ``,
 	SilenceUsage: true,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		logrusLog := logrus.New()
+		logrusLog.SetOutput(os.Stdout)
+		logrusLog.SetFormatter(&logrus.TextFormatter{})
+		logrusLog.SetLevel(logrus.Level(uint32(math.Min(6, float64(logLevel)))))
+		log := logrusr.New(logrusLog)
+		cmd.AddCommand(NewTransformCommand(log))
+		cmd.AddCommand(NewAnalyzeCmd(log))
+	},
 }
 
-var logLevel int
-
 func init() {
-	rootCmd.PersistentFlags().IntVar(&logLevel, "log-level", 5, "log level")
-
-	logrusLog := logrus.New()
-	logrusLog.SetOutput(os.Stdout)
-	logrusLog.SetFormatter(&logrus.TextFormatter{})
-	logrusLog.SetLevel(logrus.InfoLevel)
-	log := logrusr.New(logrusLog)
-
-	rootCmd.AddCommand(NewTransformCommand(log))
-	rootCmd.AddCommand(NewAnalyzeCmd(log))
+	rootCmd.PersistentFlags().Uint32Var(&logLevel, "log-level", 3, "log level")
+	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "log level")
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -41,7 +48,7 @@ func init() {
 func Execute() {
 	err := Settings.Load()
 	if err != nil {
-		log.Fatal("failed to load global settings")
+		log.Fatal(err, "failed to load global settings")
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

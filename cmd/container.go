@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 type container struct {
@@ -27,6 +29,7 @@ type container struct {
 	cleanup bool
 	// map of source -> dest paths to mount
 	volumes map[string]string
+	log     logr.Logger
 }
 
 type Option func(c *container)
@@ -101,7 +104,7 @@ func randomName() string {
 	return string(b)
 }
 
-func NewContainer() *container {
+func NewContainer(log logr.Logger) *container {
 	return &container{
 		image:          Settings.RunnerImage,
 		entrypointArgs: []string{},
@@ -112,6 +115,7 @@ func NewContainer() *container {
 		name:           randomName(),
 		// by default, remove the container after run()
 		cleanup: true,
+		log:     log,
 	}
 }
 
@@ -121,7 +125,7 @@ func (c *container) Exists(ctx context.Context) (bool, error) {
 		"ps", "-a", "--format", "{{.Names}}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, fmt.Errorf("failed checking status of container %s", c.name)
+		return false, fmt.Errorf("%w failed checking status of container %s", err, c.name)
 	}
 	for _, found := range strings.Split(string(output), "\n") {
 		if found == c.name {
@@ -138,20 +142,16 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	exists, err := c.Exists(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to check status of container %s", c.name)
+		return fmt.Errorf("%w failed to check status of container %s", err, c.name)
 	}
 	if exists {
 		return fmt.Errorf("container %s already exists, must remove existing before running", c.name)
 	}
-	if c.cleanup {
-		defer func() {
-			if rmErr := c.Rm(ctx); rmErr != nil {
-				err = rmErr
-			}
-		}()
-	}
 	args := []string{"run"}
 	os := runtime.GOOS
+	if c.cleanup {
+		args = append(args, "--rm")
+	}
 	if c.name != "" {
 		args = append(args, "--name")
 		args = append(args, c.name)
@@ -194,8 +194,11 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		cmd.Stderr = io.MultiWriter(
 			append(c.stderr, errBytes)...)
 	}
+	c.log.V(5).Info("executing podman command",
+		"podman", Settings.PodmanBinary, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
 	err = cmd.Run()
 	if err != nil {
+		c.log.V(5).Error(err, "container run error")
 		if _, ok := err.(*exec.ExitError); ok {
 			return fmt.Errorf(errBytes.String())
 		}
@@ -210,7 +213,7 @@ func (c *container) Cp(ctx context.Context, src string, dest string) error {
 	}
 	exists, err := c.Exists(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to check status of container %s", c.name)
+		return err
 	}
 	if !exists {
 		return fmt.Errorf("container %s does not exist, cannot copy from non-existing container", c.name)
@@ -219,13 +222,15 @@ func (c *container) Cp(ctx context.Context, src string, dest string) error {
 		ctx,
 		Settings.PodmanBinary,
 		"cp", fmt.Sprintf("%s:%s", c.name, src), dest)
+	c.log.V(5).Info("copying files from container",
+		"podman", Settings.PodmanBinary, "src", src, "dest", dest)
 	return cmd.Run()
 }
 
 func (c *container) Rm(ctx context.Context) error {
 	exists, err := c.Exists(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to check status of container %s", c.name)
+		return err
 	}
 	if !exists {
 		return nil
@@ -234,5 +239,7 @@ func (c *container) Rm(ctx context.Context) error {
 		ctx,
 		Settings.PodmanBinary,
 		"rm", c.name)
+	c.log.V(5).Info("removing container",
+		"podman", Settings.PodmanBinary, "name", c.name)
 	return cmd.Run()
 }
