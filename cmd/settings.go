@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"os"
+	"os/exec"
+
 	"github.com/codingconcepts/env"
 )
 
@@ -22,7 +25,14 @@ type Config struct {
 }
 
 func (c *Config) Load() error {
-	err := env.Set(Settings)
+	podmanPath, err := exec.LookPath("podman")
+	if err != nil {
+		return err
+	}
+	if podmanPath != Settings.PodmanBinary {
+		os.Setenv("PODMAN_BIN", podmanPath)
+	}
+	err = env.Set(Settings)
 	if err != nil {
 		return err
 	}
