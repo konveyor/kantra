@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"path/filepath"
 	"sort"
@@ -94,7 +95,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
-			err := analyzeCmd.RunAnalysis(cmd.Context())
+			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
+			if err != nil {
+				log.V(5).Error(err, "failed to convert XML rules")
+				return err
+			}
+			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir)
 			if err != nil {
 				log.V(5).Error(err, "failed to execute analysis")
 				return err
@@ -389,6 +395,10 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		}
 		// move rules files passed into dir to mount
 		if !stat.IsDir() {
+			// XML rules are handled outside of this func
+			if isXMLFile(r) {
+				continue
+			}
 			rulesetNeeded = true
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := copyFileContents(r, destFile)
@@ -396,6 +406,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 				log.Errorf("failed to move rules file from %s to %s", r, destFile)
 				return nil, err
 			}
+
 		} else {
 			rulesVolumes[r] = filepath.Join(RulesMountPath, filepath.Base(r))
 		}
@@ -445,12 +456,19 @@ func createTempRuleSet(path string) error {
 	return nil
 }
 
-func (a *analyzeCommand) RunAnalysis(ctx context.Context) error {
+func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) error {
 	volumes := map[string]string{
 		// application source code
 		a.input: SourceMountPath,
 		// output directory
 		a.output: OutputPath,
+	}
+
+	if xmlOutputDir != "" {
+		convertPath := filepath.Join(RulesetPath, "convert")
+		volumes[xmlOutputDir] = convertPath
+		// for cleanup purposes
+		a.tempDirs = append(a.tempDirs, xmlOutputDir)
 	}
 
 	configVols, err := a.getConfigVolumes()
@@ -631,4 +649,89 @@ func (a *analyzeCommand) getLabelSelector() string {
 			sourceExpr, strings.Join(defaultLabels, " || "))
 	}
 	return ""
+}
+
+func isXMLFile(rule string) bool {
+	extension := path.Ext(rule)
+	if extension == ".xml" {
+		return true
+	}
+	return false
+}
+
+func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]string, error) {
+	rulesVolumes := make(map[string]string)
+	mountTempDir := false
+	for _, r := range a.rules {
+		stat, err := os.Stat(r)
+		if err != nil {
+			a.log.V(5).Error(err, "failed to stat rules")
+			return nil, err
+		}
+		// move xml rule files from user into dir to mount
+		if !stat.IsDir() {
+			if !isXMLFile(r) {
+				continue
+			}
+			mountTempDir = true
+			xmlFileName := filepath.Base(r)
+			destFile := filepath.Join(tempRuleDir, xmlFileName)
+			err := copyFileContents(r, destFile)
+			if err != nil {
+				a.log.Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+				return nil, err
+			}
+		} else {
+			rulesVolumes[r] = filepath.Join(XMLRulePath, filepath.Base(r))
+		}
+	}
+	if mountTempDir {
+		rulesVolumes[tempRuleDir] = XMLRulePath
+	}
+	return rulesVolumes, nil
+}
+
+func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
+	if a.rules == nil || len(a.rules) == 0 {
+		return "", nil
+	}
+	tempDir, err := os.MkdirTemp("", "transform-rules-")
+	if err != nil {
+		a.log.V(5).Error(err, "failed to create temp dir for rules")
+		return "", err
+	}
+	a.log.V(5).Info("created directory for XML rules", "dir", tempDir)
+	tempOutputDir, err := os.MkdirTemp("", "transform-output-")
+	if err != nil {
+		a.log.V(5).Error(err, "failed to create temp dir for rules")
+		return "", err
+	}
+	a.log.V(5).Info("created directory for converted XML rules", "dir", tempDir)
+	defer os.RemoveAll(tempDir)
+	volumes := map[string]string{
+		tempOutputDir: ShimOutputPath,
+	}
+
+	ruleVols, err := a.getXMLRulesVolumes(tempDir)
+	if err != nil {
+		a.log.V(5).Error(err, "failed to get XML rule volumes for analysis")
+		return "", err
+	}
+	maps.Copy(volumes, ruleVols)
+
+	args := []string{"convert",
+		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
+		XMLRulePath,
+	}
+	err = NewContainer().Run(
+		ctx,
+		WithVolumes(volumes),
+		WithEntrypointArgs(args...),
+		WithEntrypointBin("/usr/local/bin/windup-shim"),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return tempOutputDir, nil
 }
