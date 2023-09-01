@@ -38,12 +38,12 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := openRewriteCmd.Validate()
 			if err != nil {
-				log.V(5).Error(err, "failed validating input args")
+				log.Error(err, "failed validating input args")
 				return err
 			}
 			err = openRewriteCmd.Run(cmd.Context())
 			if err != nil {
-				log.V(5).Error(err, "failed executing openrewrite recipe")
+				log.Error(err, "failed executing openrewrite recipe")
 				return err
 			}
 			return nil
@@ -63,7 +63,7 @@ func (o *openRewriteCommand) Validate() error {
 	}
 	stat, err := os.Stat(o.input)
 	if err != nil {
-		return fmt.Errorf("failed to stat input directory %s", o.input)
+		return fmt.Errorf("%w failed to stat input directory %s", err, o.input)
 	}
 	if !stat.IsDir() {
 		return fmt.Errorf("input path %s is not a directory", o.input)
@@ -138,7 +138,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	}
 	o.log.Info("executing openrewrite recipe",
 		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
-	err := NewContainer().Run(
+	err := NewContainer(o.log).Run(
 		ctx,
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/bin/mvn"),
@@ -146,6 +146,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		WithWorkDir(InputPath),
 	)
 	if err != nil {
+		o.log.V(1).Error(err, "error running openrewrite")
 		return err
 	}
 	return nil

@@ -26,14 +26,14 @@ jobs:
         run: |
           expected_file=./test-data/analysis-output.yaml
           actual_file=./output/output.yaml
-          sed 's/^[ \t-]*//' $expected_file | sort > /tmp/expected_file
-          sed 's/^[ \t-]*//' $actual_file | sort > /tmp/actual_file
+          sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
 
       - name: Fail if dependencies output does not match expected
         run: |
           expected_file=./test-data/deps-output.yaml
           actual_file=./output/dependencies.yaml
-          sed 's/^[ \t-]*//' $expected_file | sort > /tmp/expected_file
-          sed 's/^[ \t-]*//' $actual_file | sort > /tmp/actual_file
+          sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file

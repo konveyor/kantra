@@ -13,27 +13,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	noCleanupFlag = "no-cleanup"
+)
+
+var logLevel uint32
+var logrusLog *logrus.Logger
+var noCleanup bool
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	// TODO: better descriptions
 	Short:        "A cli tool for analysis and transformation of applications",
 	Long:         ``,
 	SilenceUsage: true,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// TODO (pgaikwad): this is a hack to set log level
+		// this won't work if any subcommand ovverrides this func
+		_ = cmd.ParseFlags(args)
+		logrusLog.SetLevel(logrus.Level(logLevel))
+	},
 }
 
-var logLevel int
-
 func init() {
-	rootCmd.PersistentFlags().IntVar(&logLevel, "log-level", 5, "log level")
+	rootCmd.PersistentFlags().Uint32Var(&logLevel, "log-level", 4, "log level")
+	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "do not cleanup temporary resources")
 
-	logrusLog := logrus.New()
+	logrusLog = logrus.New()
 	logrusLog.SetOutput(os.Stdout)
 	logrusLog.SetFormatter(&logrus.TextFormatter{})
-	logrusLog.SetLevel(logrus.InfoLevel)
-	log := logrusr.New(logrusLog)
 
-	rootCmd.AddCommand(NewTransformCommand(log))
-	rootCmd.AddCommand(NewAnalyzeCmd(log))
+	logger := logrusr.New(logrusLog)
+	rootCmd.AddCommand(NewTransformCommand(logger))
+	rootCmd.AddCommand(NewAnalyzeCmd(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -41,7 +53,8 @@ func init() {
 func Execute() {
 	err := Settings.Load()
 	if err != nil {
-		log.Fatal("failed to load global settings")
+		log.Fatal(err, "failed to load global settings")
+		os.Exit(1)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
