@@ -38,12 +38,12 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := openRewriteCmd.Validate()
 			if err != nil {
-				log.V(2).Error(err, "failed validating input args")
+				log.Error(err, "failed validating input args")
 				return err
 			}
 			err = openRewriteCmd.Run(cmd.Context())
 			if err != nil {
-				log.V(2).Error(err, "failed executing openrewrite recipe")
+				log.Error(err, "failed executing openrewrite recipe")
 				return err
 			}
 			return nil
@@ -136,7 +136,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("-Drewrite.activeRecipes=%s",
 			strings.Join(recipes[o.target].names, ",")),
 	}
-	o.log.V(3).Info("executing openrewrite recipe",
+	o.log.Info("executing openrewrite recipe",
 		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
 	err := NewContainer(o.log).Run(
 		ctx,
@@ -146,7 +146,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		WithWorkDir(InputPath),
 	)
 	if err != nil {
-		o.log.V(4).Error(err, "error running openrewrite")
+		o.log.V(1).Error(err, "error running openrewrite")
 		return err
 	}
 	return nil

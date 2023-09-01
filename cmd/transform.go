@@ -7,12 +7,8 @@ import (
 
 func NewTransformCommand(log logr.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "transform",
-
+		Use:   "transform",
 		Short: "Transform application source code or windup XML rules",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},

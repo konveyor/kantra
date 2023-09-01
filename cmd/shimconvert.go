@@ -38,6 +38,7 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 
 			err := windupShimCmd.Validate()
 			if err != nil {
+				log.Error(err, "failed to validate flags")
 				return err
 			}
 			return nil
@@ -45,6 +46,7 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := windupShimCmd.Run(cmd.Context())
 			if err != nil {
+				log.Error(err, "failed to execute windup shim")
 				return err
 			}
 			return nil
@@ -92,7 +94,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 	for _, r := range w.input {
 		stat, err := os.Stat(r)
 		if err != nil {
-			w.log.V(4).Error(err, "failed to stat rules")
+			w.log.V(1).Error(err, "failed to stat rules")
 			return nil, err
 		}
 		// move xml rule files from user into dir to mount
@@ -102,7 +104,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
 			err := copyFileContents(r, destFile)
 			if err != nil {
-				w.log.V(4).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+				w.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
@@ -118,7 +120,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 func (w *windupShimCommand) Run(ctx context.Context) error {
 	tempDir, err := os.MkdirTemp("", "transform-rules-")
 	if err != nil {
-		w.log.V(3).Error(err, "failed to create temp dir for rules")
+		w.log.V(1).Error(err, "failed to create temp dir for rules")
 		return err
 	}
 	defer os.RemoveAll(tempDir)
@@ -127,7 +129,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	}
 	ruleVols, err := w.getRulesVolumes(tempDir)
 	if err != nil {
-		w.log.V(3).Error(err, "failed to get xml rules for conversion")
+		w.log.V(1).Error(err, "failed to get xml rules for conversion")
 		return err
 	}
 	maps.Copy(volumes, ruleVols)
@@ -136,7 +138,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
-	w.log.V(3).Info("running windup-shim convert command",
+	w.log.Info("running windup-shim convert command",
 		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
 	err = NewContainer(w.log).Run(
 		ctx,
@@ -145,7 +147,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		WithEntrypointBin("/usr/local/bin/windup-shim"),
 	)
 	if err != nil {
-		w.log.V(3).Error(err, "failed to run convert command")
+		w.log.V(1).Error(err, "failed to run convert command")
 		return err
 	}
 	return nil

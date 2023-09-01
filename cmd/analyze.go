@@ -90,24 +90,24 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
 				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
-					log.V(2).Error(err, "failed to list rule labels")
+					log.Error(err, "failed to list rule labels")
 					return err
 				}
 				return nil
 			}
 			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
 			if err != nil {
-				log.V(2).Error(err, "failed to convert xml rules")
+				log.Error(err, "failed to convert xml rules")
 				return err
 			}
 			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir)
 			if err != nil {
-				log.V(2).Error(err, "failed to run analysis")
+				log.Error(err, "failed to run analysis")
 				return err
 			}
 			err = analyzeCmd.GenerateStaticReport(cmd.Context())
 			if err != nil {
-				log.V(2).Error(err, "failed to generate static report")
+				log.Error(err, "failed to generate static report")
 				return err
 			}
 			return nil
@@ -118,7 +118,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			err := analyzeCmd.Clean(cmd.Context())
 			if err != nil {
-				log.V(2).Error(err, "failed to generate static report")
+				log.Error(err, "failed to generate static report")
 				return err
 			}
 			return nil
@@ -195,7 +195,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 		if a.listSources {
 			sourceSlice, err := readRuleFilesForLabels(sourceLabel)
 			if err != nil {
-				a.log.V(3).Error(err, "failed to read rule labels")
+				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
 			listOptionsFromLabels(sourceSlice, sourceLabel)
@@ -204,7 +204,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 		if a.listTargets {
 			targetsSlice, err := readRuleFilesForLabels(targetLabel)
 			if err != nil {
-				a.log.V(3).Error(err, "failed to read rule labels")
+				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
 			listOptionsFromLabels(targetsSlice, targetLabel)
@@ -213,7 +213,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 	} else {
 		volumes, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.V(3).Error(err, "failed getting rules volumes")
+			a.log.Error(err, "failed getting rules volumes")
 			return err
 		}
 		args := []string{"analyze"}
@@ -230,7 +230,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			WithEntrypointArgs(args...),
 		)
 		if err != nil {
-			a.log.V(3).Error(err, "failed listing labels")
+			a.log.Error(err, "failed listing labels")
 			return err
 		}
 	}
@@ -314,10 +314,10 @@ func listOptionsFromLabels(sl []string, label string) {
 func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
-		a.log.V(4).Error(err, "failed creating temp dir", "dir", tempDir)
+		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 		return nil, err
 	}
-	a.log.V(4).Info("created directory for provider settings", "dir", tempDir)
+	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
 	otherProvsMountPath := SourceMountPath
@@ -371,12 +371,12 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	}
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
 	if err != nil {
-		a.log.V(4).Error(err, "failed to marshal provider config")
+		a.log.V(1).Error(err, "failed to marshal provider config")
 		return nil, err
 	}
 	err = ioutil.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(4).Error(err, "failed to write provider config", "dir", tempDir, "file", "settings.json")
+		a.log.V(1).Error(err, "failed to write provider config", "dir", tempDir, "file", "settings.json")
 		return nil, err
 	}
 	return map[string]string{
@@ -392,15 +392,15 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	rulesetNeeded := false
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
 	if err != nil {
-		a.log.V(4).Error(err, "failed to create temp dir", "path", tempDir)
+		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
 		return nil, err
 	}
-	a.log.V(4).Info("created directory for rules", "dir", tempDir)
+	a.log.V(1).Info("created directory for rules", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 	for i, r := range a.rules {
 		stat, err := os.Stat(r)
 		if err != nil {
-			a.log.V(4).Error(err, "failed to stat rules", "path", r)
+			a.log.V(1).Error(err, "failed to stat rules", "path", r)
 			return nil, err
 		}
 		// move rules files passed into dir to mount
@@ -413,7 +413,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := copyFileContents(r, destFile)
 			if err != nil {
-				a.log.V(4).Error(err, "failed to move rules file", "src", r, "dest", destFile)
+				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
 			}
 
@@ -425,7 +425,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		tempRulesetPath := filepath.Join(tempDir, "ruleset.yaml")
 		err = createTempRuleSet(tempRulesetPath)
 		if err != nil {
-			a.log.V(4).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
+			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
 			return nil, err
 		}
 		rulesVolumes[tempDir] = filepath.Join(RulesMountPath, filepath.Base(tempDir))
@@ -484,7 +484,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 
 	configVols, err := a.getConfigVolumes()
 	if err != nil {
-		a.log.V(3).Error(err, "failed to get config volumes for analysis")
+		a.log.V(1).Error(err, "failed to get config volumes for analysis")
 		return err
 	}
 	maps.Copy(volumes, configVols)
@@ -492,7 +492,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if len(a.rules) > 0 {
 		ruleVols, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.V(3).Error(err, "failed to get rule volumes for analysis")
+			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
 			return err
 		}
 		maps.Copy(volumes, ruleVols)
@@ -527,7 +527,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	}
 	defer dependencyLog.Close()
 
-	a.log.V(3).Info("running source code analysis", "log", analysisLogFilePath,
+	a.log.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	// TODO (pgaikwad): run analysis & deps in parallel
 	err = NewContainer(a.log).Run(
@@ -542,7 +542,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		return err
 	}
 
-	a.log.V(3).Info("running dependency analysis",
+	a.log.Info("running dependency analysis",
 		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
 	err = NewContainer(a.log).Run(
 		ctx,
@@ -611,7 +611,7 @@ func (a *analyzeCommand) Clean(ctx context.Context) error {
 	for _, path := range a.tempDirs {
 		err := os.RemoveAll(path)
 		if err != nil {
-			a.log.V(3).Error(err, "failed to delete temporary dir", "dir", path)
+			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
 			continue
 		}
 	}
@@ -677,7 +677,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 	for _, r := range a.rules {
 		stat, err := os.Stat(r)
 		if err != nil {
-			a.log.V(4).Error(err, "failed to stat rules")
+			a.log.V(1).Error(err, "failed to stat rules")
 			return nil, err
 		}
 		// move xml rule files from user into dir to mount
@@ -690,7 +690,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
 			err := copyFileContents(r, destFile)
 			if err != nil {
-				a.log.V(4).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+				a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
@@ -709,16 +709,16 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 	tempDir, err := os.MkdirTemp("", "transform-rules-")
 	if err != nil {
-		a.log.V(3).Error(err, "failed to create temp dir for rules")
+		a.log.V(1).Error(err, "failed to create temp dir for rules")
 		return "", err
 	}
-	a.log.V(4).Info("created directory for XML rules", "dir", tempDir)
+	a.log.V(1).Info("created directory for XML rules", "dir", tempDir)
 	tempOutputDir, err := os.MkdirTemp("", "transform-output-")
 	if err != nil {
-		a.log.V(3).Error(err, "failed to create temp dir for rules")
+		a.log.V(1).Error(err, "failed to create temp dir for rules")
 		return "", err
 	}
-	a.log.V(4).Info("created directory for converted XML rules", "dir", tempDir)
+	a.log.V(1).Info("created directory for converted XML rules", "dir", tempDir)
 	defer os.RemoveAll(tempDir)
 	volumes := map[string]string{
 		tempOutputDir: ShimOutputPath,
@@ -726,11 +726,12 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 
 	ruleVols, err := a.getXMLRulesVolumes(tempDir)
 	if err != nil {
-		a.log.V(3).Error(err, "failed to get XML rule volumes for analysis")
+		a.log.V(1).Error(err, "failed to get XML rule volumes for analysis")
 		return "", err
 	}
 	maps.Copy(volumes, ruleVols)
 
+	a.log.Info("running windup shim", "output", a.output)
 	args := []string{"convert",
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,

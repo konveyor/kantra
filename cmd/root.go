@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"log"
-	"math"
 	"os"
 
 	"github.com/bombsimon/logrusr/v3"
@@ -19,6 +18,7 @@ const (
 )
 
 var logLevel uint32
+var logrusLog *logrus.Logger
 var noCleanup bool
 
 // rootCmd represents the base command when called without any subcommands
@@ -28,19 +28,23 @@ var rootCmd = &cobra.Command{
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		logrusLog := logrus.New()
-		logrusLog.SetOutput(os.Stdout)
-		logrusLog.SetFormatter(&logrus.TextFormatter{})
-		logrusLog.SetLevel(logrus.Level(uint32(math.Min(6, float64(logLevel)))))
-		log := logrusr.New(logrusLog)
-		cmd.AddCommand(NewTransformCommand(log))
-		cmd.AddCommand(NewAnalyzeCmd(log))
+		// TODO (pgaikwad): this is a hack to set log level
+		_ = cmd.ParseFlags(args)
+		logrusLog.SetLevel(logrus.Level(logLevel))
 	},
 }
 
 func init() {
-	rootCmd.PersistentFlags().Uint32Var(&logLevel, "log-level", 3, "log level")
-	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "log level")
+	rootCmd.PersistentFlags().Uint32Var(&logLevel, "log-level", 4, "log level")
+	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "do not cleanup temporary resources")
+
+	logrusLog = logrus.New()
+	logrusLog.SetOutput(os.Stdout)
+	logrusLog.SetFormatter(&logrus.TextFormatter{})
+
+	logger := logrusr.New(logrusLog)
+	rootCmd.AddCommand(NewTransformCommand(logger))
+	rootCmd.AddCommand(NewAnalyzeCmd(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -49,6 +53,7 @@ func Execute() {
 	err := Settings.Load()
 	if err != nil {
 		log.Fatal(err, "failed to load global settings")
+		os.Exit(1)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

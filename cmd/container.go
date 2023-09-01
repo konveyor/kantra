@@ -194,11 +194,11 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		cmd.Stderr = io.MultiWriter(
 			append(c.stderr, errBytes)...)
 	}
-	c.log.V(5).Info("executing podman command",
+	c.log.V(1).Info("executing podman command",
 		"podman", Settings.PodmanBinary, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
 	err = cmd.Run()
 	if err != nil {
-		c.log.V(5).Error(err, "container run error")
+		c.log.V(1).Error(err, "container run error")
 		if _, ok := err.(*exec.ExitError); ok {
 			return fmt.Errorf(errBytes.String())
 		}
@@ -222,7 +222,7 @@ func (c *container) Cp(ctx context.Context, src string, dest string) error {
 		ctx,
 		Settings.PodmanBinary,
 		"cp", fmt.Sprintf("%s:%s", c.name, src), dest)
-	c.log.V(5).Info("copying files from container",
+	c.log.V(1).Info("copying files from container",
 		"podman", Settings.PodmanBinary, "src", src, "dest", dest)
 	return cmd.Run()
 }
@@ -239,7 +239,7 @@ func (c *container) Rm(ctx context.Context) error {
 		ctx,
 		Settings.PodmanBinary,
 		"rm", c.name)
-	c.log.V(5).Info("removing container",
+	c.log.V(1).Info("removing container",
 		"podman", Settings.PodmanBinary, "name", c.name)
 	return cmd.Run()
 }
