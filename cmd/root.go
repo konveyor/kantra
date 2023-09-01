@@ -29,6 +29,7 @@ var rootCmd = &cobra.Command{
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// TODO (pgaikwad): this is a hack to set log level
+		// this won't work if any subcommand ovverrides this func
 		_ = cmd.ParseFlags(args)
 		logrusLog.SetLevel(logrus.Level(logLevel))
 	},

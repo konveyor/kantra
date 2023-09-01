@@ -142,24 +142,24 @@
       - uri: file:///opt/input/source/target/classes/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
-           1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
-           2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
-           3  jdbc.user=customers
-           4  jdbc.password=customers
-           5  hibernate.hbm2ddl.auto=create-drop
-           6  hibernate.dialect=org.hibernate.dialect.OracleDialect
+            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
+            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
+            3  jdbc.user=customers
+            4  jdbc.password=customers
+            5  hibernate.hbm2ddl.auto=create-drop
+            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
       - uri: file:///opt/input/source/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
-           1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
-           2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
-           3  jdbc.user=customers
-           4  jdbc.password=customers
-           5  hibernate.hbm2ddl.auto=create-drop
-           6  hibernate.dialect=org.hibernate.dialect.OracleDialect
+            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
+            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
+            3  jdbc.user=customers
+            4  jdbc.password=customers
+            5  hibernate.hbm2ddl.auto=create-drop
+            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
@@ -1433,8 +1433,8 @@
   description: This ruleset detects the Java Mail API, which may be problematic when migrating an application to a cloud environment.
   tags:
   - Java Remote Method Invocation (RMI) service
-  - Java Remote Method Invocation (RMI) API
   - rmi
+  - Java Remote Method Invocation (RMI) API
   violations:
     jni-native-code-00000:
       description: |-
@@ -1448,7 +1448,7 @@
       incidents:
       - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
         message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: " 3  import java.io.FileInputStream;\n 4  import java.io.InputStream;\n 5  import java.util.Properties;\n 6  \n 7  public class ApplicationConfiguration {\n 8  \n 9  \tprivate Properties config;\n10  \n11  \tpublic ApplicationConfiguration() {\n12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  "
+        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 12
         variables:
           file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
@@ -1456,7 +1456,7 @@
           name: ApplicationConfiguration
       - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
         message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  \n31  \tpublic String getProperty (String name) {\n32  \t\treturn config.getProperty(name);"
+        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 21
         variables:
           file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
@@ -1481,7 +1481,7 @@
       incidents:
       - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
         message: 'An application running inside a container could lose access to a file in local storage.. Recommendations. The following recommendations depend on the function of the file in local storage:. * Logging: Log to standard output and use a centralized log collector to analyze the logs.. * Caching: Use a cache backing service.. * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.. * Data storage: Use a database backing service for relational data or use a persistent data storage system.. * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.'
-        codeSnip: "10  \n11  \tpublic ApplicationConfiguration() {\n12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  "
+        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 19
         variables:
           file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
@@ -1521,8 +1521,8 @@
   - logging-0000
   - logging-0001
   - jca-00000
-  - local-storage-00004
   - local-storage-00003
+  - local-storage-00004
   - session-00000
   - java-rmi-00000
   - logging-0001
@@ -1531,8 +1531,8 @@
   - socket-communication-00001
   - mail-00000
   - session-00001
-  - local-storage-00005
   - local-storage-00002
+  - local-storage-00005
   - socket-communication-00000
 - name: os/windows
   description: This is a ruleset for Windows operating system specific rules while migrating to Linux operating system.
