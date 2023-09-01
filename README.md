@@ -15,7 +15,16 @@ podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download 
 
 **Note:** On MacOS, in order to correctly mount volumes, your podman machine must contain options:
 
-`podman machine init <name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/`
+```sh
+podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
+```
+
+Ensure that we use the connection to the VM `<vm_name>` we created earlier by default:
+
+```sh
+podman system connection default <vm_name>
+```
+
 
 ```sh
 podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/darwin-kantra kantra && podman rm kantra-download
