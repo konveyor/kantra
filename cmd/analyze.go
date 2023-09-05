@@ -46,6 +46,7 @@ type analyzeCommand struct {
 	listTargets           bool
 	skipStaticReport      bool
 	analyzeKnownLibraries bool
+	mavenSettingsFile     string
 	sources               []string
 	targets               []string
 	input                 string
@@ -133,6 +134,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "path to the directory for analysis output")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "do not generate static report")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
 
 	return analyzeCommand
@@ -175,12 +177,18 @@ func (a *analyzeCommand) Validate() error {
 		a.mode != string(provider.SourceOnlyAnalysisMode) {
 		return fmt.Errorf("mode must be one of 'full' or 'source-only'")
 	}
+	if _, err := os.Stat(a.mavenSettingsFile); a.mavenSettingsFile != "" && err != nil {
+		return fmt.Errorf("%w failed to stat maven settings file at path %s", err, a.mavenSettingsFile)
+	}
 	// try to get abs path, if not, continue with relative path
 	if absPath, err := filepath.Abs(a.output); err == nil {
 		a.output = absPath
 	}
 	if absPath, err := filepath.Abs(a.input); err == nil {
 		a.input = absPath
+	}
+	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
+		a.mavenSettingsFile = absPath
 	}
 	return nil
 }
@@ -328,6 +336,30 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		otherProvsMountPath = filepath.Dir(otherProvsMountPath)
 	}
 
+	javaConfig := provider.Config{
+		Name:       "java",
+		BinaryPath: "/jdtls/bin/jdtls",
+		InitConfig: []provider.InitConfig{
+			{
+				Location:     SourceMountPath,
+				AnalysisMode: provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: map[string]interface{}{
+					"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
+					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+				},
+			},
+		},
+	}
+	if a.mavenSettingsFile != "" {
+		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
+		if err != nil {
+			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
+			return nil, err
+		}
+		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
+	}
+
 	provConfig := []provider.Config{
 		{
 			Name:       "go",
@@ -344,21 +376,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 				},
 			},
 		},
-		{
-			Name:       "java",
-			BinaryPath: "/jdtls/bin/jdtls",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     SourceMountPath,
-					AnalysisMode: provider.AnalysisMode(a.mode),
-					ProviderSpecificConfig: map[string]interface{}{
-						"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
-						"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
-						provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
-					},
-				},
-			},
-		},
+		javaConfig,
 		{
 			Name: "builtin",
 			InitConfig: []provider.InitConfig{
