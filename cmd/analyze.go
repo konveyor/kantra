@@ -29,15 +29,15 @@ import (
 
 var (
 	// application source path inside the container
-	SourceMountPath = filepath.Join(InputPath, "source")
+	SourceMountPath = path.Join(InputPath, "source")
 	// analyzer config files
-	ConfigMountPath = filepath.Join(InputPath, "config")
+	ConfigMountPath = path.Join(InputPath, "config")
 	// user provided rules path
-	RulesMountPath = filepath.Join(RulesetPath, "input")
+	RulesMountPath = path.Join(RulesetPath, "input")
 	// paths to files in the container
-	AnalysisOutputMountPath   = filepath.Join(OutputPath, "output.yaml")
-	DepsOutputMountPath       = filepath.Join(OutputPath, "dependencies.yaml")
-	ProviderSettingsMountPath = filepath.Join(ConfigMountPath, "settings.json")
+	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
+	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
+	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
 )
 
 // kantra analyze flags
@@ -119,7 +119,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			err := analyzeCmd.Clean(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed to generate static report")
+				log.Error(err, "failed to clean temporary container resources")
 				return err
 			}
 			return nil
@@ -170,7 +170,7 @@ func (a *analyzeCommand) Validate() error {
 			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 		}
 		// make sure we mount a file and not a dir
-		SourceMountPath = filepath.Join(SourceMountPath, filepath.Base(a.input))
+		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
 		a.isFileInput = true
 	}
 	if a.mode != string(provider.FullAnalysisMode) &&
@@ -333,7 +333,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	// only java provider can work with binaries, all others
 	// continue pointing to the directory instead of file
 	if a.isFileInput {
-		otherProvsMountPath = filepath.Dir(otherProvsMountPath)
+		otherProvsMountPath = path.Dir(otherProvsMountPath)
 	}
 
 	javaConfig := provider.Config{
@@ -436,7 +436,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 
 		} else {
-			rulesVolumes[r] = filepath.Join(RulesMountPath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
 		}
 	}
 	if rulesetNeeded {
@@ -446,7 +446,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
 			return nil, err
 		}
-		rulesVolumes[tempDir] = filepath.Join(RulesMountPath, filepath.Base(tempDir))
+		rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
 	}
 	return rulesVolumes, nil
 }
@@ -494,7 +494,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	}
 
 	if xmlOutputDir != "" {
-		convertPath := filepath.Join(RulesetPath, "convert")
+		convertPath := path.Join(RulesetPath, "convert")
 		volumes[xmlOutputDir] = convertPath
 		// for cleanup purposes
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
@@ -584,40 +584,36 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	if a.skipStaticReport {
 		return nil
 	}
-
 	volumes := map[string]string{
 		a.input:  SourceMountPath,
 		a.output: OutputPath,
 	}
-
-	args := []string{
+	args := []string{}
+	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
 		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
-		fmt.Sprintf("--output-path=%s", filepath.Join("/usr/local/static-report/output.js")),
+		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
 		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
 	}
+	cpArgs := []string{"&& cp -r",
+		"/usr/local/static-report", OutputPath}
 
-	a.log.Info("generating static report",
-		"output", a.output, "args", strings.Join(args, " "))
+	args = append(args, staticReportArgs...)
+	args = append(args, cpArgs...)
+
+	joinedArgs := strings.Join(args, " ")
+	staticReportCmd := []string{joinedArgs}
+
 	container := NewContainer(a.log)
+	a.log.Info("generating static report",
+		"output", a.output, "args", strings.Join(staticReportCmd, " "))
 	err := container.Run(
 		ctx,
-		WithEntrypointBin("/usr/local/bin/js-bundle-generator"),
-		WithEntrypointArgs(args...),
+		WithEntrypointBin("/bin/sh"),
+		WithEntrypointArgs(staticReportCmd...),
 		WithVolumes(volumes),
-		// keep container to copy static report
-		WithCleanup(false),
+		WithcFlag(true),
 	)
-	if err != nil {
-		return err
-	}
-
-	err = container.Cp(ctx, "/usr/local/static-report", a.output)
-	if err != nil {
-		return err
-	}
-
-	err = container.Rm(ctx)
 	if err != nil {
 		return err
 	}
@@ -712,7 +708,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 				return nil, err
 			}
 		} else {
-			rulesVolumes[r] = filepath.Join(XMLRulePath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(XMLRulePath, filepath.Base(r))
 		}
 	}
 	if mountTempDir {
