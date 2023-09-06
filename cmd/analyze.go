@@ -28,16 +28,19 @@ import (
 )
 
 var (
+
 	// application source path inside the container
-	SourceMountPath = filepath.Join(InputPath, "source")
+	//SourceMountPath = path.Join(InputPath, "source")
+	SourceMountPath = path.Join("/opt", "input", "source")
 	// analyzer config files
-	ConfigMountPath = filepath.Join(InputPath, "config")
+	//ConfigMountPath = path.Join(InputPath, "config")
+	ConfigMountPath = path.Join("/opt", "input", "config")
 	// user provided rules path
-	RulesMountPath = filepath.Join(RulesetPath, "input")
+	RulesMountPath = path.Join(RulesetPath, "input")
 	// paths to files in the container
-	AnalysisOutputMountPath   = filepath.Join(OutputPath, "output.yaml")
-	DepsOutputMountPath       = filepath.Join(OutputPath, "dependencies.yaml")
-	ProviderSettingsMountPath = filepath.Join(ConfigMountPath, "settings.json")
+	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
+	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
+	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
 )
 
 // kantra analyze flags
@@ -168,7 +171,7 @@ func (a *analyzeCommand) Validate() error {
 			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 		}
 		// make sure we mount a file and not a dir
-		SourceMountPath = filepath.Join(SourceMountPath, filepath.Base(a.input))
+		SourceMountPath = path.Join(SourceMountPath, path.Base(a.input))
 		a.isFileInput = true
 	}
 	if a.mode != string(provider.FullAnalysisMode) &&
@@ -418,7 +421,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 
 		} else {
-			rulesVolumes[r] = filepath.Join(RulesMountPath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
 		}
 	}
 	if rulesetNeeded {
@@ -428,8 +431,9 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
 			return nil, err
 		}
-		rulesVolumes[tempDir] = filepath.Join(RulesMountPath, filepath.Base(tempDir))
+		rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
 	}
+
 	return rulesVolumes, nil
 }
 
@@ -474,14 +478,12 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		// output directory
 		a.output: OutputPath,
 	}
-
 	if xmlOutputDir != "" {
-		convertPath := filepath.Join(RulesetPath, "convert")
+		convertPath := path.Join(RulesetPath, "convert")
 		volumes[xmlOutputDir] = convertPath
 		// for cleanup purposes
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
 	}
-
 	configVols, err := a.getConfigVolumes()
 	if err != nil {
 		a.log.V(1).Error(err, "failed to get config volumes for analysis")
@@ -512,7 +514,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
 	}
-
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
 	depsLogFilePath := filepath.Join(a.output, "dependency.log")
 	// create log files
@@ -541,7 +542,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if err != nil {
 		return err
 	}
-
 	a.log.Info("running dependency analysis",
 		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
 	err = NewContainer(a.log).Run(
@@ -575,7 +575,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	args := []string{
 		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
-		fmt.Sprintf("--output-path=%s", filepath.Join("/usr/local/static-report/output.js")),
+		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
 		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
 	}
 
