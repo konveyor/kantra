@@ -119,7 +119,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			err := analyzeCmd.Clean(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed to generate static report")
+				log.Error(err, "failed to clean temporary container resources")
 				return err
 			}
 			return nil
@@ -584,7 +584,6 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	if a.skipStaticReport {
 		return nil
 	}
-
 	volumes := map[string]string{
 		a.input:  SourceMountPath,
 		a.output: OutputPath,
@@ -593,31 +592,25 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	args := []string{
 		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
-		fmt.Sprintf("--output-path=%s", filepath.Join("/usr/local/static-report/output.js")),
+		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
 		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
 	}
 
+	container := NewContainer(a.log)
+
+	src := "/usr/local/static-report/"
+	args = append(args, "&& cp")
+	args = append(args, fmt.Sprintf("%s:%s", container.name, src),
+		fmt.Sprintf("%s:%s", container.name, OutputPath))
+
 	a.log.Info("generating static report",
 		"output", a.output, "args", strings.Join(args, " "))
-	container := NewContainer(a.log)
 	err := container.Run(
 		ctx,
 		WithEntrypointBin("/usr/local/bin/js-bundle-generator"),
 		WithEntrypointArgs(args...),
 		WithVolumes(volumes),
-		// keep container to copy static report
-		WithCleanup(false),
 	)
-	if err != nil {
-		return err
-	}
-
-	err = container.Cp(ctx, "/usr/local/static-report", a.output)
-	if err != nil {
-		return err
-	}
-
-	err = container.Rm(ctx)
 	if err != nil {
 		return err
 	}
