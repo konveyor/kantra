@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -108,7 +109,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 				return nil, err
 			}
 		} else {
-			rulesVolumes[r] = filepath.Join(XMLRulePath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(XMLRulePath, filepath.Base(r))
 		}
 	}
 	if mountTempDir {

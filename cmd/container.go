@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -29,6 +30,7 @@ type container struct {
 	cleanup bool
 	// map of source -> dest paths to mount
 	volumes map[string]string
+	cFlag   bool
 	log     logr.Logger
 }
 
@@ -82,6 +84,12 @@ func WithStderr(e ...io.Writer) Option {
 	}
 }
 
+func WithcFlag(cl bool) Option {
+	return func(c *container) {
+		c.cFlag = cl
+	}
+}
+
 func WithCleanup(cl bool) Option {
 	return func(c *container) {
 		c.cleanup = cl
@@ -115,6 +123,7 @@ func NewContainer(log logr.Logger) *container {
 		name:           randomName(),
 		// by default, remove the container after run()
 		cleanup: true,
+		cFlag:   false,
 		log:     log,
 	}
 }
@@ -169,10 +178,10 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		// TODO: check this on windows
 		if os == "linux" {
 			args = append(args, fmt.Sprintf("%s:%s:Z",
-				filepath.Clean(sourcePath), filepath.Clean(destPath)))
+				filepath.Clean(sourcePath), path.Clean(destPath)))
 		} else {
 			args = append(args, fmt.Sprintf("%s:%s",
-				filepath.Clean(sourcePath), filepath.Clean(destPath)))
+				filepath.Clean(sourcePath), path.Clean(destPath)))
 		}
 	}
 	for k, v := range c.env {
@@ -180,6 +189,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	args = append(args, c.image)
+	if c.cFlag {
+		args = append(args, "-c")
+	}
 	if len(c.entrypointArgs) > 0 {
 		args = append(args, c.entrypointArgs...)
 	}
