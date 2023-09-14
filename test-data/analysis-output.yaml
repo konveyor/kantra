@@ -137,6 +137,8 @@
       category: mandatory
       labels:
       - konveyor.io/target=cloud-readiness
+      - konveyor.io/source
+      - konveyor.io/target
       - discovery
       incidents:
       - uri: file:///opt/input/source/target/classes/persistence.properties
