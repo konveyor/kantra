@@ -1,7 +1,7 @@
 name: 🐞 Bug
 description: File a bug/issue
 title: "[BUG] <title>"
-labels: [Bug, Needs Triage]
+labels: ["kind/bug" , "needs-triage"]
 projects: ["konveyor/67"]
 body:
 - type: checkboxes
@@ -17,6 +17,20 @@ body:
     description: What is the Konveyor version you're using?
   validations:
     required: true
+- type: dropdown
+  id: priority
+  attributes:
+    label: Priority
+    description: What is the prority of this bug?
+    options:
+      - Critical
+      - Blocker
+      - Major
+      - Minor
+      - Undefined (Default)
+    default: 0
+  validations:
+    required: true
 - type: textarea
   attributes:
     label: Current Behavior
@@ -29,6 +43,19 @@ body:
     description: A concise description of what you expected to happen.
   validations:
     required: false
+- type: dropdown
+  id: how_reproducible 
+  attributes:
+    label: How Reproducible
+    description: How often the bug can be reproduced?
+    options:
+      - Always (Default)
+      - Sometimes
+      - Never
+      - Other (Add more details in 'Anything else')
+    default: 0
+  validations:
+    required: true
 - type: textarea
   attributes:
     label: Steps To Reproduce
