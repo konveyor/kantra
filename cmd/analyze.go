@@ -46,6 +46,7 @@ type analyzeCommand struct {
 	listTargets           bool
 	skipStaticReport      bool
 	analyzeKnownLibraries bool
+	jsonOutput            bool
 	mavenSettingsFile     string
 	sources               []string
 	targets               []string
@@ -106,6 +107,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to run analysis")
 				return err
 			}
+			err = analyzeCmd.CreateJSONOutput()
+			if err != nil {
+				log.Error(err, "failed to create json output file")
+				return err
+			}
 			err = analyzeCmd.GenerateStaticReport(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to generate static report")
@@ -136,6 +142,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
 
 	return analyzeCommand
 }
@@ -574,6 +581,60 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		),
 	)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *analyzeCommand) CreateJSONOutput() error {
+	if !a.jsonOutput {
+		return nil
+	}
+	outputPath := filepath.Join(a.output, "output.yaml")
+	depPath := filepath.Join(a.output, "dependencies.yaml")
+
+	data, err := ioutil.ReadFile(outputPath)
+	if err != nil {
+		return err
+	}
+	ruleOutput := &[]outputv1.RuleSet{}
+	err = yaml.Unmarshal(data, ruleOutput)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to unmarshal output yaml")
+		return err
+	}
+
+	jsonData, err := json.MarshalIndent(ruleOutput, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal output file to json")
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(a.output, "output.json"), jsonData, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to write json output", "dir", a.output, "file", "output.json")
+		return err
+	}
+
+	depData, err := ioutil.ReadFile(depPath)
+	if err != nil {
+		return err
+	}
+	depOutput := &[]outputv1.DepsFlatItem{}
+	err = yaml.Unmarshal(depData, depOutput)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to unmarshal dependencies yaml")
+		return err
+	}
+
+	jsonDataDep, err := json.MarshalIndent(depOutput, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal dependencies file to json")
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
 		return err
 	}
 

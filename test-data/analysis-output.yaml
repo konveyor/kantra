@@ -138,19 +138,9 @@
       labels:
       - konveyor.io/target=cloud-readiness
       - discovery
+      - konveyor.io/source
+      - konveyor.io/target
       incidents:
-      - uri: file:///opt/input/source/target/classes/persistence.properties
-        message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
-        codeSnip: |2
-            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
-            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
-            3  jdbc.user=customers
-            4  jdbc.password=customers
-            5  hibernate.hbm2ddl.auto=create-drop
-            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
-        lineNumber: 2
-        variables:
-          matchingText: 169.60.225.216
       - uri: file:///opt/input/source/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
@@ -163,7 +153,18 @@
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
-      extras: []
+      - uri: file:///opt/input/source/target/classes/persistence.properties
+        message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
+        codeSnip: |2
+            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
+            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
+            3  jdbc.user=customers
+            4  jdbc.password=customers
+            5  hibernate.hbm2ddl.auto=create-drop
+            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
+        lineNumber: 2
+        variables:
+          matchingText: 169.60.225.216
       effort: 1
   unmatched:
   - discover-license
@@ -1446,20 +1447,20 @@
       - konveyor.io/source
       - jni
       incidents:
-      - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
         message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
         codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 12
         variables:
-          file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
           kind: Constructor
           name: ApplicationConfiguration
-      - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
         message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
         codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 21
         variables:
-          file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
           kind: Method
           name: loadProperties
       links:
@@ -1467,7 +1468,6 @@
         title: How to load native libraries and access them via JNI in EAP (with or without a module)
       - url: https://access.redhat.com/solutions/1444643
         title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
-      extras: []
       effort: 7
     local-storage-00001:
       description: |-
@@ -1479,12 +1479,12 @@
       - konveyor.io/source
       - storage
       incidents:
-      - uri: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
         message: 'An application running inside a container could lose access to a file in local storage.. Recommendations. The following recommendations depend on the function of the file in local storage:. * Logging: Log to standard output and use a centralized log collector to analyze the logs.. * Caching: Use a cache backing service.. * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.. * Data storage: Use a database backing service for relational data or use a persistent data storage system.. * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.'
         codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
         lineNumber: 19
         variables:
-          file: konveyor-jdt://contents/root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/config-utils-1.0.0.jar?packageName=io.konveyor.demo.config.ApplicationConfiguration.class&source-range=true
+          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
           kind: Constructor
           name: loadProperties
       links:
@@ -1500,7 +1500,6 @@
         title: 'OpenShift Container Platform: Input secrets and ConfigMaps'
       - url: https://docs.openshift.com/container-platform/4.5/storage/understanding-persistent-storage.html
         title: 'OpenShift Container Platform: Understanding persistent storage'
-      extras: []
       effort: 1
   unmatched:
   - embedded-cache-libraries-01000
@@ -1521,18 +1520,18 @@
   - logging-0000
   - logging-0001
   - jca-00000
-  - local-storage-00003
   - local-storage-00004
+  - local-storage-00003
   - session-00000
   - java-rmi-00000
   - logging-0001
-  - java-rpc-00000
   - logging-0000
+  - java-rpc-00000
   - socket-communication-00001
   - mail-00000
+  - local-storage-00005
   - session-00001
   - local-storage-00002
-  - local-storage-00005
   - socket-communication-00000
 - name: os/windows
   description: This is a ruleset for Windows operating system specific rules while migrating to Linux operating system.
