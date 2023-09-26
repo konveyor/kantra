@@ -78,7 +78,7 @@ func (w *windupShimCommand) Validate() error {
 		return fmt.Errorf("input for rule file or directory must not be empty")
 	}
 	for _, r := range w.input {
-		if r == w.output {
+		if filepath.Clean(r) == filepath.Clean(w.output) {
 			return fmt.Errorf("input rule directory and output directory must be different")
 		}
 	}
