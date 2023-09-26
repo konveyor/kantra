@@ -77,6 +77,11 @@ func (w *windupShimCommand) Validate() error {
 	if w.input == nil || len(w.input) == 0 {
 		return fmt.Errorf("input for rule file or directory must not be empty")
 	}
+	for _, r := range w.input {
+		if filepath.Clean(r) == filepath.Clean(w.output) {
+			return fmt.Errorf("input rule directory and output directory must be different")
+		}
+	}
 	// try to get abs path, if not, continue with relative path
 	if absPath, err := filepath.Abs(w.output); err == nil {
 		w.output = absPath
