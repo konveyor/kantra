@@ -721,19 +721,22 @@ func (a *analyzeCommand) getLabelSelector() string {
 	if targetExpr != "" {
 		if sourceExpr != "" {
 			// when both targets and sources are present, AND them
-			return fmt.Sprintf("(%s && %s) || (%s)",
-				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
+			return fmt.Sprintf("(%s && %s) || %s || (%s)",
+				targetExpr, sourceExpr, outputv1.SourceTechnologyLabel,
+				strings.Join(defaultLabels, " || "))
 		} else {
 			// when target is specified, but source is not
 			// use a catch-all expression for source
-			return fmt.Sprintf("(%s && %s) || (%s)",
-				targetExpr, outputv1.SourceTechnologyLabel, strings.Join(defaultLabels, " || "))
+			return fmt.Sprintf("(%s && %s) || %s || (%s)",
+				targetExpr, outputv1.SourceTechnologyLabel, outputv1.TargetTechnologyLabel,
+				strings.Join(defaultLabels, " || "))
 		}
 	}
 	if sourceExpr != "" {
 		// when only source is specified, OR them all
-		return fmt.Sprintf("%s || (%s)",
-			sourceExpr, strings.Join(defaultLabels, " || "))
+		return fmt.Sprintf("%s || %s || (%s)",
+			sourceExpr, outputv1.SourceTechnologyLabel,
+			strings.Join(defaultLabels, " || "))
 	}
 	return ""
 }
