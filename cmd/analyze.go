@@ -20,6 +20,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"go.lsp.dev/uri"
 	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
@@ -678,6 +679,9 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
+	cleanedURI := filepath.Clean(string(uri))
+	a.log.Info("Static report created. Access it at this URL:", "URL", cleanedURI)
 
 	return nil
 }
