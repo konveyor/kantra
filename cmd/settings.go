@@ -14,6 +14,7 @@ const (
 	OpenRewriteRecipesPath = "/opt/openrewrite"
 	InputPath              = "/opt/input"
 	OutputPath             = "/opt/output"
+	OutputDepPath          = "/opt/dep"
 	XMLRulePath            = "/opt/xmlrules"
 	ShimOutputPath         = "/opt/shimoutput"
 )

@@ -38,6 +38,7 @@ var (
 	// paths to files in the container
 	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
 	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
+	DepsOutputDepMountPath    = path.Join(OutputDepPath, "dependencies.yaml")
 	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
 )
 
@@ -53,6 +54,7 @@ type analyzeCommand struct {
 	targets               []string
 	input                 string
 	output                string
+	depPath               string
 	mode                  string
 	rules                 []string
 
@@ -139,6 +141,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.rules, "rules", []string{}, "filename or directory containing rule files")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "path to application source code or a binary")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "path to the directory for analysis output")
+	analyzeCommand.Flags().StringVarP(&analyzeCmd.depPath, "dependencies-path", "d", "", "path to the directory for dependency output")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "do not generate static report")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
@@ -165,6 +168,22 @@ func (a *analyzeCommand) Validate() error {
 	}
 	if stat != nil && !stat.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", a.output)
+	}
+	if a.depPath != "" {
+		stat, err = os.Stat(a.depPath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				err = os.MkdirAll(a.depPath, os.ModePerm)
+				if err != nil {
+					return fmt.Errorf("%w failed to create dependency output dir %s", err, a.depPath)
+				}
+			} else {
+				return fmt.Errorf("failed to stat dependency output directory %s", a.output)
+			}
+		}
+		if stat != nil && !stat.IsDir() {
+			return fmt.Errorf("dependency output path %s is not a directory", a.output)
+		}
 	}
 	stat, err = os.Stat(a.input)
 	if err != nil {
@@ -567,9 +586,16 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if err != nil {
 		return err
 	}
-
-	a.log.Info("running dependency analysis",
-		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	if a.depPath != "" {
+		delete(volumes, a.output)
+		volumes[a.depPath] = OutputDepPath
+		a.log.Info("running dependency analysis",
+			"log", depsLogFilePath, "input", a.input, "output", a.depPath, "args", strings.Join(args, " "))
+	} else {
+		volumes[a.output] = OutputDepPath
+		a.log.Info("running dependency analysis",
+			"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	}
 	err = NewContainer(a.log).Run(
 		ctx,
 		WithStdout(os.Stdout, dependencyLog),
@@ -577,7 +603,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		WithVolumes(volumes),
 		WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
 		WithEntrypointArgs(
-			fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
+			fmt.Sprintf("--output-file=%s", DepsOutputDepMountPath),
 			fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		),
 	)
@@ -653,10 +679,16 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	args := []string{}
 	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
 		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
-		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
 		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
 		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
 	}
+	if a.depPath != "" {
+		volumes[a.depPath] = OutputDepPath
+		staticReportArgs = append(staticReportArgs, fmt.Sprintf("--deps-output-list=%s", DepsOutputDepMountPath))
+	} else {
+		staticReportArgs = append(staticReportArgs, fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+	}
+
 	cpArgs := []string{"&& cp -r",
 		"/usr/local/static-report", OutputPath}
 

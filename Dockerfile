@@ -30,7 +30,7 @@ RUN CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -o windows-kantra main.g
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 
-RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/output /opt/xmlrules /opt/shimoutput
+RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/output /opt/dep /opt/xmlrules /opt/shimoutput
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
