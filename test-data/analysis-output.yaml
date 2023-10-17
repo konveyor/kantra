@@ -19,6 +19,44 @@
   - spring-boot-to-azure-schedule-job-01000
   - spring-boot-to-azure-static-content-01000
   - spring-boot-to-azure-zipkin-01000
+- name: camel3
+  description: Rules for changes between Camel 3.0 and Camel 4.0
+  skipped:
+  - xml-removed-camel4-00001
+  - xml-removed-camel4-00002
+  - xml-removed-camel4-00003
+  - xml-removed-camel4-00004
+  - xml-removed-camel4-00005
+  - xml-removed-camel4-00006
+  - xml-removed-camel4-00007
+  - xml-removed-camel4-00008
+  - xml-removed-camel4-00010
+  - xml-removed-camel4-00011
+  - xml-removed-camel4-00012
+  - xml-removed-camel4-00013
+  - xml-removed-camel4-00014
+  - xml-removed-camel4-00015
+  - xml-removed-camel4-00016
+  - xml-removed-camel4-00017
+  - xml-removed-camel4-00018
+  - xml-removed-camel4-00019
+  - xml-removed-camel4-00020
+  - xml-removed-camel4-00021
+  - xml-removed-camel4-00022
+  - xml-removed-camel4-00023
+  - xml-removed-camel4-00024
+  - xml-removed-camel4-00025
+  - xml-removed-camel4-00026
+  - xml-removed-camel4-00027
+  - xml-removed-camel4-00028
+  - xml-removed-camel4-00029
+  - xml-removed-camel4-00030
+  - xml-removed-camel4-00031
+  - xml-removed-camel4-00032
+  - xml-removed-camel4-00033
+  - xml-removed-camel4-00034
+  - xml-changedcomponent-camel4-00001
+  - xml-changedcomponent-camel4-00002
 - name: camel3/camel2
   description: This ruleset provides analysis with respect to the missing dependencies in Apache Camel 3 due to Java 11 adoption.
   skipped:
@@ -138,8 +176,6 @@
       labels:
       - konveyor.io/target=cloud-readiness
       - discovery
-      - konveyor.io/source
-      - konveyor.io/target
       incidents:
       - uri: file:///opt/input/source/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
@@ -172,7 +208,6 @@
   - windup-discover-spring-configuration
   - windup-discover-jpa-configuration
   - windup-discover-web-configuration
-  - windup-discover-jpa-configuration
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge Is Everything) API in the upgrade from version 5 to 6.
   skipped:
@@ -1325,6 +1360,10 @@
   - hibernate-08000
   - hibernate-09000
   - hibernate-10000
+- name: jws5
+  description: This ruleset provides analysis of applications that need to change their pom dependencies to upgrade dependencies that belong to the groupId `org.apache.tomcat`
+  skipped:
+  - upgrade-tomcat-dependencies-00001
 - name: openjdk11/openjdk8
   description: This ruleset provides analysis with respect to API removals between OpenJDK 8 and 11.
   skipped:
@@ -1345,6 +1384,25 @@
   - removed-javaee-modules-00000
   - removed-javaee-modules-00010
   - removed-javaee-modules-00020
+- name: openjdk17
+  description: This ruleset provides analysis regarding removed APIs in OpenJDK 18 to 21.
+  skipped:
+  - deprecation-00000
+  - deprecation-00005
+  - deprecation-00010
+  - deprecation-00020
+  - deprecation-00030
+  - dynamic-agents-00000
+  - finalization-deprecation-00000
+  - finalization-deprecation-00010
+  - removed-apis-00000
+  - removed-apis-00005
+  - removed-apis-00010
+  - removed-apis-00015
+  - utf-8-by-default-00000
+  - utf-8-by-default-00010
+  - utf-8-by-default-00020
+  - utf-8-by-default-00030
 - name: openjdk17/openjdk11
   description: This ruleset provides analysis Security Manager classes and methods deprecated between OpenJDK 11 to 17.
   skipped:
@@ -1520,17 +1578,17 @@
   - logging-0000
   - logging-0001
   - jca-00000
-  - local-storage-00004
   - local-storage-00003
+  - local-storage-00004
   - session-00000
   - java-rmi-00000
   - logging-0001
-  - logging-0000
-  - java-rpc-00000
   - socket-communication-00001
-  - mail-00000
   - local-storage-00005
+  - mail-00000
+  - logging-0000
   - session-00001
+  - java-rpc-00000
   - local-storage-00002
   - socket-communication-00000
 - name: os/windows
@@ -1541,11 +1599,91 @@
 - name: quarkus/springboot
   description: This ruleset gives hints to migrate from Spring Scheduled to Quarkus spring-scheduled extension
   skipped:
+  - quarkus-agroal-00000
+  - quarkus-agroal-00010
+  - quarkus-amazon-dynamodb-00000
+  - quarkus-amazon-dynamodb-00010
+  - quarkus-amazon-iam-00000
+  - quarkus-amazon-iam-00010
+  - quarkus-amazon-kms-00000
+  - quarkus-amazon-kms-00010
+  - quarkus-amazon-lambda-http-00000
+  - quarkus-amazon-lambda-http-00010
+  - quarkus-amazon-lambda-rest-00000
+  - quarkus-amazon-lambda-rest-00010
+  - quarkus-amazon-lambda-xray-00000
+  - quarkus-amazon-lambda-xray-00010
+  - quarkus-amazon-s3-00000
+  - quarkus-amazon-s3-00010
+  - quarkus-amazon-ses-00000
+  - quarkus-amazon-ses-00010
+  - quarkus-amazon-sns-00000
+  - quarkus-amazon-sns-00010
+  - quarkus-amazon-sqs-00000
+  - quarkus-amazon-sqs-00010
+  - quarkus-amazon-ssm-00000
+  - quarkus-amazon-ssm-00010
+  - quarkus-apicurio-registry-avro-00000
+  - quarkus-apicurio-registry-avro-00010
+  - quarkus-artemis-jms-00000
+  - quarkus-artemis-jms-00010
+  - quarkus-avro-00000
+  - quarkus-avro-00010
+  - quarkus-config-yaml-00000
+  - quarkus-config-yaml-00010
+  - quarkus-elytron-security-jdbc-00000
+  - quarkus-elytron-security-jdbc-00010
+  - quarkus-elytron-security-ldap-00000
+  - quarkus-elytron-security-ldap-00010
+  - quarkus-elytron-security-oauth2-00000
+  - quarkus-elytron-security-oauth2-00010
+  - quarkus-flyway-00000
+  - quarkus-flyway-00010
+  - quarkus-hibernate-envers-00000
+  - quarkus-hibernate-envers-00010
+  - quarkus-hibernate-reactive-00000
+  - quarkus-hibernate-reactive-00010
+  - quarkus-hibernate-search-orm-elasticsearch-aws-00000
+  - quarkus-hibernate-search-orm-elasticsearch-aws-00010
+  - quarkus-hibernate-validator-00000
+  - quarkus-hibernate-validator-00010
+  - quarkus-jdbc-db2-00000
+  - quarkus-jdbc-db2-00010
+  - quarkus-jdbc-derby-00000
+  - quarkus-jdbc-derby-00010
+  - quarkus-jdbc-mariadb-00000
+  - quarkus-jdbc-mariadb-00010
+  - quarkus-jdbc-mysql-00000
+  - quarkus-jdbc-mysql-00010
+  - quarkus-jdbc-oracle-00000
+  - quarkus-jdbc-oracle-00010
+  - quarkus-jdbc-postgresql-00000
+  - quarkus-jdbc-postgresql-00010
+  - quarkus-jsonb-00000
+  - quarkus-jsonb-00010
+  - quarkus-jsonp-00000
+  - quarkus-jsonp-00010
+  - quarkus-kafka-client-00000
+  - quarkus-kafka-client-00010
+  - quarkus-kafka-streams-00000
+  - quarkus-kafka-streams-00010
+  - quarkus-keycloak-admin-client-00000
+  - quarkus-keycloak-admin-client-00010
+  - quarkus-kubernetes-client-00000
+  - quarkus-kubernetes-client-00010
+  - quarkus-liquibase-00000
+  - quarkus-liquibase-00010
+  - quarkus-liquibase-mongodb-00000
+  - quarkus-liquibase-mongodb-00010
   - springboot-actuator-to-quarkus-0100
   - springboot-actuator-to-quarkus-0200
   - springboot-annotations-to-quarkus-00000
   - springboot-cache-to-quarkus-00000
   - springboot-cloud-config-client-to-quarkus-00000
+  - quarkus-logging-gelf-00000
+  - quarkus-logging-gelf-00010
+  - quarkus-logging-sentry-00000
+  - quarkus-logging-sentry-00010
   - springboot-jpa-to-quarkus-00000
   - springboot-devtools-to-quarkus-0000
   - springboot-di-to-quarkus-00000
@@ -1568,6 +1706,8 @@
   - springboot-properties-to-quarkus-00004
   - springboot-properties-to-quarkus-00005
   - springboot-properties-to-quarkus-00006
+  - quarkus-micrometer-registry-prometheus-00000
+  - quarkus-micrometer-registry-prometheus-00010
   - springboot-scheduled-to-quarkus-00000
   - springboot-security-to-quarkus-00000
   - springboot-shell-to-quarkus-00000
@@ -1575,6 +1715,41 @@
   - springboot-web-to-quarkus-00010
   - springboot-webmvc-to-quarkus-00000
   - springboot-webmvc-to-quarkus-01000
+  - quarkus-narayana-jta-00000
+  - quarkus-narayana-jta-00010
+  - quarkus-narayana-lra-00000
+  - quarkus-narayana-lra-00010
+  - quarkus-narayana-stm-00000
+  - quarkus-narayana-stm-00010
+  - quarkus-openshift-client-00000
+  - quarkus-openshift-client-00010
+  - cdi-to-quarkus-00000
+  - cdi-to-quarkus-00020
+  - cdi-to-quarkus-00030
+  - cdi-to-quarkus-00040
+  - cdi-to-quarkus-00050
+  - dependency-removal-for-quarkus-00000
+  - javaee-faces-to-quarkus-00000
+  - javaee-pom-to-quarkus-00000
+  - javaee-pom-to-quarkus-00010
+  - javaee-pom-to-quarkus-00020
+  - javaee-pom-to-quarkus-00030
+  - javaee-pom-to-quarkus-00040
+  - javaee-pom-to-quarkus-00050
+  - javaee-pom-to-quarkus-00060
+  - javaee-pom-to-quarkus-00070
+  - javaee-pom-to-quarkus-00080
+  - jaxrs-to-quarkus-00000
+  - jaxrs-to-quarkus-00010
+  - jaxrs-to-quarkus-00020
+  - quarkus-opentelemetry-exporter-jaeger-00000
+  - quarkus-opentelemetry-exporter-jaeger-00010
+  - quarkus-opentelemetry-exporter-otlp-00000
+  - quarkus-opentelemetry-exporter-otlp-00010
+  - quarkus-picocli-00000
+  - quarkus-picocli-00010
+  - quarkus-resteasy-multipart-00000
+  - quarkus-resteasy-multipart-00010
 - name: rhr/springboot
   description: Verify the version of the Spring Boot framework is compatible with those supported by Red Hat Runtimes
   skipped:
@@ -1597,7 +1772,58 @@
   - springboot-00002
 - name: technology-usage
   description: This ruleset adds tags the configuration management technologies so are appropriately categorized on the technology reports.
-  skipped:
+  tags:
+  - Bean=EJB XML
+  - Java EE=EJB XML
+  - Connect=EJB XML
+  - Sustain=Properties
+  - Embedded=Properties
+  - Other=Properties
+  - Spring configuration properties annotation detected
+  - Spring Properties
+  - Spring Scheduled
+  - Embedded framework - Spring Scheduled
+  - Java Threads
+  - Threads
+  - Java EE Batch
+  - Execute=Java EE Batch
+  - Processing=Java EE Batch
+  - Java EE=Java EE Batch
+  - CDI
+  - Execute=CDI
+  - Inversion of Control=CDI
+  - Java EE=CDI
+  - Java EE JSON-P
+  - Execute=Java EE JSON-P
+  - Processing=Java EE JSON-P
+  - Java EE=Java EE JSON-P
+  - Servlet
+  - Java Servlet
+  - HTTP=Servlet
+  - Connect=Servlet
+  - Java EE=Servlet
+  - Spring MVC
+  - Embedded framework - Spring MVC
+  - Spring JMX
+  - Spring JMX configuration detected
+  - Execute=Spring Scheduled
+  - Processing=Spring Scheduled
+  - Embedded=Spring Scheduled
+  - Connect=JNI
+  - Other=JNI
+  - Java EE=JNI
+  - Mail usage
+  - Connect=Mail
+  - Other=Mail
+  - Java EE=Mail
+  - JCA usage
+  - Connect=JCA
+  - Other=JCA
+  - Java EE=JCA
+  - Embedded=Spring Properties
+  - Sustain=Spring Properties
+  - Configuration Management=Spring Properties
+  unmatched:
   - technology-usage-web-01000
   - technology-usage-web-01100
   - technology-usage-web-01300
@@ -1677,7 +1903,6 @@
   - technology-usage-security-03500
   - observability-technology-usage-0100
   - observability-technology-usage-0200
-  - non-xml-technology-usage-02000
   - non-xml-technology-usage-05000
   - non-xml-technology-usage-06000
   - non-xml-technology-usage-12000
@@ -1686,7 +1911,6 @@
   - non-xml-technology-usage-17000
   - non-xml-technology-usage-18000
   - non-xml-technology-usage-19000
-  - non-xml-technology-usage-20000
   - non-xml-technology-usage-21000
   - non-xml-technology-usage-22000
   - non-xml-technology-usage-23000
@@ -1820,7 +2044,6 @@
   - configuration-management-0200
   - configuration-management-0300
   - configuration-management-0400
-  - configuration-management-0500
   - connect-01400
   - connect-01500
   - connect-01600
@@ -1911,7 +2134,6 @@
   - embedded-framework-08400
   - embedded-framework-08500
   - embedded-framework-08600
-  - embedded-framework-08700
   - embedded-framework-08800
   - embedded-framework-08900
   - embedded-framework-09100
@@ -1935,8 +2157,6 @@
   - integration-00015
   - integration-00016
   - integration-00017
-  - javase-01000
-  - javase-01100
   - jta-00020
   - jta-00030
   - jta-00040
@@ -1958,14 +2178,8 @@
   - jta-00200
   - jta-00210
   - javaee-technology-usage-00010
-  - javaee-technology-usage-00011
   - javaee-technology-usage-00012
-  - javaee-technology-usage-00013
-  - javaee-technology-usage-00020-javax
   - javaee-technology-usage-00020-jakarta
-  - javaee-technology-usage-00021
-  - javaee-technology-usage-00030
-  - javaee-technology-usage-00031
   - javaee-technology-usage-00040
   - javaee-technology-usage-00050
   - javaee-technology-usage-00060
@@ -1974,7 +2188,6 @@
   - javaee-technology-usage-00090
   - javaee-technology-usage-00100
   - javaee-technology-usage-00110
-  - javaee-technology-usage-00120
   - javaee-technology-usage-00130
   - javaee-technology-usage-00140
   - javaee-technology-usage-00150
@@ -1985,7 +2198,6 @@
   - javaee-technology-usage-00200
   - javaee-technology-usage-00210
   - javaee-technology-usage-00220
-  - javaee-technology-usage-00230
   - javaee-technology-usage-00902
   - javaee-technology-usage-00903
   - javaee-technology-usage-00905
@@ -2044,7 +2256,6 @@
   - mvc-01000
   - mvc-01100
   - mvc-01200
-  - mvc-01210
   - mvc-01220
   - mvc-01300
   - mvc-01400
@@ -2095,7 +2306,6 @@
   - mvc-05900
   - mvc-06000
   - observability-0100
-  - observability-0200
   - security-01100
   - security-01200
   - security-01300
@@ -2245,7 +2455,6 @@
   - technology-usage-embedded-framework-08400
   - technology-usage-embedded-framework-08500
   - technology-usage-embedded-framework-08600
-  - technology-usage-embedded-framework-08700
   - technology-usage-embedded-framework-08800
   - technology-usage-embedded-framework-08900
   - technology-usage-embedded-framework-09000
@@ -2271,10 +2480,7 @@
   - technology-usage-database-02900
   - technology-usage-database-03100
   - technology-usage-database-03200
-  - technology-usage-connect-01100
   - technology-usage-connect-01101
-  - technology-usage-connect-01200
-  - technology-usage-connect-01300
   - technology-usage-connect-01400
   - technology-usage-connect-01500
   - technology-usage-connect-01600
@@ -2292,7 +2498,6 @@
   - technology-usage-connect-02800
   - configuration-management-technology-usage-0100
   - configuration-management-technology-usage-0200
-  - configuration-management-technology-usage-0300
   - technology-usage-clustering-01000
   - technology-usage-clustering-02000
   - technology-usage-3rd-party-01000
