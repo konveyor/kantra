@@ -4,7 +4,7 @@ FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
 RUN microdnf -y install git &&\
     git clone https://github.com/konveyor/rulesets &&\
-    git clone https://github.com/windup/windup-rulesets -b 6.2.3.Final
+    git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
 FROM quay.io/konveyor/static-report as static-report
 
