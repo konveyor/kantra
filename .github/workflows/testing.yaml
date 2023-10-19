@@ -20,7 +20,7 @@ jobs:
 
       - name: Run analysis test and copy output
         run: |
-          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/ --target cloud-readiness
+          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/ --rules ./test-data/jni-native-code-test.windup.xml
       
       - name: Fail if analysis output does not match expected
         run: |
@@ -43,3 +43,9 @@ jobs:
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+
+      - name: Fail if xml rule is not in analysis output as violation
+        run: |
+          actual_file=./output/output.yaml
+          grep violations -A 1 analysis-output.yaml | grep jni-native-code-00000-test -B 1
+    
