@@ -28,7 +28,8 @@ jobs:
           actual_file=./output/output.yaml
           function filter_and_sort() {
             yq e 'del(.[].skipped) | del(.[].unmatched)' $1 > /tmp/filtered
-            yq e '(.[] | select(.violations != null) | .violations |= (. | to_entries | sort_by(.key) | from_entries))' /tmp/filtered > $1
+            yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' /tmp/filtered > /tmp/sorted
+            yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' /tmp/sorted > $1 
           }
           filter_and_sort $expected_file
           filter_and_sort $actual_file
