@@ -8,6 +8,7 @@ import (
 func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 	tests := []struct {
 		name    string
+		labelSelector string
 		sources []string
 		targets []string
 		want    string
@@ -47,12 +48,32 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			sources: []string{"t1", "t2"},
 			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && (konveyor.io/source=t1 || konveyor.io/source=t2)) || (discovery)",
 		},
+		{
+			name:    "return the labelSelector when specified",
+			labelSelector: "example.io/target=foo",
+			want:    "example.io/target=foo",
+		},
+		{
+			name:    "labelSelector should win",
+			targets: []string{"t1", "t2"},
+			sources: []string{"t1", "t2"},
+			labelSelector: "example.io/target=foo",
+			want:    "example.io/target=foo",
+		},
+		{
+			name:    "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",
+			targets: []string{"t1", "t2"},
+			sources: []string{"t1", "t2"},
+			labelSelector: "",
+			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && (konveyor.io/source=t1 || konveyor.io/source=t2)) || (discovery)",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := &analyzeCommand{
 				sources: tt.sources,
 				targets: tt.targets,
+				labelSelector: tt.labelSelector,
 			}
 			if got := a.getLabelSelector(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("analyzeCommand.getLabelSelectorArgs() = %v, want %v", got, tt.want)

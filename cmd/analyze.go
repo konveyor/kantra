@@ -51,6 +51,7 @@ type analyzeCommand struct {
 	mavenSettingsFile     string
 	sources               []string
 	targets               []string
+	labelSelector         string
 	input                 string
 	output                string
 	mode                  string
@@ -136,6 +137,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis")
+	analyzeCommand.Flags().StringVarP(&analyzeCmd.labelSelector, "label-selector", "l", "", "run rules based on specified label selector expression")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.rules, "rules", []string{}, "filename or directory containing rule files")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "path to application source code or a binary")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "path to the directory for analysis output")
@@ -151,6 +153,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 func (a *analyzeCommand) Validate() error {
 	if a.listSources || a.listTargets {
 		return nil
+	}
+	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
+		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
 	stat, err := os.Stat(a.output)
 	if err != nil {
@@ -534,6 +539,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		args = append(args,
 			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
 	}
+
 	labelSelector := a.getLabelSelector()
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
@@ -698,6 +704,9 @@ func (a *analyzeCommand) Clean(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) getLabelSelector() string {
+	if a.labelSelector != "" {
+		return a.labelSelector
+	}
 	if (a.sources == nil || len(a.sources) == 0) &&
 		(a.targets == nil || len(a.targets) == 0) {
 		return ""
