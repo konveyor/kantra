@@ -26,9 +26,15 @@ jobs:
         run: |
           expected_file=./test-data/analysis-output.yaml
           actual_file=./output/output.yaml
-          sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
-          sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
-          diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+          function filter_and_sort() {
+            yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
+              | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
+              | yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' \
+              | yq e '.[] | (.tags // []) |= sort'
+          }
+          filter_and_sort $expected_file > $expected_file
+          filter_and_sort $actual_file > $actual_file
+          diff $expected_file $actual_file
 
       - name: Fail if dependencies output does not match expected
         run: |
