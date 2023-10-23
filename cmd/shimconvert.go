@@ -18,12 +18,14 @@ type windupShimCommand struct {
 	input  []string
 	output string
 
-	log logr.Logger
+	log     logr.Logger
+	cleanup bool
 }
 
 func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 	windupShimCmd := &windupShimCommand{
-		log: log,
+		log:     log,
+		cleanup: true,
 	}
 
 	windupShimCommand := &cobra.Command{
@@ -45,6 +47,9 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
+				windupShimCmd.cleanup = !val
+			}
 			err := windupShimCmd.Run(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to execute windup shim")
@@ -129,7 +134,10 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		w.log.V(1).Error(err, "failed to create temp dir for rules")
 		return err
 	}
-	defer os.RemoveAll(tempDir)
+	w.log.V(1).Info("created temp directory for XML rules", "dir", tempDir)
+	if w.cleanup {
+		defer os.RemoveAll(tempDir)
+	}
 	volumes := map[string]string{
 		w.output: ShimOutputPath,
 	}
@@ -140,17 +148,28 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	}
 	maps.Copy(volumes, ruleVols)
 
+	shimLogPath := filepath.Join(w.output, "shim.log")
+	shimLog, err := os.Create(shimLogPath)
+	if err != nil {
+		return fmt.Errorf("failed creating shim log file %s", shimLogPath)
+	}
+	defer shimLog.Close()
+
 	args := []string{"convert",
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
 	w.log.Info("running windup-shim convert command",
 		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
+	w.log.Info("generating shim log in file", "file", shimLogPath)
 	err = NewContainer(w.log).Run(
 		ctx,
 		WithVolumes(volumes),
+		WithStdout(shimLog),
+		WithStderr(shimLog),
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/local/bin/windup-shim"),
+		WithCleanup(w.cleanup),
 	)
 	if err != nil {
 		w.log.V(1).Error(err, "failed to run convert command")

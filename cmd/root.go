@@ -15,6 +15,7 @@ import (
 
 const (
 	noCleanupFlag = "no-cleanup"
+	logLevelFlag  = "log-level"
 )
 
 var logLevel uint32
@@ -36,7 +37,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().Uint32Var(&logLevel, "log-level", 4, "log level")
+	rootCmd.PersistentFlags().Uint32Var(&logLevel, logLevelFlag, 4, "log level")
 	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "do not cleanup temporary resources")
 
 	logrusLog = logrus.New()
