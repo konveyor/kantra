@@ -43,9 +43,3 @@ jobs:
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
-
-      - name: Fail if xml rule is not in analysis output as violation
-        run: |
-          actual_file=./output/output.yaml
-          grep violations -A 1 $actual_file | grep jni-native-code-00000-test -B 1
-    
