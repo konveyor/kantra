@@ -13,11 +13,29 @@ podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download 
 
 ### MacOS
 
-**Note:** On MacOS, in order to correctly mount volumes, your podman machine must contain options:
+**Note:** There is a known [issue](https://github.com/containers/podman/issues/16106)
+with limited number of open files in mounted volumes on MacOS, which may affect kantra performance.
+
+Prior to starting your podman machine, run:
+
+```sh
+ulimit -n unlimited
+```
+
+ - This must be run after each podman machine reboot.
+
+In order to correctly mount volumes, your podman machine must contain options:
 
 ```sh
 podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
 ```
+
+Increase podman resources:
+
+```sh
+podman machine set <vm_name> --cpus 4 --memory 4096
+```
+
 
 Ensure that we use the connection to the VM `<vm_name>` we created earlier by default:
 
