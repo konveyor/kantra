@@ -18,11 +18,13 @@ type openRewriteCommand struct {
 	goal        string
 	miscOpts    string
 	log         logr.Logger
+	cleanup     bool
 }
 
 func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 	openRewriteCmd := &openRewriteCommand{
-		log: log,
+		log:     log,
+		cleanup: true,
 	}
 
 	openRewriteCommand := &cobra.Command{
@@ -36,6 +38,9 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 			}
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
+				openRewriteCmd.cleanup = !val
+			}
 			err := openRewriteCmd.Validate()
 			if err != nil {
 				log.Error(err, "failed validating input args")
@@ -144,6 +149,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		WithEntrypointBin("/usr/bin/mvn"),
 		WithVolumes(volumes),
 		WithWorkDir(InputPath),
+		WithCleanup(o.cleanup),
 	)
 	if err != nil {
 		o.log.V(1).Error(err, "error running openrewrite")

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -62,12 +61,15 @@ type analyzeCommand struct {
 	log      logr.Logger
 	// isFileInput is set when input points to a file and not a dir
 	isFileInput bool
+	logLevel    *uint32
+	cleanup     bool
 }
 
 // analyzeCmd represents the analyze command
 func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCmd := &analyzeCommand{
-		log: log,
+		log:     log,
+		cleanup: true,
 	}
 
 	analyzeCommand := &cobra.Command{
@@ -91,6 +93,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if val, err := cmd.Flags().GetUint32(logLevelFlag); err == nil {
+				analyzeCmd.logLevel = &val
+			}
+			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
+				analyzeCmd.cleanup = !val
+			}
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
 				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
@@ -122,9 +130,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		PostRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.PersistentFlags().Changed(noCleanupFlag) {
-				return nil
-			}
 			err := analyzeCmd.Clean(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to clean temporary container resources")
@@ -249,6 +254,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			WithVolumes(volumes),
 			WithEntrypointBin("/usr/local/bin/kantra"),
 			WithEntrypointArgs(args...),
+			WithCleanup(a.cleanup),
 		)
 		if err != nil {
 			a.log.Error(err, "failed listing labels")
@@ -405,7 +411,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		a.log.V(1).Error(err, "failed to marshal provider config")
 		return nil, err
 	}
-	err = ioutil.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
+	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to write provider config", "dir", tempDir, "file", "settings.json")
 		return nil, err
@@ -491,7 +497,7 @@ func createTempRuleSet(path string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, yamlData, os.ModePerm)
+	err = os.WriteFile(path, yamlData, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -539,7 +545,9 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		args = append(args,
 			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
 	}
-
+	if a.logLevel != nil {
+		args = append(args, fmt.Sprintf("--verbose=%d", *a.logLevel))
+	}
 	labelSelector := a.getLabelSelector()
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
@@ -561,14 +569,16 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 
 	a.log.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
+	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
 	// TODO (pgaikwad): run analysis & deps in parallel
 	err = NewContainer(a.log).Run(
 		ctx,
 		WithVolumes(volumes),
-		WithStdout(os.Stdout, analysisLog),
-		WithStderr(os.Stdout, analysisLog),
+		WithStdout(analysisLog),
+		WithStderr(analysisLog),
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/bin/konveyor-analyzer"),
+		WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
@@ -576,16 +586,18 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 
 	a.log.Info("running dependency analysis",
 		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+	a.log.Info("generating dependency log in file", "file", depsLogFilePath)
 	err = NewContainer(a.log).Run(
 		ctx,
-		WithStdout(os.Stdout, dependencyLog),
-		WithStderr(os.Stderr, dependencyLog),
+		WithStdout(dependencyLog),
+		WithStderr(dependencyLog),
 		WithVolumes(volumes),
 		WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
 		WithEntrypointArgs(
 			fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
 			fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		),
+		WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
@@ -601,7 +613,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	outputPath := filepath.Join(a.output, "output.yaml")
 	depPath := filepath.Join(a.output, "dependencies.yaml")
 
-	data, err := ioutil.ReadFile(outputPath)
+	data, err := os.ReadFile(outputPath)
 	if err != nil {
 		return err
 	}
@@ -617,13 +629,13 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 		a.log.V(1).Error(err, "failed to marshal output file to json")
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(a.output, "output.json"), jsonData, os.ModePerm)
+	err = os.WriteFile(filepath.Join(a.output, "output.json"), jsonData, os.ModePerm)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to write json output", "dir", a.output, "file", "output.json")
 		return err
 	}
 
-	depData, err := ioutil.ReadFile(depPath)
+	depData, err := os.ReadFile(depPath)
 	if err != nil {
 		return err
 	}
@@ -639,7 +651,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 		a.log.V(1).Error(err, "failed to marshal dependencies file to json")
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
+	err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
 		return err
@@ -681,6 +693,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		WithEntrypointArgs(staticReportCmd...),
 		WithVolumes(volumes),
 		WithcFlag(true),
+		WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
@@ -693,6 +706,9 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) Clean(ctx context.Context) error {
+	if !a.cleanup {
+		return nil
+	}
 	for _, path := range a.tempDirs {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -752,11 +768,7 @@ func (a *analyzeCommand) getLabelSelector() string {
 }
 
 func isXMLFile(rule string) bool {
-	extension := path.Ext(rule)
-	if extension == ".xml" {
-		return true
-	}
-	return false
+	return path.Ext(rule) == ".xml"
 }
 
 func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]string, error) {
@@ -806,8 +818,10 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		a.log.V(1).Error(err, "failed to create temp dir for rules")
 		return "", err
 	}
-	a.log.V(1).Info("created directory for converted XML rules", "dir", tempDir)
-	defer os.RemoveAll(tempDir)
+	a.log.V(1).Info("created directory for converted XML rules", "dir", tempOutputDir)
+	if a.cleanup {
+		defer os.RemoveAll(tempDir)
+	}
 	volumes := map[string]string{
 		tempOutputDir: ShimOutputPath,
 	}
@@ -819,16 +833,28 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 	maps.Copy(volumes, ruleVols)
 
-	a.log.Info("running windup shim", "output", a.output)
+	shimLogPath := filepath.Join(a.output, "shim.log")
+	shimLog, err := os.Create(shimLogPath)
+	if err != nil {
+		return "", fmt.Errorf("failed creating shim log file %s", shimLogPath)
+	}
+	defer shimLog.Close()
+
 	args := []string{"convert",
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
+	a.log.Info("running windup shim",
+		"output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
+	a.log.Info("generating shim log in file", "file", shimLogPath)
 	err = NewContainer(a.log).Run(
 		ctx,
+		WithStdout(shimLog),
+		WithStderr(shimLog),
 		WithVolumes(volumes),
 		WithEntrypointArgs(args...),
 		WithEntrypointBin("/usr/local/bin/windup-shim"),
+		WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return "", err
