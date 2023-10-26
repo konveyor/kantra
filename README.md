@@ -93,6 +93,10 @@ Flags:
 Use "kantra [command] --help" for more information about a command.
 ```
 
+Additionally, two environment variables control the container runtime and the kantra image: `PODMAN_BIN` and `RUNNER_IMG`:
+- `PODMAN_BIN`: path to your container runtime (podman or docker); ie: `PODMAN_BIN=/usr/local/bin/docker`
+- `RUNNER_IMG`: the tag of the kantra image to invoke; ie: `RUNNER_IMG=localhost/kantra:latest`
+
 ### Analyze
 
 Analyze allows running source code and binary analysis using [analyzer-lsp](https://github.com/konveyor/analyzer-lsp)
