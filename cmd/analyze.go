@@ -28,6 +28,8 @@ import (
 )
 
 var (
+	// TODO (pgaikwad): this assumes that the $USER in container is always root, it may not be the case in future
+	M2Dir = path.Join("/", "root", ".m2")
 	// application source path inside the container
 	SourceMountPath = path.Join(InputPath, "source")
 	// analyzer config files
@@ -55,6 +57,7 @@ type analyzeCommand struct {
 	output                string
 	mode                  string
 	rules                 []string
+	jaegerEndpoint        string
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -151,6 +154,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 
 	return analyzeCommand
 }
@@ -334,6 +338,8 @@ func listOptionsFromLabels(sl []string, label string) {
 		fmt.Println("available target technologies:")
 	}
 	for _, tech := range newSl {
+		tech = strings.TrimSuffix(tech, "+")
+		tech = strings.TrimSuffix(tech, "-")
 		fmt.Println(tech)
 	}
 }
@@ -378,6 +384,9 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		}
 		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
 	}
+	if Settings.JvmMaxMem != "" {
+		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
+	}
 
 	provConfig := []provider.Config{
 		{
@@ -413,12 +422,26 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	}
 	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to write provider config", "dir", tempDir, "file", "settings.json")
+		a.log.V(1).Error(err,
+			"failed to write provider config", "dir", tempDir, "file", "settings.json")
 		return nil, err
 	}
-	return map[string]string{
+
+	vols := map[string]string{
 		tempDir: ConfigMountPath,
-	}, nil
+	}
+	// attempt to create a .m2 directory we can use to speed things a bit
+	// this will be shared between analyze and dep command containers
+	m2Dir, err := os.MkdirTemp("", "m2-repo-")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
+	} else {
+		vols[m2Dir] = M2Dir
+		a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
+		a.tempDirs = append(a.tempDirs, m2Dir)
+	}
+
+	return vols, nil
 }
 
 func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
@@ -540,6 +563,11 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		fmt.Sprintf("--rules=%s/", RulesetPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", 100),
+	}
+	if a.jaegerEndpoint != "" {
+		args = append(args, "--enable-jaeger")
+		args = append(args, "--jaeger-endpoint")
+		args = append(args, a.jaegerEndpoint)
 	}
 	if !a.analyzeKnownLibraries {
 		args = append(args,
