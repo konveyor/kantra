@@ -36,8 +36,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/invopop/yaml v0.1.0 h1:YW3WGUoJEXYfzWBjn00zIlrw7brGVD0fUKRYDPAPhrc=
 github.com/invopop/yaml v0.1.0/go.mod h1:2XuRLgs/ouIrW3XNzuNj7J3Nvu/Dig5MXvbCEdiBN3Q=
-github.com/konveyor/analyzer-lsp v0.3.0-alpha.1 h1:RilOnB9E6+zDSDQs4vBVPMITuSD3o+6P0dkXWW2H3YQ=
-github.com/konveyor/analyzer-lsp v0.3.0-alpha.1/go.mod h1:Rv2WcWfVMEGEWqn0Fl4U4NcmJYPrmWdPtaFE9KDVVF8=
+github.com/konveyor/analyzer-lsp v0.3.0-beta.1.2 h1:yZh5rTZYq1XYzDei3/zwZOqE8XktftaETNycV3Q7ACE=
+github.com/konveyor/analyzer-lsp v0.3.0-beta.1.2/go.mod h1:zJCmIq08X0kPvtU8ZSmz+mZmQfBt4hdy9enoEy1AQw4=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.0 h1:s5hAObm+yFO5uHYt5dYjxi2rXrsnmRpJx4OYvIWUaQs=
 github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
