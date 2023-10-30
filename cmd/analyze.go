@@ -49,6 +49,7 @@ type analyzeCommand struct {
 	skipStaticReport      bool
 	analyzeKnownLibraries bool
 	jsonOutput            bool
+	overwrite             bool
 	mavenSettingsFile     string
 	sources               []string
 	targets               []string
@@ -154,6 +155,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 
 	return analyzeCommand
@@ -165,6 +167,10 @@ func (a *analyzeCommand) Validate() error {
 	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
+	}
+	err := a.CheckOverwriteOutput()
+	if err != nil {
+		return err
 	}
 	stat, err := os.Stat(a.output)
 	if err != nil {
@@ -211,6 +217,26 @@ func (a *analyzeCommand) Validate() error {
 	}
 	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
 		a.mavenSettingsFile = absPath
+	}
+	return nil
+}
+
+func (a *analyzeCommand) CheckOverwriteOutput() error {
+	// default overwrite to false so check for already existing output dir
+	stat, err := os.Stat(a.output)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if !a.overwrite && stat != nil {
+		return fmt.Errorf("output dir %v already exists and --overwrite not set", a.output)
+	}
+	if a.overwrite && stat != nil {
+		err := os.RemoveAll(a.output)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
