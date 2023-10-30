@@ -24,7 +24,6 @@ var noCleanup bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	// TODO: better descriptions
 	Short:        "A cli tool for analysis and transformation of applications",
 	Long:         ``,
 	SilenceUsage: true,
