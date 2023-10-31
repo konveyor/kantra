@@ -128,33 +128,10 @@ func NewContainer(log logr.Logger) *container {
 	}
 }
 
-func (c *container) Exists(ctx context.Context) (bool, error) {
-	cmd := exec.CommandContext(ctx,
-		Settings.PodmanBinary,
-		"ps", "-a", "--format", "{{.Names}}")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false, fmt.Errorf("%w failed checking status of container %s", err, c.name)
-	}
-	for _, found := range strings.Split(string(output), "\n") {
-		if found == c.name {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func (c *container) Run(ctx context.Context, opts ...Option) error {
 	var err error
 	for _, opt := range opts {
 		opt(c)
-	}
-	exists, err := c.Exists(ctx)
-	if err != nil {
-		return fmt.Errorf("%w failed to check status of container %s", err, c.name)
-	}
-	if exists {
-		return fmt.Errorf("container %s already exists, must remove existing before running", c.name)
 	}
 	args := []string{"run"}
 	os := runtime.GOOS
@@ -175,7 +152,6 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		// TODO: check this on windows
 		if os == "linux" {
 			args = append(args, fmt.Sprintf("%s:%s:Z",
 				filepath.Clean(sourcePath), path.Clean(destPath)))
@@ -219,34 +195,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	return nil
 }
 
-func (c *container) Cp(ctx context.Context, src string, dest string) error {
-	if src == "" || dest == "" {
-		return fmt.Errorf("source or dest cannot be empty")
-	}
-	exists, err := c.Exists(ctx)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("container %s does not exist, cannot copy from non-existing container", c.name)
-	}
-	cmd := exec.CommandContext(
-		ctx,
-		Settings.PodmanBinary,
-		"cp", fmt.Sprintf("%s:%s", c.name, src), dest)
-	c.log.V(1).Info("copying files from container",
-		"podman", Settings.PodmanBinary, "src", src, "dest", dest)
-	return cmd.Run()
-}
-
 func (c *container) Rm(ctx context.Context) error {
-	exists, err := c.Exists(ctx)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return nil
-	}
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.PodmanBinary,
