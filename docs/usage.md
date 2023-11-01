@@ -1,8 +1,13 @@
-## Known differences between Windup and kantra output
+## Output
+
+
+#### Default rules:
+
+- the analyze command runs against a set of packaged rules [here](https://github.com/konveyor/rulesets/)
+- `--label-selector` and/or `--target` can filter these rules
+- `--rules` can be provided to run analyze on rules outside of this set
 
 #### `--rules` + `--target`
-- In Windup, you can specify a custom rule with a target. If the custom rule does not
-have a label with the given target specified, it will **still** run the rule.  
 
 - In kantra, if a rule is given as well as a target, but the given rule **does not**
 have the target label, the given rule will not match. 
