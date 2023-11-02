@@ -93,9 +93,6 @@ Flags:
 Use "kantra [command] --help" for more information about a command.
 ```
 
-Additionally, two environment variables control the container runtime and the kantra image: `PODMAN_BIN` and `RUNNER_IMG`:
-- `PODMAN_BIN`: path to your container runtime (podman or docker); ie: `PODMAN_BIN=/usr/local/bin/docker`
-- `RUNNER_IMG`: the tag of the kantra image to invoke; ie: `RUNNER_IMG=localhost/kantra:latest`
 
 ### Analyze
 
@@ -210,50 +207,7 @@ To run `transform rules` on application source code, run:
 kantra transform rules --input=<path/to/xmlrules> --output=<path/to/output/dir>
 ```
 
-## Quick Demos
-
-Once you have kantra installed, these examples will help you run both an 
-analyze and a transform command.
-
-### Analyze
-
-- Get the example application to run analysis on  
-`git clone https://github.com/konveyor/example-applications`
-
-- List available target technologies  
-`kantra analyze --list-targets`
-
-- Run analysis with a specified target technology  
-`kantra analyze --input=<path-to/example-applications/example-1> --output=<path-to-output-dir> --target=cloud-readiness`
-
-- Several analysis reports will have been created in your specified output path:
-
-```sh
-$ ls ./output/ -1
-analysis.log
-dependencies.yaml
-dependency.log
-output.yaml
-static-report
-```
-
-`output.yaml` is the file that contains issues report.   
-`static-report` contains the static HTML report.  
-`dependencies.yaml`contains a dependencies report.  
-
-### Transform
-
-- Get the example application to transform source code  
-`git clone https://github.com/ivargrimstad/jakartaee-duke`
-
-- View available OpenRewrite recipes  
-`kantra transform openrewrite --list-targets` 
-
-- Run a recipe on the example application  
-`kantra transform openrewrite --input=<path-to/jakartaee-duke> --target=jakarta-imports`
-
-- Inspect the `jakartaee-duke` application source code diff to see the transformation  
-
+### analyze and transform [examples](./docs/example.md)
 
 ## Code of Conduct
 Refer to Konveyor's Code of Conduct [here](https://github.com/konveyor/community/blob/main/CODE_OF_CONDUCT.md).
