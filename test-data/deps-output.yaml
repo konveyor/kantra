@@ -116,8 +116,7 @@
     version: 2.7.7
     type: compile
     indirect: true
-    resolvedIdentifier: |
-      83cd2cd674a217ade95a4bb83a8a14f351f48bd0  /home/maven/repository-staging/to-ibiblio/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar
+    resolvedIdentifier: 83cd2cd674a217ade95a4bb83a8a14f351f48bd0
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java

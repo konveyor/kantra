@@ -9,7 +9,6 @@
       - konveyor.io/target=cloud-readiness
       - konveyor.io/source
       - jni
-      - ""
       incidents:
       - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
         message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
@@ -36,24 +35,53 @@
 - name: azure/springboot
   description: Identify Zipkin dependencies.
   skipped:
+  - azure-aws-config-credential-01000
+  - azure-aws-config-region-02000
+  - azure-aws-config-s3-03000
+  - azure-aws-config-sqs-04000
+  - azure-aws-config-secret-manager-05000
   - azure-file-system-01000
   - azure-file-system-02000
   - azure-file-system-03000
   - azure-password-01000
+  - azure-java-version-01000
+  - azure-java-version-02000
   - eap-to-azure-appservice-certificates-001
+  - azure-logging-0000
   - eap-to-azure-appservice-datasource-driver-01000
+  - azure-os-specific-00001
+  - azure-os-specific-00002
   - eap-to-azure-appservice-environment-variables-001
   - eap-to-azure-appservice-pom-001
   - spring-boot-to-azure-cache-redis-01000
+  - spring-boot-to-azure-cache-redis-02000
   - spring-boot-to-azure-database-jdbc-01000
   - spring-boot-to-azure-database-mongodb-02000
+  - spring-boot-to-azure-database-r2dbc-03000
   - spring-boot-to-azure-eureka-01000
+  - spring-boot-to-azure-eureka-02000
   - spring-boot-to-azure-feign-01000
   - spring-boot-to-azure-identity-provider-01000
+  - spring-boot-to-azure-config-server-01000
   - spring-boot-to-azure-jms-broker-01000
   - spring-boot-to-azure-schedule-job-01000
   - spring-boot-to-azure-static-content-01000
   - spring-boot-to-azure-zipkin-01000
+  - spring-boot-to-azure-java-fx-01000
+  - spring-boot-to-azure-jks-01000
+  - spring-boot-to-azure-mq-config-kafka-01000
+  - spring-boot-to-azure-mq-config-rabbitmq-01000
+  - spring-boot-to-azure-mq-config-artemis-01000
+  - spring-boot-to-azure-port-01000
+  - spring-boot-to-azure-swing-01000
+  - spring-boot-to-azure-system-config-01000
+  - spring-boot-to-azure-version-01000
+  - spring-boot-to-azure-version-02000
+  - spring-boot-to-azure-version-03000
+  - spring-cloud-to-azure-version-01000
+  - spring-cloud-to-azure-version-02000
+  - spring-cloud-to-azure-version-03000
+  - tomcat-to-azure-external-resources-01000
 - name: camel3
   description: Rules for changes between Camel 3.0 and Camel 4.0
   skipped:
@@ -212,7 +240,7 @@
       - konveyor.io/target=cloud-readiness
       - discovery
       incidents:
-      - uri: file:///opt/input/source/src/main/resources/persistence.properties
+      - uri: file:///opt/input/source/target/classes/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
@@ -224,7 +252,7 @@
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
-      - uri: file:///opt/input/source/target/classes/persistence.properties
+      - uri: file:///opt/input/source/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
@@ -243,12 +271,6 @@
   - windup-discover-spring-configuration
   - windup-discover-jpa-configuration
   - windup-discover-web-configuration
-  - discover-license
-  - discover-manifest-file
-  - windup-discover-spring-configuration
-  - windup-discover-jpa-configuration
-  - windup-discover-web-configuration
-  - windup-discover-jpa-configuration
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge Is Everything) API in the upgrade from version 5 to 6.
   skipped:
@@ -1616,22 +1638,28 @@
   - embedded-cache-libraries-13000
   - embedded-cache-libraries-14000
   - embedded-cache-libraries-15000
+  - embedded-cache-libraries-16000
   - logging-0000
   - logging-0001
   - jca-00000
-  - local-storage-00003
+  - java-corba-00000
+  - java-rpc-00000
   - local-storage-00004
   - java-rmi-00000
-  - session-00000
+  - localhost-http-00001
   - logging-0001
-  - local-storage-00002
-  - socket-communication-00001
-  - session-00001
-  - logging-0000
+  - localhost-jdbc-00002
+  - localhost-ws-00003
+  - jni-native-code-00001
+  - session-00000
   - mail-00000
-  - java-rpc-00000
-  - socket-communication-00000
+  - socket-communication-00001
+  - logging-0000
   - local-storage-00005
+  - local-storage-00006
+  - session-00001
+  - socket-communication-00000
+  - local-storage-00002
 - name: os/windows
   description: This is a ruleset for Windows operating system specific rules while migrating to Linux operating system.
   skipped:
@@ -1814,56 +1842,78 @@
 - name: technology-usage
   description: This ruleset adds tags the configuration management technologies so are appropriately categorized on the technology reports.
   tags:
-  - Bean=EJB XML
   - Java EE=EJB XML
   - Connect=EJB XML
+  - Bean=EJB XML
+  - Other=Properties
   - Sustain=Properties
   - Embedded=Properties
-  - Other=Properties
   - Spring Properties
   - Spring configuration properties annotation detected
-  - Spring Scheduled
+  - Spring Data JPA
+  - Embedded Spring Data JPA
+  - Spring DI
+  - Embedded framework - Spring DI
+  - Micrometer
+  - Embedded framework - Micrometer
+  - Spring Web
+  - Embedded framework - Spring Web
   - Embedded framework - Spring Scheduled
+  - Spring Scheduled
   - Java Threads
   - Threads
   - Java EE Batch
+  - Java EE=Java EE Batch
   - Execute=Java EE Batch
   - Processing=Java EE Batch
-  - Java EE=Java EE Batch
   - CDI
-  - Execute=CDI
   - Inversion of Control=CDI
   - Java EE=CDI
+  - Execute=CDI
   - Java EE JSON-P
+  - Execute=Java EE JSON-P
   - Processing=Java EE JSON-P
   - Java EE=Java EE JSON-P
-  - Execute=Java EE JSON-P
   - Servlet
   - Java Servlet
   - HTTP=Servlet
   - Connect=Servlet
   - Java EE=Servlet
-  - Spring MVC
   - Embedded framework - Spring MVC
+  - Spring MVC
+  - Spring Boot Actuator
+  - Embedded library - Spring Boot Actuator
   - Spring JMX
   - Spring JMX configuration detected
+  - Embedded=Spring DI
+  - Inversion of Control=Spring DI
+  - Execute=Spring DI
+  - Execute=Micrometer
+  - Embedded=Micrometer
+  - Integration=Micrometer
+  - View=Spring Web
+  - Web=Spring Web
+  - Embedded=Spring Web
   - Execute=Spring Scheduled
   - Processing=Spring Scheduled
   - Embedded=Spring Scheduled
+  - Store=Spring Data JPA
+  - Persistence=Spring Data JPA
+  - Embedded=Spring Data JPA
   - Connect=JNI
   - Other=JNI
   - Java EE=JNI
-  - Java EE=Mail
   - Mail usage
   - Connect=Mail
   - Other=Mail
+  - Java EE=Mail
   - Connect=JCA
   - Other=JCA
   - Java EE=JCA
   - JCA usage
-  - Configuration Management=Spring Properties
   - Embedded=Spring Properties
   - Sustain=Spring Properties
+  - Configuration Management=Spring Properties
   unmatched:
   - technology-usage-web-01000
   - technology-usage-web-01100
@@ -2117,7 +2167,6 @@
   - database-02800
   - database-02900
   - database-03100
-  - database-03200
   - ejb-01000
   - javase-technology-usage-01000
   - embedded-framework-01000
@@ -2170,9 +2219,6 @@
   - embedded-framework-07900
   - embedded-framework-08000
   - embedded-framework-08100
-  - embedded-framework-08200
-  - embedded-framework-08300
-  - embedded-framework-08400
   - embedded-framework-08500
   - embedded-framework-08600
   - embedded-framework-08800
@@ -2297,7 +2343,6 @@
   - mvc-01000
   - mvc-01100
   - mvc-01200
-  - mvc-01220
   - mvc-01300
   - mvc-01400
   - mvc-01500
@@ -2346,7 +2391,6 @@
   - mvc-05800
   - mvc-05900
   - mvc-06000
-  - observability-0100
   - security-01100
   - security-01200
   - security-01300
@@ -2491,9 +2535,6 @@
   - technology-usage-embedded-framework-07900
   - technology-usage-embedded-framework-08000
   - technology-usage-embedded-framework-08100
-  - technology-usage-embedded-framework-08200
-  - technology-usage-embedded-framework-08300
-  - technology-usage-embedded-framework-08400
   - technology-usage-embedded-framework-08500
   - technology-usage-embedded-framework-08600
   - technology-usage-embedded-framework-08800
@@ -2520,7 +2561,6 @@
   - technology-usage-database-02800
   - technology-usage-database-02900
   - technology-usage-database-03100
-  - technology-usage-database-03200
   - technology-usage-connect-01101
   - technology-usage-connect-01400
   - technology-usage-connect-01500
