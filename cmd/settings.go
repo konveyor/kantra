@@ -28,7 +28,10 @@ type Config struct {
 func (c *Config) Load() error {
 	envValue := os.Getenv("PODMAN_BIN")
 	if envValue == "" {
-		podmanPath, _ := exec.LookPath("podman")
+		podmanPath, err := exec.LookPath("podman")
+		if err != nil {
+			return err
+		}
 		if podmanPath != c.PodmanBinary && (podmanPath != "" || len(podmanPath) > 0) {
 			os.Setenv("PODMAN_BIN", podmanPath)
 		}
