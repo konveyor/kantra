@@ -414,22 +414,23 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
 
-	provConfig := []provider.Config{
-		{
-			Name:       "go",
-			BinaryPath: "/usr/bin/generic-external-provider",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     otherProvsMountPath,
-					AnalysisMode: provider.AnalysisMode(a.mode),
-					ProviderSpecificConfig: map[string]interface{}{
-						"name":                          "go",
-						"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
-						provider.LspServerPathConfigKey: "/root/go/bin/gopls",
-					},
+	goConfig := provider.Config{
+		Name:       "go",
+		BinaryPath: "/usr/bin/generic-external-provider",
+		InitConfig: []provider.InitConfig{
+			{
+				Location:     otherProvsMountPath,
+				AnalysisMode: provider.FullAnalysisMode,
+				ProviderSpecificConfig: map[string]interface{}{
+					"name":                          "go",
+					"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
+					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
 				},
 			},
 		},
+	}
+
+	provConfig := []provider.Config{
 		javaConfig,
 		{
 			Name: "builtin",
@@ -441,6 +442,12 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 			},
 		},
 	}
+
+	// go provider only supports full analysis mode
+	if a.mode == string(provider.FullAnalysisMode) {
+		provConfig = append(provConfig, goConfig)
+	}
+
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
 	if err != nil {
 		a.log.V(1).Error(err, "failed to marshal provider config")
