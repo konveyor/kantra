@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 
@@ -29,7 +30,7 @@ func (c *Config) Load() error {
 	envValue := os.Getenv("PODMAN_BIN")
 	if envValue == "" {
 		podmanPath, err := exec.LookPath("podman")
-		if err != nil {
+		if err != nil && errors.Is(err, exec.ErrDot) {
 			return err
 		}
 		if podmanPath != c.PodmanBinary && (podmanPath != "" || len(podmanPath) > 0) {
