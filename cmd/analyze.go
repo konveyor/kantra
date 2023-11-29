@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"runtime"
 
 	"path/filepath"
 	"sort"
@@ -463,15 +464,19 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	vols := map[string]string{
 		tempDir: ConfigMountPath,
 	}
+
 	// attempt to create a .m2 directory we can use to speed things a bit
 	// this will be shared between analyze and dep command containers
-	m2Dir, err := os.MkdirTemp("", "m2-repo-")
-	if err != nil {
-		a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
-	} else {
-		vols[m2Dir] = M2Dir
-		a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
-		a.tempDirs = append(a.tempDirs, m2Dir)
+	// TODO: when this is fixed on mac and windows for podman machine volume access remove this check.
+	if runtime.GOOS == "linux" {
+		m2Dir, err := os.MkdirTemp("", "m2-repo-")
+		if err != nil {
+			a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
+		} else {
+			vols[m2Dir] = M2Dir
+			a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
+			a.tempDirs = append(a.tempDirs, m2Dir)
+		}
 	}
 
 	return vols, nil
@@ -638,7 +643,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		WithStdout(analysisLog),
 		WithStderr(analysisLog),
 		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/bin/konveyor-analyzer"),
+		WithEntrypointBin("/usr/bin/entrypoint.sh"),
 		WithCleanup(a.cleanup),
 	)
 	if err != nil {
