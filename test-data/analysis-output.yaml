@@ -240,7 +240,7 @@
       - konveyor.io/target=cloud-readiness
       - discovery
       incidents:
-      - uri: file:///opt/input/source/target/classes/persistence.properties
+      - uri: file:///tmp/source-code/target/classes/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
@@ -252,7 +252,7 @@
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
-      - uri: file:///opt/input/source/src/main/resources/persistence.properties
+      - uri: file:///tmp/source-code/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
