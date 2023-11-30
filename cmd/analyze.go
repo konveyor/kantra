@@ -168,6 +168,16 @@ func (a *analyzeCommand) Validate() error {
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
+	// do not allow multiple input applications
+	inputNum := 0
+	for _, arg := range os.Args {
+		if arg == "-i" || strings.Contains(arg, "--input") {
+			inputNum += 1
+			if inputNum > 1 {
+				return fmt.Errorf("must specify only one input source")
+			}
+		}
+	}
 	err := a.CheckOverwriteOutput()
 	if err != nil {
 		return err
