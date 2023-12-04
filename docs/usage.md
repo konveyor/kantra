@@ -9,7 +9,7 @@
 
 #### `--rules` + `--target`
 
-- In kantra, if a rule is given as well as a target, but the given rule **does not**
-have the target label, the given rule will not match. 
-    - You must add the target label to the custom rule (if applicable) in
-    order to run this rule.
+- In kantra, if a rule is given but it **does not** have a target 
+  label, the given rule will not match. 
+    - You must add the target label to the custom rule and specify the `--target`
+     in order to run this rule.
