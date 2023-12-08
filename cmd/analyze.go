@@ -60,6 +60,7 @@ type analyzeCommand struct {
 	mode                  string
 	rules                 []string
 	jaegerEndpoint        string
+	enableDefaultRulesets bool
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -158,6 +159,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
 
 	return analyzeCommand
 }
@@ -228,6 +230,9 @@ func (a *analyzeCommand) Validate() error {
 	}
 	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
 		a.mavenSettingsFile = absPath
+	}
+	if !a.enableDefaultRulesets && len(a.rules) == 0 {
+		return fmt.Errorf("must specify rules if default rulesets are not enabled")
 	}
 	return nil
 }
@@ -526,7 +531,12 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 
 		} else {
-			rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
+			if !a.enableDefaultRulesets {
+				rulesVolumes[r] = path.Join(CustomRulePath, filepath.Base(r))
+			} else {
+				rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
+			}
+
 		}
 	}
 	if rulesetNeeded {
@@ -536,7 +546,11 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
 			return nil, err
 		}
-		rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
+		if !a.enableDefaultRulesets {
+			rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
+		} else {
+			rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
+		}
 	}
 	return rulesVolumes, nil
 }
@@ -582,9 +596,13 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		// output directory
 		a.output: OutputPath,
 	}
-
+	var convertPath string
 	if xmlOutputDir != "" {
-		convertPath := path.Join(RulesetPath, "convert")
+		if !a.enableDefaultRulesets {
+			convertPath = path.Join(CustomRulePath, "convert")
+		} else {
+			convertPath = path.Join(RulesetPath, "convert")
+		}
 		volumes[xmlOutputDir] = convertPath
 		// for cleanup purposes
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
@@ -608,9 +626,15 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 
 	args := []string{
 		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
-		fmt.Sprintf("--rules=%s/", RulesetPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", 100),
+	}
+	if a.enableDefaultRulesets {
+		args = append(args,
+			fmt.Sprintf("--rules=%s/", RulesetPath))
+	} else {
+		args = append(args,
+			fmt.Sprintf("--rules=%s/", CustomRulePath))
 	}
 	if a.jaegerEndpoint != "" {
 		args = append(args, "--enable-jaeger")
