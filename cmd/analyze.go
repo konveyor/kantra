@@ -497,7 +497,6 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		return nil, nil
 	}
 	rulesVolumes := make(map[string]string)
-	rulesetNeeded := false
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
@@ -517,28 +516,65 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			if isXMLFile(r) {
 				continue
 			}
-			rulesetNeeded = true
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := copyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
 			}
-
+			a.log.V(5).Info("copied file to rule dir", "added file", r, "destFile", destFile)
 		} else {
+			a.log.V(5).Info("coping dir", "directory", r)
+			err = filepath.WalkDir(r, func(path string, d fs.DirEntry, err error) error {
+				if path == r {
+					return nil
+				}
+				if d.IsDir() {
+					// This will create the new dir
+					a.handleDir(path, tempDir)
+				} else {
+					destFile := strings.Replace(path, r, tempDir, -1)
+					a.log.V(5).Info("copying file main", "source", path, "dest", destFile)
+					err = copyFileContents(path, destFile)
+					if err != nil {
+						a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				a.log.V(1).Error(err, "failed to move rules file", "src", r)
+				return nil, err
+			}
 			rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
 		}
 	}
-	if rulesetNeeded {
-		tempRulesetPath := filepath.Join(tempDir, "ruleset.yaml")
-		err = createTempRuleSet(tempRulesetPath)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
-			return nil, err
-		}
-		rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
+	tempRulesetPath := filepath.Join(tempDir, "ruleset.yaml")
+	a.log.V(5).Info("create temp rule set for dir", "dir", tempDir)
+	err = createTempRuleSet(tempRulesetPath, "temp")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
+		return nil, err
 	}
+	rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
 	return rulesVolumes, nil
+}
+
+func (a *analyzeCommand) handleDir(p string, tempDir string) error {
+	tempDir = filepath.Join(tempDir, filepath.Base(p))
+	err := os.Mkdir(tempDir, 0777)
+	if err != nil {
+		return err
+	}
+	a.log.V(5).Info("create temp rule set for dir", "dir", tempDir)
+	tempRulesetPath := filepath.Join(tempDir, "ruleset.yaml")
+	err = createTempRuleSet(tempRulesetPath, filepath.Base(p))
+	if err != nil {
+		a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
+		return err
+	}
+	return err
 }
 
 func copyFileContents(src string, dst string) (err error) {
@@ -559,9 +595,9 @@ func copyFileContents(src string, dst string) (err error) {
 	return nil
 }
 
-func createTempRuleSet(path string) error {
+func createTempRuleSet(path string, name string) error {
 	tempRuleSet := engine.RuleSet{
-		Name:        "ruleset",
+		Name:        name,
 		Description: "temp ruleset",
 	}
 	yamlData, err := yaml.Marshal(&tempRuleSet)
