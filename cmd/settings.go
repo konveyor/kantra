@@ -17,6 +17,7 @@ const (
 	OutputPath             = "/opt/output"
 	XMLRulePath            = "/opt/xmlrules"
 	ShimOutputPath         = "/opt/shimoutput"
+	CustomRulePath         = "/opt/input/rules"
 )
 
 type Config struct {
