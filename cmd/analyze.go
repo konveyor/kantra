@@ -524,7 +524,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 			a.log.V(5).Info("copied file to rule dir", "added file", r, "destFile", destFile)
 		} else {
-			a.log.V(5).Info("coping dir", "directory", r)
+			a.log.V(5).Info("copying dir", "directory", r)
 			err = filepath.WalkDir(r, func(path string, d fs.DirEntry, err error) error {
 				if path == r {
 					return nil
