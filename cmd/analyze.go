@@ -61,6 +61,7 @@ type analyzeCommand struct {
 	rules                 []string
 	jaegerEndpoint        string
 	enableDefaultRulesets bool
+	proxy                 string
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -160,6 +161,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.proxy, "proxy", "", "HTTP&HTTPS proxy string URL")
 
 	return analyzeCommand
 }
@@ -457,6 +459,17 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 				},
 			},
 		},
+	}
+
+	// Set proxy to providers
+	if a.proxy != "" {
+		proxy := provider.Proxy{
+			HTTPProxy: a.proxy,
+			HTTPSProxy: a.proxy,
+		}
+		for i := range provConfig {
+			provConfig[i].Proxy = &proxy
+		}
 	}
 
 	// go provider only supports full analysis mode
