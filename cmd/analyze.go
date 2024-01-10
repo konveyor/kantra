@@ -293,7 +293,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			ctx,
 			WithEnv(runMode, runModeContainer),
 			WithVolumes(volumes),
-			WithEntrypointBin("/usr/local/bin/kantra"),
+			WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
 			WithEntrypointArgs(args...),
 			WithCleanup(a.cleanup),
 		)
