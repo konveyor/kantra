@@ -163,9 +163,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", os.Getenv("http_proxy"), "HTTP proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", os.Getenv("https_proxy"), "HTTPS proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", os.Getenv("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 
 	return analyzeCommand
 }
@@ -887,6 +887,16 @@ func (a *analyzeCommand) getLabelSelector() string {
 
 func isXMLFile(rule string) bool {
 	return path.Ext(rule) == ".xml"
+}
+
+func loadEnvInsensitive(variableName string) string {
+	lowerValue := os.Getenv(strings.ToLower(variableName))
+	upperValue := os.Getenv(strings.ToUpper(variableName))
+	if lowerValue != "" {
+		return lowerValue
+	} else {
+		return upperValue
+	}
 }
 
 func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]string, error) {
