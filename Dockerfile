@@ -6,7 +6,7 @@ RUN microdnf -y install git &&\
     git clone https://github.com/konveyor/rulesets &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
-FROM quay.io/konveyor/static-report as static-report
+FROM quay.io/konveyor/static-report:latest as static-report
 
 # Build the manager binary
 FROM golang:1.19 as builder

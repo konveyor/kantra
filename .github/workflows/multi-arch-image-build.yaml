@@ -14,20 +14,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  push-quay:
-    name: Build and Push Manifest
-    runs-on: ubuntu-20.04
-    strategy:
-      fail-fast: false
-    steps:
-    - name: Checkout Push to Registry action
-      uses: konveyor/release-tools/build-push-quay@main
-      with:
-        architectures: "amd64, arm64, ppc64le, s390x"
-        containerfile: "./Dockerfile"
-        image_name: "kantra"
-        image_namespace: "konveyor"
-        image_registry: "quay.io"
-        quay_publish_robot: ${{ secrets.QUAY_PUBLISH_ROBOT }}
-        quay_publish_token: ${{ secrets.QUAY_PUBLISH_TOKEN }}
-        ref: ${{ github.ref }}
+  image-build:
+    uses: konveyor/release-tools/.github/workflows/build-push-images.yaml@main
+    with:
+      registry: "quay.io/konveyor"
+      image_name: "kantra"
+      containerfile: "./Dockerfile"
+      architectures: '[ "amd64", "arm64", "ppc64le", "s390x" ]'
+      pre_build_cmd: |
+        TAG=${GITHUB_REF_NAME/main/latest}
+        sed -i "s,FROM quay.io/konveyor/windup-shim\:latest,FROM quay.io/konveyor/windup-shim:${TAG}," Dockerfile
+        sed -i "s,FROM quay.io/konveyor/static-report\:latest,FROM quay.io/konveyor/static-report:${TAG}," Dockerfile
+        sed -i "s,FROM quay.io/konveyor/analyzer-lsp\:latest,FROM quay.io/konveyor/analyzer-lsp:${TAG}," Dockerfile
+    secrets:
+      registry_username: ${{ secrets.QUAY_PUBLISH_ROBOT }}
+      registry_password: ${{ secrets.QUAY_PUBLISH_TOKEN }}
