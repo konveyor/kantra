@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -542,6 +543,12 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 					// This will create the new dir
 					a.handleDir(path, tempDir, r)
 				} else {
+					// If we are unable to get the file attributes, probably safe to assume this is not a
+					// valid rule or ruleset and lets skip it for now.
+					if isHidden, err := hiddenfile.IsHidden(d.Name()); isHidden || err != nil {
+						a.log.V(5).Info("skipping hidden file", "path", path, "error", err)
+						return nil
+					}
 					relpath, err := filepath.Rel(r, path)
 					if err != nil {
 						return err
