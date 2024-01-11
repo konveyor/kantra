@@ -12,13 +12,14 @@ import (
 )
 
 type openRewriteCommand struct {
-	listTargets bool
-	input       string
-	target      string
-	goal        string
-	miscOpts    string
-	log         logr.Logger
-	cleanup     bool
+	listTargets       bool
+	input             string
+	target            string
+	goal              string
+	miscOpts          string
+	log               logr.Logger
+	cleanup           bool
+	mavenSettingsFile string
 }
 
 func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
@@ -58,6 +59,7 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.target, "target", "t", "", "target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.")
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.goal, "goal", "g", "dryRun", "target goal")
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.input, "input", "i", "", "path to application source code directory")
+	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.mavenSettingsFile, "maven-settings", "s", "", "path to a custom maven settings file to use")
 
 	return openRewriteCommand
 }
@@ -143,6 +145,12 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	}
 	o.log.Info("executing openrewrite recipe",
 		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
+
+	if o.mavenSettingsFile != "" {
+		o.log.Info("using custom maven settings file", "path", o.mavenSettingsFile)
+		args = append(args, "-s", o.mavenSettingsFile)
+	}
+
 	err := NewContainer(o.log).Run(
 		ctx,
 		WithEntrypointArgs(args...),
