@@ -123,8 +123,8 @@ Flags:
   -o, --output string             path to the directory for analysis output
       --rules stringArray         filename or directory containing rule files
       --skip-static-report        do not generate static report
-  -s, --source stringArray        source technology to consider for analysis
-  -t, --target stringArray        target technology to consider for analysis
+  -s, --source string             source technology to consider for analysis. To specify multiple sources, repeat the parameter: --source <source_1> --source <source_2> etc.
+  -t, --target string             target technology to consider for analysis. To specify multiple targets, repeat the parameter: --target <target_1> --target <target_2> etc.
 
 Global Flags:
       --log-level int   log level (default 5)
