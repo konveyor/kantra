@@ -18,6 +18,7 @@ const (
 	XMLRulePath            = "/opt/xmlrules"
 	ShimOutputPath         = "/opt/shimoutput"
 	CustomRulePath         = "/opt/input/rules"
+	JavaBundlesLocation    = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 )
 
 type Config struct {
