@@ -166,11 +166,12 @@ Usage:
   kantra transform openrewrite [flags]
 
 Flags:
-  -g, --goal string     target goal (default "dryRun")
-  -h, --help            help for openrewrite
-  -i, --input string    path to application source code directory
-  -l, --list-targets    list all available OpenRewrite recipes
-  -t, --target string   target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.
+  -g, --goal string             target goal (default "dryRun")
+  -h, --help                    help for openrewrite
+  -i, --input string            path to application source code directory
+  -l, --list-targets            list all available OpenRewrite recipes
+  -s, --maven-settings string   path to a custom maven settings file to use
+  -t, --target string           target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.
 
 Global Flags:
       --log-level int   log level (default 5)
