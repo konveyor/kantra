@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -520,7 +521,6 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		return nil, nil
 	}
 	rulesVolumes := make(map[string]string)
-	rulesetNeeded := false
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
@@ -540,37 +540,76 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			if isXMLFile(r) {
 				continue
 			}
-			rulesetNeeded = true
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := copyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
 			}
-
-		} else {
-			if !a.enableDefaultRulesets {
-				rulesVolumes[r] = path.Join(CustomRulePath, filepath.Base(r))
-			} else {
-				rulesVolumes[r] = path.Join(RulesMountPath, filepath.Base(r))
+			a.log.V(5).Info("copied file to rule dir", "added file", r, "destFile", destFile)
+			err = a.createTempRuleSet(tempDir, "custom-ruleset")
+			if err != nil {
+				return nil, err
 			}
-
-		}
-	}
-	if rulesetNeeded {
-		tempRulesetPath := filepath.Join(tempDir, "ruleset.yaml")
-		err = createTempRuleSet(tempRulesetPath)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempRulesetPath)
-			return nil, err
-		}
-		if !a.enableDefaultRulesets {
-			rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
 		} else {
-			rulesVolumes[tempDir] = path.Join(RulesMountPath, filepath.Base(tempDir))
+			a.log.V(5).Info("coping dir", "directory", r)
+			err = filepath.WalkDir(r, func(path string, d fs.DirEntry, err error) error {
+				if path == r {
+					return nil
+				}
+				if d.IsDir() {
+					// This will create the new dir
+					a.handleDir(path, tempDir, r)
+				} else {
+					// If we are unable to get the file attributes, probably safe to assume this is not a
+					// valid rule or ruleset and lets skip it for now.
+					if isHidden, err := hiddenfile.IsHidden(d.Name()); isHidden || err != nil {
+						a.log.V(5).Info("skipping hidden file", "path", path, "error", err)
+						return nil
+					}
+					relpath, err := filepath.Rel(r, path)
+					if err != nil {
+						return err
+					}
+					destFile := filepath.Join(tempDir, relpath)
+					a.log.V(5).Info("copying file main", "source", path, "dest", destFile)
+					err = copyFileContents(path, destFile)
+					if err != nil {
+						a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				a.log.V(1).Error(err, "failed to move rules file", "src", r)
+				return nil, err
+			}
 		}
 	}
+	rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
+
 	return rulesVolumes, nil
+}
+
+func (a *analyzeCommand) handleDir(p string, tempDir string, basePath string) error {
+	newDir, err := filepath.Rel(basePath, p)
+	if err != nil {
+		return err
+	}
+	tempDir = filepath.Join(tempDir, newDir)
+	a.log.Info("creating nested tmp dir", "tempDir", tempDir, "newDir", newDir)
+	err = os.Mkdir(tempDir, 0777)
+	if err != nil {
+		return err
+	}
+	a.log.V(5).Info("create temp rule set for dir", "dir", tempDir)
+	err = a.createTempRuleSet(tempDir, filepath.Base(p))
+	if err != nil {
+		a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempDir)
+		return err
+	}
+	return err
 }
 
 func copyFileContents(src string, dst string) (err error) {
@@ -591,16 +630,24 @@ func copyFileContents(src string, dst string) (err error) {
 	return nil
 }
 
-func createTempRuleSet(path string) error {
+func (a analyzeCommand) createTempRuleSet(path string, name string) error {
+	a.log.Info("createing temp ruleset ", "path", path, "name", name)
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	tempRuleSet := engine.RuleSet{
-		Name:        "ruleset",
+		Name:        name,
 		Description: "temp ruleset",
 	}
 	yamlData, err := yaml.Marshal(&tempRuleSet)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path, yamlData, os.ModePerm)
+	err = os.WriteFile(filepath.Join(path, "ruleset.yaml"), yamlData, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -650,10 +697,13 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if a.enableDefaultRulesets {
 		args = append(args,
 			fmt.Sprintf("--rules=%s/", RulesetPath))
-	} else {
+	}
+
+	if len(a.rules) > 0 {
 		args = append(args,
 			fmt.Sprintf("--rules=%s/", CustomRulePath))
 	}
+
 	if a.jaegerEndpoint != "" {
 		args = append(args, "--enable-jaeger")
 		args = append(args, "--jaeger-endpoint")
