@@ -172,8 +172,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		WithCleanup(w.cleanup),
 	)
 	if err != nil {
-		w.log.V(1).Error(err, "failed to run convert command")
-		return err
+		return fmt.Errorf("error running windup shim - see shim log %v", shimLogPath)
 	}
 	return nil
 }

@@ -119,12 +119,10 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed to convert xml rules")
 				return err
 			}
 			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir)
 			if err != nil {
-				log.Error(err, "failed to run analysis")
 				return err
 			}
 			err = analyzeCmd.CreateJSONOutput()
@@ -749,7 +747,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		WithCleanup(a.cleanup),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error running analysis - see analysis log %v", analysisLogFilePath)
 	}
 
 	a.log.Info("running dependency analysis",
@@ -768,7 +766,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		WithCleanup(a.cleanup),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error running dependency analysis - see dependency log %v", depsLogFilePath)
 	}
 
 	return nil
@@ -1035,7 +1033,7 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		WithCleanup(a.cleanup),
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error running windup shim - see shim log %v", shimLogPath)
 	}
 
 	return tempOutputDir, nil
