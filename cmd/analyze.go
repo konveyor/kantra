@@ -376,7 +376,13 @@ func listOptionsFromLabels(sl []string, label string) {
 		newSt := strings.TrimPrefix(label, l)
 
 		if newSt != label {
-			newSl = append(newSl, newSt)
+			newSt = strings.TrimSuffix(newSt, "+")
+			newSt = strings.TrimSuffix(newSt, "-")
+
+			if !slices.Contains(newSl, newSt) {
+				newSl = append(newSl, newSt)
+
+			}
 		}
 	}
 	sort.Strings(newSl)
@@ -387,8 +393,6 @@ func listOptionsFromLabels(sl []string, label string) {
 		fmt.Println("available target technologies:")
 	}
 	for _, tech := range newSl {
-		tech = strings.TrimSuffix(tech, "+")
-		tech = strings.TrimSuffix(tech, "-")
 		fmt.Println(tech)
 	}
 }
