@@ -1,6 +1,6 @@
 # Kantra
 
-Kantra is an experimental CLI that unifies analysis and transformation capabilities of Konveyor.
+Kantra is a CLI that unifies analysis and transformation capabilities of Konveyor.
 
 ## Installation
 The easiest way to install Kantra is to get it via the container image. To download latest container image, run:
