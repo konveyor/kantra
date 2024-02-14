@@ -121,10 +121,10 @@ Flags:
       --list-targets              list rules for available migration targets
   -m, --mode string               analysis mode. Must be one of 'full' or 'source-only' (default "full")
   -o, --output string             path to the directory for analysis output
-      --rules stringArray         filename or directory containing rule files
+      --rules stringArray         filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
       --skip-static-report        do not generate static report
-  -s, --source stringArray        source technology to consider for analysis
-  -t, --target stringArray        target technology to consider for analysis
+  -s, --source stringArray        source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
+  -t, --target stringArray        target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
 
 Global Flags:
       --log-level int   log level (default 5)
