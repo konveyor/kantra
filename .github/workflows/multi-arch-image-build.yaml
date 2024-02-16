@@ -31,3 +31,5 @@ jobs:
         quay_publish_robot: ${{ secrets.QUAY_PUBLISH_ROBOT }}
         quay_publish_token: ${{ secrets.QUAY_PUBLISH_TOKEN }}
         ref: ${{ github.ref }}
+        extra-args: |
+          --build-arg VERSION=${tag} --build-arg BUILD_COMMIT=${BUILD_COMMIT}
