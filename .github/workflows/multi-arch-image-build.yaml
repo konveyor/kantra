@@ -26,8 +26,9 @@ jobs:
         sed -i "s,FROM quay.io/konveyor/windup-shim\:latest,FROM quay.io/konveyor/windup-shim:${TAG}," Dockerfile
         sed -i "s,FROM quay.io/konveyor/static-report\:latest,FROM quay.io/konveyor/static-report:${TAG}," Dockerfile
         sed -i "s,FROM quay.io/konveyor/analyzer-lsp\:latest,FROM quay.io/konveyor/analyzer-lsp:${TAG}," Dockerfile
+        export BUILD_COMMIT=$(git rev-parse HEAD)
       extra-args: |
-        --build-arg=VERSION=${tag} --build-arg=BUILD_COMMIT=latestsha
+        --build-arg VERSION=${tag} --build-arg BUILD_COMMIT=${BUILD_COMMIT}
     secrets:
       registry_username: ${{ secrets.QUAY_PUBLISH_ROBOT }}
       registry_password: ${{ secrets.QUAY_PUBLISH_TOKEN }}
