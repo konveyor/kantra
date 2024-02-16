@@ -8,7 +8,7 @@ import (
 
 var (
 	BuildCommit = ""
-	Version     = "99.0.0"
+	Version     = "v99.0.0"
 )
 
 // Use build flags to set correct Version and BuildCommit
