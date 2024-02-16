@@ -24,7 +24,7 @@ var noCleanup bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Short:        "A cli tool for analysis and transformation of applications",
+	Short:        "A CLI tool for analysis and transformation of applications",
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -46,6 +46,7 @@ func init() {
 	logger := logrusr.New(logrusLog)
 	rootCmd.AddCommand(NewTransformCommand(logger))
 	rootCmd.AddCommand(NewAnalyzeCmd(logger))
+	rootCmd.AddCommand(NewVersionCommand())
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
