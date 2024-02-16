@@ -32,4 +32,4 @@ jobs:
         quay_publish_token: ${{ secrets.QUAY_PUBLISH_TOKEN }}
         ref: ${{ github.ref }}
         extra-args: |
-          --build-arg VERSION=${tag} --build-arg BUILD_COMMIT=${BUILD_COMMIT}
+          --build-arg VERSION=${{ github.ref == 'refs/heads/main' && 'latest' || github.ref_name }} --build-arg BUILD_COMMIT=${{ github.sha }}
