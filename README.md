@@ -8,7 +8,7 @@ The easiest way to install Kantra is to get it via the container image. To downl
 ### Linux
 
 ```sh
-podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/kantra . && podman rm kantra-download
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
 ```
 
 ### MacOS
