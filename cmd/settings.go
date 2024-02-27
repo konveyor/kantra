@@ -29,15 +29,8 @@ type Config struct {
 }
 
 func (c *Config) Load() error {
-	envValue := os.Getenv("PODMAN_BIN")
-	if envValue == "" {
-		podmanPath, err := exec.LookPath("podman")
-		if err != nil && errors.Is(err, exec.ErrDot) {
-			return err
-		}
-		if podmanPath != c.PodmanBinary && (podmanPath != "" || len(podmanPath) > 0) {
-			os.Setenv("PODMAN_BIN", podmanPath)
-		}
+	if err := c.loadDefaultPodmanBin(); err != nil {
+		return err
 	}
 
 	err := env.Set(c)
@@ -45,4 +38,36 @@ func (c *Config) Load() error {
 		return err
 	}
 	return nil
+}
+
+func (c *Config) loadDefaultPodmanBin() error {
+	// Respect existing PODMAN_BIN setting.
+	if os.Getenv("PODMAN_BIN") != "" {
+		return nil
+	}
+	// Try to use podman. If it's not found, try to use docker.
+	found, err := c.trySetDefaultPodmanBin("podman")
+	if err != nil {
+		return err
+	}
+	if !found {
+		if _, err = c.trySetDefaultPodmanBin("docker"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
+	path, err := exec.LookPath(file)
+	// Ignore all errors other than ErrDot.
+	if err != nil && errors.Is(err, exec.ErrDot) {
+		return false, err
+	}
+	// If file was found in PATH and it's not already going to be used, specify it in the env var.
+	if path != "" && path != c.PodmanBinary {
+		os.Setenv("PODMAN_BIN", path)
+		return true, nil
+	}
+	return false, nil
 }
