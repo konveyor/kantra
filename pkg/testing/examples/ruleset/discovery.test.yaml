@@ -1,0 +1,19 @@
+providers:
+# override ruleset level path
+- name: builtin
+  dataPath: ./test-data/python/
+tests:
+  - ruleID: language-discovery
+    testCases:
+    - name: tc-00
+      hasTags:
+      - Python
+  - ruleID: kube-api-usage
+    testCases:
+    - name: tc-00
+      description: kubernetes tag must be found
+      hasTags:
+      - Kubernetes
+    - name: tc-01
+      hasIncidents:
+        exactly: 1

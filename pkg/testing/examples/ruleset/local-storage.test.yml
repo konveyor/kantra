@@ -1,0 +1,13 @@
+tests:
+  - ruleID: storage-000
+    testCases:
+    - name: tc-00
+      hasIncidents:
+        locations:
+        - fileURI: ./test-data/java/src/main/resources/persistence.properties
+          lineNumber: 7
+          messageMatches: file://common.properties
+          codeSnipMatches: file://common.properties
+
+         
+        

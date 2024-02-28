@@ -1,0 +1,9 @@
+providers:
+- name: python
+  dataPath: ./test-data/python/
+- name: java
+  dataPath: ./test-data/java/
+- name: builtin
+  # this intentionally points to test-data
+  # so we can test overriden setting
+  dataPath: ./test-data/
