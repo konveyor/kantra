@@ -1,4 +1,4 @@
-package cmd
+package container
 
 import (
 	"bytes"
@@ -29,9 +29,11 @@ type container struct {
 	// whether to delete container after run()
 	cleanup bool
 	// map of source -> dest paths to mount
-	volumes map[string]string
-	cFlag   bool
-	log     logr.Logger
+	volumes             map[string]string
+	cFlag               bool
+	log                 logr.Logger
+	containerRuntimeBin string
+	reproducerCmd       *string
 }
 
 type Option func(c *container)
@@ -102,6 +104,18 @@ func WithEnv(k string, v string) Option {
 	}
 }
 
+func WithLog(l logr.Logger) Option {
+	return func(c *container) {
+		c.log = l
+	}
+}
+
+func WithReproduceCmd(r *string) Option {
+	return func(c *container) {
+		c.reproducerCmd = r
+	}
+}
+
 func randomName() string {
 	rand.Seed(int64(time.Now().Nanosecond()))
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -112,19 +126,20 @@ func randomName() string {
 	return string(b)
 }
 
-func NewContainer(log logr.Logger) *container {
+func NewContainer() *container {
 	return &container{
-		image:          Settings.RunnerImage,
-		entrypointArgs: []string{},
-		volumes:        make(map[string]string),
-		stdout:         []io.Writer{os.Stdout},
-		env:            map[string]string{},
-		stderr:         []io.Writer{os.Stderr},
-		name:           randomName(),
+		image:               "",
+		containerRuntimeBin: "podman",
+		entrypointArgs:      []string{},
+		volumes:             make(map[string]string),
+		stdout:              []io.Writer{os.Stdout},
+		env:                 map[string]string{},
+		stderr:              []io.Writer{os.Stderr},
+		name:                randomName(),
 		// by default, remove the container after run()
 		cleanup: true,
 		cFlag:   false,
-		log:     log,
+		log:     logr.Discard(),
 	}
 }
 
@@ -132,6 +147,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	var err error
 	for _, opt := range opts {
 		opt(c)
+	}
+	if c.image == "" || c.containerRuntimeBin == "" {
+		return fmt.Errorf("image and containerRuntimeBin must be set")
 	}
 	args := []string{"run"}
 	os := runtime.GOOS
@@ -171,7 +189,10 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if len(c.entrypointArgs) > 0 {
 		args = append(args, c.entrypointArgs...)
 	}
-	cmd := exec.CommandContext(ctx, Settings.PodmanBinary, args...)
+	if c.reproducerCmd != nil {
+		*c.reproducerCmd = fmt.Sprintf("%s %s", c.containerRuntimeBin, strings.Join(args, " "))
+	}
+	cmd := exec.CommandContext(ctx, c.containerRuntimeBin, args...)
 	errBytes := &bytes.Buffer{}
 	cmd.Stdout = nil
 	cmd.Stderr = errBytes
@@ -182,11 +203,11 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		cmd.Stderr = io.MultiWriter(
 			append(c.stderr, errBytes)...)
 	}
-	c.log.V(1).Info("executing podman command",
-		"podman", Settings.PodmanBinary, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
+	c.log.Info("executing podman command",
+		"podman", c.containerRuntimeBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
 	err = cmd.Run()
 	if err != nil {
-		c.log.V(1).Error(err, "container run error")
+		c.log.Error(err, "container run error")
 		if _, ok := err.(*exec.ExitError); ok {
 			return fmt.Errorf(errBytes.String())
 		}
@@ -198,9 +219,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 func (c *container) Rm(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
-		Settings.PodmanBinary,
+		c.containerRuntimeBin,
 		"rm", c.name)
-	c.log.V(1).Info("removing container",
-		"podman", Settings.PodmanBinary, "name", c.name)
+	c.log.Info("removing container",
+		"podman", c.containerRuntimeBin, "name", c.name)
 	return cmd.Run()
 }

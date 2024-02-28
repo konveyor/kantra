@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
 )
@@ -162,14 +163,16 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	w.log.Info("running windup-shim convert command",
 		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
 	w.log.Info("generating shim log in file", "file", shimLogPath)
-	err = NewContainer(w.log).Run(
+	err = container.NewContainer().Run(
 		ctx,
-		WithVolumes(volumes),
-		WithStdout(shimLog),
-		WithStderr(shimLog),
-		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/local/bin/windup-shim"),
-		WithCleanup(w.cleanup),
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(w.log.V(1)),
+		container.WithVolumes(volumes),
+		container.WithStdout(shimLog),
+		container.WithStderr(shimLog),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
+		container.WithCleanup(w.cleanup),
 	)
 	if err != nil {
 		w.log.V(1).Error(err, "failed to run convert command")
