@@ -341,7 +341,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (str
 	cmd := exec.Command("konveyor-analyzer", args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	return fmt.Sprintf("konveyor-analyzer", strings.Join(args, " ")), cmd.Run()
+	return fmt.Sprintf("konveyor-analyzer %s", strings.Join(args, " ")), cmd.Run()
 }
 
 func runInContainer(consoleLogger logr.Logger, image string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams) (string, error) {

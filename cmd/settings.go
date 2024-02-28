@@ -26,6 +26,7 @@ type Config struct {
 	PodmanBinary    string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
 	RunnerImage     string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
 	JvmMaxMem       string `env:"JVM_MAX_MEM" default:""`
+	RunLocal        bool   `env:"RUN_LOCAL"`
 }
 
 func (c *Config) Load() error {
