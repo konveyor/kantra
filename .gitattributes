@@ -1,0 +1,5 @@
+# Always use LF for shell scripts. Building the Docker image in a Git clone on
+# Windows with autocrlf enabled would otherwise make a faulty image: the
+# entrypoint script would fail to run in the container. The CR at the end of
+# "#!/bin/bash" causes Linux to be unable to start the script.
+*.sh text eol=lf
