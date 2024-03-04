@@ -42,6 +42,6 @@ COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
-COPY entrypoint.sh /usr/bin/entrypoint.sh
+COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 
 ENTRYPOINT ["kantra"]
