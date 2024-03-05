@@ -756,23 +756,28 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		return err
 	}
 
-	a.log.Info("running dependency analysis",
-		"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
-	a.log.Info("generating dependency log in file", "file", depsLogFilePath)
-	err = NewContainer(a.log).Run(
-		ctx,
-		WithStdout(dependencyLog),
-		WithStderr(dependencyLog),
-		WithVolumes(volumes),
-		WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
-		WithEntrypointArgs(
-			fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
-			fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
-		),
-		WithCleanup(a.cleanup),
-	)
-	if err != nil {
-		return err
+	// run dependency analysis only when full mode is set
+	if a.mode == string(provider.FullAnalysisMode) {
+		a.log.Info("running dependency analysis",
+			"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
+		a.log.Info("generating dependency log in file", "file", depsLogFilePath)
+		err = NewContainer(a.log).Run(
+			ctx,
+			WithStdout(dependencyLog),
+			WithStderr(dependencyLog),
+			WithVolumes(volumes),
+			WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
+			WithEntrypointArgs(
+				fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
+				fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
+			),
+			WithCleanup(a.cleanup),
+		)
+		if err != nil {
+			return err
+		}
+	} else {
+		a.log.Info("skipping dependency analysis", "mode", a.mode)
 	}
 
 	return nil
@@ -843,9 +848,12 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	args := []string{}
 	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
 		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
-		fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath),
 		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
 		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
+	}
+	if a.mode == string(provider.FullAnalysisMode) {
+		staticReportArgs = append(staticReportArgs,
+			fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
 	}
 	cpArgs := []string{"&& cp -r",
 		"/usr/local/static-report", OutputPath}
