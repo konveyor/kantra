@@ -67,6 +67,7 @@ var defaultProviderConfig = []provider.Config{
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "generic",
 					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
+					"lspServerArgs":                 []string{},
 					"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
 				},
 			},
@@ -81,6 +82,7 @@ var defaultProviderConfig = []provider.Config{
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "pylsp",
 					provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
+					"lspServerArgs":                 []string{},
 					"workspaceFolders":              []string{},
 					"dependencyFolders":             []string{},
 				},
@@ -242,6 +244,7 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 				logFile.Close()
 				continue
 			}
+			// we already know in this group, all tcs have same params, use any
 			analysisParams := tests[0].TestCases[0].AnalysisParams
 			// write provider settings file
 			volumes, err := ensureProviderSettings(tempDir, input.opts.RunLocal, input.testsFile, baseProviderConfig, analysisParams)
@@ -429,24 +432,11 @@ func ensureProviderSettings(tempDirPath string, runLocal bool, testsFile TestsFi
 	// depending on whether we run locally, or in a container, we will either use local paths or mounted paths
 	switch {
 	case runLocal:
-		// when running locally, we use the paths as-is
 		for _, override := range testsFile.Providers {
+			// when running locally, we use the paths as-is
 			dataPath := filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(override.DataPath))
-			for idx := range baseProviders {
-				base := &baseProviders[idx]
-				if base.Name == override.Name {
-					initConf := &base.InitConfig[0]
-					base.ContextLines = 100
-					initConf.AnalysisMode = params.Mode
-					switch base.Name {
-					case "python", "go", "nodejs":
-						initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
-					default:
-						initConf.Location = dataPath
-					}
-					final = append(final, *base)
-				}
-			}
+			final = append(final,
+				getMergedProviderConfig(override.Name, baseProviders, params, dataPath, tempDirPath)...)
 		}
 	default:
 		// in containers, we need to make sure we only mount unique path trees
@@ -478,22 +468,10 @@ func ensureProviderSettings(tempDirPath string, runLocal bool, testsFile TestsFi
 			volumes[filepath.Join(filepath.Dir(testsFile.Path), uniquePath)] = path.Join("/data", uniquePath)
 		}
 		for _, override := range testsFile.Providers {
-			mountedDataPath := path.Join("/data", filepath.Clean(override.DataPath))
-			for idx := range baseProviders {
-				base := &baseProviders[idx]
-				base.ContextLines = 100
-				if base.Name == override.Name {
-					initConf := &base.InitConfig[0]
-					initConf.AnalysisMode = params.Mode
-					switch base.Name {
-					case "python", "go", "nodejs":
-						initConf.ProviderSpecificConfig["workspaceFolders"] = []string{mountedDataPath}
-					default:
-						initConf.Location = mountedDataPath
-					}
-					final = append(final, *base)
-				}
-			}
+			// when running in the container, we use the mounted path
+			dataPath := filepath.Join("/data", filepath.Clean(override.DataPath))
+			final = append(final,
+				getMergedProviderConfig(override.Name, baseProviders, params, dataPath, "/shared")...)
 		}
 	}
 	content, err := json.Marshal(final)
@@ -505,6 +483,47 @@ func ensureProviderSettings(tempDirPath string, runLocal bool, testsFile TestsFi
 		return nil, fmt.Errorf("failed writing provider settings file - %w", err)
 	}
 	return volumes, nil
+}
+
+// getMergedProviderConfig for a given provider in the tests file, find a base provider config and
+// merge values as per precedance (values in tests file take precedance)
+func getMergedProviderConfig(name string, baseConfig []provider.Config, params AnalysisParams, dataPath string, outputPath string) []provider.Config {
+	merged := []provider.Config{}
+	for idx := range baseConfig {
+		base := &baseConfig[idx]
+		base.ContextLines = 100
+		if base.Name == name {
+			initConf := &base.InitConfig[0]
+			if params.Mode != "" {
+				initConf.AnalysisMode = params.Mode
+			}
+			switch base.Name {
+			// languages enabled via generic provide use workspaceFolders instead of location
+			// we also enable detailed logging for different providers
+			case "python":
+				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
+				// log things in the output directory for debugging
+				lspArgs, ok := initConf.ProviderSpecificConfig["lspServerArgs"].([]string)
+				if ok {
+					initConf.ProviderSpecificConfig["lspServerArgs"] = append(lspArgs,
+						"--log-file", path.Join(outputPath, "python-server.log"), "-vv")
+				}
+			case "go":
+				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
+				lspArgs, ok := initConf.ProviderSpecificConfig["lspServerArgs"].([]string)
+				if ok {
+					initConf.ProviderSpecificConfig["lspServerArgs"] = append(lspArgs,
+						"--logfile", path.Join(outputPath, "go-server.log"), "-vv")
+				}
+			case "nodejs":
+				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
+			default:
+				initConf.Location = dataPath
+			}
+			merged = append(merged, *base)
+		}
+	}
+	return merged
 }
 
 func groupTestsByAnalysisParams(tests []Test) [][]Test {

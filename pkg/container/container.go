@@ -190,7 +190,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		args = append(args, c.entrypointArgs...)
 	}
 	if c.reproducerCmd != nil {
-		*c.reproducerCmd = fmt.Sprintf("%s %s", c.containerRuntimeBin, strings.Join(args, " "))
+		reproducer := strings.ReplaceAll(strings.Join(args, " "), " --rm", "")
+		*c.reproducerCmd = fmt.Sprintf("%s %s",
+			c.containerRuntimeBin, reproducer)
 	}
 	cmd := exec.CommandContext(ctx, c.containerRuntimeBin, args...)
 	errBytes := &bytes.Buffer{}

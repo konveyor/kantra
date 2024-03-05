@@ -24,7 +24,7 @@ A tests file contains three fields _rulesPath_, _providers_ and _tests_ at the t
 rulesPath: "/optional/path/to/rules/file"
 providers:
   - name: "go"
-    dataPath: "/path/to/data/for/this/provider"
+    dataPath: "/path/to/test/data/for/this/provider"
 tests:
   - ruleID: "rule-id-for-this-test"
     testCases:
@@ -54,7 +54,7 @@ _name_ is the name of the provider to which the config applies to, and _dataPath
 
 > Note that _dataPath_ must be relative to the directory in which tests file exists.
 
-If all tests under a _ruleset_ share values of _providers_ field (e.g. they use common data directory in all tests for a given provider), this config can also be defined at ruleset level under a special file `testing-config.yaml`. In that case, config present in this file will apply to all tests in that directory. A more specific config for a certain file can still be defined in the tests file. In that case, values in the tests file will take precedance over values at the _ruleset_ level.
+If all tests under a _ruleset_ share values of _providers_ field (e.g. they use common data directory in all tests for a given provider), this config can also be defined at ruleset level under a special file `testing-config.yaml`. In that case, the config present in this file will apply to all tests in that directory. A more specific config for a certain file can still be defined in the tests file. In that case, values in the tests file will take precedance over values at the _ruleset_ level.
 
 See an example of ruleset level config in [../pkg/testing/examples/ruleset/testing-config.yaml](../pkg/testing/examples/ruleset/testing-config.yaml).
 

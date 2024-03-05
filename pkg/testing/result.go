@@ -38,7 +38,7 @@ func PrintSummary(w io.WriteCloser, results []Result) {
 		}
 		summaryByRules[result.RuleID].total += 1
 		tcSummary.total += 1
-		if len(result.FailureReasons) == 0 {
+		if result.Passed {
 			summaryByRules[result.RuleID].passed += 1
 			tcSummary.passed += 1
 		}
