@@ -32,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build --ldflags="-X 'github.com/k
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 
-RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output /opt/xmlrules /opt/shimoutput
+RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output /opt/xmlrules /opt/shimoutput /tmp/source-app /tmp/source-app/input
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
@@ -43,5 +43,6 @@ COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/open
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
+COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
 ENTRYPOINT ["kantra"]
