@@ -154,9 +154,9 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	err := NewContainer(o.log).Run(
 		ctx,
 		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/bin/mvn"),
+		WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
 		WithVolumes(volumes),
-		WithWorkDir(InputPath),
+		WithWorkDir("/tmp/source-app/input"),
 		WithCleanup(o.cleanup),
 	)
 	if err != nil {
