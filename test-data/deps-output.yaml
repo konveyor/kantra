@@ -1,4 +1,4 @@
-- fileURI: file:///opt/input/source/pom.xml
+- fileURI: file:///tmp/source-code/pom.xml
   provider: java
   dependencies:
   - name: antlr.antlr
@@ -9,7 +9,7 @@
     extras:
       artifactId: antlr
       groupId: antlr
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -21,7 +21,7 @@
     extras:
       artifactId: logback-classic
       groupId: ch.qos.logback
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -34,7 +34,7 @@
     extras:
       artifactId: logback-core
       groupId: ch.qos.logback
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -47,7 +47,7 @@
     extras:
       artifactId: classmate
       groupId: com.fasterxml
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -60,7 +60,7 @@
     extras:
       artifactId: jackson-annotations
       groupId: com.fasterxml.jackson.core
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -72,7 +72,7 @@
     extras:
       artifactId: jackson-core
       groupId: com.fasterxml.jackson.core
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -84,7 +84,7 @@
     extras:
       artifactId: jackson-databind
       groupId: com.fasterxml.jackson.core
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -97,7 +97,7 @@
     extras:
       artifactId: jackson-datatype-jsr310
       groupId: com.fasterxml.jackson.datatype
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -109,7 +109,7 @@
     extras:
       artifactId: ojdbc8
       groupId: com.oracle.database.jdbc
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -122,7 +122,7 @@
     extras:
       artifactId: istack-commons-runtime
       groupId: com.sun.istack
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -135,7 +135,7 @@
     extras:
       artifactId: FastInfoset
       groupId: com.sun.xml.fastinfoset
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -147,7 +147,7 @@
     extras:
       artifactId: config-utils
       groupId: io.konveyor.demo
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=internal
     - konveyor.io/language=java
@@ -160,7 +160,7 @@
     extras:
       artifactId: micrometer-core
       groupId: io.micrometer
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -173,7 +173,7 @@
     extras:
       artifactId: jakarta.annotation-api
       groupId: jakarta.annotation
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -186,7 +186,7 @@
     extras:
       artifactId: jakarta.validation-api
       groupId: jakarta.validation
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -199,7 +199,7 @@
     extras:
       artifactId: javax.activation-api
       groupId: javax.activation
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -212,7 +212,7 @@
     extras:
       artifactId: javax.persistence-api
       groupId: javax.persistence
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -225,7 +225,7 @@
     extras:
       artifactId: jaxb-api
       groupId: javax.xml.bind
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -238,7 +238,7 @@
     extras:
       artifactId: byte-buddy
       groupId: net.bytebuddy
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -251,7 +251,7 @@
     extras:
       artifactId: log4j-api
       groupId: org.apache.logging.log4j
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -264,7 +264,7 @@
     extras:
       artifactId: log4j-to-slf4j
       groupId: org.apache.logging.log4j
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -276,7 +276,7 @@
     extras:
       artifactId: tomcat-jdbc
       groupId: org.apache.tomcat
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -289,7 +289,7 @@
     extras:
       artifactId: tomcat-juli
       groupId: org.apache.tomcat
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -301,7 +301,7 @@
     extras:
       artifactId: tomcat-servlet-api
       groupId: org.apache.tomcat
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -314,7 +314,7 @@
     extras:
       artifactId: aspectjrt
       groupId: org.aspectj
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -327,7 +327,7 @@
     extras:
       artifactId: checker-qual
       groupId: org.checkerframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -340,7 +340,7 @@
     extras:
       artifactId: dom4j
       groupId: org.dom4j
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -353,7 +353,7 @@
     extras:
       artifactId: jaxb-runtime
       groupId: org.glassfish.jaxb
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -366,7 +366,7 @@
     extras:
       artifactId: txw2
       groupId: org.glassfish.jaxb
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -379,7 +379,7 @@
     extras:
       artifactId: HdrHistogram
       groupId: org.hdrhistogram
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -392,7 +392,7 @@
     extras:
       artifactId: hibernate-commons-annotations
       groupId: org.hibernate.common
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -405,7 +405,7 @@
     extras:
       artifactId: hibernate-core
       groupId: org.hibernate
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -417,7 +417,7 @@
     extras:
       artifactId: hibernate-entitymanager
       groupId: org.hibernate
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -429,7 +429,7 @@
     extras:
       artifactId: hibernate-validator
       groupId: org.hibernate.validator
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -442,7 +442,7 @@
     extras:
       artifactId: javassist
       groupId: org.javassist
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -455,7 +455,7 @@
     extras:
       artifactId: jandex
       groupId: org.jboss
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -468,7 +468,7 @@
     extras:
       artifactId: jboss-logging
       groupId: org.jboss.logging
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -481,7 +481,7 @@
     extras:
       artifactId: jboss-transaction-api_1.2_spec
       groupId: org.jboss.spec.javax.transaction
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -494,7 +494,7 @@
     extras:
       artifactId: stax-ex
       groupId: org.jvnet.staxex
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -507,7 +507,7 @@
     extras:
       artifactId: LatencyUtils
       groupId: org.latencyutils
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -519,7 +519,7 @@
     extras:
       artifactId: postgresql
       groupId: org.postgresql
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -532,7 +532,7 @@
     extras:
       artifactId: jul-to-slf4j
       groupId: org.slf4j
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -545,7 +545,7 @@
     extras:
       artifactId: slf4j-api
       groupId: org.slf4j
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -558,7 +558,7 @@
     extras:
       artifactId: spring-boot
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -571,7 +571,7 @@
     extras:
       artifactId: spring-boot-actuator
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -584,7 +584,7 @@
     extras:
       artifactId: spring-boot-actuator-autoconfigure
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -597,7 +597,7 @@
     extras:
       artifactId: spring-boot-autoconfigure
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -610,7 +610,7 @@
     extras:
       artifactId: spring-boot-starter
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -622,7 +622,7 @@
     extras:
       artifactId: spring-boot-starter-actuator
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -635,7 +635,7 @@
     extras:
       artifactId: spring-boot-starter-logging
       groupId: org.springframework.boot
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -648,7 +648,7 @@
     extras:
       artifactId: spring-data-commons
       groupId: org.springframework.data
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -660,7 +660,7 @@
     extras:
       artifactId: spring-data-jpa
       groupId: org.springframework.data
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -673,7 +673,7 @@
     extras:
       artifactId: spring-aop
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -686,7 +686,7 @@
     extras:
       artifactId: spring-beans
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -699,7 +699,7 @@
     extras:
       artifactId: spring-context
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -712,7 +712,7 @@
     extras:
       artifactId: spring-core
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -725,7 +725,7 @@
     extras:
       artifactId: spring-expression
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -738,7 +738,7 @@
     extras:
       artifactId: spring-jcl
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -750,7 +750,7 @@
     extras:
       artifactId: spring-jdbc
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -763,7 +763,7 @@
     extras:
       artifactId: spring-orm
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -776,7 +776,7 @@
     extras:
       artifactId: spring-tx
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -788,7 +788,7 @@
     extras:
       artifactId: spring-web
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -800,7 +800,7 @@
     extras:
       artifactId: spring-webmvc
       groupId: org.springframework
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
@@ -813,7 +813,7 @@
     extras:
       artifactId: snakeyaml
       groupId: org.yaml
-      pomPath: /opt/input/source/pom.xml
+      pomPath: /tmp/source-code/pom.xml
     labels:
     - konveyor.io/dep-source=open-source
     - konveyor.io/language=java
