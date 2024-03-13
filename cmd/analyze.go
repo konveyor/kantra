@@ -724,20 +724,18 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
 	}
+	if a.mode == string(provider.FullAnalysisMode) {
+		a.log.Info("running dependency retrieval during analysis")
+		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
+	}
 
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
-	depsLogFilePath := filepath.Join(a.output, "dependency.log")
 	// create log files
 	analysisLog, err := os.Create(analysisLogFilePath)
 	if err != nil {
 		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
 	}
 	defer analysisLog.Close()
-	dependencyLog, err := os.Create(depsLogFilePath)
-	if err != nil {
-		return fmt.Errorf("failed creating dependency analysis log file %s", depsLogFilePath)
-	}
-	defer dependencyLog.Close()
 
 	a.log.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
@@ -754,30 +752,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 	)
 	if err != nil {
 		return err
-	}
-
-	// run dependency analysis only when full mode is set
-	if a.mode == string(provider.FullAnalysisMode) {
-		a.log.Info("running dependency analysis",
-			"log", depsLogFilePath, "input", a.input, "output", a.output, "args", strings.Join(args, " "))
-		a.log.Info("generating dependency log in file", "file", depsLogFilePath)
-		err = NewContainer(a.log).Run(
-			ctx,
-			WithStdout(dependencyLog),
-			WithStderr(dependencyLog),
-			WithVolumes(volumes),
-			WithEntrypointBin("/usr/bin/konveyor-analyzer-dep"),
-			WithEntrypointArgs(
-				fmt.Sprintf("--output-file=%s", DepsOutputMountPath),
-				fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
-			),
-			WithCleanup(a.cleanup),
-		)
-		if err != nil {
-			return err
-		}
-	} else {
-		a.log.Info("skipping dependency analysis", "mode", a.mode)
 	}
 
 	return nil
