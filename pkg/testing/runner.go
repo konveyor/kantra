@@ -304,7 +304,11 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 						RuleID:        test.RuleID,
 						TestCaseName:  tc.Name,
 					}
-					result.FailureReasons = tc.Verify(outputRulesets[0])
+					if len(outputRulesets) > 0 {
+						result.FailureReasons = tc.Verify(outputRulesets[0])
+					} else {
+						result.FailureReasons = []string{"empty output"}
+					}
 					if len(result.FailureReasons) == 0 {
 						result.Passed = true
 					} else {

@@ -3,9 +3,9 @@ package testing
 import (
 	"fmt"
 	"io"
-	"math"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 )
 
 // Result is a result of a test run
@@ -62,14 +62,6 @@ func PrintProgress(w io.WriteCloser, results []Result) {
 	// results grouped by their tests files, then rules, then test cases
 	resultsByTestsFile := map[string]map[string][]Result{}
 	errorsByTestsFile := map[string][]string{}
-	justifyLen := 0
-	maxInt := func(a ...int) int {
-		maxInt := math.MinInt64
-		for _, n := range a {
-			maxInt = int(math.Max(float64(n), float64(maxInt)))
-		}
-		return maxInt
-	}
 	for _, result := range results {
 		if result.Error != nil {
 			if _, ok := errorsByTestsFile[result.TestsFilePath]; !ok {
@@ -79,9 +71,6 @@ func PrintProgress(w io.WriteCloser, results []Result) {
 				result.Error.Error())
 			continue
 		}
-		justifyLen = maxInt(justifyLen,
-			len(filepath.Base(result.TestsFilePath))+3,
-			len(result.RuleID)+4, len(result.TestCaseName)+6)
 		if _, ok := resultsByTestsFile[result.TestsFilePath]; !ok {
 			resultsByTestsFile[result.TestsFilePath] = map[string][]Result{}
 		}
@@ -95,59 +84,41 @@ func PrintProgress(w io.WriteCloser, results []Result) {
 			}
 		}
 	}
-	report := []string{}
+	prettyWriter := tabwriter.NewWriter(w, 1, 1, 1, ' ', tabwriter.StripEscape)
 	for testsFile, resultsByRule := range resultsByTestsFile {
-		totalTestsInFile := len(resultsByRule)
-		passedTestsInFile := 0
-		testsFileReport := []string{}
-		testsFileSummary := fmt.Sprintf("- %s%s%%d/%%d PASSED",
-			filepath.Base(testsFile), strings.Repeat(" ", justifyLen-len(filepath.Base(testsFile))-2))
-		testsReport := []string{}
-		for ruleID, resultsByTCs := range resultsByRule {
-			totalTestCasesInTest := len(resultsByTCs)
-			passedTestCasesInTest := 0
-			testReport := []string{}
-			testSummary := fmt.Sprintf("%+2s %s%s%%d/%%d PASSED",
-				"-", ruleID, strings.Repeat(" ", justifyLen-len(ruleID)-3))
-			testCaseReport := []string{}
-			for _, tcResult := range resultsByTCs {
+		testsResult := ""
+		passedRules := 0
+		for test, testCases := range resultsByRule {
+			passedTCs := 0
+			tcsResult := ""
+			for _, tcResult := range testCases {
+				// only output failed test cases
 				if !tcResult.Passed {
-					reasons := []string{}
+					tcsResult = fmt.Sprintf("%s    %s\tFAILED\n", tcsResult, tcResult.TestCaseName)
 					for _, reason := range tcResult.FailureReasons {
-						reasons = append(reasons, fmt.Sprintf("%+6s %s", "-", reason))
+						tcsResult = fmt.Sprintf("%s    - %s\t\n", tcsResult, reason)
 					}
 					for _, debugInfo := range tcResult.DebugInfo {
-						reasons = append(reasons, fmt.Sprintf("%+6s %s", "-", debugInfo))
+						tcsResult = fmt.Sprintf("%s    - %s\t\n", tcsResult, debugInfo)
 					}
-					testCaseReport = append(testCaseReport,
-						fmt.Sprintf("%+4s %s%sFAILED", "-",
-							tcResult.TestCaseName, strings.Repeat(" ", justifyLen-len(tcResult.TestCaseName)-5)))
-					testCaseReport = append(testCaseReport, reasons...)
 				} else {
-					passedTestCasesInTest += 1
+					passedTCs += 1
 				}
 			}
-			if passedTestCasesInTest == totalTestCasesInTest {
-				passedTestsInFile += 1
+			if passedTCs == len(testCases) {
+				passedRules += 1
 			}
-			testReport = append(testReport,
-				fmt.Sprintf(testSummary, passedTestCasesInTest, totalTestCasesInTest))
-			testReport = append(testReport, testCaseReport...)
-			testsReport = append(testsReport, testReport...)
+			testStat := fmt.Sprintf("%d/%d PASSED", passedTCs, len(testCases))
+			testsResult = fmt.Sprintf("%s  %s\t%s\n", testsResult, test, testStat)
+			if tcsResult != "" {
+				testsResult = fmt.Sprintf("%s%s", testsResult, tcsResult)
+			}
 		}
-		testsFileReport = append(testsFileReport,
-			fmt.Sprintf(testsFileSummary, passedTestsInFile, totalTestsInFile))
-		testsFileReport = append(testsFileReport, testsReport...)
-		report = append(report, testsFileReport...)
+		testsFileStat := fmt.Sprintf("%d/%d PASSED", passedRules, len(resultsByRule))
+		fmt.Fprintf(prettyWriter,
+			"%s\t%s\n%s", filepath.Base(testsFile), testsFileStat, testsResult)
 	}
-	for testsFile, errs := range errorsByTestsFile {
-		errorReport := []string{fmt.Sprintf("- %s   FAILED", filepath.Base(testsFile))}
-		for _, e := range errs {
-			errorReport = append(errorReport, fmt.Sprintf("%+2s %s", "-", e))
-		}
-		report = append(report, errorReport...)
-	}
-	fmt.Fprintln(w, strings.Join(report, "\n"))
+	prettyWriter.Flush()
 }
 
 func AnyFailed(results []Result) bool {
