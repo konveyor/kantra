@@ -46,6 +46,7 @@ func init() {
 	logger := logrusr.New(logrusLog)
 	rootCmd.AddCommand(NewTransformCommand(logger))
 	rootCmd.AddCommand(NewAnalyzeCmd(logger))
+	rootCmd.AddCommand(NewTestCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
 }
 

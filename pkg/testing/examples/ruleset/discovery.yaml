@@ -1,0 +1,19 @@
+- ruleID: kube-api-usage
+  description: Discover Kubernetes api usage
+  labels:
+  - discovery
+  tag:
+  - Kubernetes
+  message: Python Kubernetes client used
+  when:
+    python.referenced:
+      pattern: "create_custom_resource_definition"
+- ruleID: language-discovery
+  description: Found python files
+  labels:
+  - discovery
+  tag:
+  - Python
+  when:
+    builtin.file:
+      pattern: "*.py"

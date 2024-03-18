@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
+	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -301,13 +302,15 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 		} else {
 			args = append(args, "--list-targets")
 		}
-		err = NewContainer(a.log).Run(
+		err = container.NewContainer().Run(
 			ctx,
-			WithEnv(runMode, runModeContainer),
-			WithVolumes(volumes),
-			WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
-			WithEntrypointArgs(args...),
-			WithCleanup(a.cleanup),
+			container.WithImage(Settings.RunnerImage),
+			container.WithLog(a.log.V(1)),
+			container.WithEnv(runMode, runModeContainer),
+			container.WithVolumes(volumes),
+			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
+			container.WithEntrypointArgs(args...),
+			container.WithCleanup(a.cleanup),
 		)
 		if err != nil {
 			a.log.Error(err, "failed listing labels")
@@ -741,14 +744,16 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
 	// TODO (pgaikwad): run analysis & deps in parallel
-	err = NewContainer(a.log).Run(
+	err = container.NewContainer().Run(
 		ctx,
-		WithVolumes(volumes),
-		WithStdout(analysisLog),
-		WithStderr(analysisLog),
-		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/bin/entrypoint.sh"),
-		WithCleanup(a.cleanup),
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithVolumes(volumes),
+		container.WithStdout(analysisLog),
+		container.WithStderr(analysisLog),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin("/usr/bin/entrypoint.sh"),
+		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
@@ -838,16 +843,18 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	joinedArgs := strings.Join(args, " ")
 	staticReportCmd := []string{joinedArgs}
 
-	container := NewContainer(a.log)
+	c := container.NewContainer()
 	a.log.Info("generating static report",
 		"output", a.output, "args", strings.Join(staticReportCmd, " "))
-	err := container.Run(
+	err := c.Run(
 		ctx,
-		WithEntrypointBin("/bin/sh"),
-		WithEntrypointArgs(staticReportCmd...),
-		WithVolumes(volumes),
-		WithcFlag(true),
-		WithCleanup(a.cleanup),
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithEntrypointBin("/bin/sh"),
+		container.WithEntrypointArgs(staticReportCmd...),
+		container.WithVolumes(volumes),
+		container.WithcFlag(true),
+		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
@@ -1011,14 +1018,16 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	a.log.Info("running windup shim",
 		"output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	a.log.Info("generating shim log in file", "file", shimLogPath)
-	err = NewContainer(a.log).Run(
+	err = container.NewContainer().Run(
 		ctx,
-		WithStdout(shimLog),
-		WithStderr(shimLog),
-		WithVolumes(volumes),
-		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/local/bin/windup-shim"),
-		WithCleanup(a.cleanup),
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithStdout(shimLog),
+		container.WithStderr(shimLog),
+		container.WithVolumes(volumes),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
+		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return "", err

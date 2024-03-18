@@ -1,0 +1,127 @@
+{
+	"properties": {
+		"providers": {
+			"items": {
+				"properties": {
+					"dataPath": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"name",
+					"dataPath"
+				],
+				"type": "object"
+			},
+			"nullable": true,
+			"type": "array"
+		},
+		"rulesPath": {
+			"type": "string"
+		},
+		"tests": {
+			"items": {
+				"properties": {
+					"ruleID": {
+						"type": "string"
+					},
+					"testCases": {
+						"items": {
+							"properties": {
+								"analysisParams": {
+									"properties": {
+										"depLabelSelector": {
+											"type": "string"
+										},
+										"mode": {
+											"pattern": "(full|source-only)",
+											"type": "string"
+										}
+									},
+									"type": "object"
+								},
+								"hasIncidents": {
+									"nullable": true,
+									"properties": {
+										"atLeast": {
+											"nullable": true,
+											"type": "integer"
+										},
+										"atMost": {
+											"nullable": true,
+											"type": "integer"
+										},
+										"codeSnipMatches": {
+											"type": "string"
+										},
+										"exactly": {
+											"nullable": true,
+											"type": "integer"
+										},
+										"locations": {
+											"items": {
+												"properties": {
+													"codeSnipMatches": {
+														"type": "string"
+													},
+													"fileURI": {
+														"type": "string"
+													},
+													"lineNumber": {
+														"type": "integer"
+													},
+													"messageMatches": {
+														"type": "string"
+													}
+												},
+												"required": [
+													"lineNumber",
+													"fileURI"
+												],
+												"type": "object"
+											},
+											"nullable": true,
+											"type": "array"
+										},
+										"messageMatches": {
+											"type": "string"
+										}
+									},
+									"type": "object"
+								},
+								"hasTags": {
+									"items": {
+										"nullable": true,
+										"type": "string"
+									},
+									"nullable": true,
+									"type": "array"
+								},
+								"isUnmatched": {
+									"type": "boolean"
+								},
+								"name": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"name"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"ruleID"
+				],
+				"type": "object"
+			},
+			"type": "array"
+		}
+	},
+	"type": "object"
+}

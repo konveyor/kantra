@@ -1,0 +1,29 @@
+- ruleID: storage-000
+  description: Hardcoded local files in properties
+  labels:
+  - component=storage
+  message: Found access to a local file {{ matchingText }}
+  when:
+    builtin.filecontent:
+      filePattern: .*\.(\\\.java|\\\.properties|\\\.jsp|\\\.jspf|\\\.tag|[^pom]\\\.xml|\\\.txt)
+      pattern: file://
+- ruleID: storage-001
+  labels:
+  - component=storage
+  message: Application may lose access to local storage in container environment
+  when:
+    or:
+    - java.referenced:
+        location: CONSTRUCTOR_CALL
+        pattern: java.io.(FileWriter|FileReader|PrintStream|File|PrintWriter|RandomAccessFile)*
+    - java.referenced:
+        location: METHOD_CALL
+        pattern: java.io.File.createTempFile*
+    - java.referenced:
+        location: METHOD_CALL
+        pattern: java.nio.file.Paths.get*
+    - python.referenced:
+        pattern: os_open
+    - python.referenced:
+        pattern: safe_load
+  

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 )
 
@@ -151,13 +152,15 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		args = append(args, "-s", o.mavenSettingsFile)
 	}
 
-	err := NewContainer(o.log).Run(
+	err := container.NewContainer().Run(
 		ctx,
-		WithEntrypointArgs(args...),
-		WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
-		WithVolumes(volumes),
-		WithWorkDir("/tmp/source-app/input"),
-		WithCleanup(o.cleanup),
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(o.log.V(1)),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
+		container.WithVolumes(volumes),
+		container.WithWorkDir("/tmp/source-app/input"),
+		container.WithCleanup(o.cleanup),
 	)
 	if err != nil {
 		o.log.V(1).Error(err, "error running openrewrite")
