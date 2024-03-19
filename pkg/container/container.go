@@ -56,6 +56,12 @@ func WithEntrypointBin(b string) Option {
 	}
 }
 
+func WithContainerRuntimeBin(r string) Option {
+	return func(c *container) {
+		c.containerRuntimeBin = r
+	}
+}
+
 func WithEntrypointArgs(args ...string) Option {
 	return func(c *container) {
 		c.entrypointArgs = args
@@ -205,8 +211,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		cmd.Stderr = io.MultiWriter(
 			append(c.stderr, errBytes)...)
 	}
-	c.log.Info("executing podman command",
-		"podman", c.containerRuntimeBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
+	c.log.Info("executing command",
+		"container runtime", c.containerRuntimeBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
 	err = cmd.Run()
 	if err != nil {
 		c.log.Error(err, "container run error")

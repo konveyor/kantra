@@ -309,6 +309,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			container.WithEnv(runMode, runModeContainer),
 			container.WithVolumes(volumes),
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
+			container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 			container.WithEntrypointArgs(args...),
 			container.WithCleanup(a.cleanup),
 		)
@@ -753,6 +754,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		container.WithStderr(analysisLog),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/bin/entrypoint.sh"),
+		container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
@@ -851,6 +853,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
 		container.WithEntrypointBin("/bin/sh"),
+		container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 		container.WithEntrypointArgs(staticReportCmd...),
 		container.WithVolumes(volumes),
 		container.WithcFlag(true),
@@ -1027,6 +1030,7 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		container.WithVolumes(volumes),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
+		container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {

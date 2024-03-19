@@ -158,6 +158,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		container.WithLog(o.log.V(1)),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
+		container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 		container.WithVolumes(volumes),
 		container.WithWorkDir("/tmp/source-app/input"),
 		container.WithCleanup(o.cleanup),

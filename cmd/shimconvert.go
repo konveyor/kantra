@@ -172,6 +172,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		container.WithStderr(shimLog),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
+		container.WithContainerRuntimeBin(os.Getenv("PODMAN_BIN")),
 		container.WithCleanup(w.cleanup),
 	)
 	if err != nil {
