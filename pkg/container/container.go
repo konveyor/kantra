@@ -29,11 +29,11 @@ type container struct {
 	// whether to delete container after run()
 	cleanup bool
 	// map of source -> dest paths to mount
-	volumes             map[string]string
-	cFlag               bool
-	log                 logr.Logger
-	containerRuntimeBin string
-	reproducerCmd       *string
+	volumes          map[string]string
+	cFlag            bool
+	log              logr.Logger
+	containerToolBin string
+	reproducerCmd    *string
 }
 
 type Option func(c *container)
@@ -56,9 +56,9 @@ func WithEntrypointBin(b string) Option {
 	}
 }
 
-func WithContainerRuntimeBin(r string) Option {
+func WithContainerToolBin(r string) Option {
 	return func(c *container) {
-		c.containerRuntimeBin = r
+		c.containerToolBin = r
 	}
 }
 
@@ -134,14 +134,14 @@ func randomName() string {
 
 func NewContainer() *container {
 	return &container{
-		image:               "",
-		containerRuntimeBin: "podman",
-		entrypointArgs:      []string{},
-		volumes:             make(map[string]string),
-		stdout:              []io.Writer{os.Stdout},
-		env:                 map[string]string{},
-		stderr:              []io.Writer{os.Stderr},
-		name:                randomName(),
+		image:            "",
+		containerToolBin: "podman",
+		entrypointArgs:   []string{},
+		volumes:          make(map[string]string),
+		stdout:           []io.Writer{os.Stdout},
+		env:              map[string]string{},
+		stderr:           []io.Writer{os.Stderr},
+		name:             randomName(),
 		// by default, remove the container after run()
 		cleanup: true,
 		cFlag:   false,
@@ -154,8 +154,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	for _, opt := range opts {
 		opt(c)
 	}
-	if c.image == "" || c.containerRuntimeBin == "" {
-		return fmt.Errorf("image and containerRuntimeBin must be set")
+	if c.image == "" || c.containerToolBin == "" {
+		return fmt.Errorf("image and containerToolBin must be set")
 	}
 	args := []string{"run"}
 	os := runtime.GOOS
@@ -198,9 +198,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.reproducerCmd != nil {
 		reproducer := strings.ReplaceAll(strings.Join(args, " "), " --rm", "")
 		*c.reproducerCmd = fmt.Sprintf("%s %s",
-			c.containerRuntimeBin, reproducer)
+			c.containerToolBin, reproducer)
 	}
-	cmd := exec.CommandContext(ctx, c.containerRuntimeBin, args...)
+	cmd := exec.CommandContext(ctx, c.containerToolBin, args...)
 	errBytes := &bytes.Buffer{}
 	cmd.Stdout = nil
 	cmd.Stderr = errBytes
@@ -212,7 +212,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 			append(c.stderr, errBytes)...)
 	}
 	c.log.Info("executing command",
-		"container runtime", c.containerRuntimeBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
+		"container tool", c.containerToolBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
 	err = cmd.Run()
 	if err != nil {
 		c.log.Error(err, "container run error")
@@ -227,9 +227,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 func (c *container) Rm(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
-		c.containerRuntimeBin,
+		c.containerToolBin,
 		"rm", c.name)
 	c.log.Info("removing container",
-		"podman", c.containerRuntimeBin, "name", c.name)
+		"container tool", c.containerToolBin, "name", c.name)
 	return cmd.Run()
 }
