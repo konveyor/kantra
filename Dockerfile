@@ -27,9 +27,9 @@ COPY pkg/ pkg/
 # Build
 ARG VERSION
 ARG BUILD_COMMIT
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o kantra main.go
-RUN CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o darwin-kantra main.go
-RUN CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o windows-kantra main.go
+RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o kantra main.go
+RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o darwin-kantra main.go
+RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o windows-kantra main.go
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 

@@ -1,0 +1,58 @@
+# this workflow makes sure we upload kantra binaries to release assets 
+name: "Upload binaries to release assets"
+
+on: ["release"]
+
+jobs:
+  resolve-and-upload:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        arch: ["amd64", "arm64"]
+        os: ["ubuntu-latest"]
+    steps:
+    - id: release_info
+      uses: joutvhu/get-release@v1
+      with:
+        latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract binaries
+      run: |
+        image=quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
+        podman create --name kantra-download ${image}
+        podman cp kantra-download:/usr/local/bin/kantra . && zip kantra.linux.${{ matrix.arch }}.zip kantra
+        podman cp kantra-download:/usr/local/bin/darwin-kantra . && zip kantra.darwin.${{ matrix.arch }}.zip darwin-kantra
+        podman cp kantra-download:/usr/local/bin/windows-kantra windows-kantra.exe && zip kantra.windows.${{ matrix.arch }}.zip windows-kantra.exe
+
+    - name: Upload linux binary
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.release_info.outputs.upload_url }}
+        asset_path: ./kantra.linux.${{ matrix.arch }}.zip
+        asset_name: kantra.linux.${{ matrix.arch }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload windows binary
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.release_info.outputs.upload_url }}
+        asset_path: ./kantra.windows.${{ matrix.arch }}.zip
+        asset_name: kantra.windows.${{ matrix.arch }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload darwin binary
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.release_info.outputs.upload_url }}
+        asset_path: ./kantra.darwin.${{ matrix.arch }}.zip
+        asset_name: kantra.darwin.${{ matrix.arch }}.zip
+        asset_content_type: application/zip
+
