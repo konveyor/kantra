@@ -1,7 +1,17 @@
 # this workflow makes sure we upload kantra binaries to release assets 
 name: "Upload binaries to release assets"
 
-on: ["release"]
+on:
+ workflow_dispatch:
+   inputs:
+     use_latest_release:
+       type: boolean
+       default: true
+       description: Upload binaries to the most recent release
+     tag_pattern:
+       type: string
+       default: 'v*'
+       description: Pick from tags matching this pattern
 
 jobs:
   resolve-and-upload:
@@ -14,17 +24,10 @@ jobs:
     - id: release_info
       uses: joutvhu/get-release@v1
       with:
-        latest: true
+        latest: ${{ github.event.inputs.use_latest_release }}
+        tag_pattern: ${{ github.event.inputs.tag_pattern }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: wait for image to be published
-      run: |
-        #!/bin/bash
-        while ! docker pull quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }} &> /dev/null; do
-            sleep 3m
-        done
-        docker image inspect quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
 
     - name: Extract binaries
       run: |
