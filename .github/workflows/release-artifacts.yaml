@@ -18,6 +18,14 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: wait for image to be published
+      run: |
+        #!/bin/bash
+        while ! docker pull quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }} &> /dev/null; do
+            sleep 3m
+        done
+        docker image inspect quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
+
     - name: Extract binaries
       run: |
         image=quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
