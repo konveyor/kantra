@@ -447,14 +447,14 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 
 	goConfig := provider.Config{
 		Name:       "go",
-		BinaryPath: "/usr/bin/generic-external-provider",
+		BinaryPath: "/usr/local/bin/generic-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     otherProvsMountPath,
 				AnalysisMode: provider.FullAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"name":                          "go",
-					"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
+					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
 				},
 			},

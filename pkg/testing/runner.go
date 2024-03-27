@@ -60,7 +60,7 @@ var defaultProviderConfig = []provider.Config{
 	},
 	{
 		Name:       "go",
-		BinaryPath: "/usr/bin/generic-external-provider",
+		BinaryPath: "/usr/local/bin/generic-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
@@ -68,14 +68,14 @@ var defaultProviderConfig = []provider.Config{
 					"lspServerName":                 "generic",
 					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
 					"lspServerArgs":                 []string{},
-					"dependencyProviderPath":        "/usr/bin/golang-dependency-provider",
+					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 				},
 			},
 		},
 	},
 	{
 		Name:       "python",
-		BinaryPath: "/usr/bin/generic-external-provider",
+		BinaryPath: "/usr/local/bin/generic-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
@@ -91,7 +91,7 @@ var defaultProviderConfig = []provider.Config{
 	},
 	{
 		Name:       "nodejs",
-		BinaryPath: "/usr/bin/generic-external-provider",
+		BinaryPath: "/usr/local/bin/generic-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
@@ -107,7 +107,7 @@ var defaultProviderConfig = []provider.Config{
 	},
 	{
 		Name:       "yaml",
-		BinaryPath: "/usr/bin/yq-external-provider",
+		BinaryPath: "/usr/local/bin/yq-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
