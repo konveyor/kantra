@@ -28,8 +28,8 @@ COPY pkg/ pkg/
 ARG VERSION
 ARG BUILD_COMMIT
 RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o kantra main.go
-RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o darwin-kantra main.go
-RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o windows-kantra main.go
+RUN bash -c "if [ \"$(uname -m)\" == \"x86_64\" ] || [ \"$(uname -m)\" == \"aarch64\" ]; then CGO_ENABLED=0 GOOS=darwin go build --ldflags=\"-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'\" -a -o darwin-kantra main.go; else mkdir /workspace/darwin-kantra; fi"
+RUN bash -c "if [ \"$(uname -m)\" == \"x86_64\" ] || [ \"$(uname -m)\" == \"aarch64\" ]; then CGO_ENABLED=0 GOOS=windows go build --ldflags=\"-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'\" -a -o windows-kantra main.go; else mkdir /workspace/windows-kantra; fi"
 
 FROM quay.io/konveyor/analyzer-lsp:latest
 
