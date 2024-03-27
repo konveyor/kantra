@@ -20,7 +20,7 @@ jobs:
       registry: "quay.io/konveyor"
       image_name: "kantra"
       containerfile: "./Dockerfile"
-      architectures: '[ "amd64", "arm64", "ppc64le", "s390x" ]'
+      architectures: '[ "amd64", "arm64" ]'
       pre_build_cmd: |
         TAG=${GITHUB_REF_NAME/main/latest}
         sed -i "s,FROM quay.io/konveyor/windup-shim\:latest,FROM quay.io/konveyor/windup-shim:${TAG}," Dockerfile
