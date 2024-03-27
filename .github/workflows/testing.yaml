@@ -6,8 +6,30 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Extract pull request number from inputs or PR description
+        run: |
+          echo "${{ github.event.pull_request.body }}"
+          PULL_REQUEST_NUMBER=$(echo "${{ github.event.pull_request.body }}" | grep -oP 'Analyzer PR: \K\d+' || true)
+          if [ -z "$PULL_REQUEST_NUMBER" ]; then
+            echo "ANALYZER_REF=main" >>$GITHUB_ENV
+          else
+            echo "ANALYZER_REF=refs/pull/$PULL_REQUEST_NUMBER/merge" >>$GITHUB_ENV
+          fi
+      
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          repository: konveyor/analyzer-lsp
+          ref: "${{ env.ANALYZER_REF}}"
+          path: analyzer-lsp
+     
+      - name: Build anaylzer and save image
+        working-directory: analyzer-lsp
+        run: |
+          podman build -t quay.io/konveyor/analyzer-lsp:latest .
 
+      - uses: actions/checkout@v3
+      
       - name: Build image and binary
         run: |
           podman build -t localhost/kantra:latest -f Dockerfile .
