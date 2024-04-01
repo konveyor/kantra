@@ -6,52 +6,52 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 The easiest way to install Kantra is to get it via the container image.
 
-1. To download latest container image using _podman_, follow instructions for your operating system:
+1. To download the latest container image using _podman_, follow the instructions for your operating system:
 
-  * For Linux, run:
-  
-    ```sh
-    podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
-    ```
-
-  * For MacOS
-  
-    Prior to starting your podman machine, run:
-  
-    ```sh
-    ulimit -n unlimited
-    ```
-    > This must be run after each podman machine reboot.
-  
-    Init your _podman_ machine :
-  
-    ```sh
-    podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
-    ```
-  
-    Increase podman resources:
-  
-    ```sh
-    podman machine set <vm_name> --cpus 4 --memory 4096
-    ```
-  
-    Ensure that we use the connection to the VM `<vm_name>` we created earlier by default:
+    * For Linux, run:
     
-    ```sh
-    podman system connection default <vm_name>
-    ```
-  
-    Finally, run:
-  
-    ```sh
-    podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/darwin-kantra kantra && podman rm kantra-download
-    ```
-  
-  * For Windows, run: 
+      ```sh
+      podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+      ```
 
-    ```sh
-    podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/windows-kantra kantra && podman rm kantra-download
-    ```
+    * For MacOS
+    
+      Prior to starting your podman machine, run:
+    
+      ```sh
+      ulimit -n unlimited
+      ```
+      > This must be run after each podman machine reboot.
+    
+      Init your _podman_ machine :
+    
+      ```sh
+      podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
+      ```
+    
+      Increase podman resources:
+    
+      ```sh
+      podman machine set <vm_name> --cpus 4 --memory 4096
+      ```
+    
+      Ensure that we use the connection to the VM `<vm_name>` we created earlier by default:
+      
+      ```sh
+      podman system connection default <vm_name>
+      ```
+    
+      Finally, run:
+    
+      ```sh
+      podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/darwin-kantra kantra && podman rm kantra-download
+      ```
+    
+    * For Windows, run: 
+
+      ```sh
+      podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/windows-kantra kantra && podman rm kantra-download
+      ```
 
 2. The above will copy the binary into your current directory. Move it to PATH for system-wide use:
 
@@ -73,7 +73,7 @@ Kantra has three subcommands:
 
 1. _analyze_: This subcommand allows running source code analysis on input source code or a binary.
 
-2. _transform_: This subcommand allows - converting XML rules to YAML, and running OpenRewrite recipes on source code.
+2. _transform_: This subcommand allows either converting XML rules to YAML or running OpenRewrite recipes on source code.
 
 3. _test_: This subcommand allows testing YAML rules.
 
@@ -113,7 +113,7 @@ Transform has two subcommands:
 
 1. _openrewrite_: This subcommand allows running one or more available OpenRewrite recipes on input source code.  
 
-2. _rules_: This sucommand allows converting Windup XML rules into the analyzer-lsp YAML format.
+2. _rules_: This subcommand allows converting Windup XML rules into the analyzer-lsp YAML format.
 
 #### OpenRewrite
 
