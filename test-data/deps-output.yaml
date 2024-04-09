@@ -8,6 +8,13 @@
     resolvedIdentifier: 83cd2cd674a217ade95a4bb83a8a14f351f48bd0
     extras:
       artifactId: antlr
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: antlr
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -33,6 +40,13 @@
     resolvedIdentifier: 7873092d39ef741575ca91378a6a21c388363ac8
     extras:
       artifactId: logback-core
+      baseDep:
+        extras:
+          artifactId: logback-classic
+          groupId: ch.qos.logback
+          pomPath: /tmp/source-code/pom.xml
+        name: ch.qos.logback.logback-classic
+        version: 1.1.7
       groupId: ch.qos.logback
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -46,6 +60,13 @@
     resolvedIdentifier: 3fe0bed568c62df5e89f4f174c101eab25345b6c
     extras:
       artifactId: classmate
+      baseDep:
+        extras:
+          artifactId: hibernate-validator
+          groupId: org.hibernate.validator
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.validator.hibernate-validator
+        version: 6.2.0.Final
       groupId: com.fasterxml
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -59,6 +80,13 @@
     resolvedIdentifier: 7275513412694a1aafd08c0287f48469fa0e6e17
     extras:
       artifactId: jackson-annotations
+      baseDep:
+        extras:
+          artifactId: jackson-databind
+          groupId: com.fasterxml.jackson.core
+          pomPath: /tmp/source-code/pom.xml
+        name: com.fasterxml.jackson.core.jackson-databind
+        version: 2.12.3
       groupId: com.fasterxml.jackson.core
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -96,6 +124,13 @@
     resolvedIdentifier: f69c636438dcf19c49960c1fe8901320ab85f989
     extras:
       artifactId: jackson-datatype-jsr310
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: com.fasterxml.jackson.datatype
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -121,6 +156,13 @@
     resolvedIdentifier: c197c86ceec7318b1284bffb49b54226ca774003
     extras:
       artifactId: istack-commons-runtime
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: com.sun.istack
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -134,6 +176,13 @@
     resolvedIdentifier: bb7b7ec0379982b97c62cd17465cb6d9155f68e8
     extras:
       artifactId: FastInfoset
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: com.sun.xml.fastinfoset
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -159,6 +208,13 @@
     resolvedIdentifier: bc7dc1605f2099dc3c39156b7f62ac889f54fb67
     extras:
       artifactId: micrometer-core
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: io.micrometer
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -172,6 +228,13 @@
     resolvedIdentifier: 59eb84ee0d616332ff44aba065f3888cf002cd2d
     extras:
       artifactId: jakarta.annotation-api
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: jakarta.annotation
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -185,6 +248,13 @@
     resolvedIdentifier: 5eacc6522521f7eacb081f95cee1e231648461e7
     extras:
       artifactId: jakarta.validation-api
+      baseDep:
+        extras:
+          artifactId: hibernate-validator
+          groupId: org.hibernate.validator
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.validator.hibernate-validator
+        version: 6.2.0.Final
       groupId: jakarta.validation
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -198,6 +268,13 @@
     resolvedIdentifier: 85262acf3ca9816f9537ca47d5adeabaead7cb16
     extras:
       artifactId: javax.activation-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: javax.activation
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -211,6 +288,13 @@
     resolvedIdentifier: 25665ac8c0b62f50e6488173233239120fc52c96
     extras:
       artifactId: javax.persistence-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: javax.persistence
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -224,6 +308,13 @@
     resolvedIdentifier: 8531ad5ac454cc2deb9d4d32c40c4d7451939b5d
     extras:
       artifactId: jaxb-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: javax.xml.bind
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -237,6 +328,13 @@
     resolvedIdentifier: ef45d7e2cd1c600d279704f492ed5ce2ceb6cdb5
     extras:
       artifactId: byte-buddy
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: net.bytebuddy
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -250,6 +348,13 @@
     resolvedIdentifier: cd8858fbbde69f46bce8db1152c18a43328aae78
     extras:
       artifactId: log4j-api
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.apache.logging.log4j
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -263,6 +368,13 @@
     resolvedIdentifier: ce8a86a3f50a4304749828ce68e7478cafbc8039
     extras:
       artifactId: log4j-to-slf4j
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.apache.logging.log4j
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -288,6 +400,13 @@
     resolvedIdentifier: 409b519751e104eab51b4347a0d27bf86a4f3bb1
     extras:
       artifactId: tomcat-juli
+      baseDep:
+        extras:
+          artifactId: tomcat-jdbc
+          groupId: org.apache.tomcat
+          pomPath: /tmp/source-code/pom.xml
+        name: org.apache.tomcat.tomcat-jdbc
+        version: 9.0.46
       groupId: org.apache.tomcat
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -313,6 +432,13 @@
     resolvedIdentifier: 1651849d48659e5703adc2599e694bf67b8c3fc4
     extras:
       artifactId: aspectjrt
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.aspectj
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -326,6 +452,13 @@
     resolvedIdentifier: 2f50520c8abea66fbd8d26e481d3aef5c673b510
     extras:
       artifactId: checker-qual
+      baseDep:
+        extras:
+          artifactId: postgresql
+          groupId: org.postgresql
+          pomPath: /tmp/source-code/pom.xml
+        name: org.postgresql.postgresql
+        version: 42.2.23
       groupId: org.checkerframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -339,6 +472,13 @@
     resolvedIdentifier: a75914155a9f5808963170ec20653668a2ffd2fd
     extras:
       artifactId: dom4j
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.dom4j
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -352,6 +492,13 @@
     resolvedIdentifier: dd6dda9da676a54c5b36ca2806ff95ee017d8738
     extras:
       artifactId: jaxb-runtime
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.glassfish.jaxb
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -365,6 +512,13 @@
     resolvedIdentifier: a09d2c48d3285f206fafbffe0e50619284e92126
     extras:
       artifactId: txw2
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.glassfish.jaxb
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -378,6 +532,13 @@
     resolvedIdentifier: 6eb7552156e0d517ae80cc2247be1427c8d90452
     extras:
       artifactId: HdrHistogram
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.hdrhistogram
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -391,6 +552,13 @@
     resolvedIdentifier: e59ffdbc6ad09eeb33507b39ffcf287679a498c8
     extras:
       artifactId: hibernate-commons-annotations
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.hibernate.common
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -404,6 +572,13 @@
     resolvedIdentifier: 99a5e10bf455337014c190e141ec631e9ff71663
     extras:
       artifactId: hibernate-core
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.hibernate
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -441,6 +616,13 @@
     resolvedIdentifier: f63e6aa899e15eca8fdaa402a79af4c417252213
     extras:
       artifactId: javassist
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.javassist
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -454,6 +636,13 @@
     resolvedIdentifier: d3865101f0666b63586683bd811d754517f331ab
     extras:
       artifactId: jandex
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.jboss
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -467,6 +656,13 @@
     resolvedIdentifier: 40fd4d696c55793e996d1ff3c475833f836c2498
     extras:
       artifactId: jboss-logging
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.jboss.logging
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -480,6 +676,13 @@
     resolvedIdentifier: a8485cab9484dda36e9a8c319e76b5cc18797b58
     extras:
       artifactId: jboss-transaction-api_1.2_spec
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.jboss.spec.javax.transaction
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -493,6 +696,13 @@
     resolvedIdentifier: 8cc35f73da321c29973191f2cf143d29d26a1df7
     extras:
       artifactId: stax-ex
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /tmp/source-code/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
       groupId: org.jvnet.staxex
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -506,6 +716,13 @@
     resolvedIdentifier: 769c0b82cb2421c8256300e907298a9410a2a3d3
     extras:
       artifactId: LatencyUtils
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.latencyutils
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -531,6 +748,13 @@
     resolvedIdentifier: d58bebff8cbf70ff52b59208586095f467656c30
     extras:
       artifactId: jul-to-slf4j
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.slf4j
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -544,6 +768,13 @@
     resolvedIdentifier: 77100a62c2e6f04b53977b9f541044d7d722693d
     extras:
       artifactId: slf4j-api
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.slf4j
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -557,6 +788,13 @@
     resolvedIdentifier: b07513e04ad906ea69ef84293a123cdb83828f06
     extras:
       artifactId: spring-boot
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -570,6 +808,13 @@
     resolvedIdentifier: e0ac75f1a183f8e6a319a8b03bad1c45d40a2761
     extras:
       artifactId: spring-boot-actuator
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -583,6 +828,13 @@
     resolvedIdentifier: 41956882243e86f8260f649ebdd96597a2ff52a9
     extras:
       artifactId: spring-boot-actuator-autoconfigure
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -596,6 +848,13 @@
     resolvedIdentifier: 64c7bbc941c70895621ed613f38dc66b73ea9341
     extras:
       artifactId: spring-boot-autoconfigure
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -609,6 +868,13 @@
     resolvedIdentifier: a910887c01efcc7d12f3f89a7604d436f26eeb90
     extras:
       artifactId: spring-boot-starter
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -634,6 +900,13 @@
     resolvedIdentifier: 22401482ba1c5a1dcd3d33e47295779211b913d8
     extras:
       artifactId: spring-boot-starter-logging
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.springframework.boot
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -647,6 +920,13 @@
     resolvedIdentifier: c950ca1a05e928e9fb75420b4ac07713428e9969
     extras:
       artifactId: spring-data-commons
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework.data
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -672,6 +952,13 @@
     resolvedIdentifier: b86edd2455f8c4399068c999beb9ea2a9e7f2047
     extras:
       artifactId: spring-aop
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -685,6 +972,13 @@
     resolvedIdentifier: 8b1eacd7aaa12f7d173a2f0836d28bd0c1b098fe
     extras:
       artifactId: spring-beans
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -698,6 +992,13 @@
     resolvedIdentifier: 330b3957efdcdebe3550b8e2c5d45a4c25496626
     extras:
       artifactId: spring-context
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -711,6 +1012,13 @@
     resolvedIdentifier: 4aad1b62bd347a806fe693c9d67b376a3ad8151c
     extras:
       artifactId: spring-core
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -724,6 +1032,13 @@
     resolvedIdentifier: 13351fce0a604957cd6a41478ebb54a953a0245e
     extras:
       artifactId: spring-expression
+      baseDep:
+        extras:
+          artifactId: spring-webmvc
+          groupId: org.springframework
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.spring-webmvc
+        version: 5.3.7
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -737,6 +1052,13 @@
     resolvedIdentifier: ccd8bde38bad689737295fa220e1c70680676d72
     extras:
       artifactId: spring-jcl
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -762,6 +1084,13 @@
     resolvedIdentifier: f1892fe7a6671348d6546facbd40159b7e6f64a2
     extras:
       artifactId: spring-orm
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -775,6 +1104,13 @@
     resolvedIdentifier: 98be572c2bf3bd08724363b0bba71bcef59c4739
     extras:
       artifactId: spring-tx
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
       groupId: org.springframework
       pomPath: /tmp/source-code/pom.xml
     labels:
@@ -812,6 +1148,13 @@
     resolvedIdentifier: 7cae037c3014350c923776548e71c9feb7a69259
     extras:
       artifactId: snakeyaml
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /tmp/source-code/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
       groupId: org.yaml
       pomPath: /tmp/source-code/pom.xml
     labels:
