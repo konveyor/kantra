@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
@@ -35,6 +34,7 @@ type TestOptions struct {
 	RunLocal           bool
 	ContainerImage     string
 	ProgressPrinter    ResultPrinter
+	Log                logr.Logger
 }
 
 // TODO (pgaikwad): we need to move the default config to a common place
@@ -42,11 +42,12 @@ type TestOptions struct {
 var defaultProviderConfig = []provider.Config{
 	{
 		Name:       "java",
-		BinaryPath: "/jdtls/bin/jdtls",
+		BinaryPath: "/usr/local/bin/java-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
+					"lspServerName":                 "java",
 					"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
@@ -128,105 +129,39 @@ func NewRunner() Runner {
 // groups tests within a file by analysisParams
 type defaultRunner struct{}
 
-type workerInput struct {
-	testsFile TestsFile
-	opts      TestOptions
-}
-
 func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, error) {
-	workerInputChan := make(chan workerInput, len(testFiles))
-	resChan := make(chan []Result)
-
-	wg := &sync.WaitGroup{}
-
-	workerCount := 5
-	// when running in container, we don't want to mount
-	// same base volumes concurrently in two different places
-	if !opts.RunLocal {
-		workerCount = 1
+	if opts.Log.GetSink() == nil {
+		opts.Log = logr.Discard()
 	}
-	// setup workers
-	for idx := 0; idx < workerCount; idx += 1 {
-		wg.Add(1)
-		go runWorker(wg, workerInputChan, resChan)
-	}
-	// send input
-	go func() {
-		for idx := range testFiles {
-			testFile := testFiles[idx]
-			workerInputChan <- workerInput{
-				testsFile: testFile,
-				opts:      opts,
-			}
-		}
-		close(workerInputChan)
-	}()
-	// wait for workers to finish
-	go func() {
-		wg.Wait()
-		close(resChan)
-	}()
-	// process results
-	results := []Result{}
+
+	allResults := []Result{}
 	anyFailed := false
 	anyErrored := false
-	// sorting for stability of unit tests
-	defer sort.Slice(results, func(i, j int) bool {
-		return strings.Compare(results[i].RuleID, results[j].RuleID) > 0
-	})
-	resultWg := sync.WaitGroup{}
-	resultWg.Add(1)
-	go func() {
-		defer resultWg.Done()
-		for res := range resChan {
-			if opts.ProgressPrinter != nil {
-				opts.ProgressPrinter(os.Stdout, res)
-			}
-			for _, r := range res {
-				if r.Error != nil {
-					anyErrored = true
-				}
-				if !r.Passed {
-					anyFailed = true
-				}
-			}
-			results = append(results, res...)
-		}
-	}()
-	resultWg.Wait()
-	if anyErrored {
-		return results, fmt.Errorf("failed to execute one or more tests")
-	}
-	if anyFailed {
-		return results, fmt.Errorf("one or more tests failed")
-	}
-	return results, nil
-}
-
-func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Result) {
-	defer wg.Done()
-	for input := range inChan {
-		results := []Result{}
+	for idx := range testFiles {
+		testsFile := testFiles[idx]
 		// users can override the base provider settings file
 		baseProviderConfig := defaultProviderConfig
-		if input.opts.BaseProviderConfig != nil {
-			baseProviderConfig = input.opts.BaseProviderConfig
+		if opts.BaseProviderConfig != nil {
+			baseProviderConfig = opts.BaseProviderConfig
 		}
 		// within a tests file, we group tests by analysis params
-		testGroups := groupTestsByAnalysisParams(input.testsFile.Tests)
+		testGroups := groupTestsByAnalysisParams(testsFile.Tests)
+		results := []Result{}
 		for _, tests := range testGroups {
-			tempDir, err := os.MkdirTemp(input.opts.TempDir, "rules-test-")
+			tempDir, err := os.MkdirTemp(opts.TempDir, "rules-test-")
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed creating temp dir - %w", err)})
 				continue
 			}
+			opts.Log.Info("created temporary directory", "dir", tempDir, "tests", testsFile.Path)
 			// print analysis logs to a file
-			logFile, err := os.OpenFile(filepath.Join(tempDir, "analysis.log"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+			logFile, err := os.OpenFile(filepath.Join(tempDir, "analysis.log"),
+				os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed creating a log file - %w", err)})
 				logFile.Close()
 				continue
@@ -236,10 +171,10 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			baseLogger.SetLevel(logrus.InfoLevel)
 			logger := logrusr.New(baseLogger)
 			// write rules
-			err = ensureRules(input.testsFile.RulesPath, tempDir, tests)
+			err = ensureRules(testsFile.RulesPath, tempDir, tests)
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed writing rules - %w", err)})
 				logFile.Close()
 				continue
@@ -247,10 +182,11 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			// we already know in this group, all tcs have same params, use any
 			analysisParams := tests[0].TestCases[0].AnalysisParams
 			// write provider settings file
-			volumes, err := ensureProviderSettings(tempDir, input.opts.RunLocal, input.testsFile, baseProviderConfig, analysisParams)
+			volumes, err := ensureProviderSettings(
+				tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed writing provider settings - %w", err)})
 				logFile.Close()
 				continue
@@ -258,18 +194,19 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			volumes[tempDir] = "/shared/"
 			reproducerCmd := ""
 			switch {
-			case input.opts.RunLocal:
+			case opts.RunLocal:
 				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams); err != nil {
 					results = append(results, Result{
-						TestsFilePath: input.testsFile.Path,
+						TestsFilePath: testsFile.Path,
 						Error:         err})
 					logFile.Close()
 					continue
 				}
 			default:
-				if reproducerCmd, err = runInContainer(logger, input.opts.ContainerImage, logFile, volumes, analysisParams); err != nil {
+				if reproducerCmd, err = runInContainer(
+					logger, opts.ContainerImage, logFile, volumes, analysisParams); err != nil {
 					results = append(results, Result{
-						TestsFilePath: input.testsFile.Path,
+						TestsFilePath: testsFile.Path,
 						Error:         err})
 					logFile.Close()
 					continue
@@ -282,7 +219,7 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			content, err := os.ReadFile(filepath.Join(tempDir, "output.yaml"))
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed reading output - %w", err)})
 				logFile.Close()
 				continue
@@ -290,7 +227,7 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			err = yaml.Unmarshal(content, &outputRulesets)
 			if err != nil {
 				results = append(results, Result{
-					TestsFilePath: input.testsFile.Path,
+					TestsFilePath: testsFile.Path,
 					Error:         fmt.Errorf("failed unmarshaling output %s", filepath.Join(tempDir, "output.yaml"))})
 				logFile.Close()
 				continue
@@ -300,7 +237,7 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			for _, test := range tests {
 				for _, tc := range test.TestCases {
 					result := Result{
-						TestsFilePath: input.testsFile.Path,
+						TestsFilePath: testsFile.Path,
 						RuleID:        test.RuleID,
 						TestCaseName:  tc.Name,
 					}
@@ -325,8 +262,33 @@ func runWorker(wg *sync.WaitGroup, inChan chan workerInput, outChan chan []Resul
 			}
 			logFile.Close()
 		}
-		outChan <- results
+		// print progress
+		if opts.ProgressPrinter != nil {
+			opts.ProgressPrinter(os.Stdout, results)
+		}
+		// result
+		for _, r := range results {
+			if r.Error != nil {
+				anyErrored = true
+			}
+			if !r.Passed {
+				anyFailed = true
+			}
+		}
+		allResults = append(allResults, results...)
 	}
+	// sorting for stability of unit tests
+	defer sort.Slice(allResults, func(i, j int) bool {
+		return strings.Compare(allResults[i].RuleID, allResults[j].RuleID) > 0
+	})
+
+	if anyErrored {
+		return allResults, fmt.Errorf("failed to execute one or more tests")
+	}
+	if anyFailed {
+		return allResults, fmt.Errorf("one or more tests failed")
+	}
+	return allResults, nil
 }
 
 func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (string, error) {
@@ -338,6 +300,8 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (str
 		filepath.Join(dir, "output.yaml"),
 		"--rules",
 		filepath.Join(dir, "rules.yaml"),
+		"--verbose",
+		"20",
 	}
 	if analysisParams.DepLabelSelector != "" {
 		args = append(args, []string{
@@ -363,6 +327,8 @@ func runInContainer(consoleLogger logr.Logger, image string, logFile io.Writer, 
 		"/shared/output.yaml",
 		"--rules",
 		"/shared/rules.yaml",
+		"--verbose",
+		"20",
 	}
 	if analysisParams.DepLabelSelector != "" {
 		args = append(args, []string{
