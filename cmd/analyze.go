@@ -420,12 +420,13 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 
 	javaConfig := provider.Config{
 		Name:       "java",
-		BinaryPath: "/jdtls/bin/jdtls",
+		BinaryPath: "/usr/local/bin/java-external-provider",
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     SourceMountPath,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
+					"lspServerName":                 "java",
 					"bundles":                       JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",

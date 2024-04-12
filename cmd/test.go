@@ -37,6 +37,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				RunLocal:        Settings.RunLocal,
 				ContainerImage:  Settings.RunnerImage,
 				ProgressPrinter: testing.PrintProgress,
+				Log:             log.V(3),
 			})
 			testing.PrintSummary(os.Stdout, results)
 			if err != nil {
