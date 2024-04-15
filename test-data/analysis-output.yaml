@@ -1,31 +1,29 @@
 - description: This ruleset detects Java Native Interface (JNI) and Java Native Access (JNA) code, which may be problematic when migrating an application to a cloud environment.
   violations:
     jni-native-code-00000-test:
-      description: |-
-        Java native libraries (JNI, JNA)
-        Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
+      description: Java native libraries (JNI, JNA)
       category: mandatory
       labels:
-      - konveyor.io/target=cloud-readiness
-      - konveyor.io/source
       - jni
+      - konveyor.io/source
+      - konveyor.io/target=cloud-readiness
       incidents:
       - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
-        lineNumber: 13
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Constructor
-          name: ApplicationConfiguration
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
+        message: |-
+          Java native libraries might not run in a cloud or container environment.
+
+           Recommendations
+
+           * Review the purpose of the native library in your application.
+           * Check whether the native library is compatible with a cloud environment.
+           * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.
+           * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
         lineNumber: 22
         variables:
           file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
           kind: Method
           name: loadProperties
+          package: io.konveyor.demo.config
       links:
       - url: https://access.redhat.com/solutions/229443
         title: How to load native libraries and access them via JNI in EAP (with or without a module)
@@ -33,28 +31,29 @@
         title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
       effort: 7
 - name: azure/springboot
-  description: Identify Zipkin dependencies.
+  description: Recommend OpenFeign instead of Feign.
   skipped:
   - azure-aws-config-credential-01000
   - azure-aws-config-region-02000
   - azure-aws-config-s3-03000
-  - azure-aws-config-sqs-04000
   - azure-aws-config-secret-manager-05000
+  - azure-aws-config-sqs-04000
   - azure-file-system-01000
   - azure-file-system-02000
   - azure-file-system-03000
-  - azure-password-01000
   - azure-java-version-01000
   - azure-java-version-02000
-  - eap-to-azure-appservice-certificates-001
   - azure-logging-0000
-  - eap-to-azure-appservice-datasource-driver-01000
   - azure-os-specific-00001
   - azure-os-specific-00002
+  - azure-password-01000
+  - eap-to-azure-appservice-certificates-001
+  - eap-to-azure-appservice-datasource-driver-01000
   - eap-to-azure-appservice-environment-variables-001
   - eap-to-azure-appservice-pom-001
   - spring-boot-to-azure-cache-redis-01000
   - spring-boot-to-azure-cache-redis-02000
+  - spring-boot-to-azure-config-server-01000
   - spring-boot-to-azure-database-jdbc-01000
   - spring-boot-to-azure-database-mongodb-02000
   - spring-boot-to-azure-database-r2dbc-03000
@@ -62,22 +61,21 @@
   - spring-boot-to-azure-eureka-02000
   - spring-boot-to-azure-feign-01000
   - spring-boot-to-azure-identity-provider-01000
-  - spring-boot-to-azure-config-server-01000
-  - spring-boot-to-azure-jms-broker-01000
-  - spring-boot-to-azure-schedule-job-01000
-  - spring-boot-to-azure-static-content-01000
-  - spring-boot-to-azure-zipkin-01000
   - spring-boot-to-azure-java-fx-01000
   - spring-boot-to-azure-jks-01000
+  - spring-boot-to-azure-jms-broker-01000
+  - spring-boot-to-azure-mq-config-artemis-01000
   - spring-boot-to-azure-mq-config-kafka-01000
   - spring-boot-to-azure-mq-config-rabbitmq-01000
-  - spring-boot-to-azure-mq-config-artemis-01000
   - spring-boot-to-azure-port-01000
+  - spring-boot-to-azure-schedule-job-01000
+  - spring-boot-to-azure-static-content-01000
   - spring-boot-to-azure-swing-01000
   - spring-boot-to-azure-system-config-01000
   - spring-boot-to-azure-version-01000
   - spring-boot-to-azure-version-02000
   - spring-boot-to-azure-version-03000
+  - spring-boot-to-azure-zipkin-01000
   - spring-cloud-to-azure-version-01000
   - spring-cloud-to-azure-version-02000
   - spring-cloud-to-azure-version-03000
@@ -85,6 +83,21 @@
 - name: camel3
   description: Rules for changes between Camel 3.0 and Camel 4.0
   skipped:
+  - xml-changed-camel41-00003
+  - xml-changed-camel41-00004
+  - xml-changed-camel41-00005
+  - xml-changed-camel41-00006
+  - xml-changed-camel41-00007
+  - xml-changed-camel41-00008
+  - xml-changed-camel41-00009
+  - xml-changed-camel41-00010
+  - xml-changed-camel41-00011
+  - xml-changed-camel41-00012
+  - xml-changed-camel41-00013
+  - xml-changed-camel41-00014
+  - xml-changed-camel41-00015
+  - xml-changedcomponent-camel4-00001
+  - xml-changedcomponent-camel4-00002
   - xml-removed-camel4-00001
   - xml-removed-camel4-00002
   - xml-removed-camel4-00003
@@ -118,10 +131,14 @@
   - xml-removed-camel4-00032
   - xml-removed-camel4-00033
   - xml-removed-camel4-00034
-  - xml-changedcomponent-camel4-00001
-  - xml-changedcomponent-camel4-00002
+  - xml-removed-camel41-00000
+  - xml-removed-camel41-00001
+  - xml-removed-camel41-00002
+  - xml-removed-camel41-00016
+  - xml-removed-camel41-00017
+  - xml-removed-camel41-00018
 - name: camel3/camel2
-  description: This ruleset provides analysis with respect to the missing dependencies in Apache Camel 3 due to Java 11 adoption.
+  description: Rules for changes in XML file (e.g. pom.xml) to run on Apache Camel 3
   skipped:
   - component-changes-00019
   - java-dsl-changes-00001
@@ -188,15 +205,22 @@
   - xml-removed-components-00003
   - xml-removed-components-00004
   - xml-removed-components-00005
+  - xml-removed-components-00005-01
   - xml-removed-components-00006
   - xml-removed-components-00007
-  - xml-removed-components-00008
-  - xml-removed-components-00005-01
   - xml-removed-components-00007-01
+  - xml-removed-components-00008
   - xml-removed-components-00008-01
   - xml-renamed-components-00000
   - xml-renamed-components-00001
+  - xml-renamed-components-000019
   - xml-renamed-components-00002
+  - xml-renamed-components-000020
+  - xml-renamed-components-000023
+  - xml-renamed-components-000024
+  - xml-renamed-components-000027
+  - xml-renamed-components-000028
+  - xml-renamed-components-000029
   - xml-renamed-components-00003
   - xml-renamed-components-00004
   - xml-renamed-components-00005
@@ -213,34 +237,153 @@
   - xml-renamed-components-00016
   - xml-renamed-components-00017
   - xml-renamed-components-00018
-  - xml-renamed-components-000019
-  - xml-renamed-components-000020
   - xml-renamed-components-00021
   - xml-renamed-components-00022
-  - xml-renamed-components-000023
-  - xml-renamed-components-000024
   - xml-renamed-components-00025
   - xml-renamed-components-00026
-  - xml-renamed-components-000027
-  - xml-renamed-components-000028
-  - xml-renamed-components-000029
-- name: discovery-rules
-  tags:
-  - Properties
-  - Java Source
-  - Maven XML
-  - EJB XML
+- name: cloud-readiness
+  description: This ruleset detects logging configurations that may be problematic when migrating an application to a cloud environment.
   violations:
-    hardcoded-ip-address:
-      description: |-
-        Hardcoded IP Address
-        When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
+    jni-native-code-00000:
+      description: Java native libraries (JNI, JNA)
       category: mandatory
       labels:
+      - jni
+      - konveyor.io/source
       - konveyor.io/target=cloud-readiness
-      - discovery
       incidents:
-      - uri: file:///tmp/source-code/target/classes/persistence.properties
+      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
+        message: "\n Java native libraries might not run in a cloud or container environment.\n\n Recommendations\n\n * Review the purpose of the native library in your application.\n * Check whether the native library is compatible with a cloud environment.\n * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.\n * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.\n "
+        lineNumber: 22
+        variables:
+          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
+          kind: Method
+          name: loadProperties
+          package: io.konveyor.demo.config
+      links:
+      - url: https://access.redhat.com/solutions/229443
+        title: How to load native libraries and access them via JNI in EAP (with or without a module)
+      - url: https://access.redhat.com/solutions/1444643
+        title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
+      effort: 7
+    local-storage-00001:
+      description: File system - Java IO
+      category: mandatory
+      labels:
+      - konveyor.io/source
+      - konveyor.io/target=cloud-readiness
+      - storage
+      incidents:
+      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
+        message: "\n An application running inside a container could lose access to a file in local storage.\n\n Recommendations\n\n The following recommendations depend on the function of the file in local storage:\n\n * Logging: Log to standard output and use a centralized log collector to analyze the logs.\n * Caching: Use a cache backing service.\n * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.\n * Data storage: Use a database backing service for relational data or use a persistent data storage system.\n * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.\n "
+        lineNumber: 20
+        variables:
+          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
+          kind: Constructor
+          name: loadProperties
+          package: io.konveyor.demo.config
+      links:
+      - url: https://docs.openshift.com/container-platform/4.5/builds/creating-build-inputs.html#builds-input-secrets-configmaps_creating-build-inputs
+        title: 'OpenShift Container Platform: Input secrets and ConfigMaps'
+      - url: https://docs.openshift.com/container-platform/4.5/logging/cluster-logging.html
+        title: 'OpenShift Container Platform: Understanding cluster logging'
+      - url: https://docs.openshift.com/container-platform/4.5/storage/understanding-persistent-storage.html
+        title: 'OpenShift Container Platform: Understanding persistent storage'
+      - url: https://12factor.net/backing-services
+        title: 'Twelve-Factor App: Backing services'
+      - url: https://12factor.net/config
+        title: 'Twelve-Factor App: Config'
+      - url: https://12factor.net/logs
+        title: 'Twelve-Factor App: Logs'
+      effort: 1
+  unmatched:
+  - embedded-cache-libraries-01000
+  - embedded-cache-libraries-01000
+  - embedded-cache-libraries-02000
+  - embedded-cache-libraries-02000
+  - embedded-cache-libraries-03000
+  - embedded-cache-libraries-03000
+  - embedded-cache-libraries-04000
+  - embedded-cache-libraries-04000
+  - embedded-cache-libraries-04000
+  - embedded-cache-libraries-05000
+  - embedded-cache-libraries-05000
+  - embedded-cache-libraries-06000
+  - embedded-cache-libraries-06000
+  - embedded-cache-libraries-07000
+  - embedded-cache-libraries-07000
+  - embedded-cache-libraries-08000
+  - embedded-cache-libraries-08000
+  - embedded-cache-libraries-09000
+  - embedded-cache-libraries-09000
+  - embedded-cache-libraries-10000
+  - embedded-cache-libraries-10000
+  - embedded-cache-libraries-11000
+  - embedded-cache-libraries-11000
+  - embedded-cache-libraries-12000
+  - embedded-cache-libraries-12000
+  - embedded-cache-libraries-13000
+  - embedded-cache-libraries-13000
+  - embedded-cache-libraries-14000
+  - embedded-cache-libraries-14000
+  - embedded-cache-libraries-15000
+  - embedded-cache-libraries-15000
+  - embedded-cache-libraries-16000
+  - java-corba-00000
+  - java-rmi-00000
+  - java-rmi-00000
+  - java-rmi-00000
+  - java-rmi-00000
+  - java-rmi-00001
+  - java-rmi-00001
+  - java-rpc-00000
+  - java-rpc-00000
+  - jca-00000
+  - jca-00000
+  - jni-native-code-00001
+  - local-storage-00002
+  - local-storage-00002
+  - local-storage-00004
+  - local-storage-00004
+  - local-storage-00005
+  - local-storage-00005
+  - local-storage-00006
+  - localhost-http-00001
+  - localhost-jdbc-00002
+  - localhost-ws-00003
+  - logging-0000
+  - logging-0000
+  - logging-0000
+  - logging-0000
+  - logging-0001
+  - logging-0001
+  - logging-0001
+  - logging-0001
+  - mail-00000
+  - mail-00000
+  - session-00000
+  - session-00000
+  - session-00001
+  - session-00001
+  - socket-communication-00000
+  - socket-communication-00000
+  - socket-communication-00001
+  - socket-communication-00001
+- name: discovery-rules
+  tags:
+  - EJB XML
+  - Java Source
+  - Maven XML
+  - Properties
+  violations:
+    hardcoded-ip-address:
+      description: Hardcoded IP Address
+      category: mandatory
+      labels:
+      - discovery
+      - konveyor.io/target=cloud-readiness
+      incidents:
+      - uri: file:///opt/input/source/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
@@ -252,7 +395,7 @@
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
-      - uri: file:///tmp/source-code/src/main/resources/persistence.properties
+      - uri: file:///opt/input/source/target/classes/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
         codeSnip: |2
             1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
@@ -268,8 +411,8 @@
   unmatched:
   - discover-license
   - discover-manifest-file
-  - windup-discover-spring-configuration
   - windup-discover-jpa-configuration
+  - windup-discover-spring-configuration
   - windup-discover-web-configuration
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge Is Everything) API in the upgrade from version 5 to 6.
@@ -291,379 +434,27 @@
   - kie-api-01014
   - kie-api-01015
   - kie-api-01016
-- name: eap6/resin
-  description: This ruleset provides analysis of Resin proprietary xml files that may require individual attention when migrating to JBoss EAP 6+.
+- name: eap7/weblogic/tests/data
   skipped:
-  - commonj-01000
-  - commonj-04000
-  - commonj-02000
-  - commonj-03000
-  - commonj-05000
-  - commonj-06000
-  - commonj-07000
-  - xml-glassfish-02000
-  - xml-glassfish-03000
-  - java-ee-jaxrpc-00000
-  - seam-java-00000
-  - seam-java-00170
-  - seam-java-00010
-  - seam-java-00030
-  - seam-java-00040
-  - seam-java-00050
-  - seam-java-00060
-  - seam-java-00061
-  - seam-java-00070
-  - seam-java-00071
-  - seam-java-00080
-  - seam-java-00090
-  - seam-java-00091
-  - seam-java-00100
-  - seam-java-00110
-  - seam-java-00120
-  - seam-java-00130
-  - seam-java-00140
-  - seam-java-00150
-  - seam-java-00160
-  - seam-java-00180
-  - seam-java-00190
-  - seam-java-00200
-  - seam-java-00210
-  - seam-java-00220
-  - seam-java-00230
-  - seam-java-00240
-  - seam-java-00250
-  - seam-java-00260
-  - seam-java-00270
-  - seam-ui-jsf-00001
-  - seam-ui-jsf-00002
-  - seam-ui-jsf-00001-01
-  - seam-ui-jsf-01000
-  - seam-ui-jsf-01001
-  - seam-ui-jsf-01002
-  - seam-ui-jsf-01003
-  - seam-ui-jsf-01004
-  - seam-ui-jsf-01005
-  - seam-ui-jsf-01006
-  - seam-ui-jsf-01007
-  - seam-ui-jsf-01008
-  - seam-ui-jsf-01009
-  - seam-ui-jsf-01010
-  - seam-ui-jsf-01011
-  - seam-ui-jsf-01012
-  - seam-ui-jsf-01013
-  - seam-ui-jsf-01014
-  - seam-ui-jsf-01015
-  - seam-ui-jsf-01016
-  - seam-ui-jsf-01017
-  - seam-ui-jsf-01018
-  - seam-ui-jsf-01019
-  - seam-ui-jsf-01020
-  - seam-ui-jsf-01021
-  - seam-ui-jsf-01022
-  - seam-ui-jsf-01023
-  - seam-ui-jsf-01024
-  - seam-ui-jsf-01025
-  - seam-ui-jsf-01026
-  - seam-ui-jsf-01027
-  - seam-ui-jsf-01028
-  - seam-ui-jsf-01029
-  - xml-webservices-01000
-  - xml-webservices-02000
-  - xml-webservices-03000
-  - xml-webservices-04000
-  - xml-webservices-05000
-  - xml-webservices-07000
-  - xml-webservices-08000
-  - xml-webservices-09000
-  - xml-webservices-10000
-  - xml-webservices-06000
-  - xml-webservices-06001
-  - eap4-eap6-25000
-  - eap4-eap6-26000
-  - eap4-eap6-27000
-  - eap4-eap6-28000
-  - eap4-eap6-29000
-  - eap4-eap6-30000
-  - eap4-eap6-31000
-  - eap4-eap6-32000
-  - eap4-eap6-33000
-  - eap4-eap6-34000
-  - eap4-eap6-35000
-  - eap4-eap6-36000
-  - eap4-eap6-37000
-  - eap4-eap6-38000
-  - eap4-eap6-39000
-  - eap4-eap6-40000
-  - eap4-eap6-41000
-  - eap4-eap6-42000
-  - jboss-eap5-java-01000
-  - jboss-eap5-java-02000
-  - jboss-eap5-java-04000
-  - jboss-eap5-java-05000
-  - jboss-eap5-java-06000
-  - jboss-eap5-java-07000
-  - jboss-eap5-java-08000
-  - jboss-eap5-java-08100
-  - jboss-eap5-java-08200
-  - jboss-eap5-java-08300
-  - jboss-eap5-java-08400
-  - jboss-eap5-java-08500
-  - jboss-eap5-java-08600
-  - jboss-eap5-java-08700
-  - jboss-eap5-java-08800
-  - jboss-eap5-java-08900
-  - jboss-eap5-java-09000
-  - jboss-eap5-java-09100
-  - jboss-eap5-xml-01000
-  - jboss-eap5-xml-03000
-  - jboss-eap5-xml-05000
-  - jboss-eap5-xml-06000
-  - jboss-eap5-xml-07000
-  - jboss-eap5-xml-08000
-  - jboss-eap5-xml-09000
-  - jboss-eap5-7-xml-10000
-  - jboss-eap5-xml-11000
-  - jboss-eap5-xml-12000
-  - jboss-eap5-xml-13000
-  - jboss-eap5-xml-16000
-  - jboss-eap5-xml-17000
-  - jboss-eap5-xml-18000
-  - jboss-eap5-xml-20000
-  - jboss-eap5-xml-14000
-  - resteasy-eap5-000001
-  - jotm-00001
-  - jrun-catchall-00000
-  - jrun-catchall-00001
-  - xml-jrun-01000
-  - xml-jrun-02000
-  - jsp-01000
-  - log4j-02000
-  - log4j-01000
-  - log4j-03000
-  - xml-orion-01000
-  - xml-orion-02000
-  - xml-orion-03000
-  - xml-resin-01000
-  - environment-dependent-calls-03500
-  - environment-dependent-calls-01000
-  - environment-dependent-calls-02000
-  - environment-dependent-calls-03000
-  - environment-dependent-calls-04000
-  - environment-dependent-calls-04001
-  - environment-dependent-calls-05000
-  - generic-catchall-00000
-  - generic-catchall-00001
-  - generic-catchall-00002
-  - generic-catchall-00003
-  - generic-catchall-00100
-  - generic-catchall-00200
-  - generic-catchall-00300
-  - generic-catchall-00400
-  - generic-catchall-00500
-  - generic-catchall-00600
-  - generic-catchall-00700
-  - generic-catchall-00900
-  - weblogic-catchall-01000
-  - weblogic-catchall-02000
-  - weblogic-catchall-03000
-  - weblogic-catchall-06000
-  - weblogic-catchall-06500
-  - weblogic-ejb-01000
-  - weblogic-ejb-02000
-  - weblogic-ejb-03000
-  - weblogic-ejb-04000
-  - weblogic-jms-00000
-  - weblogic-jms-01000
-  - weblogic-jms-02000
-  - weblogic-jms-03000
-  - weblogic-jms-04000
-  - weblogic-jms-05000
-  - weblogic-jms-06000
-  - weblogic-jms-07000
-  - weblogic-jms-08000
-  - weblogic-services-01000
-  - weblogic-services-02000
-  - weblogic-services-03000
-  - weblogic-webapp-01000
-  - weblogic-webapp-02000
-  - weblogic-webapp-03000
-  - weblogic-webapp-04000
-  - weblogic-webapp-05000
-  - weblogic-webapp-06000
-  - weblogic-webapp-07000
-  - weblogic-webapp-08000
-  - weblogic-webapp-09000
-  - weblogic-webservices-01000
-  - weblogic-webservices-02000
-  - weblogic-webservices-03000
-  - weblogic-webservices-04000
-  - weblogic-webservices-05000
-  - weblogic-webservices-06000
-  - weblogic-webservices-07000
-  - weblogic-xml-descriptor-01000
-  - weblogic-xml-descriptor-02000
-  - weblogic-xml-descriptor-07000
-  - weblogic-xml-descriptor-08000
-  - weblogic-xml-descriptor-09000
-  - weblogic-xml-descriptor-11000
-  - weblogic-xml-descriptor-12000
-  - weblogic-xml-descriptor-14000
-  - weblogic-xml-descriptor-15000
-  - weblogic-xml-descriptor-16000
-  - weblogic-xml-descriptor-17000
-  - weblogic-xml-descriptor-18000
-  - weblogic-xml-descriptor-03000
-  - weblogic-xml-descriptor-04000
-  - weblogic-xml-descriptor-06001
-  - weblogic-xml-descriptor-10000
-  - weblogic-xml-descriptor-19000
-  - weblogic-01000
-  - weblogic-02000
-  - weblogic-03000
-  - weblogic-04000
-  - weblogic-05000
-  - weblogic-06000
-  - weblogic-07000
-  - weblogic-08000
-  - weblogic-09000
-  - weblogic-10000
-  - weblogic-11000
-  - weblogic-12000
-  - weblogic-13000
-  - weblogic-15000
-  - weblogic-016000
-  - weblogic-017000
-  - websphere-catchall-db2-00000
-  - websphere-catchall-00000
-  - websphere-catchall-00001
-  - websphere-jms-00000
-  - websphere-jms-01000
-  - websphere-jms-02000
-  - websphere-jms-02500
-  - websphere-jms-03000
-  - websphere-jms-04000
-  - websphere-mq-00000
-  - websphere-mq-01000
-  - websphere-mq-02000
-  - websphere-mqe-00000
-  - websphere-mqe-01000
-  - websphere-mqe-02000
-  - websphere-mqe-03000
-  - websphere-mqe-04000
-  - websphere-other-01000
-  - websphere-other-02000
-  - websphere-xml-01000
-  - websphere-xml-02000
-  - websphere-xml-07000
-  - websphere-xml-08000
-  - websphere-xml-09000
-  - websphere-xml-03500
-  - websphere-xml-06000
-- name: eap7/websphere
-  description: Provides analysis of WebSphere proprietary classes and constructs that may require individual attention when migrating to JBoss EAP 7+.
-  skipped:
-  - websphere-jms-eap7-00000
-  - websphere-jms-eap7-01000
-  - websphere-jms-eap7-02000
-  - websphere-jms-eap7-02500
-  - websphere-jms-eap7-03000
-  - websphere-jms-eap7-04000
-  - websphere-mq-eap7-00000
-  - websphere-mq-eap7-01000
-  - websphere-mq-eap7-02000
-  - websphere-mqe-eap7-00000
-  - websphere-mqe-eap7-01000
-  - websphere-mqe-eap7-02000
-  - websphere-mqe-eap7-03000
-  - websphere-mqe-eap7-04000
-  - websphere-other-eap7-01000
-  - websphere-other-eap7-02000
+  - base64-01000
+  - deprecated-singletonpolicy-00001
+  - eap6-08000
+  - eap6-11000
+  - eap6-12000
+  - eap6-xml-05000
+  - eap6-xml-06000
   - eap7-websphere-xml-01000
   - eap7-websphere-xml-02000
+  - eap7-websphere-xml-03500
+  - eap7-websphere-xml-06000
   - eap7-websphere-xml-07000
   - eap7-websphere-xml-08000
   - eap7-websphere-xml-09000
-  - eap7-websphere-xml-03500
-  - eap7-websphere-xml-06000
-  - jboss-eap4and5to6and7-java-01000
-  - jboss-eap4and5to6and7-java-02000
-  - jboss-eap4and5to6and7-java-03000
-  - jboss-eap4and5to6and7-xml-01000
-  - jboss-eap4and5to6and7-xml-02000
-  - jboss-eap4and5to6and7-xml-03000
-  - jboss-eap4and5to6and7-xml-04000
-  - jboss-eap4and5to6and7-xml-05000
-  - jboss-eap4and5to6and7-xml-06000
-  - jboss-eap4and5to6and7-xml-07000
-  - base64-01000
-  - jaxrpc-00000
-  - jboss-eap5-7-java-02000
-  - jboss-eap5-7-java-03000
-  - jboss-eap5-7-java-05000
-  - jboss-eap5-7-java-06000
-  - jboss-eap5-7-java-07000
-  - jboss-eap5-7-java-08000
-  - jboss-eap5-7-java-08100
-  - jboss-eap5-7-java-08200
-  - jboss-eap5-7-java-08300
-  - jboss-eap5-7-java-08400
-  - jboss-eap5-7-java-08500
-  - jboss-eap5-7-java-08600
-  - jboss-eap5-7-java-08700
-  - jboss-eap5-7-java-08800
-  - jboss-eap5-7-java-08900
-  - jboss-eap5-7-java-09000
-  - jboss-eap5-7-java-09100
-  - jboss-eap5-7-xml-01000
-  - jboss-eap5-7-xml-10000
-  - jboss-eap5-7-xml-13000
-  - jboss-eap5-7-xml-16000
-  - jboss-eap5-7-xml-14000
-  - jboss-eap5and6to7-java-01000
-  - jboss-eap5and6to7-java-02000
-  - jboss-eap5and6to7-java-04000
-  - jboss-eap5and6to7-java-08000
-  - jboss-eap5and6to7-java-03000
-  - jboss-eap5and6to7-java-05000
-  - jboss-eap5and6to7-java-06000
-  - jboss-eap5and6to7-java-07000
-  - jboss-eap5and6to7-java-09000
-  - jboss-eap5and6to7-xml-05000
-  - jboss-eap5and6to7-xml-06000
-  - jboss-eap5and6to7-xml-07000
-  - jboss-eap5and6to7-xml-09000
-  - jboss-eap5and6to7-xml-12000
-  - jboss-eap5and6to7-xml-17000
-  - jboss-eap5and6to7-xml-18000
-  - jboss-eap5and6to7-xml-34000
-  - jboss-eap5and6to7-xml-37000
-  - jboss-eap5and6to7-xml-31000
-  - jboss-eap5and6to7-xml-31500
-  - jboss-eap5and6to7-xml-32000
-  - jboss-eap5and6to7-xml-33000
-  - jboss-eap5and6to7-xml-38000
-  - jboss-eap5and6to7-xml-38001
-  - jboss-eap5and6to7-xml-38002
-  - jboss-eap5and6to7-xml-38003
-  - jboss-eap5and6to7-xml-38004
-  - jboss-eap5and6to7-xml-38005
-  - jboss-eap5and6to7-xml-38006
-  - jboss-eap5and6to7-xml-38007
-  - jboss-eap5and6to7-xml-39000
-  - jboss-eap5and6to7-xml-40000
-  - resteasy-eap5and6to7-000018
-  - eap6-xml-05000
-  - eap6-xml-06000
-  - eap6-08000
-  - eap6-08001
-  - eap6-08002
-  - eap6-11000
-  - eap6-12000
-  - hibernate4-xml-00001
-  - hibernate4-xml-00002
-  - hibernate4-xml-00003
-  - hibernate4-xml-00004
-  - hibernate4-xml-00005
+  - embedded-framework-libraries-01000
+  - embedded-framework-libraries-02000
+  - embedded-framework-libraries-04000
+  - embedded-framework-libraries-05000
+  - embedded-framework-libraries-06000
   - hibernate4-00001
   - hibernate4-00002
   - hibernate4-00003
@@ -701,6 +492,34 @@
   - hibernate4-00038
   - hibernate4-00039
   - hibernate4-00040
+  - hibernate4-xml-00001
+  - hibernate4-xml-00002
+  - hibernate4-xml-00003
+  - hibernate4-xml-00004
+  - hibernate4-xml-00005
+  - hibernate50-51-00000
+  - hibernate50-51-00100
+  - hibernate51-53-00001
+  - hibernate51-53-00100
+  - hibernate51-53-00300
+  - hibernate51-53-00400
+  - hibernate51-53-00401
+  - hibernate51-53-00402
+  - hibernate51-53-00403
+  - hibernate51-53-00404
+  - hibernate51-53-00405
+  - hibernate51-53-00406
+  - hibernate51-53-00407
+  - hibernate51-53-00500
+  - hibernate51-53-00600
+  - hibernate51-53-00700
+  - hibernate51-53-00701
+  - hibernate51-53-00702
+  - hibernate51-53-00800
+  - hibernate51-53-01000
+  - hibernate51-53-01001
+  - hibernate51-53-01100
+  - hibernate51-53-01200
   - hsearch-00000
   - hsearch-00001
   - hsearch-00002
@@ -763,6 +582,97 @@
   - hsearch-00239
   - hsearch-00240
   - jax-ws-00000
+  - jaxrpc-00000
+  - jboss-eap4and5to6and7-java-01000
+  - jboss-eap4and5to6and7-java-02000
+  - jboss-eap4and5to6and7-java-03000
+  - jboss-eap4and5to6and7-xml-01000
+  - jboss-eap4and5to6and7-xml-02000
+  - jboss-eap4and5to6and7-xml-03000
+  - jboss-eap4and5to6and7-xml-04000
+  - jboss-eap4and5to6and7-xml-05000
+  - jboss-eap4and5to6and7-xml-06000
+  - jboss-eap4and5to6and7-xml-07000
+  - jboss-eap5-7-java-02000
+  - jboss-eap5-7-java-03000
+  - jboss-eap5-7-java-05000
+  - jboss-eap5-7-java-06000
+  - jboss-eap5-7-java-07000
+  - jboss-eap5-7-java-08000
+  - jboss-eap5-7-java-08100
+  - jboss-eap5-7-java-08200
+  - jboss-eap5-7-java-08300
+  - jboss-eap5-7-java-08400
+  - jboss-eap5-7-java-08500
+  - jboss-eap5-7-java-08600
+  - jboss-eap5-7-java-08700
+  - jboss-eap5-7-java-08800
+  - jboss-eap5-7-java-08900
+  - jboss-eap5-7-java-09000
+  - jboss-eap5-7-java-09100
+  - jboss-eap5-7-xml-01000
+  - jboss-eap5-7-xml-10000
+  - jboss-eap5-7-xml-13000
+  - jboss-eap5-7-xml-14000
+  - jboss-eap5-7-xml-16000
+  - jboss-eap5and6to7-java-01000
+  - jboss-eap5and6to7-java-02000
+  - jboss-eap5and6to7-java-03000
+  - jboss-eap5and6to7-java-04000
+  - jboss-eap5and6to7-java-05000
+  - jboss-eap5and6to7-java-06000
+  - jboss-eap5and6to7-java-07000
+  - jboss-eap5and6to7-java-08000
+  - jboss-eap5and6to7-java-09000
+  - jboss-eap5and6to7-xml-05000
+  - jboss-eap5and6to7-xml-06000
+  - jboss-eap5and6to7-xml-07000
+  - jboss-eap5and6to7-xml-09000
+  - jboss-eap5and6to7-xml-12000
+  - jboss-eap5and6to7-xml-17000
+  - jboss-eap5and6to7-xml-18000
+  - jboss-eap5and6to7-xml-31000
+  - jboss-eap5and6to7-xml-31500
+  - jboss-eap5and6to7-xml-32000
+  - jboss-eap5and6to7-xml-33000
+  - jboss-eap5and6to7-xml-34000
+  - jboss-eap5and6to7-xml-37000
+  - jboss-eap5and6to7-xml-38000
+  - jboss-eap5and6to7-xml-38001
+  - jboss-eap5and6to7-xml-38002
+  - jboss-eap5and6to7-xml-38003
+  - jboss-eap5and6to7-xml-38004
+  - jboss-eap5and6to7-xml-38005
+  - jboss-eap5and6to7-xml-38006
+  - jboss-eap5and6to7-xml-38007
+  - jboss-eap5and6to7-xml-39000
+  - jboss-eap5and6to7-xml-40000
+  - maven-artemis-jms-client-00001
+  - maven-javax-to-jakarta-00001
+  - maven-javax-to-jakarta-00002
+  - maven-javax-to-jakarta-00003
+  - maven-javax-to-jakarta-00004
+  - maven-javax-to-jakarta-00005
+  - maven-javax-to-jakarta-00006
+  - maven-javax-to-jakarta-00007
+  - maven-javax-to-jakarta-00008
+  - maven-javax-to-jakarta-00010
+  - maven-javax-to-jakarta-00011
+  - maven-javax-to-jakarta-00012
+  - maven-javax-to-jakarta-00013
+  - maven-javax-to-jakarta-00014
+  - maven-javax-to-jakarta-00015
+  - maven-javax-to-jakarta-00016
+  - maven-javax-to-jakarta-00017
+  - maven-jboss-rmi-api_1.0_spec-00001
+  - microprofile_removed_from_eap-00001
+  - microprofile_removed_from_eap-00001-01
+  - microprofile_removed_from_eap-00002
+  - microprofile_removed_from_eap-00003
+  - microprofile_removed_from_eap-00004
+  - move-to-microprofile-rest-client-1.3-00001
+  - picketlink25-00000
+  - resteasy-eap5and6to7-000018
   - resteasy-eap6-000001
   - resteasy-eap6-000002
   - resteasy-eap6-000003
@@ -811,65 +721,24 @@
   - resteasy-eap6-000140
   - resteasy-eap6-000141
   - resteasy-eap6-000142
-  - ws-security-00000
-  - ws-security-00001
-  - ws-security-00002
-  - hibernate50-51-00000
-  - hibernate50-51-00100
-  - hibernate51-53-00001
-  - hibernate51-53-00100
-  - hibernate51-53-00300
-  - hibernate51-53-00400
-  - hibernate51-53-00401
-  - hibernate51-53-00402
-  - hibernate51-53-00403
-  - hibernate51-53-00404
-  - hibernate51-53-00405
-  - hibernate51-53-00406
-  - hibernate51-53-00407
-  - hibernate51-53-00500
-  - hibernate51-53-00600
-  - hibernate51-53-00700
-  - hibernate51-53-00701
-  - hibernate51-53-00702
-  - hibernate51-53-00800
-  - hibernate51-53-01000
-  - hibernate51-53-01001
-  - hibernate51-53-01100
-  - hibernate51-53-01200
-  - picketlink25-00000
   - resteasy30-36-00001
-  - deprecated-singletonpolicy-00001
-  - maven-artemis-jms-client-00001
-  - maven-javax-to-jakarta-00001
-  - maven-javax-to-jakarta-00002
-  - maven-javax-to-jakarta-00003
-  - maven-javax-to-jakarta-00004
-  - maven-javax-to-jakarta-00005
-  - maven-javax-to-jakarta-00006
-  - maven-javax-to-jakarta-00007
-  - maven-javax-to-jakarta-00008
-  - maven-javax-to-jakarta-00010
-  - maven-javax-to-jakarta-00011
-  - maven-javax-to-jakarta-00012
-  - maven-javax-to-jakarta-00013
-  - maven-javax-to-jakarta-00014
-  - maven-javax-to-jakarta-00015
-  - maven-javax-to-jakarta-00016
-  - maven-javax-to-jakarta-00017
-  - maven-jboss-rmi-api_1.0_spec-00001
-  - move-to-microprofile-rest-client-1.3-00001
   - singleton-sessionbean-00001
-  - microprofile_removed_from_eap-00001
-  - microprofile_removed_from_eap-00002
-  - microprofile_removed_from_eap-00003
-  - microprofile_removed_from_eap-00004
-  - microprofile_removed_from_eap-00001-01
-  - embedded-framework-libraries-01000
-  - embedded-framework-libraries-02000
-  - embedded-framework-libraries-04000
-  - embedded-framework-libraries-05000
-  - embedded-framework-libraries-06000
+  - weblogic-eap7-01000
+  - weblogic-eap7-016000
+  - weblogic-eap7-017000
+  - weblogic-eap7-02000
+  - weblogic-eap7-03000
+  - weblogic-eap7-04000
+  - weblogic-eap7-05000
+  - weblogic-eap7-06000
+  - weblogic-eap7-07000
+  - weblogic-eap7-08000
+  - weblogic-eap7-09000
+  - weblogic-eap7-10000
+  - weblogic-eap7-11000
+  - weblogic-eap7-12000
+  - weblogic-eap7-13000
+  - weblogic-eap7-15000
   - weblogic-jms-eap7-00000
   - weblogic-jms-eap7-01000
   - weblogic-jms-eap7-02000
@@ -891,18 +760,23 @@
   - weblogic-webapp-eap7-07000
   - weblogic-webapp-eap7-08000
   - weblogic-webapp-eap7-09000
+  - weblogic-webservices-07000
   - weblogic-webservices-eap7-01000
   - weblogic-webservices-eap7-02000
   - weblogic-webservices-eap7-03000
   - weblogic-webservices-eap7-04000
   - weblogic-webservices-eap7-05000
   - weblogic-webservices-eap7-06000
-  - weblogic-webservices-07000
+  - weblogic-xml-descriptor-19000
   - weblogic-xml-descriptor-eap7-01000
   - weblogic-xml-descriptor-eap7-02000
+  - weblogic-xml-descriptor-eap7-03000
+  - weblogic-xml-descriptor-eap7-04000
+  - weblogic-xml-descriptor-eap7-06001
   - weblogic-xml-descriptor-eap7-07000
   - weblogic-xml-descriptor-eap7-08000
   - weblogic-xml-descriptor-eap7-09000
+  - weblogic-xml-descriptor-eap7-10000
   - weblogic-xml-descriptor-eap7-11000
   - weblogic-xml-descriptor-eap7-12000
   - weblogic-xml-descriptor-eap7-14000
@@ -910,30 +784,31 @@
   - weblogic-xml-descriptor-eap7-16000
   - weblogic-xml-descriptor-eap7-17000
   - weblogic-xml-descriptor-eap7-18000
-  - weblogic-xml-descriptor-eap7-03000
-  - weblogic-xml-descriptor-eap7-04000
-  - weblogic-xml-descriptor-eap7-06001
-  - weblogic-xml-descriptor-eap7-10000
-  - weblogic-xml-descriptor-19000
-  - weblogic-eap7-01000
-  - weblogic-eap7-02000
-  - weblogic-eap7-03000
-  - weblogic-eap7-04000
-  - weblogic-eap7-05000
-  - weblogic-eap7-06000
-  - weblogic-eap7-07000
-  - weblogic-eap7-08000
-  - weblogic-eap7-09000
-  - weblogic-eap7-10000
-  - weblogic-eap7-11000
-  - weblogic-eap7-12000
-  - weblogic-eap7-13000
-  - weblogic-eap7-15000
-  - weblogic-eap7-016000
-  - weblogic-eap7-017000
+  - websphere-jms-eap7-00000
+  - websphere-jms-eap7-01000
+  - websphere-jms-eap7-02000
+  - websphere-jms-eap7-02500
+  - websphere-jms-eap7-03000
+  - websphere-jms-eap7-04000
+  - websphere-mq-eap7-00000
+  - websphere-mq-eap7-01000
+  - websphere-mq-eap7-02000
+  - websphere-mqe-eap7-00000
+  - websphere-mqe-eap7-01000
+  - websphere-mqe-eap7-02000
+  - websphere-mqe-eap7-03000
+  - websphere-mqe-eap7-04000
+  - websphere-other-eap7-01000
+  - websphere-other-eap7-02000
+  - ws-security-00000
+  - ws-security-00001
+  - ws-security-00002
 - name: eap8/eap7
-  description: This ruleset provides rules to support the migration to hibernate search 6.0. Developed under WINDUPRULE-900
+  description: This ruleset provides analysis of Java EE applications that need to change certain CDI-related method calls.
   skipped:
+  - eap8-ejb-00001
+  - eap8-ejb-00002
+  - eap8-ejb-00003
   - eap8-faces-00001
   - eap8-faces-00002
   - eap8-faces-00003
@@ -963,33 +838,14 @@
   - eap8-xml-binding-00007
   - eap8-xml-binding-00008
   - eap8-xml-binding-00009
-  - eap8-ejb-00001
-  - eap8-ejb-00002
-  - eap8-ejb-00003
   - empty-beans-xml-00001
+  - hibernate-00005
+  - hibernate-00010
   - hibernate-6.2-00010
   - hibernate-6.2-00020
   - hibernate-6.2-00030
   - hibernate-6.2-00040
   - hibernate-6.2-00050
-  - hibernate-search-6.1-00010
-  - hibernate-search-6.1-00020
-  - hibernate-search-6.1-00030
-  - hibernate-search-6.1-00040
-  - hibernate-search-6.1-00050
-  - hibernate-search-6.1-00060
-  - hibernate-search-6.1-00070
-  - hibernate-search-6.1-00080
-  - hibernate-search-6.1-00090
-  - hibernate-search-6.1-00100
-  - hibernate-search-6.1-00120
-  - hibernate-search-6.1-00130
-  - hibernate-search-6.1-00140
-  - hibernate-search-6.1-00150
-  - hibernate-search-6.1-00160
-  - hibernate-search-6.1-00170
-  - hibernate-search-6.1-00180
-  - hibernate-search-6.1-00190
   - hibernate-search-00010
   - hibernate-search-00020
   - hibernate-search-00030
@@ -1094,8 +950,24 @@
   - hibernate-search-01020
   - hibernate-search-01030
   - hibernate-search-01040
-  - hibernate-00005
-  - hibernate-00010
+  - hibernate-search-6.1-00010
+  - hibernate-search-6.1-00020
+  - hibernate-search-6.1-00030
+  - hibernate-search-6.1-00040
+  - hibernate-search-6.1-00050
+  - hibernate-search-6.1-00060
+  - hibernate-search-6.1-00070
+  - hibernate-search-6.1-00080
+  - hibernate-search-6.1-00090
+  - hibernate-search-6.1-00100
+  - hibernate-search-6.1-00120
+  - hibernate-search-6.1-00130
+  - hibernate-search-6.1-00140
+  - hibernate-search-6.1-00150
+  - hibernate-search-6.1-00160
+  - hibernate-search-6.1-00170
+  - hibernate-search-6.1-00180
+  - hibernate-search-6.1-00190
   - hibernate6-00020
   - hibernate6-00030
   - hibernate6-00040
@@ -1326,50 +1198,9 @@
   - replace_thorntail_maven_plugin-1
 - name: filemappings
   description: This rule set configures the organization matching functionality, using known root-package prefixes to identify libraries and other code.
-- name: fuse
-  description: This ruleset provides analysis that may require individual attention when migrating from Sonic classes.
-  skipped:
-  - sonic-catchall-00000
-  - sonic-esb-01000
-  - sonic-esb-02000
-  - sonic-esb-03000
-  - sonic-esb-04000
-  - sonic-esb-05000
-  - sonic-esb-06000
-  - sonic-esb-07000
-  - sonic-esb-08000
-  - sonic-esb-09000
-  - sonic-esb-10000
-  - sonic-esb-11000
-  - sonic-esb-12000
-  - sonic-esb-13000
-  - sonic-esb-14000
-  - sonic-esb-15000
-  - sonic-esb-16000
-  - sonic-esb-17000
-  - sonic-esb-18000
-  - sonic-esb-19000
-  - sonic-esb-20000
-  - sonic-esb-21000
-  - xml-sonic-esb-01000
 - name: fuse-service-works/soa-p-5
   description: This ruleset provides analysis of JBoss SOA Platform 5 applications and provides information on how to migrate these to Red Hat JBoss Fuse Service Works
   skipped:
-  - soa-p-5-01000
-  - soa-p-5-02000
-  - soa-p-5-03000
-  - soa-p-5-04000
-  - soa-p-5-05000
-  - soa-p-5-06000
-  - soa-p-5-07000
-  - soa-p-5-08000
-  - soa-p-5-09000
-  - soa-p-5-10000
-  - soa-p-5-11000
-  - soa-p-5-12000
-  - soa-p-5-13000
-  - soa-p-5-14000
-  - soa-p-5-15000
   - soa-p-16000
   - soa-p-17000
   - soa-p-18000
@@ -1404,15 +1235,51 @@
   - soa-p-47000
   - soa-p-48000
   - soa-p-49000
+  - soa-p-5-01000
+  - soa-p-5-02000
+  - soa-p-5-03000
+  - soa-p-5-04000
+  - soa-p-5-05000
+  - soa-p-5-06000
+  - soa-p-5-07000
+  - soa-p-5-08000
+  - soa-p-5-09000
+  - soa-p-5-10000
+  - soa-p-5-11000
+  - soa-p-5-12000
+  - soa-p-5-13000
+  - soa-p-5-14000
+  - soa-p-5-15000
   - soa-p-50000
-- name: hibernate
-  description: This ruleset provides analysis that may require individual attention when migrating to newer Hibernate java constructs.
+- name: fuse/sonicesb
+  description: This ruleset contains rules that assist in migrating from Sonic ESB to Apache Camel.
   skipped:
-  - hibernate-catchall-00000
-  - hibernate-xml-01000
-  - hibernate-xml-02000
-  - hibernate-xml-03000
-  - hibernate-10100
+  - sonic-catchall-00000
+  - sonic-esb-01000
+  - sonic-esb-02000
+  - sonic-esb-03000
+  - sonic-esb-04000
+  - sonic-esb-05000
+  - sonic-esb-06000
+  - sonic-esb-07000
+  - sonic-esb-08000
+  - sonic-esb-09000
+  - sonic-esb-10000
+  - sonic-esb-11000
+  - sonic-esb-12000
+  - sonic-esb-13000
+  - sonic-esb-14000
+  - sonic-esb-15000
+  - sonic-esb-16000
+  - sonic-esb-17000
+  - sonic-esb-18000
+  - sonic-esb-19000
+  - sonic-esb-20000
+  - sonic-esb-21000
+  - xml-sonic-esb-01000
+- name: hibernate
+  description: This ruleset provides analysis of deprecated Hibernate java constructs and their migration to newer one.
+  skipped:
   - hibernate-01000
   - hibernate-02000
   - hibernate-03000
@@ -1423,6 +1290,11 @@
   - hibernate-08000
   - hibernate-09000
   - hibernate-10000
+  - hibernate-10100
+  - hibernate-catchall-00000
+  - hibernate-xml-01000
+  - hibernate-xml-02000
+  - hibernate-xml-03000
 - name: jws5
   description: This ruleset provides analysis of applications that need to change their pom dependencies to upgrade dependencies that belong to the groupId `org.apache.tomcat`
   skipped:
@@ -1448,7 +1320,7 @@
   - removed-javaee-modules-00010
   - removed-javaee-modules-00020
 - name: openjdk17
-  description: This ruleset provides analysis regarding removed APIs in OpenJDK 18 to 21.
+  description: This ruleset provides analysis regarding deprecated APIs in OpenJDK 21.
   skipped:
   - deprecation-00000
   - deprecation-00005
@@ -1492,38 +1364,42 @@
   - oracle2openjdk-00004
   - oracle2openjdk-00005
 - name: openliberty/websphere
-  description: This ruleset identifies usage of WebSphere APIs and technologies which are not provided by Open Liberty.
+  description: This ruleset identifies usage of Java APIs and technologies which are not provided by Open Liberty.
   skipped:
-  - DetectJavaApplicationDeploymentJava
-  - DetectJavaPortlet
-  - DetectJAXRJava
-  - DetectRemoteBundleRepositoriesJava
-  - DetectRemoteServicesJava
-  - DetectWSNotificationJava
-  - DetectEJBEntityBeansXML
-  - DetectTransactionPropagationEJBRemote
-  - DetectJAXRPC
   - ActivitySessionRule
   - AppProfileRule
   - AsyncBeansSchedulerRule
   - BatchFeaturePackRule
+  - DetectEJBEntityBeansXML
+  - DetectJAXRJava
+  - DetectJAXRPC
+  - DetectJavaApplicationDeploymentJava
+  - DetectJavaPortlet
   - DetectPolicySetAndWsSecurity
+  - DetectRemoteBundleRepositoriesJava
+  - DetectRemoteServicesJava
+  - DetectTransactionPropagationEJBRemote
   - DetectWSATXML
   - DetectWSBAJava
+  - DetectWSNotificationJava
   - DynamicCacheRule
   - DynamicQueryRule
   - I18nRule
   - MTOMRule
-  - ServerName
   - SOAPOverJMSRule
+  - ServerName
   - StartupBeanRule
-  - WebSphereSdoRule
+  - WOLAMissingClassesRule
+  - WOLARule
+  - WSNotificationRuleJava
   - WebSphereSchedulerRule
+  - WebSphereSdoRule
   - WebSphereServletRule
   - WebSphereUnavailableAPIsAppClient
   - WebSphereUnavailableAPIsConnectorArchitecture
   - WebSphereUnavailableAPIsEnterpriseJavaBeans
   - WebSphereUnavailableAPIsExceptions
+  - WebSphereUnavailableAPIsExtHelper
   - WebSphereUnavailableAPIsExtensionRegistry
   - WebSphereUnavailableAPIsISC
   - WebSphereUnavailableAPIsLoggingAndRAS
@@ -1532,11 +1408,10 @@
   - WebSphereUnavailableAPIsPMI
   - WebSphereUnavailableAPIsPortal
   - WebSphereUnavailableAPIsResourceAdapter
-  - WebSphereUnavailableAPIsSecurity
   - WebSphereUnavailableAPIsSIB
   - WebSphereUnavailableAPIsSMF
+  - WebSphereUnavailableAPIsSecurity
   - WebSphereUnavailableAPIsTPV
-  - WebSphereUnavailableAPIsExtHelper
   - WebSphereUnavailableAPIsUDDI
   - WebSphereUnavailableAPIsWLM
   - WebSphereUnavailableAPIsWSADIE
@@ -1544,130 +1419,36 @@
   - WebSphereUnavailableSPIsRRD
   - WebSphereUnavailableSSOCookieMethod
   - WebSphereUnavailableSSOTokenMethod
-  - WOLAMissingClassesRule
-  - WOLARule
-  - WorkAreaRule
-  - WSNotificationRuleJava
-  - XMLFeaturePackRule
-  - WebSphereWebServicesRule
   - WebSphereWebServicesGeneratedClassesRule
-- name: openshift
-  description: This ruleset detects the Java Mail API, which may be problematic when migrating an application to a cloud environment.
-  tags:
-  - Java Remote Method Invocation (RMI) service
-  - rmi
-  - Java Remote Method Invocation (RMI) API
-  violations:
-    jni-native-code-00000:
-      description: |-
-        Java native libraries (JNI, JNA)
-        Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-      category: mandatory
-      labels:
-      - konveyor.io/target=cloud-readiness
-      - konveyor.io/source
-      - jni
-      incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
-        lineNumber: 13
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Constructor
-          name: ApplicationConfiguration
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: Java native libraries might not run in a cloud or container environment.. Recommendations. * Review the purpose of the native library in your application.. * Check whether the native library is compatible with a cloud environment.. * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.. * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
-        lineNumber: 22
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Method
-          name: loadProperties
-      links:
-      - url: https://access.redhat.com/solutions/229443
-        title: How to load native libraries and access them via JNI in EAP (with or without a module)
-      - url: https://access.redhat.com/solutions/1444643
-        title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
-      effort: 7
-    local-storage-00001:
-      description: |-
-        File system - Java IO
-        An application running inside a container could lose access to a file in local storage.. Recommendations. The following recommendations depend on the function of the file in local storage:. * Logging: Log to standard output and use a centralized log collector to analyze the logs.. * Caching: Use a cache backing service.. * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.. * Data storage: Use a database backing service for relational data or use a persistent data storage system.. * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
-      category: mandatory
-      labels:
-      - konveyor.io/target=cloud-readiness
-      - konveyor.io/source
-      - storage
-      incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: 'An application running inside a container could lose access to a file in local storage.. Recommendations. The following recommendations depend on the function of the file in local storage:. * Logging: Log to standard output and use a centralized log collector to analyze the logs.. * Caching: Use a cache backing service.. * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.. * Data storage: Use a database backing service for relational data or use a persistent data storage system.. * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.'
-        codeSnip: "  1  package io.konveyor.demo.config;\n  2  \n  3  import java.io.FileInputStream;\n  4  import java.io.InputStream;\n  5  import java.util.Properties;\n  6  \n  7  public class ApplicationConfiguration {\n  8  \n  9  \tprivate Properties config;\n 10  \n 11  \tpublic ApplicationConfiguration() {\n 12  \t\tsuper();\n 13  \t\tthis.config = loadProperties();\n 14  \n 15  \t}\n 16  \n 17  \tprivate Properties loadProperties() {\n 18  \t\tProperties properties = new Properties();\n 19  \n 20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n 21  \n 22  \t\t\tproperties.load(inputStream);\n 23  \n 24  \t\t} catch (Exception e) {\n 25  \t\t\tSystem.out.println(\"Exception: \" + e);\n 26  \t\t}\n 27  \n 28  \t\treturn properties;\n 29  \t}\n 30  \n 31  \tpublic String getProperty (String name) {\n 32  \t\treturn config.getProperty(name);\n 33  \t}\n 34  \n 35  \n 36  \n 37  }\n"
-        lineNumber: 20
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Constructor
-          name: loadProperties
-      links:
-      - url: https://12factor.net/logs
-        title: 'Twelve-Factor App: Logs'
-      - url: https://docs.openshift.com/container-platform/4.5/logging/cluster-logging.html
-        title: 'OpenShift Container Platform: Understanding cluster logging'
-      - url: https://12factor.net/backing-services
-        title: 'Twelve-Factor App: Backing services'
-      - url: https://12factor.net/config
-        title: 'Twelve-Factor App: Config'
-      - url: https://docs.openshift.com/container-platform/4.5/builds/creating-build-inputs.html#builds-input-secrets-configmaps_creating-build-inputs
-        title: 'OpenShift Container Platform: Input secrets and ConfigMaps'
-      - url: https://docs.openshift.com/container-platform/4.5/storage/understanding-persistent-storage.html
-        title: 'OpenShift Container Platform: Understanding persistent storage'
-      effort: 1
-  unmatched:
-  - embedded-cache-libraries-01000
-  - embedded-cache-libraries-02000
-  - embedded-cache-libraries-03000
-  - embedded-cache-libraries-04000
-  - embedded-cache-libraries-05000
-  - embedded-cache-libraries-06000
-  - embedded-cache-libraries-07000
-  - embedded-cache-libraries-08000
-  - embedded-cache-libraries-09000
-  - embedded-cache-libraries-10000
-  - embedded-cache-libraries-11000
-  - embedded-cache-libraries-12000
-  - embedded-cache-libraries-13000
-  - embedded-cache-libraries-14000
-  - embedded-cache-libraries-15000
-  - embedded-cache-libraries-16000
-  - logging-0000
-  - logging-0001
-  - jca-00000
-  - java-corba-00000
-  - java-rpc-00000
-  - local-storage-00004
-  - java-rmi-00000
-  - localhost-http-00001
-  - logging-0001
-  - localhost-jdbc-00002
-  - localhost-ws-00003
-  - jni-native-code-00001
-  - session-00000
-  - mail-00000
-  - socket-communication-00001
-  - logging-0000
-  - local-storage-00005
-  - local-storage-00006
-  - session-00001
-  - socket-communication-00000
-  - local-storage-00002
+  - WebSphereWebServicesRule
+  - WorkAreaRule
+  - XMLFeaturePackRule
 - name: os/windows
   description: This is a ruleset for Windows operating system specific rules while migrating to Linux operating system.
   skipped:
   - os-specific-00001
   - os-specific-00002
 - name: quarkus/springboot
-  description: This ruleset gives hints to migrate from Spring Scheduled to Quarkus spring-scheduled extension
+  description: This ruleset gives hints to migrate from SpringBoot devtools to Quarkus
   skipped:
+  - cdi-to-quarkus-00000
+  - cdi-to-quarkus-00020
+  - cdi-to-quarkus-00030
+  - cdi-to-quarkus-00040
+  - cdi-to-quarkus-00050
+  - dependency-removal-for-quarkus-00000
+  - javaee-faces-to-quarkus-00000
+  - javaee-pom-to-quarkus-00010
+  - javaee-pom-to-quarkus-00020
+  - javaee-pom-to-quarkus-00030
+  - javaee-pom-to-quarkus-00040
+  - javaee-pom-to-quarkus-00050
+  - javaee-pom-to-quarkus-00060
+  - javaee-pom-to-quarkus-00070
+  - javaee-pom-to-quarkus-00080
+  - jaxrs-to-quarkus-00000
+  - jaxrs-to-quarkus-00010
+  - jaxrs-to-quarkus-00020
   - quarkus-agroal-00000
   - quarkus-agroal-00010
   - quarkus-amazon-dynamodb-00000
@@ -1744,16 +1525,33 @@
   - quarkus-liquibase-00010
   - quarkus-liquibase-mongodb-00000
   - quarkus-liquibase-mongodb-00010
+  - quarkus-logging-gelf-00000
+  - quarkus-logging-gelf-00010
+  - quarkus-logging-sentry-00000
+  - quarkus-logging-sentry-00010
+  - quarkus-micrometer-registry-prometheus-00000
+  - quarkus-micrometer-registry-prometheus-00010
+  - quarkus-narayana-jta-00000
+  - quarkus-narayana-jta-00010
+  - quarkus-narayana-lra-00000
+  - quarkus-narayana-lra-00010
+  - quarkus-narayana-stm-00000
+  - quarkus-narayana-stm-00010
+  - quarkus-openshift-client-00000
+  - quarkus-openshift-client-00010
+  - quarkus-opentelemetry-exporter-jaeger-00000
+  - quarkus-opentelemetry-exporter-jaeger-00010
+  - quarkus-opentelemetry-exporter-otlp-00000
+  - quarkus-opentelemetry-exporter-otlp-00010
+  - quarkus-picocli-00000
+  - quarkus-picocli-00010
+  - quarkus-resteasy-multipart-00000
+  - quarkus-resteasy-multipart-00010
   - springboot-actuator-to-quarkus-0100
   - springboot-actuator-to-quarkus-0200
   - springboot-annotations-to-quarkus-00000
   - springboot-cache-to-quarkus-00000
   - springboot-cloud-config-client-to-quarkus-00000
-  - quarkus-logging-gelf-00000
-  - quarkus-logging-gelf-00010
-  - quarkus-logging-sentry-00000
-  - quarkus-logging-sentry-00010
-  - springboot-jpa-to-quarkus-00000
   - springboot-devtools-to-quarkus-0000
   - springboot-di-to-quarkus-00000
   - springboot-di-to-quarkus-00001
@@ -1763,6 +1561,7 @@
   - springboot-integration-to-quarkus-00020
   - springboot-jmx-to-quarkus-00000
   - springboot-jmx-to-quarkus-00001
+  - springboot-jpa-to-quarkus-00000
   - springboot-metrics-to-quarkus-0100
   - springboot-metrics-to-quarkus-0200
   - springboot-metrics-to-quarkus-0300
@@ -1775,8 +1574,6 @@
   - springboot-properties-to-quarkus-00004
   - springboot-properties-to-quarkus-00005
   - springboot-properties-to-quarkus-00006
-  - quarkus-micrometer-registry-prometheus-00000
-  - quarkus-micrometer-registry-prometheus-00010
   - springboot-scheduled-to-quarkus-00000
   - springboot-security-to-quarkus-00000
   - springboot-shell-to-quarkus-00000
@@ -1784,44 +1581,11 @@
   - springboot-web-to-quarkus-00010
   - springboot-webmvc-to-quarkus-00000
   - springboot-webmvc-to-quarkus-01000
-  - quarkus-narayana-jta-00000
-  - quarkus-narayana-jta-00010
-  - quarkus-narayana-lra-00000
-  - quarkus-narayana-lra-00010
-  - quarkus-narayana-stm-00000
-  - quarkus-narayana-stm-00010
-  - quarkus-openshift-client-00000
-  - quarkus-openshift-client-00010
-  - cdi-to-quarkus-00000
-  - cdi-to-quarkus-00020
-  - cdi-to-quarkus-00030
-  - cdi-to-quarkus-00040
-  - cdi-to-quarkus-00050
-  - dependency-removal-for-quarkus-00000
-  - javaee-faces-to-quarkus-00000
-  - javaee-pom-to-quarkus-00000
-  - javaee-pom-to-quarkus-00010
-  - javaee-pom-to-quarkus-00020
-  - javaee-pom-to-quarkus-00030
-  - javaee-pom-to-quarkus-00040
-  - javaee-pom-to-quarkus-00050
-  - javaee-pom-to-quarkus-00060
-  - javaee-pom-to-quarkus-00070
-  - javaee-pom-to-quarkus-00080
-  - jaxrs-to-quarkus-00000
-  - jaxrs-to-quarkus-00010
-  - jaxrs-to-quarkus-00020
-  - quarkus-opentelemetry-exporter-jaeger-00000
-  - quarkus-opentelemetry-exporter-jaeger-00010
-  - quarkus-opentelemetry-exporter-otlp-00000
-  - quarkus-opentelemetry-exporter-otlp-00010
-  - quarkus-picocli-00000
-  - quarkus-picocli-00010
-  - quarkus-resteasy-multipart-00000
-  - quarkus-resteasy-multipart-00010
 - name: rhr/springboot
   description: Verify the version of the Spring Boot framework is compatible with those supported by Red Hat Runtimes
   skipped:
+  - springboot-00001
+  - springboot-00002
   - springboot-associated-00001
   - springboot-associated-00002
   - springboot-associated-00003
@@ -1837,279 +1601,48 @@
   - springboot-associated-00013
   - springboot-associated-00014
   - springboot-associated-00015
-  - springboot-00001
-  - springboot-00002
 - name: technology-usage
-  description: This ruleset adds tags the configuration management technologies so are appropriately categorized on the technology reports.
+  description: This ruleset provides analysis of logging libraries.
   tags:
-  - Java EE=EJB XML
-  - Connect=EJB XML
   - Bean=EJB XML
-  - Other=Properties
-  - Sustain=Properties
-  - Embedded=Properties
-  - Spring Properties
-  - Spring configuration properties annotation detected
-  - Spring Data JPA
-  - Embedded Spring Data JPA
-  - Spring DI
-  - Embedded framework - Spring DI
-  - Micrometer
-  - Embedded framework - Micrometer
-  - Spring Web
-  - Embedded framework - Spring Web
-  - Embedded framework - Spring Scheduled
-  - Spring Scheduled
-  - Java Threads
-  - Threads
-  - Java EE Batch
-  - Java EE=Java EE Batch
-  - Execute=Java EE Batch
-  - Processing=Java EE Batch
-  - CDI
-  - Inversion of Control=CDI
-  - Java EE=CDI
-  - Execute=CDI
-  - Java EE JSON-P
-  - Execute=Java EE JSON-P
-  - Processing=Java EE JSON-P
-  - Java EE=Java EE JSON-P
-  - Servlet
-  - Java Servlet
-  - HTTP=Servlet
+  - Connect=EJB XML
+  - Connect=JNI
   - Connect=Servlet
-  - Java EE=Servlet
+  - Embedded Spring Data JPA
+  - Embedded framework - Micrometer
+  - Embedded framework - Spring DI
   - Embedded framework - Spring MVC
-  - Spring MVC
-  - Spring Boot Actuator
+  - Embedded framework - Spring Web
   - Embedded library - Spring Boot Actuator
-  - Spring JMX
-  - Spring JMX configuration detected
-  - Embedded=Spring DI
-  - Inversion of Control=Spring DI
-  - Execute=Spring DI
-  - Execute=Micrometer
   - Embedded=Micrometer
+  - Embedded=Properties
+  - Embedded=Spring DI
+  - Embedded=Spring Data JPA
+  - Embedded=Spring Web
+  - Execute=Micrometer
+  - Execute=Spring DI
+  - HTTP=Servlet
   - Integration=Micrometer
+  - Inversion of Control=Spring DI
+  - Java EE=EJB XML
+  - Java EE=JNI
+  - Java EE=Servlet
+  - Java Servlet
+  - Micrometer
+  - Other=JNI
+  - Other=Properties
+  - Persistence=Spring Data JPA
+  - Servlet
+  - Spring Boot Actuator
+  - Spring DI
+  - Spring Data JPA
+  - Spring MVC
+  - Spring Web
+  - Store=Spring Data JPA
+  - Sustain=Properties
   - View=Spring Web
   - Web=Spring Web
-  - Embedded=Spring Web
-  - Execute=Spring Scheduled
-  - Processing=Spring Scheduled
-  - Embedded=Spring Scheduled
-  - Store=Spring Data JPA
-  - Persistence=Spring Data JPA
-  - Embedded=Spring Data JPA
-  - Connect=JNI
-  - Other=JNI
-  - Java EE=JNI
-  - Mail usage
-  - Connect=Mail
-  - Other=Mail
-  - Java EE=Mail
-  - Connect=JCA
-  - Other=JCA
-  - Java EE=JCA
-  - JCA usage
-  - Embedded=Spring Properties
-  - Sustain=Spring Properties
-  - Configuration Management=Spring Properties
   unmatched:
-  - technology-usage-web-01000
-  - technology-usage-web-01100
-  - technology-usage-web-01300
-  - technology-usage-web-01400
-  - technology-usage-web-01500
-  - technology-usage-web-01600
-  - technology-usage-web-01700
-  - technology-usage-web-01800
-  - technology-usage-web-01900
-  - technology-usage-web-02000
-  - technology-usage-web-02100
-  - technology-usage-web-02200
-  - technology-usage-web-02300
-  - technology-usage-web-02400
-  - technology-usage-test-frameworks-00010
-  - technology-usage-test-frameworks-00020
-  - technology-usage-test-frameworks-00030
-  - technology-usage-test-frameworks-00040
-  - technology-usage-test-frameworks-00050
-  - technology-usage-test-frameworks-00060
-  - technology-usage-test-frameworks-00070
-  - technology-usage-test-frameworks-00080
-  - technology-usage-test-frameworks-00090
-  - technology-usage-test-frameworks-00100
-  - technology-usage-test-frameworks-00110
-  - technology-usage-test-frameworks-00120
-  - technology-usage-test-frameworks-00130
-  - technology-usage-test-frameworks-00140
-  - technology-usage-test-frameworks-00150
-  - technology-usage-test-frameworks-00160
-  - technology-usage-test-frameworks-00170
-  - technology-usage-test-frameworks-00180
-  - technology-usage-test-frameworks-00190
-  - technology-usage-test-frameworks-00200
-  - technology-usage-test-frameworks-00210
-  - technology-usage-test-frameworks-00220
-  - technology-usage-test-frameworks-00230
-  - technology-usage-test-frameworks-00240
-  - technology-usage-test-frameworks-00250
-  - technology-usage-test-frameworks-00260
-  - technology-usage-test-frameworks-00270
-  - technology-usage-test-frameworks-00280
-  - technology-usage-test-frameworks-00290
-  - technology-usage-test-frameworks-00300
-  - technology-usage-test-frameworks-00310
-  - technology-usage-test-frameworks-00320
-  - technology-usage-test-frameworks-00330
-  - technology-usage-test-frameworks-00340
-  - technology-usage-test-frameworks-00350
-  - technology-usage-test-frameworks-00360
-  - technology-usage-test-frameworks-00370
-  - technology-usage-security-01000
-  - technology-usage-security-01100
-  - technology-usage-security-01200
-  - technology-usage-security-01300
-  - technology-usage-security-01400
-  - technology-usage-security-01500
-  - technology-usage-security-01600
-  - technology-usage-security-01700
-  - technology-usage-security-01800
-  - technology-usage-security-01900
-  - technology-usage-security-02000
-  - technology-usage-security-02100
-  - technology-usage-security-02200
-  - technology-usage-security-02300
-  - technology-usage-security-02400
-  - technology-usage-security-02500
-  - technology-usage-security-02600
-  - technology-usage-security-02700
-  - technology-usage-security-02800
-  - technology-usage-security-02900
-  - technology-usage-security-03000
-  - technology-usage-security-03100
-  - technology-usage-security-03200
-  - technology-usage-security-03300
-  - technology-usage-security-03400
-  - technology-usage-security-03500
-  - observability-technology-usage-0100
-  - observability-technology-usage-0200
-  - non-xml-technology-usage-05000
-  - non-xml-technology-usage-06000
-  - non-xml-technology-usage-12000
-  - non-xml-technology-usage-13000
-  - non-xml-technology-usage-14000
-  - non-xml-technology-usage-17000
-  - non-xml-technology-usage-18000
-  - non-xml-technology-usage-19000
-  - non-xml-technology-usage-21000
-  - non-xml-technology-usage-22000
-  - non-xml-technology-usage-23000
-  - non-xml-technology-usage-24000
-  - non-xml-technology-usage-25000
-  - non-xml-technology-usage-26000
-  - non-xml-technology-usage-27000
-  - technology-usage-mvc-01000
-  - technology-usage-mvc-01100
-  - technology-usage-mvc-01200
-  - technology-usage-mvc-01300
-  - technology-usage-mvc-01400
-  - technology-usage-mvc-01500
-  - technology-usage-mvc-01600
-  - technology-usage-mvc-01700
-  - technology-usage-mvc-01800
-  - technology-usage-mvc-01900
-  - technology-usage-mvc-02000
-  - technology-usage-mvc-02100
-  - technology-usage-mvc-02200
-  - technology-usage-mvc-02300
-  - technology-usage-mvc-02400
-  - technology-usage-mvc-02500
-  - technology-usage-mvc-02600
-  - technology-usage-mvc-02700
-  - technology-usage-mvc-02800
-  - technology-usage-mvc-02900
-  - technology-usage-mvc-03000
-  - technology-usage-mvc-03100
-  - technology-usage-mvc-03200
-  - technology-usage-mvc-03300
-  - technology-usage-mvc-03400
-  - technology-usage-mvc-03500
-  - technology-usage-mvc-03600
-  - technology-usage-mvc-03700
-  - technology-usage-mvc-03800
-  - technology-usage-mvc-03900
-  - technology-usage-mvc-04000
-  - technology-usage-mvc-04100
-  - technology-usage-mvc-0x4200
-  - technology-usage-mvc-04300
-  - technology-usage-mvc-04400
-  - technology-usage-mvc-04500
-  - technology-usage-mvc-04600
-  - technology-usage-mvc-04700
-  - technology-usage-mvc-04800
-  - technology-usage-mvc-04900
-  - technology-usage-mvc-05000
-  - technology-usage-mvc-05100
-  - technology-usage-mvc-05200
-  - technology-usage-mvc-05300
-  - technology-usage-mvc-05400
-  - technology-usage-mvc-05500
-  - technology-usage-mvc-05600
-  - technology-usage-mvc-05700
-  - technology-usage-mvc-05800
-  - technology-usage-mvc-05900
-  - technology-usage-mvc-06000
-  - technology-usage-markup-01300
-  - technology-usage-logging-00010
-  - technology-usage-logging-00020
-  - technology-usage-logging-00030
-  - technology-usage-logging-00040
-  - technology-usage-logging-00050
-  - technology-usage-logging-00060
-  - technology-usage-logging-00070
-  - technology-usage-logging-00080
-  - technology-usage-logging-00090
-  - technology-usage-logging-000100
-  - technology-usage-logging-000110
-  - technology-usage-logging-000120
-  - technology-usage-logging-000130
-  - technology-usage-logging-000140
-  - technology-usage-logging-000150
-  - technology-usage-logging-000160
-  - technology-usage-logging-000170
-  - technology-usage-logging-000180
-  - technology-usage-logging-000190
-  - technology-usage-logging-000200
-  - technology-usage-logging-000210
-  - technology-usage-logging-000220
-  - technology-usage-logging-000230
-  - technology-usage-logging-000240
-  - technology-usage-logging-000250
-  - technology-usage-logging-000260
-  - technology-usage-logging-000270
-  - technology-usage-logging-000280
-  - technology-usage-logging-000290
-  - technology-usage-jta-00020
-  - technology-usage-jta-00030
-  - technology-usage-jta-00040
-  - technology-usage-jta-00050
-  - technology-usage-jta-00060
-  - technology-usage-jta-00070
-  - technology-usage-jta-00080
-  - technology-usage-jta-00090
-  - technology-usage-jta-00100
-  - technology-usage-jta-00110
-  - technology-usage-jta-00120
-  - technology-usage-jta-00130
-  - technology-usage-jta-00140
-  - technology-usage-jta-00150
-  - technology-usage-jta-00160
-  - technology-usage-jta-00170
-  - technology-usage-jta-00180
-  - technology-usage-jta-00190
-  - technology-usage-jta-00200
-  - technology-usage-jta-00210
   - 3rd-party-01000
   - 3rd-party-02000
   - 3rd-party-03000
@@ -2135,6 +1668,10 @@
   - configuration-management-0200
   - configuration-management-0300
   - configuration-management-0400
+  - configuration-management-0500
+  - configuration-management-technology-usage-0100
+  - configuration-management-technology-usage-0200
+  - configuration-management-technology-usage-0300
   - connect-01400
   - connect-01500
   - connect-01600
@@ -2168,7 +1705,6 @@
   - database-02900
   - database-03100
   - ejb-01000
-  - javase-technology-usage-01000
   - embedded-framework-01000
   - embedded-framework-01010
   - embedded-framework-01100
@@ -2221,12 +1757,35 @@
   - embedded-framework-08100
   - embedded-framework-08500
   - embedded-framework-08600
+  - embedded-framework-08700
   - embedded-framework-08800
   - embedded-framework-08900
-  - embedded-framework-09100
   - embedded-framework-09000
+  - embedded-framework-09100
   - embedded-framework-09200
   - embedded-framework-09300
+  - embedded-framework-embedded-framework-02700
+  - embedded-framework-embedded-framework-02800
+  - embedded-framework-embedded-framework-02900
+  - embedded-framework-embedded-framework-03000
+  - embedded-framework-embedded-framework-03100
+  - embedded-framework-embedded-framework-03200
+  - embedded-framework-embedded-framework-03300
+  - embedded-framework-embedded-framework-03400
+  - embedded-framework-embedded-framework-03500
+  - embedded-framework-embedded-framework-03600
+  - embedded-framework-embedded-framework-03700
+  - embedded-framework-embedded-framework-03800
+  - embedded-framework-embedded-framework-03900
+  - embedded-framework-embedded-framework-04000
+  - embedded-framework-embedded-framework-04100
+  - embedded-framework-embedded-framework-04200
+  - embedded-framework-embedded-framework-04300
+  - embedded-framework-embedded-framework-04400
+  - embedded-framework-embedded-framework-04500
+  - embedded-framework-embedded-framework-04600
+  - embedded-framework-embedded-framework-09200
+  - embedded-framework-embedded-framework-09300
   - integration-00001
   - integration-00002
   - integration-00003
@@ -2244,29 +1803,15 @@
   - integration-00015
   - integration-00016
   - integration-00017
-  - jta-00020
-  - jta-00030
-  - jta-00040
-  - jta-00050
-  - jta-00060
-  - jta-00070
-  - jta-00080
-  - jta-00090
-  - jta-00100
-  - jta-00110
-  - jta-00120
-  - jta-00130
-  - jta-00140
-  - jta-00150
-  - jta-00160
-  - jta-00170
-  - jta-00180
-  - jta-00190
-  - jta-00200
-  - jta-00210
   - javaee-technology-usage-00010
+  - javaee-technology-usage-00011
   - javaee-technology-usage-00012
+  - javaee-technology-usage-00013
   - javaee-technology-usage-00020-jakarta
+  - javaee-technology-usage-00020-javax
+  - javaee-technology-usage-00021
+  - javaee-technology-usage-00030
+  - javaee-technology-usage-00031
   - javaee-technology-usage-00040
   - javaee-technology-usage-00050
   - javaee-technology-usage-00060
@@ -2313,6 +1858,29 @@
   - javaee-technology-usage-00956
   - javaee-technology-usage-00957
   - javaee-technology-usage-00958
+  - javase-01000
+  - javase-01100
+  - javase-technology-usage-01000
+  - jta-00020
+  - jta-00030
+  - jta-00040
+  - jta-00050
+  - jta-00060
+  - jta-00070
+  - jta-00080
+  - jta-00090
+  - jta-00100
+  - jta-00110
+  - jta-00120
+  - jta-00130
+  - jta-00140
+  - jta-00150
+  - jta-00160
+  - jta-00170
+  - jta-00180
+  - jta-00190
+  - jta-00200
+  - jta-00210
   - logging-usage-00010
   - logging-usage-00020
   - logging-usage-00030
@@ -2343,6 +1911,7 @@
   - mvc-01000
   - mvc-01100
   - mvc-01200
+  - mvc-01210
   - mvc-01300
   - mvc-01400
   - mvc-01500
@@ -2391,6 +1960,24 @@
   - mvc-05800
   - mvc-05900
   - mvc-06000
+  - non-xml-technology-usage-05000
+  - non-xml-technology-usage-06000
+  - non-xml-technology-usage-12000
+  - non-xml-technology-usage-13000
+  - non-xml-technology-usage-14000
+  - non-xml-technology-usage-17000
+  - non-xml-technology-usage-18000
+  - non-xml-technology-usage-19000
+  - non-xml-technology-usage-21000
+  - non-xml-technology-usage-22000
+  - non-xml-technology-usage-23000
+  - non-xml-technology-usage-24000
+  - non-xml-technology-usage-25000
+  - non-xml-technology-usage-26000
+  - non-xml-technology-usage-27000
+  - observability-0200
+  - observability-technology-usage-0100
+  - observability-technology-usage-0200
   - security-01100
   - security-01200
   - security-01300
@@ -2418,58 +2005,63 @@
   - security-03500
   - security-03600
   - spring-catchall-00001
-  - test-frameworks-sauge-00010
-  - test-frameworks-sauge-00020
-  - test-frameworks-sauge-00030
-  - test-frameworks-sauge-00040
-  - test-frameworks-sauge-00050
-  - test-frameworks-sauge-00060
-  - test-frameworks-sauge-00070
-  - test-frameworks-sauge-00080
-  - test-frameworks-sauge-00090
-  - test-frameworks-sauge-00100
-  - test-frameworks-sauge-00110
-  - test-frameworks-sauge-00120
-  - test-frameworks-sauge-00130
-  - test-frameworks-sauge-00140
-  - test-frameworks-sauge-00150
-  - test-frameworks-sauge-00160
-  - test-frameworks-sauge-00170
-  - test-frameworks-sauge-00180
-  - test-frameworks-sauge-00190
-  - test-frameworks-sauge-00200
-  - test-frameworks-sauge-00210
-  - test-frameworks-sauge-00220
-  - test-frameworks-sauge-00230
-  - test-frameworks-sauge-00240
-  - test-frameworks-sauge-00560
-  - test-frameworks-sauge-00260
-  - test-frameworks-sauge-00270
-  - test-frameworks-sauge-00280
-  - test-frameworks-sauge-00290
-  - test-frameworks-sauge-00300
-  - test-frameworks-sauge-00310
-  - test-frameworks-sauge-00320
-  - test-frameworks-sauge-00330
-  - test-frameworks-sauge-00340
-  - test-frameworks-sauge-00350
-  - test-frameworks-sauge-00360
-  - test-frameworks-sauge-00370
-  - technology-usage-integration-00001
-  - technology-usage-integration-00002
-  - technology-usage-integration-00003
-  - technology-usage-integration-00004
-  - technology-usage-integration-00005
-  - technology-usage-integration-00006
-  - technology-usage-integration-00007
-  - technology-usage-integration-00008
-  - technology-usage-integration-00009
-  - technology-usage-integration-00010
-  - technology-usage-integration-00011
-  - technology-usage-integration-00012
-  - technology-usage-integration-00013
-  - technology-usage-integration-00014
-  - technology-usage-integration-00015
+  - technology-usage-3rd-party-01000
+  - technology-usage-3rd-party-02000
+  - technology-usage-3rd-party-03000
+  - technology-usage-3rd-party-04000
+  - technology-usage-3rd-party-05000
+  - technology-usage-3rd-party-06000
+  - technology-usage-3rd-party-08000
+  - technology-usage-3rd-party-09000
+  - technology-usage-3rd-party-10000
+  - technology-usage-3rd-party-11000
+  - technology-usage-3rd-party-12000
+  - technology-usage-3rd-party-13000
+  - technology-usage-3rd-party-14000
+  - technology-usage-3rd-party-15000
+  - technology-usage-3rd-party-16000
+  - technology-usage-3rd-party-17000
+  - technology-usage-3rd-party-18000
+  - technology-usage-3rd-party-19000
+  - technology-usage-3rd-party-20000
+  - technology-usage-clustering-01000
+  - technology-usage-clustering-02000
+  - technology-usage-connect-01101
+  - technology-usage-connect-01200
+  - technology-usage-connect-01300
+  - technology-usage-connect-01400
+  - technology-usage-connect-01500
+  - technology-usage-connect-01600
+  - technology-usage-connect-01700
+  - technology-usage-connect-01800
+  - technology-usage-connect-01900
+  - technology-usage-connect-02000
+  - technology-usage-connect-02100
+  - technology-usage-connect-02200
+  - technology-usage-connect-02300
+  - technology-usage-connect-02400
+  - technology-usage-connect-02500
+  - technology-usage-connect-02600
+  - technology-usage-connect-02700
+  - technology-usage-connect-02800
+  - technology-usage-database-01400
+  - technology-usage-database-01500
+  - technology-usage-database-01600
+  - technology-usage-database-01700
+  - technology-usage-database-01800
+  - technology-usage-database-01900
+  - technology-usage-database-02000
+  - technology-usage-database-02100
+  - technology-usage-database-02200
+  - technology-usage-database-02300
+  - technology-usage-database-02400
+  - technology-usage-database-02500
+  - technology-usage-database-02600
+  - technology-usage-database-02700
+  - technology-usage-database-02800
+  - technology-usage-database-02900
+  - technology-usage-database-03100
+  - technology-usage-ejb-01400
   - technology-usage-embedded-framework-01000
   - technology-usage-embedded-framework-01010
   - technology-usage-embedded-framework-01100
@@ -2484,26 +2076,6 @@
   - technology-usage-embedded-framework-02200
   - technology-usage-embedded-framework-02300
   - technology-usage-embedded-framework-02400
-  - embedded-framework-embedded-framework-02700
-  - embedded-framework-embedded-framework-02800
-  - embedded-framework-embedded-framework-02900
-  - embedded-framework-embedded-framework-03000
-  - embedded-framework-embedded-framework-03100
-  - embedded-framework-embedded-framework-03200
-  - embedded-framework-embedded-framework-03300
-  - embedded-framework-embedded-framework-03400
-  - embedded-framework-embedded-framework-03500
-  - embedded-framework-embedded-framework-03600
-  - embedded-framework-embedded-framework-03700
-  - embedded-framework-embedded-framework-03800
-  - embedded-framework-embedded-framework-03900
-  - embedded-framework-embedded-framework-04000
-  - embedded-framework-embedded-framework-04100
-  - embedded-framework-embedded-framework-04200
-  - embedded-framework-embedded-framework-04300
-  - embedded-framework-embedded-framework-04400
-  - embedded-framework-embedded-framework-04500
-  - embedded-framework-embedded-framework-04600
   - technology-usage-embedded-framework-04700
   - technology-usage-embedded-framework-05000
   - technology-usage-embedded-framework-05100
@@ -2537,66 +2109,238 @@
   - technology-usage-embedded-framework-08100
   - technology-usage-embedded-framework-08500
   - technology-usage-embedded-framework-08600
+  - technology-usage-embedded-framework-08700
   - technology-usage-embedded-framework-08800
   - technology-usage-embedded-framework-08900
   - technology-usage-embedded-framework-09000
   - technology-usage-embedded-framework-09100
-  - embedded-framework-embedded-framework-09200
-  - embedded-framework-embedded-framework-09300
-  - technology-usage-ejb-01400
-  - technology-usage-database-01400
-  - technology-usage-database-01500
-  - technology-usage-database-01600
-  - technology-usage-database-01700
-  - technology-usage-database-01800
-  - technology-usage-database-01900
-  - technology-usage-database-02000
-  - technology-usage-database-02100
-  - technology-usage-database-02200
-  - technology-usage-database-02300
-  - technology-usage-database-02400
-  - technology-usage-database-02500
-  - technology-usage-database-02600
-  - technology-usage-database-02700
-  - technology-usage-database-02800
-  - technology-usage-database-02900
-  - technology-usage-database-03100
-  - technology-usage-connect-01101
-  - technology-usage-connect-01400
-  - technology-usage-connect-01500
-  - technology-usage-connect-01600
-  - technology-usage-connect-01700
-  - technology-usage-connect-01800
-  - technology-usage-connect-01900
-  - technology-usage-connect-02000
-  - technology-usage-connect-02100
-  - technology-usage-connect-02200
-  - technology-usage-connect-02300
-  - technology-usage-connect-02400
-  - technology-usage-connect-02500
-  - technology-usage-connect-02600
-  - technology-usage-connect-02700
-  - technology-usage-connect-02800
-  - configuration-management-technology-usage-0100
-  - configuration-management-technology-usage-0200
-  - technology-usage-clustering-01000
-  - technology-usage-clustering-02000
-  - technology-usage-3rd-party-01000
-  - technology-usage-3rd-party-02000
-  - technology-usage-3rd-party-03000
-  - technology-usage-3rd-party-04000
-  - technology-usage-3rd-party-05000
-  - technology-usage-3rd-party-06000
-  - technology-usage-3rd-party-08000
-  - technology-usage-3rd-party-09000
-  - technology-usage-3rd-party-10000
-  - technology-usage-3rd-party-11000
-  - technology-usage-3rd-party-12000
-  - technology-usage-3rd-party-13000
-  - technology-usage-3rd-party-14000
-  - technology-usage-3rd-party-15000
-  - technology-usage-3rd-party-16000
-  - technology-usage-3rd-party-17000
-  - technology-usage-3rd-party-18000
-  - technology-usage-3rd-party-19000
-  - technology-usage-3rd-party-20000
+  - technology-usage-integration-00001
+  - technology-usage-integration-00002
+  - technology-usage-integration-00003
+  - technology-usage-integration-00004
+  - technology-usage-integration-00005
+  - technology-usage-integration-00006
+  - technology-usage-integration-00007
+  - technology-usage-integration-00008
+  - technology-usage-integration-00009
+  - technology-usage-integration-00010
+  - technology-usage-integration-00011
+  - technology-usage-integration-00012
+  - technology-usage-integration-00013
+  - technology-usage-integration-00014
+  - technology-usage-integration-00015
+  - technology-usage-jta-00020
+  - technology-usage-jta-00030
+  - technology-usage-jta-00040
+  - technology-usage-jta-00050
+  - technology-usage-jta-00060
+  - technology-usage-jta-00070
+  - technology-usage-jta-00080
+  - technology-usage-jta-00090
+  - technology-usage-jta-00100
+  - technology-usage-jta-00110
+  - technology-usage-jta-00120
+  - technology-usage-jta-00130
+  - technology-usage-jta-00140
+  - technology-usage-jta-00150
+  - technology-usage-jta-00160
+  - technology-usage-jta-00170
+  - technology-usage-jta-00180
+  - technology-usage-jta-00190
+  - technology-usage-jta-00200
+  - technology-usage-jta-00210
+  - technology-usage-logging-00010
+  - technology-usage-logging-000100
+  - technology-usage-logging-000110
+  - technology-usage-logging-000120
+  - technology-usage-logging-000130
+  - technology-usage-logging-000140
+  - technology-usage-logging-000150
+  - technology-usage-logging-000160
+  - technology-usage-logging-000170
+  - technology-usage-logging-000180
+  - technology-usage-logging-000190
+  - technology-usage-logging-00020
+  - technology-usage-logging-000200
+  - technology-usage-logging-000210
+  - technology-usage-logging-000220
+  - technology-usage-logging-000230
+  - technology-usage-logging-000240
+  - technology-usage-logging-000250
+  - technology-usage-logging-000260
+  - technology-usage-logging-000270
+  - technology-usage-logging-000280
+  - technology-usage-logging-000290
+  - technology-usage-logging-00030
+  - technology-usage-logging-00040
+  - technology-usage-logging-00050
+  - technology-usage-logging-00060
+  - technology-usage-logging-00070
+  - technology-usage-logging-00080
+  - technology-usage-logging-00090
+  - technology-usage-markup-01300
+  - technology-usage-mvc-01000
+  - technology-usage-mvc-01100
+  - technology-usage-mvc-01200
+  - technology-usage-mvc-01300
+  - technology-usage-mvc-01400
+  - technology-usage-mvc-01500
+  - technology-usage-mvc-01600
+  - technology-usage-mvc-01700
+  - technology-usage-mvc-01800
+  - technology-usage-mvc-01900
+  - technology-usage-mvc-02000
+  - technology-usage-mvc-02100
+  - technology-usage-mvc-02200
+  - technology-usage-mvc-02300
+  - technology-usage-mvc-02400
+  - technology-usage-mvc-02500
+  - technology-usage-mvc-02600
+  - technology-usage-mvc-02700
+  - technology-usage-mvc-02800
+  - technology-usage-mvc-02900
+  - technology-usage-mvc-03000
+  - technology-usage-mvc-03100
+  - technology-usage-mvc-03200
+  - technology-usage-mvc-03300
+  - technology-usage-mvc-03400
+  - technology-usage-mvc-03500
+  - technology-usage-mvc-03600
+  - technology-usage-mvc-03700
+  - technology-usage-mvc-03800
+  - technology-usage-mvc-03900
+  - technology-usage-mvc-04000
+  - technology-usage-mvc-04100
+  - technology-usage-mvc-04300
+  - technology-usage-mvc-04400
+  - technology-usage-mvc-04500
+  - technology-usage-mvc-04600
+  - technology-usage-mvc-04700
+  - technology-usage-mvc-04800
+  - technology-usage-mvc-04900
+  - technology-usage-mvc-05000
+  - technology-usage-mvc-05100
+  - technology-usage-mvc-05200
+  - technology-usage-mvc-05300
+  - technology-usage-mvc-05400
+  - technology-usage-mvc-05500
+  - technology-usage-mvc-05600
+  - technology-usage-mvc-05700
+  - technology-usage-mvc-05800
+  - technology-usage-mvc-05900
+  - technology-usage-mvc-06000
+  - technology-usage-mvc-0x4200
+  - technology-usage-security-01000
+  - technology-usage-security-01100
+  - technology-usage-security-01200
+  - technology-usage-security-01300
+  - technology-usage-security-01400
+  - technology-usage-security-01500
+  - technology-usage-security-01600
+  - technology-usage-security-01700
+  - technology-usage-security-01800
+  - technology-usage-security-01900
+  - technology-usage-security-02000
+  - technology-usage-security-02100
+  - technology-usage-security-02200
+  - technology-usage-security-02300
+  - technology-usage-security-02400
+  - technology-usage-security-02500
+  - technology-usage-security-02600
+  - technology-usage-security-02700
+  - technology-usage-security-02800
+  - technology-usage-security-02900
+  - technology-usage-security-03000
+  - technology-usage-security-03100
+  - technology-usage-security-03200
+  - technology-usage-security-03300
+  - technology-usage-security-03400
+  - technology-usage-security-03500
+  - technology-usage-test-frameworks-00010
+  - technology-usage-test-frameworks-00020
+  - technology-usage-test-frameworks-00030
+  - technology-usage-test-frameworks-00040
+  - technology-usage-test-frameworks-00050
+  - technology-usage-test-frameworks-00060
+  - technology-usage-test-frameworks-00070
+  - technology-usage-test-frameworks-00080
+  - technology-usage-test-frameworks-00090
+  - technology-usage-test-frameworks-00100
+  - technology-usage-test-frameworks-00110
+  - technology-usage-test-frameworks-00120
+  - technology-usage-test-frameworks-00130
+  - technology-usage-test-frameworks-00140
+  - technology-usage-test-frameworks-00150
+  - technology-usage-test-frameworks-00160
+  - technology-usage-test-frameworks-00170
+  - technology-usage-test-frameworks-00180
+  - technology-usage-test-frameworks-00190
+  - technology-usage-test-frameworks-00200
+  - technology-usage-test-frameworks-00210
+  - technology-usage-test-frameworks-00220
+  - technology-usage-test-frameworks-00230
+  - technology-usage-test-frameworks-00240
+  - technology-usage-test-frameworks-00250
+  - technology-usage-test-frameworks-00260
+  - technology-usage-test-frameworks-00270
+  - technology-usage-test-frameworks-00280
+  - technology-usage-test-frameworks-00290
+  - technology-usage-test-frameworks-00300
+  - technology-usage-test-frameworks-00310
+  - technology-usage-test-frameworks-00320
+  - technology-usage-test-frameworks-00330
+  - technology-usage-test-frameworks-00340
+  - technology-usage-test-frameworks-00350
+  - technology-usage-test-frameworks-00360
+  - technology-usage-test-frameworks-00370
+  - technology-usage-web-01000
+  - technology-usage-web-01100
+  - technology-usage-web-01300
+  - technology-usage-web-01400
+  - technology-usage-web-01500
+  - technology-usage-web-01600
+  - technology-usage-web-01700
+  - technology-usage-web-01800
+  - technology-usage-web-01900
+  - technology-usage-web-02000
+  - technology-usage-web-02100
+  - technology-usage-web-02200
+  - technology-usage-web-02300
+  - technology-usage-web-02400
+  - test-frameworks-sauge-00010
+  - test-frameworks-sauge-00020
+  - test-frameworks-sauge-00030
+  - test-frameworks-sauge-00040
+  - test-frameworks-sauge-00050
+  - test-frameworks-sauge-00060
+  - test-frameworks-sauge-00070
+  - test-frameworks-sauge-00080
+  - test-frameworks-sauge-00090
+  - test-frameworks-sauge-00100
+  - test-frameworks-sauge-00110
+  - test-frameworks-sauge-00120
+  - test-frameworks-sauge-00130
+  - test-frameworks-sauge-00140
+  - test-frameworks-sauge-00150
+  - test-frameworks-sauge-00160
+  - test-frameworks-sauge-00170
+  - test-frameworks-sauge-00180
+  - test-frameworks-sauge-00190
+  - test-frameworks-sauge-00200
+  - test-frameworks-sauge-00210
+  - test-frameworks-sauge-00220
+  - test-frameworks-sauge-00230
+  - test-frameworks-sauge-00240
+  - test-frameworks-sauge-00260
+  - test-frameworks-sauge-00270
+  - test-frameworks-sauge-00280
+  - test-frameworks-sauge-00290
+  - test-frameworks-sauge-00300
+  - test-frameworks-sauge-00310
+  - test-frameworks-sauge-00320
+  - test-frameworks-sauge-00330
+  - test-frameworks-sauge-00340
+  - test-frameworks-sauge-00350
+  - test-frameworks-sauge-00360
+  - test-frameworks-sauge-00370
+  - test-frameworks-sauge-00560
