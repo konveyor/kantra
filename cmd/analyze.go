@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/devfile/alizer/pkg/apis/model"
+	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
@@ -123,7 +125,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to convert xml rules")
 				return err
 			}
-			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir)
+			components, err := recognizer.DetectComponents(analyzeCmd.input)
+			if err != nil {
+				log.Error(err, "Failed to determine languages for input")
+				return err
+			}
+			for _, c := range components {
+				log.Info("Got component", "component language", c.Languages, "path", c.Path)
+			}
+			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, components)
 			if err != nil {
 				log.Error(err, "failed to run analysis")
 				return err
@@ -401,7 +411,7 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
-func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
+func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
 		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
@@ -409,6 +419,19 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	}
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
+
+	var foundJava bool
+	var foundGolang bool
+	for _, c := range components {
+		for _, l := range c.Languages {
+			if l.Name == "Java" {
+				foundJava = true
+			}
+			if l.Name == "Go" {
+				foundGolang = true
+			}
+		}
+	}
 
 	otherProvsMountPath := SourceMountPath
 	// when input is a file, it means it's probably a binary
@@ -463,7 +486,6 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	}
 
 	provConfig := []provider.Config{
-		javaConfig,
 		{
 			Name: "builtin",
 			InitConfig: []provider.InitConfig{
@@ -473,6 +495,12 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 				},
 			},
 		},
+	}
+	if foundJava {
+		provConfig = append(provConfig, javaConfig)
+	}
+	if foundGolang {
+		provConfig = append(provConfig, goConfig)
 	}
 
 	// Set proxy to providers
@@ -663,7 +691,7 @@ func (a analyzeCommand) createTempRuleSet(path string, name string) error {
 	return nil
 }
 
-func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) error {
+func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, components []model.Component) error {
 	volumes := map[string]string{
 		// application source code
 		a.input: SourceMountPath,
@@ -682,7 +710,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string) e
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
 	}
 
-	configVols, err := a.getConfigVolumes()
+	configVols, err := a.getConfigVolumes(components)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to get config volumes for analysis")
 		return err
