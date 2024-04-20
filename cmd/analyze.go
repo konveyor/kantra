@@ -48,12 +48,9 @@ var (
 	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
 )
 
-// supported provider images
 const (
-	javaExternalProviderImg = "quay.io/konveyor/java-external-provider:latest"
-	genericProviderImg      = "quay.io/konveyor/generic-external-provider:latest"
-	dotNetProviderImg       = "quay.io/konveyor/dotnet-external-provider:latest"
-	yqProviderImg           = "quay.io/konveyor/yq-external-provider:latest"
+	javaProvider = "java"
+	goProvider   = "go"
 )
 
 // kantra analyze flags
@@ -128,13 +125,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// defer cleaning created resources here instead of PostRun
 			// if Run returns an error, PostRun does not run
 			defer func() {
-				if err := errors.Join(analyzeCmd.RmAnalysisResources(cmd.Context())); err != nil {
-					log.Error(err, "failed to remove analysis resource")
-				}
-			}()
-			defer func() {
-				if err := analyzeCmd.Clean(cmd.Context()); err != nil {
-					log.Error(err, "failed to clean temporary container resources")
+				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+					log.Error(err, "failed to clean temporary directories")
 				}
 			}()
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -159,7 +151,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			for _, c := range components {
 				log.Info("Got component", "component language", c.Languages, "path", c.Path)
 				for _, l := range c.Languages {
-					foundProviders = append(foundProviders, l.Name)
+					foundProviders = append(foundProviders, strings.ToLower(l.Name))
 				}
 			}
 			containerNetworkName, err := analyzeCmd.createContainerNetwork()
@@ -461,10 +453,10 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	var foundJava bool
 	var foundGolang bool
 	for _, p := range providers {
-		if p == "Java" {
+		if p == javaProvider {
 			foundJava = true
 		}
-		if p == "Go" {
+		if p == goProvider {
 			foundGolang = true
 		}
 	}
@@ -478,14 +470,14 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	}
 
 	javaConfig := provider.Config{
-		Name:    "java",
-		Address: fmt.Sprintf("0.0.0.0:%v", ports["java"]),
+		Name:    javaProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[javaProvider]),
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     SourceMountPath,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "java",
+					"lspServerName":                 javaProvider,
 					"bundles":                       JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
@@ -506,8 +498,8 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	}
 
 	goConfig := provider.Config{
-		Name:    "go",
-		Address: fmt.Sprintf("0.0.0.0:%v", ports["go"]),
+		Name:    goProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[goProvider]),
 		InitConfig: []provider.InitConfig{
 			{
 				AnalysisMode: provider.FullAnalysisMode,
@@ -784,13 +776,14 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 	// this will make more sense when we have more than 2 supported providers
 	var providerImage string
 	switch providers[0] {
-	case "Java":
-		providerImage = javaExternalProviderImg
-		providerPorts["java"] = port
-	case "Go":
-		providerImage = genericProviderImg
-		providerPorts["go"] = port
+	case javaProvider:
+		providerImage = Settings.JavaProviderImage
+		providerPorts[javaProvider] = port
+	case goProvider:
+		providerImage = Settings.GenericProviderImage
+		providerPorts[goProvider] = port
 	default:
+		return nil, fmt.Errorf("unable to run unsupported provider %v", providers[0])
 	}
 	args := []string{fmt.Sprintf("--port=%v", port)}
 	a.log.Info("starting provider", "provider", providers[0])
@@ -811,45 +804,6 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		return nil, err
 	}
 	a.providerContainerNames = append(a.providerContainerNames, con.Name)
-
-	// we need to start each provider container separately from the first one so that
-	// we can join the first container's network
-	// this is so not for the provider containers to share the same network but
-	// because the network needs to be shared with the analyzer engine
-	// if len(providers) > 1 {
-	// 	for _, prov := range providers[1:] {
-	// 		// this will make more sense when we have more than 2 supported providers
-	// 		var provImage string
-	// 		switch prov {
-	// 		case "Java":
-	// 			provImage = javaExternalProviderImg
-	// 			providerPorts["java"] = port
-	// 		case "Go":
-	// 			provImage = golangDepProviderImg
-	// 			providerPorts["go"] = port
-	// 		default:
-	// 		}
-
-	// 		a.log.Info("starting provider", "provider", prov)
-	// 		c := container.NewContainer()
-	// 		err := con.Run(
-	// 			ctx,
-	// 			container.WithImage(provImage),
-	// 			container.WithLog(a.log.V(1)),
-	// 			container.WithVolumes(volumes),
-	// 			container.WithContainerToolBin(Settings.PodmanBinary),
-	// 			container.WithEntrypointArgs(args...),
-	// 			container.WithDetachedMode(true),
-	// 			container.WithCleanup(a.cleanup),
-	// 			container.WithNetwork(fmt.Sprintf("container:%v", providers[0])),
-	// 		)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		// for cleanup
-	// 		a.providerContainerNames = append(a.providerContainerNames, c.Name)
-	// 	}
-	// }
 
 	return providerPorts, nil
 }
@@ -895,7 +849,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		fmt.Sprintf("--context-lines=%d", 100),
 	}
 	// TODO update for running multiple apps
-	if providers[0] != "Java" {
+	if providers[0] != javaProvider {
 		a.enableDefaultRulesets = false
 	}
 	if a.enableDefaultRulesets {
@@ -1072,20 +1026,6 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	return nil
 }
 
-func (a *analyzeCommand) Clean(ctx context.Context) error {
-	if !a.cleanup {
-		return nil
-	}
-	for _, path := range a.tempDirs {
-		err := os.RemoveAll(path)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
-			continue
-		}
-	}
-	return nil
-}
-
 func (a *analyzeCommand) getLabelSelector() string {
 	if a.labelSelector != "" {
 		return a.labelSelector
@@ -1243,24 +1183,32 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	return tempOutputDir, nil
 }
 
-func (a *analyzeCommand) RmAnalysisResources(ctx context.Context) error {
+func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 	if len(a.providerContainerNames) == 0 {
 		return nil
+	}
+	if !a.cleanup {
+		return nil
+	}
+	a.log.V(1).Info("removing temp dirs")
+	for _, path := range a.tempDirs {
+		err := os.RemoveAll(path)
+		if err != nil {
+			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
+			continue
+		}
 	}
 	err := a.RmProviderContainers(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to remove provider container")
-		return err
 	}
 	err = a.RmNetwork(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to remove network", "network", a.networkName)
-		return err
 	}
 	err = a.RmVolumes(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to remove volume", "volume", a.volumeName)
-		return err
 	}
 	return nil
 }

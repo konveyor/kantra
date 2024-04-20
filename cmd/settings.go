@@ -22,11 +22,15 @@ const (
 )
 
 type Config struct {
-	RootCommandName string `env:"CMD_NAME" default:"kantra"`
-	PodmanBinary    string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
-	RunnerImage     string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
-	JvmMaxMem       string `env:"JVM_MAX_MEM" default:""`
-	RunLocal        bool   `env:"RUN_LOCAL"`
+	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
+	PodmanBinary         string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
+	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
+	JvmMaxMem            string `env:"JVM_MAX_MEM" default:""`
+	RunLocal             bool   `env:"RUN_LOCAL"`
+	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
+	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
+	DotNetProviderImage  string `env:"DOTNET_PROVIDER_IMG" default:"quay.io/konveyor/dotnet-external-provider:latest"`
+	YQProviderImage      string `env:"YQ_PROVIDER_IMG" default:"quay.io/konveyor/yq-external-provider:latest"`
 }
 
 func (c *Config) Load() error {

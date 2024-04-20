@@ -8,9 +8,6 @@ RUN microdnf -y install git &&\
 
 FROM quay.io/konveyor/static-report:latest as static-report
 
-FROM quay.io/konveyor/java-external-provider:latest as java-provider
-FROM quay.io/konveyor/generic-external-provider:latest as generic-provider
-
 # Build the manager binary
 FROM golang:1.21 as builder
 
@@ -37,7 +34,6 @@ RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosy
 FROM quay.io/konveyor/analyzer-lsp:latest
 
 RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output /opt/xmlrules /opt/shimoutput /tmp/source-app /tmp/source-app/input
-RUN go install golang.org/x/tools/gopls@latest
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
@@ -47,9 +43,6 @@ COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
-COPY --from=java-provider /usr/local/bin/java-external-provider /usr/local/bin/java-external-provider
-COPY --from=generic-provider /usr/local/bin/go-dependency-provider /usr/local/bin/go-dependency-provider
-COPY --from=generic-provider /usr/local/bin/generic-external-provider /usr/local/bin/generic-external-provider
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
