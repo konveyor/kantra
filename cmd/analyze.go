@@ -432,6 +432,10 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 			}
 		}
 	}
+	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
+	if !foundJava && a.isFileInput {
+		foundJava = true
+	}
 
 	otherProvsMountPath := SourceMountPath
 	// when input is a file, it means it's probably a binary
