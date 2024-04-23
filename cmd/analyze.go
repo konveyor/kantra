@@ -165,7 +165,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to create container volume")
 				return err
 			}
-			providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders)
+			// allow for 5 retries of running provider in the case of port in use
+			providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
 			if err != nil {
 				log.Error(err, "failed to run provider")
 				return err
@@ -763,7 +764,20 @@ func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, erro
 	return volName, nil
 }
 
-func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, volName string, providers []string) (map[string]int, error) {
+func (a *analyzeCommand) retryProviderContainer(ctx context.Context, networkName string, volName string, providers []string, retry int) error {
+	if retry == 0 {
+		return fmt.Errorf("too many provider container retry attempts")
+	}
+	retry--
+
+	_, err := a.RunProviders(ctx, networkName, volName, providers, retry)
+	if err != nil {
+		return fmt.Errorf("error retrying run provider %v", err)
+	}
+	return nil
+}
+
+func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, volName string, providers []string, retry int) (map[string]int, error) {
 	providerPorts := map[string]int{}
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -801,10 +815,13 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		container.WithNetwork(networkName),
 	)
 	if err != nil {
-		return nil, err
+		err := a.retryProviderContainer(ctx, networkName, volName, providers, retry)
+		if err != nil {
+			return nil, err
+		}
 	}
-	a.providerContainerNames = append(a.providerContainerNames, con.Name)
 
+	a.providerContainerNames = append(a.providerContainerNames, con.Name)
 	return providerPorts, nil
 }
 
