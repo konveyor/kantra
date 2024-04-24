@@ -49,8 +49,10 @@ var (
 )
 
 const (
-	javaProvider = "java"
-	goProvider   = "go"
+	javaProvider   = "java"
+	goProvider     = "go"
+	pythonProvider = "python"
+	nodeJSProvider = "javascript"
 )
 
 // kantra analyze flags
@@ -76,6 +78,7 @@ type analyzeCommand struct {
 	noProxy               string
 	contextLines          int
 	incidentSelector      string
+	depFolders            []string
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -217,6 +220,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
+	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
 
 	return analyzeCommand
 }
@@ -268,6 +272,17 @@ func (a *analyzeCommand) Validate() error {
 			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 		}
 		a.isFileInput = true
+	}
+	if len(a.depFolders) != 0 {
+		for i := range a.depFolders {
+			stat, err := os.Stat(a.depFolders[i])
+			if err != nil {
+				return fmt.Errorf("%w failed to stat dependency folder %v", err, a.depFolders[i])
+			}
+			if stat != nil && !stat.IsDir() {
+				return fmt.Errorf("depdendecy folder %v is not a directory", a.depFolders[i])
+			}
+		}
 	}
 	if a.mode != string(provider.FullAnalysisMode) &&
 		a.mode != string(provider.SourceOnlyAnalysisMode) {
@@ -448,6 +463,21 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
+func (a *analyzeCommand) getDepsFolders() (map[string]string, []string) {
+	vols := map[string]string{}
+	dependencyFolders := []string{}
+	if len(a.depFolders) != 0 {
+		for i := range a.depFolders {
+			newDepPath := path.Join(InputPath, fmt.Sprintf("deps%v", i))
+			vols[a.depFolders[i]] = newDepPath
+			dependencyFolders = append(dependencyFolders, newDepPath)
+		}
+		return vols, dependencyFolders
+	}
+
+	return vols, dependencyFolders
+}
+
 func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]int) (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
@@ -459,14 +489,21 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 
 	var foundJava bool
 	var foundGolang bool
-	for _, p := range providers {
-		if p == javaProvider {
-			foundJava = true
-		}
-		if p == goProvider {
-			foundGolang = true
-		}
+	var foundPython bool
+	var foundNode bool
+	switch providers[0] {
+	case javaProvider:
+		foundJava = true
+	case goProvider:
+		foundGolang = true
+	case pythonProvider:
+		foundPython = true
+	case nodeJSProvider:
+		foundNode = true
+	default:
+		return nil, fmt.Errorf("unable to find config for provider %v", providers[0])
 	}
+
 	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
 	if !foundJava && a.isFileInput {
 		foundJava = true
@@ -524,6 +561,46 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		},
 	}
 
+	pythonConfig := provider.Config{
+		Name:    pythonProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[pythonProvider]),
+		InitConfig: []provider.InitConfig{
+			{
+				AnalysisMode: provider.SourceOnlyAnalysisMode,
+				ProviderSpecificConfig: map[string]interface{}{
+					"lspServerName":                 "generic",
+					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
+					provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
+				},
+			},
+		},
+	}
+
+	nodeJSConfig := provider.Config{
+		Name:    nodeJSProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[nodeJSProvider]),
+		InitConfig: []provider.InitConfig{
+			{
+				AnalysisMode: provider.SourceOnlyAnalysisMode,
+				ProviderSpecificConfig: map[string]interface{}{
+					"lspServerName":                 "nodejs",
+					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
+					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
+				},
+			},
+		},
+	}
+
+	vols, dependencyFolders := a.getDepsFolders()
+	if len(dependencyFolders) != 0 {
+		if providers[0] == pythonProvider {
+			pythonConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
+		}
+		if providers[0] == nodeJSProvider {
+			nodeJSConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
+		}
+	}
+
 	provConfig := []provider.Config{
 		{
 			Name: "builtin",
@@ -535,11 +612,16 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			},
 		},
 	}
-	if foundJava {
+
+	switch {
+	case foundJava:
 		provConfig = append(provConfig, javaConfig)
-	}
-	if foundGolang && a.mode == string(provider.FullAnalysisMode) {
+	case foundGolang && a.mode == string(provider.FullAnalysisMode):
 		provConfig = append(provConfig, goConfig)
+	case foundPython:
+		provConfig = append(provConfig, pythonConfig)
+	case foundNode:
+		provConfig = append(provConfig, nodeJSConfig)
 	}
 
 	// Set proxy to providers
@@ -566,8 +648,11 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		return nil, err
 	}
 
-	vols := map[string]string{
+	settingsVols := map[string]string{
 		tempDir: ConfigMountPath,
+	}
+	if len(vols) != 0 {
+		maps.Copy(settingsVols, vols)
 	}
 
 	// attempt to create a .m2 directory we can use to speed things a bit
@@ -578,13 +663,13 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		if err != nil {
 			a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
 		} else {
-			vols[m2Dir] = M2Dir
+			settingsVols[m2Dir] = M2Dir
 			a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
 			a.tempDirs = append(a.tempDirs, m2Dir)
 		}
 	}
 
-	return vols, nil
+	return settingsVols, nil
 }
 
 func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
@@ -803,7 +888,11 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		// application source code
 		volName: SourceMountPath,
 	}
-	// this will make more sense when we have more than 2 supported providers
+	vols, _ := a.getDepsFolders()
+	if len(vols) != 0 {
+		maps.Copy(volumes, vols)
+	}
+
 	var providerImage string
 	switch providers[0] {
 	case javaProvider:
@@ -812,6 +901,12 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 	case goProvider:
 		providerImage = Settings.GenericProviderImage
 		providerPorts[goProvider] = port
+	case pythonProvider:
+		providerImage = Settings.GenericProviderImage
+		providerPorts[pythonProvider] = port
+	case nodeJSProvider:
+		providerImage = Settings.GenericProviderImage
+		providerPorts[nodeJSProvider] = port
 	default:
 		return nil, fmt.Errorf("unable to run unsupported provider %v", providers[0])
 	}
@@ -885,6 +980,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if providers[0] != javaProvider {
 		a.enableDefaultRulesets = false
 	}
+
 	if a.enableDefaultRulesets {
 		args = append(args,
 			fmt.Sprintf("--rules=%s/", RulesetPath))
@@ -905,7 +1001,9 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		args = append(args, "--jaeger-endpoint")
 		args = append(args, a.jaegerEndpoint)
 	}
-	if !a.analyzeKnownLibraries {
+
+	// python and node providers do not yet support dep analysis
+	if !a.analyzeKnownLibraries && (providers[0] != pythonProvider && providers[0] != nodeJSProvider) {
 		args = append(args,
 			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
 	}
@@ -916,7 +1014,13 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
 	}
-	if a.mode == string(provider.FullAnalysisMode) {
+
+	switch true {
+	case a.mode == string(provider.FullAnalysisMode) && providers[0] == pythonProvider:
+		a.mode = string(provider.SourceOnlyAnalysisMode)
+	case a.mode == string(provider.FullAnalysisMode) && providers[0] == nodeJSProvider:
+		a.mode = string(provider.SourceOnlyAnalysisMode)
+	default:
 		a.log.Info("running dependency retrieval during analysis")
 		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
 	}
