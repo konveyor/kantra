@@ -20,8 +20,9 @@ import (
 type container struct {
 	stdout         []io.Writer
 	stderr         []io.Writer
-	name           string
+	Name           string
 	image          string
+	NetworkName    string
 	entrypointBin  string
 	entrypointArgs []string
 	workdir        string
@@ -31,6 +32,7 @@ type container struct {
 	// map of source -> dest paths to mount
 	volumes          map[string]string
 	cFlag            bool
+	detached         bool
 	log              logr.Logger
 	containerToolBin string
 	reproducerCmd    *string
@@ -46,7 +48,13 @@ func WithImage(i string) Option {
 
 func WithName(n string) Option {
 	return func(c *container) {
-		c.name = n
+		c.Name = n
+	}
+}
+
+func WithNetwork(w string) Option {
+	return func(c *container) {
+		c.NetworkName = w
 	}
 }
 
@@ -98,6 +106,12 @@ func WithcFlag(cl bool) Option {
 	}
 }
 
+func WithDetachedMode(d bool) Option {
+	return func(c *container) {
+		c.detached = d
+	}
+}
+
 func WithCleanup(cl bool) Option {
 	return func(c *container) {
 		c.cleanup = cl
@@ -122,7 +136,7 @@ func WithReproduceCmd(r *string) Option {
 	}
 }
 
-func randomName() string {
+func RandomName() string {
 	rand.Seed(int64(time.Now().Nanosecond()))
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, 16)
@@ -141,11 +155,13 @@ func NewContainer() *container {
 		stdout:           []io.Writer{os.Stdout},
 		env:              map[string]string{},
 		stderr:           []io.Writer{os.Stderr},
-		name:             randomName(),
+		Name:             RandomName(),
+		NetworkName:      "",
 		// by default, remove the container after run()
-		cleanup: true,
-		cFlag:   false,
-		log:     logr.Discard(),
+		cleanup:  true,
+		cFlag:    false,
+		detached: false,
+		log:      logr.Discard(),
 	}
 }
 
@@ -159,12 +175,19 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	args := []string{"run"}
 	os := runtime.GOOS
+	if c.detached {
+		args = append(args, "-d")
+	}
 	if c.cleanup {
 		args = append(args, "--rm")
 	}
-	if c.name != "" {
+	if c.Name != "" {
 		args = append(args, "--name")
-		args = append(args, c.name)
+		args = append(args, c.Name)
+	}
+	if c.NetworkName != "" {
+		args = append(args, "--network")
+		args = append(args, c.NetworkName)
 	}
 	if c.entrypointBin != "" {
 		args = append(args, "--entrypoint")
@@ -228,8 +251,8 @@ func (c *container) Rm(ctx context.Context) error {
 	cmd := exec.CommandContext(
 		ctx,
 		c.containerToolBin,
-		"rm", c.name)
+		"rm", c.Name)
 	c.log.Info("removing container",
-		"container tool", c.containerToolBin, "name", c.name)
+		"container tool", c.containerToolBin, "name", c.Name)
 	return cmd.Run()
 }

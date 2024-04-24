@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 
@@ -16,7 +17,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
@@ -24,6 +24,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"github.com/phayes/freeport"
 	"go.lsp.dev/uri"
 	"gopkg.in/yaml.v2"
 
@@ -45,6 +46,11 @@ var (
 	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
 	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
 	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
+)
+
+const (
+	javaProvider = "java"
+	goProvider   = "go"
 )
 
 // kantra analyze flags
@@ -75,7 +81,11 @@ type analyzeCommand struct {
 	// isFileInput is set when input points to a file and not a dir
 	isFileInput bool
 	logLevel    *uint32
-	cleanup     bool
+	// used for cleanup
+	networkName            string
+	volumeName             string
+	providerContainerNames []string
+	cleanup                bool
 }
 
 // analyzeCmd represents the analyze command
@@ -112,6 +122,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
 				analyzeCmd.cleanup = !val
 			}
+			// defer cleaning created resources here instead of PostRun
+			// if Run returns an error, PostRun does not run
+			defer func() {
+				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+					log.Error(err, "failed to clean temporary directories")
+				}
+			}()
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
 				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
@@ -130,10 +147,31 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "Failed to determine languages for input")
 				return err
 			}
+			foundProviders := []string{}
 			for _, c := range components {
 				log.Info("Got component", "component language", c.Languages, "path", c.Path)
+				for _, l := range c.Languages {
+					foundProviders = append(foundProviders, strings.ToLower(l.Name))
+				}
 			}
-			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, components)
+			containerNetworkName, err := analyzeCmd.createContainerNetwork()
+			if err != nil {
+				log.Error(err, "failed to create container network")
+				return err
+			}
+			// share source app with provider and engine containers
+			containerVolName, err := analyzeCmd.createContainerVolume(analyzeCmd.input)
+			if err != nil {
+				log.Error(err, "failed to create container volume")
+				return err
+			}
+			// allow for 5 retries of running provider in the case of port in use
+			providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
+			if err != nil {
+				log.Error(err, "failed to run provider")
+				return err
+			}
+			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName, foundProviders, providerPorts)
 			if err != nil {
 				log.Error(err, "failed to run analysis")
 				return err
@@ -148,14 +186,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to generate static report")
 				return err
 			}
-			return nil
-		},
-		PostRunE: func(cmd *cobra.Command, args []string) error {
-			err := analyzeCmd.Clean(cmd.Context())
-			if err != nil {
-				log.Error(err, "failed to clean temporary container resources")
-				return err
-			}
+
 			return nil
 		},
 	}
@@ -411,7 +442,7 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
-func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[string]string, error) {
+func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]int) (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
 		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
@@ -422,14 +453,12 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 
 	var foundJava bool
 	var foundGolang bool
-	for _, c := range components {
-		for _, l := range c.Languages {
-			if l.Name == "Java" {
-				foundJava = true
-			}
-			if l.Name == "Go" {
-				foundGolang = true
-			}
+	for _, p := range providers {
+		if p == javaProvider {
+			foundJava = true
+		}
+		if p == goProvider {
+			foundGolang = true
 		}
 	}
 	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
@@ -446,14 +475,14 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 	}
 
 	javaConfig := provider.Config{
-		Name:       "java",
-		BinaryPath: "/usr/local/bin/java-external-provider",
+		Name:    javaProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[javaProvider]),
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     SourceMountPath,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "java",
+					"lspServerName":                 javaProvider,
 					"bundles":                       JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
@@ -474,15 +503,15 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 	}
 
 	goConfig := provider.Config{
-		Name:       "go",
-		BinaryPath: "/usr/local/bin/generic-external-provider",
+		Name:    goProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", ports[goProvider]),
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     otherProvsMountPath,
 				AnalysisMode: provider.FullAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
-					"name":                          "go",
-					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
+					"lspServerName":                 "generic",
+					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
+					"dependencyProviderPath":        "/usr/local/bin/go-dependency-provider",
 					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
 				},
 			},
@@ -503,7 +532,7 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 	if foundJava {
 		provConfig = append(provConfig, javaConfig)
 	}
-	if foundGolang {
+	if foundGolang && a.mode == string(provider.FullAnalysisMode) {
 		provConfig = append(provConfig, goConfig)
 	}
 
@@ -517,11 +546,6 @@ func (a *analyzeCommand) getConfigVolumes(components []model.Component) (map[str
 		for i := range provConfig {
 			provConfig[i].Proxy = &proxy
 		}
-	}
-
-	// go provider only supports full analysis mode
-	if a.mode == string(provider.FullAnalysisMode) {
-		provConfig = append(provConfig, goConfig)
 	}
 
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
@@ -671,8 +695,8 @@ func copyFileContents(src string, dst string) (err error) {
 	return nil
 }
 
-func (a analyzeCommand) createTempRuleSet(path string, name string) error {
-	a.log.Info("createing temp ruleset ", "path", path, "name", name)
+func (a *analyzeCommand) createTempRuleSet(path string, name string) error {
+	a.log.Info("creating temp ruleset ", "path", path, "name", name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -695,7 +719,117 @@ func (a analyzeCommand) createTempRuleSet(path string, name string) error {
 	return nil
 }
 
-func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, components []model.Component) error {
+func (a *analyzeCommand) createContainerNetwork() (string, error) {
+	networkName := container.RandomName()
+	args := []string{
+		"network",
+		"create",
+		networkName,
+	}
+
+	cmd := exec.Command(Settings.PodmanBinary, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	a.log.V(1).Info("created container network", "network", networkName)
+	// for cleanup
+	a.networkName = networkName
+	return networkName, nil
+}
+
+// TODO: create for each source input once accepting multiple apps is completed
+func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, error) {
+	volName := container.RandomName()
+	args := []string{
+		"volume",
+		"create",
+		"--opt",
+		"type=none",
+		"--opt",
+		fmt.Sprintf("device=%v", sourceInput),
+		"--opt",
+		"o=bind",
+		volName,
+	}
+
+	cmd := exec.Command(Settings.PodmanBinary, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	a.log.V(1).Info("created container volume", "volume", volName)
+	// for cleanup
+	a.volumeName = volName
+	return volName, nil
+}
+
+func (a *analyzeCommand) retryProviderContainer(ctx context.Context, networkName string, volName string, providers []string, retry int) error {
+	if retry == 0 {
+		return fmt.Errorf("too many provider container retry attempts")
+	}
+	retry--
+
+	_, err := a.RunProviders(ctx, networkName, volName, providers, retry)
+	if err != nil {
+		return fmt.Errorf("error retrying run provider %v", err)
+	}
+	return nil
+}
+
+func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, volName string, providers []string, retry int) (map[string]int, error) {
+	providerPorts := map[string]int{}
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return nil, err
+	}
+	volumes := map[string]string{
+		// application source code
+		a.input: SourceMountPath,
+	}
+	// this will make more sense when we have more than 2 supported providers
+	var providerImage string
+	switch providers[0] {
+	case javaProvider:
+		providerImage = Settings.JavaProviderImage
+		providerPorts[javaProvider] = port
+	case goProvider:
+		providerImage = Settings.GenericProviderImage
+		providerPorts[goProvider] = port
+	default:
+		return nil, fmt.Errorf("unable to run unsupported provider %v", providers[0])
+	}
+	args := []string{fmt.Sprintf("--port=%v", port)}
+	a.log.Info("starting provider", "provider", providers[0])
+
+	con := container.NewContainer()
+	err = con.Run(
+		ctx,
+		container.WithImage(providerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithVolumes(volumes),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithEntrypointArgs(args...),
+		container.WithDetachedMode(true),
+		container.WithCleanup(a.cleanup),
+		container.WithNetwork(networkName),
+	)
+	if err != nil {
+		err := a.retryProviderContainer(ctx, networkName, volName, providers, retry)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	a.providerContainerNames = append(a.providerContainerNames, con.Name)
+	return providerPorts, nil
+}
+
+func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string, providers []string, ports map[string]int) error {
 	volumes := map[string]string{
 		// application source code
 		a.input: SourceMountPath,
@@ -714,7 +848,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, c
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
 	}
 
-	configVols, err := a.getConfigVolumes(components)
+	configVols, err := a.getConfigVolumes(providers, ports)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to get config volumes for analysis")
 		return err
@@ -734,6 +868,10 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, c
 		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", 100),
+	}
+	// TODO update for running multiple apps
+	if providers[0] != javaProvider {
+		a.enableDefaultRulesets = false
 	}
 	if a.enableDefaultRulesets {
 		args = append(args,
@@ -778,7 +916,9 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, c
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
 	// TODO (pgaikwad): run analysis & deps in parallel
-	err = container.NewContainer().Run(
+
+	c := container.NewContainer()
+	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
@@ -786,12 +926,17 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, c
 		container.WithStdout(analysisLog),
 		container.WithStderr(analysisLog),
 		container.WithEntrypointArgs(args...),
-		container.WithEntrypointBin("/usr/bin/entrypoint.sh"),
+		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
+		container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
 		container.WithContainerToolBin(Settings.PodmanBinary),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
 		return err
+	}
+	err = a.getProviderLogs(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to get provider container logs")
 	}
 
 	return nil
@@ -899,20 +1044,6 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	cleanedURI := filepath.Clean(string(uri))
 	a.log.Info("Static report created. Access it at this URL:", "URL", cleanedURI)
 
-	return nil
-}
-
-func (a *analyzeCommand) Clean(ctx context.Context) error {
-	if !a.cleanup {
-		return nil
-	}
-	for _, path := range a.tempDirs {
-		err := os.RemoveAll(path)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
-			continue
-		}
-	}
 	return nil
 }
 
@@ -1071,4 +1202,91 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 
 	return tempOutputDir, nil
+}
+
+func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
+	if len(a.providerContainerNames) == 0 {
+		return nil
+	}
+	if !a.cleanup {
+		return nil
+	}
+	a.log.V(1).Info("removing temp dirs")
+	for _, path := range a.tempDirs {
+		err := os.RemoveAll(path)
+		if err != nil {
+			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
+			continue
+		}
+	}
+	err := a.RmProviderContainers(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to remove provider container")
+	}
+	err = a.RmNetwork(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to remove network", "network", a.networkName)
+	}
+	err = a.RmVolumes(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to remove volume", "volume", a.volumeName)
+	}
+	return nil
+}
+
+func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
+	cmd := exec.CommandContext(
+		ctx,
+		Settings.PodmanBinary,
+		"network",
+		"rm", a.networkName)
+	a.log.V(1).Info("removing container network",
+		"network", a.networkName)
+	return cmd.Run()
+}
+
+func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
+	cmd := exec.CommandContext(
+		ctx,
+		Settings.PodmanBinary,
+		"volume",
+		"rm", a.volumeName)
+	a.log.V(1).Info("removing created volume",
+		"volume", a.volumeName)
+	return cmd.Run()
+}
+
+// TODO: multiple provider containers
+func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
+	for i := range a.providerContainerNames {
+		cmd := exec.CommandContext(
+			ctx,
+			Settings.PodmanBinary,
+			"stop", a.providerContainerNames[i])
+		a.log.V(1).Info("removing container",
+			"container", a.providerContainerNames[i])
+		return cmd.Run()
+	}
+	return nil
+}
+
+// TODO multiple providers
+func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
+	if len(a.providerContainerNames) == 0 {
+		return nil
+	}
+	providerLogFilePath := filepath.Join(a.output, "provider.log")
+	a.log.V(1).Info("getting provider container logs",
+		"container", a.providerContainerNames[0])
+
+	// send each provider logs to log file
+	cmd := exec.CommandContext(
+		ctx,
+		Settings.PodmanBinary,
+		"logs",
+		a.providerContainerNames[0],
+		"&>",
+		providerLogFilePath)
+
+	return cmd.Run()
 }

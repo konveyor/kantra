@@ -3,8 +3,10 @@ module github.com/konveyor-ecosystem/kantra
 go 1.21
 
 require (
+	github.com/devfile/alizer v1.4.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.1
+	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/spf13/cobra v1.8.0
 	go.lsp.dev/uri v0.3.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -14,7 +16,6 @@ require (
 require (
 	github.com/cbroglie/mustache v1.3.0 // indirect
 	github.com/containerd/typeurl/v2 v2.1.1 // indirect
-	github.com/devfile/alizer v1.4.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -26,14 +27,17 @@ require (
 	github.com/invopop/yaml v0.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/moby/buildkit v0.13.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
+	github.com/swaggest/jsonschema-go v0.3.64 // indirect
+	github.com/swaggest/openapi-go v0.2.45 // indirect
+	github.com/swaggest/refl v1.3.0 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
@@ -62,7 +66,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.3.0-beta.1.2
+	github.com/konveyor/analyzer-lsp v0.4.0-alpha.1.0.20240418234858-9a3998676fb6
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
