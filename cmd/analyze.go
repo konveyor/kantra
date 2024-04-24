@@ -943,7 +943,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if err != nil {
 		return err
 	}
-	err = a.getProviderLogs(ctx)
+	err = a.getProviderLogs()
 	if err != nil {
 		a.log.Error(err, "failed to get provider container logs")
 	}
@@ -1280,7 +1280,7 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 }
 
 // TODO multiple providers
-func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
+func (a *analyzeCommand) getProviderLogs() error {
 	if len(a.providerContainerNames) == 0 {
 		return nil
 	}
@@ -1288,14 +1288,18 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 	a.log.V(1).Info("getting provider container logs",
 		"container", a.providerContainerNames[0])
 
-	// send each provider logs to log file
-	cmd := exec.CommandContext(
-		ctx,
-		Settings.PodmanBinary,
+	logArgs := []string{Settings.PodmanBinary,
 		"logs",
 		a.providerContainerNames[0],
 		"&>",
-		providerLogFilePath)
+		providerLogFilePath}
+	joinedArgs := strings.Join(logArgs, " ")
+
+	// send each provider logs to log file
+	cmd := exec.Command(
+		"/bin/sh",
+		"-c",
+		joinedArgs)
 
 	return cmd.Run()
 }
