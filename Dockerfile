@@ -1,12 +1,14 @@
-FROM quay.io/konveyor/windup-shim:latest as shim
+ARG VERSION=latest
+FROM quay.io/konveyor/windup-shim:${VERSION} as shim
 
 FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
+ARG RULESETS_REF=main
 RUN microdnf -y install git &&\
-    git clone --branch v0.4.0-alpha.1 https://github.com/konveyor/rulesets &&\
+    git clone https://github.com/konveyor/rulesets -b ${RULESETS_REF} &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
-FROM quay.io/konveyor/static-report:latest as static-report
+FROM quay.io/konveyor/static-report:${VERSION} as static-report
 
 # Build the manager binary
 FROM golang:1.21 as builder
@@ -25,13 +27,13 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 
 # Build
-ARG VERSION
+ARG VERSION=latest
 ARG BUILD_COMMIT
 RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o kantra main.go
 RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o darwin-kantra main.go
 RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'" -a -o windows-kantra main.go
 
-FROM quay.io/konveyor/analyzer-lsp:latest
+FROM quay.io/konveyor/analyzer-lsp:${VERSION}
 
 RUN mkdir /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output /opt/xmlrules /opt/shimoutput /tmp/source-app /tmp/source-app/input
 

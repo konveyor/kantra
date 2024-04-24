@@ -200,7 +200,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
 		if os == "linux" {
-			args = append(args, fmt.Sprintf("%s:%s:Z",
+			args = append(args, fmt.Sprintf("%s:%s:z",
 				filepath.Clean(sourcePath), path.Clean(destPath)))
 		} else {
 			args = append(args, fmt.Sprintf("%s:%s",
