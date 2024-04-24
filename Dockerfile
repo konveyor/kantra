@@ -3,7 +3,7 @@ FROM quay.io/konveyor/windup-shim:latest as shim
 FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
 RUN microdnf -y install git &&\
-    git clone https://github.com/konveyor/rulesets &&\
+    git clone --branch v0.4.0-alpha.1 https://github.com/konveyor/rulesets &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
 FROM quay.io/konveyor/static-report:latest as static-report
