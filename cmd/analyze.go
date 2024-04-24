@@ -74,6 +74,8 @@ type analyzeCommand struct {
 	httpProxy             string
 	httpsProxy            string
 	noProxy               string
+	contextLines          int
+	incidentSelector      string
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -209,6 +211,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
+	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 
 	return analyzeCommand
 }
@@ -867,7 +871,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	args := []string{
 		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
-		fmt.Sprintf("--context-lines=%d", 100),
+		fmt.Sprintf("--context-lines=%d", a.contextLines),
 	}
 	// TODO update for running multiple apps
 	if providers[0] != javaProvider {
@@ -876,6 +880,11 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if a.enableDefaultRulesets {
 		args = append(args,
 			fmt.Sprintf("--rules=%s/", RulesetPath))
+	}
+
+	if a.incidentSelector != "" {
+		args = append(args,
+			fmt.Sprintf("--incident-selector=%s", a.incidentSelector))
 	}
 
 	if len(a.rules) > 0 {
