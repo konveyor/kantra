@@ -66,7 +66,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.4.0-alpha.1.0.20240418234858-9a3998676fb6
+	github.com/konveyor/analyzer-lsp v0.4.0-alpha.1.0.20240419184034-20e63239dd27
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
