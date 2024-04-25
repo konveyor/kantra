@@ -6,6 +6,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Upgrade podman 
+        run: |
+          sudo apt-get install -y ansible
+          export DEB=$(curl -s https://passt.top/builds/latest/x86_64/ | grep deb | awk -F '"' '{ print $4}')
+          sudo ansible -m apt -a deb=https://passt.top/builds/latest/x86_64/${DEB} localhost
+          sudo apt-get remove podman crun
+          brew install crun podman
+
       - name: Extract pull request number from inputs or PR description
         run: |
           echo "${{ github.event.pull_request.body }}"

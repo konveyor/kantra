@@ -5,7 +5,7 @@
     version: 2.7.7
     type: compile
     indirect: true
-    resolvedIdentifier: 83cd2cd674a217ade95a4bb83a8a14f351f48bd0
+    resolvedIdentifier: 52f15b99911ab8b8bc8744675f5cf1994a626fb8
     extras:
       artifactId: antlr
       baseDep:
@@ -24,7 +24,7 @@
   - name: ch.qos.logback.logback-classic
     version: 1.1.7
     type: compile
-    resolvedIdentifier: 9865cf6994f9ff13fce0bf93f2054ef6c65bb462
+    resolvedIdentifier: 044c01db0f7d7aac366fb952a89c10251ed86f44
     extras:
       artifactId: logback-classic
       groupId: ch.qos.logback
@@ -37,7 +37,7 @@
     version: 1.1.7
     type: compile
     indirect: true
-    resolvedIdentifier: 7873092d39ef741575ca91378a6a21c388363ac8
+    resolvedIdentifier: 6d1bdb1e28c56a8f989366b339f0f62545696e6d
     extras:
       artifactId: logback-core
       baseDep:
@@ -57,7 +57,7 @@
     version: 1.5.1
     type: compile
     indirect: true
-    resolvedIdentifier: 3fe0bed568c62df5e89f4f174c101eab25345b6c
+    resolvedIdentifier: d5d564526c142037daead331ee5278c088777858
     extras:
       artifactId: classmate
       baseDep:
@@ -77,7 +77,7 @@
     version: 2.12.3
     type: compile
     indirect: true
-    resolvedIdentifier: 7275513412694a1aafd08c0287f48469fa0e6e17
+    resolvedIdentifier: 87859f29ceebfab7a873c3b4f4b89c9a594b2842
     extras:
       artifactId: jackson-annotations
       baseDep:
@@ -96,7 +96,7 @@
   - name: com.fasterxml.jackson.core.jackson-core
     version: 2.12.3
     type: compile
-    resolvedIdentifier: deb23fe2a7f2b773e18ced2b50d4acc1df8fa366
+    resolvedIdentifier: ef6abf067337134089d074f411306a51f11a4d62
     extras:
       artifactId: jackson-core
       groupId: com.fasterxml.jackson.core
@@ -108,7 +108,7 @@
   - name: com.fasterxml.jackson.core.jackson-databind
     version: 2.12.3
     type: compile
-    resolvedIdentifier: d6153f8fc60c479ab0f9efb35c034526436a4953
+    resolvedIdentifier: 2b186d9cc73cfb9272171357d17f0979eac44889
     extras:
       artifactId: jackson-databind
       groupId: com.fasterxml.jackson.core
@@ -121,7 +121,7 @@
     version: 2.12.3
     type: runtime
     indirect: true
-    resolvedIdentifier: f69c636438dcf19c49960c1fe8901320ab85f989
+    resolvedIdentifier: db7822a553c167e95bdda25d0d6db44bd3abf847
     extras:
       artifactId: jackson-datatype-jsr310
       baseDep:
@@ -140,7 +140,7 @@
   - name: com.oracle.database.jdbc.ojdbc8
     version: 21.1.0.0
     type: compile
-    resolvedIdentifier: 50044485aea10afd7defeee8109c5195b4d3cae2
+    resolvedIdentifier: dea0cca54c29d3e44167cd80839692b325ae2daf
     extras:
       artifactId: ojdbc8
       groupId: com.oracle.database.jdbc
@@ -153,7 +153,7 @@
     version: 3.0.7
     type: compile
     indirect: true
-    resolvedIdentifier: c197c86ceec7318b1284bffb49b54226ca774003
+    resolvedIdentifier: 8eb4c6b0e9b0a1fadf53fce8b3fc8415b00469ef
     extras:
       artifactId: istack-commons-runtime
       baseDep:
@@ -173,7 +173,7 @@
     version: 1.2.15
     type: compile
     indirect: true
-    resolvedIdentifier: bb7b7ec0379982b97c62cd17465cb6d9155f68e8
+    resolvedIdentifier: 945cf1f4467c72add88309fb05cdf5e340b569f9
     extras:
       artifactId: FastInfoset
       baseDep:
@@ -192,7 +192,7 @@
   - name: io.konveyor.demo.config-utils
     version: 1.0.0
     type: compile
-    resolvedIdentifier: FE4FE11AAEE77BE10035218537FBF4B2E6EF1D9F
+    resolvedIdentifier: 4010193B2F96CC7B7056C4CD51C3188FBBBC86E0
     extras:
       artifactId: config-utils
       groupId: io.konveyor.demo
@@ -205,7 +205,7 @@
     version: 1.7.0
     type: compile
     indirect: true
-    resolvedIdentifier: bc7dc1605f2099dc3c39156b7f62ac889f54fb67
+    resolvedIdentifier: fd50ef746ed294d4e064c0cd3a14ca08543d139c
     extras:
       artifactId: micrometer-core
       baseDep:
@@ -225,7 +225,7 @@
     version: 1.3.5
     type: compile
     indirect: true
-    resolvedIdentifier: 59eb84ee0d616332ff44aba065f3888cf002cd2d
+    resolvedIdentifier: beb7649988a22ea30a17fcaeba8584323e86df74
     extras:
       artifactId: jakarta.annotation-api
       baseDep:
@@ -245,7 +245,7 @@
     version: 2.0.2
     type: compile
     indirect: true
-    resolvedIdentifier: 5eacc6522521f7eacb081f95cee1e231648461e7
+    resolvedIdentifier: fc029778f5494ed05e5833f8bdb57e36dbda38aa
     extras:
       artifactId: jakarta.validation-api
       baseDep:
@@ -265,7 +265,7 @@
     version: 1.2.0
     type: compile
     indirect: true
-    resolvedIdentifier: 85262acf3ca9816f9537ca47d5adeabaead7cb16
+    resolvedIdentifier: 1aa9ef58e50ba6868b2e955d61fcd73be5b4cea5
     extras:
       artifactId: javax.activation-api
       baseDep:
@@ -285,7 +285,7 @@
     version: "2.2"
     type: compile
     indirect: true
-    resolvedIdentifier: 25665ac8c0b62f50e6488173233239120fc52c96
+    resolvedIdentifier: ac7080de51fc0596317c15e12ed441f7c0a84d09
     extras:
       artifactId: javax.persistence-api
       baseDep:
@@ -305,7 +305,7 @@
     version: 2.3.1
     type: compile
     indirect: true
-    resolvedIdentifier: 8531ad5ac454cc2deb9d4d32c40c4d7451939b5d
+    resolvedIdentifier: c42c51ae84892b73ef7de5351188908e673f5c69
     extras:
       artifactId: jaxb-api
       baseDep:
@@ -325,7 +325,7 @@
     version: 1.10.22
     type: compile
     indirect: true
-    resolvedIdentifier: ef45d7e2cd1c600d279704f492ed5ce2ceb6cdb5
+    resolvedIdentifier: 14de25cfee49cd27ae19153674bbb34c04c45d52
     extras:
       artifactId: byte-buddy
       baseDep:
@@ -345,7 +345,7 @@
     version: 2.14.1
     type: compile
     indirect: true
-    resolvedIdentifier: cd8858fbbde69f46bce8db1152c18a43328aae78
+    resolvedIdentifier: 9199a73770616b1ca0b00f576db3231aaab4876a
     extras:
       artifactId: log4j-api
       baseDep:
@@ -365,7 +365,7 @@
     version: 2.14.1
     type: compile
     indirect: true
-    resolvedIdentifier: ce8a86a3f50a4304749828ce68e7478cafbc8039
+    resolvedIdentifier: 4638502177d694ad6f429a122e32f84ceba7db41
     extras:
       artifactId: log4j-to-slf4j
       baseDep:
@@ -384,7 +384,7 @@
   - name: org.apache.tomcat.tomcat-jdbc
     version: 9.0.46
     type: runtime
-    resolvedIdentifier: 385cb6cb1f6b26c881cd5c1c6ade5f180712ffdc
+    resolvedIdentifier: c3b975aba8359ecf35f6fca175c2e843a1d3c107
     extras:
       artifactId: tomcat-jdbc
       groupId: org.apache.tomcat
@@ -397,7 +397,7 @@
     version: 9.0.46
     type: runtime
     indirect: true
-    resolvedIdentifier: 409b519751e104eab51b4347a0d27bf86a4f3bb1
+    resolvedIdentifier: 1596051131c8426ebf744e0effed0e0005c87d57
     extras:
       artifactId: tomcat-juli
       baseDep:
@@ -416,7 +416,7 @@
   - name: org.apache.tomcat.tomcat-servlet-api
     version: 9.0.46
     type: provided
-    resolvedIdentifier: 8e8a27a3456b71b1da2c8adc902ade71bc91fcb4
+    resolvedIdentifier: 1f5ec6292bbca9e6c35172044b5fee0b0a97ef24
     extras:
       artifactId: tomcat-servlet-api
       groupId: org.apache.tomcat
@@ -429,7 +429,7 @@
     version: 1.9.6
     type: compile
     indirect: true
-    resolvedIdentifier: 1651849d48659e5703adc2599e694bf67b8c3fc4
+    resolvedIdentifier: 2c4216b8c0f62edf69ec5cdd68619ba2aac5a4a1
     extras:
       artifactId: aspectjrt
       baseDep:
@@ -449,7 +449,7 @@
     version: 3.5.0
     type: runtime
     indirect: true
-    resolvedIdentifier: 2f50520c8abea66fbd8d26e481d3aef5c673b510
+    resolvedIdentifier: 408a4451ff5bdef60400a49657867db100ea0f83
     extras:
       artifactId: checker-qual
       baseDep:
@@ -469,7 +469,7 @@
     version: 2.1.3
     type: compile
     indirect: true
-    resolvedIdentifier: a75914155a9f5808963170ec20653668a2ffd2fd
+    resolvedIdentifier: 012854caa63db09d82bf973bc37d7226aaaef463
     extras:
       artifactId: dom4j
       baseDep:
@@ -489,7 +489,7 @@
     version: 2.3.1
     type: compile
     indirect: true
-    resolvedIdentifier: dd6dda9da676a54c5b36ca2806ff95ee017d8738
+    resolvedIdentifier: 1856da23a80b9b1374d925d6dcb4a21db2144204
     extras:
       artifactId: jaxb-runtime
       baseDep:
@@ -509,7 +509,7 @@
     version: 2.3.1
     type: compile
     indirect: true
-    resolvedIdentifier: a09d2c48d3285f206fafbffe0e50619284e92126
+    resolvedIdentifier: c78aa440484eab1a6e2104e4fe69d0945a3cb3da
     extras:
       artifactId: txw2
       baseDep:
@@ -529,7 +529,7 @@
     version: 2.1.12
     type: compile
     indirect: true
-    resolvedIdentifier: 6eb7552156e0d517ae80cc2247be1427c8d90452
+    resolvedIdentifier: 9797702ee3e52e4be6bfbbc9fd20ac5447e7a541
     extras:
       artifactId: HdrHistogram
       baseDep:
@@ -549,7 +549,7 @@
     version: 5.1.2.Final
     type: compile
     indirect: true
-    resolvedIdentifier: e59ffdbc6ad09eeb33507b39ffcf287679a498c8
+    resolvedIdentifier: 573f22ce360cd7a8bcc0dae4deecbe4e8861007d
     extras:
       artifactId: hibernate-commons-annotations
       baseDep:
@@ -569,7 +569,7 @@
     version: 5.4.32.Final
     type: compile
     indirect: true
-    resolvedIdentifier: 99a5e10bf455337014c190e141ec631e9ff71663
+    resolvedIdentifier: 5be381f7b6f3d4f17ce746e4ff54f4b8cdce40e4
     extras:
       artifactId: hibernate-core
       baseDep:
@@ -588,7 +588,7 @@
   - name: org.hibernate.hibernate-entitymanager
     version: 5.4.32.Final
     type: compile
-    resolvedIdentifier: 3f60db4097732960ec792c033dbb7c34f1b9e328
+    resolvedIdentifier: b315696800e16d33bfb297d66f87a792caa3facc
     extras:
       artifactId: hibernate-entitymanager
       groupId: org.hibernate
@@ -600,7 +600,7 @@
   - name: org.hibernate.validator.hibernate-validator
     version: 6.2.0.Final
     type: compile
-    resolvedIdentifier: d6b0760dfffbf379cedd02f715ff4c9a2e215921
+    resolvedIdentifier: 7f1beda5229a0c99a175603c18b3c66da44f966e
     extras:
       artifactId: hibernate-validator
       groupId: org.hibernate.validator
@@ -613,7 +613,7 @@
     version: 3.27.0-GA
     type: compile
     indirect: true
-    resolvedIdentifier: f63e6aa899e15eca8fdaa402a79af4c417252213
+    resolvedIdentifier: 0b7565662bc91e9648aab437135f32beb040ac15
     extras:
       artifactId: javassist
       baseDep:
@@ -633,7 +633,7 @@
     version: 2.2.3.Final
     type: compile
     indirect: true
-    resolvedIdentifier: d3865101f0666b63586683bd811d754517f331ab
+    resolvedIdentifier: c70053a1326428ec641be311ccf5551a8ec76a63
     extras:
       artifactId: jandex
       baseDep:
@@ -653,7 +653,7 @@
     version: 3.4.1.Final
     type: compile
     indirect: true
-    resolvedIdentifier: 40fd4d696c55793e996d1ff3c475833f836c2498
+    resolvedIdentifier: 9d82f8eea1b5ed484775517d7588e320f9f7797a
     extras:
       artifactId: jboss-logging
       baseDep:
@@ -673,7 +673,7 @@
     version: 1.1.1.Final
     type: compile
     indirect: true
-    resolvedIdentifier: a8485cab9484dda36e9a8c319e76b5cc18797b58
+    resolvedIdentifier: 90823b310c573492696ad7e299b694ca2e70b4c1
     extras:
       artifactId: jboss-transaction-api_1.2_spec
       baseDep:
@@ -693,7 +693,7 @@
     version: "1.8"
     type: compile
     indirect: true
-    resolvedIdentifier: 8cc35f73da321c29973191f2cf143d29d26a1df7
+    resolvedIdentifier: cc7022b896125220e51f46fa50f4b68e564ffec1
     extras:
       artifactId: stax-ex
       baseDep:
@@ -713,7 +713,7 @@
     version: 2.0.3
     type: runtime
     indirect: true
-    resolvedIdentifier: 769c0b82cb2421c8256300e907298a9410a2a3d3
+    resolvedIdentifier: 5baec26b6f9e5b17fdd200fc20af85eead4287c4
     extras:
       artifactId: LatencyUtils
       baseDep:
@@ -732,7 +732,7 @@
   - name: org.postgresql.postgresql
     version: 42.2.23
     type: compile
-    resolvedIdentifier: 9cb217a3d5b640567ed7c6e8c11f389613c81c4d
+    resolvedIdentifier: cc8565ec39dbfee32c2c87f125162fe8a3010c28
     extras:
       artifactId: postgresql
       groupId: org.postgresql
@@ -745,7 +745,7 @@
     version: 1.7.30
     type: compile
     indirect: true
-    resolvedIdentifier: d58bebff8cbf70ff52b59208586095f467656c30
+    resolvedIdentifier: f09448bdaeee63bc0644abae571b2d17c83d16c1
     extras:
       artifactId: jul-to-slf4j
       baseDep:
@@ -765,7 +765,7 @@
     version: 1.7.26
     type: compile
     indirect: true
-    resolvedIdentifier: 77100a62c2e6f04b53977b9f541044d7d722693d
+    resolvedIdentifier: 4d3419a58d77c07f49185aaa556a787d50508d27
     extras:
       artifactId: slf4j-api
       baseDep:
@@ -785,7 +785,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: b07513e04ad906ea69ef84293a123cdb83828f06
+    resolvedIdentifier: 48a6c425a45395e1ccfd99fd815c92d069040e43
     extras:
       artifactId: spring-boot
       baseDep:
@@ -805,7 +805,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: e0ac75f1a183f8e6a319a8b03bad1c45d40a2761
+    resolvedIdentifier: ee202daac01b6399b857d187cfdbf6d97d6adc8f
     extras:
       artifactId: spring-boot-actuator
       baseDep:
@@ -825,7 +825,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: 41956882243e86f8260f649ebdd96597a2ff52a9
+    resolvedIdentifier: c527193b5cc67f7534c27860171e44187746aaf5
     extras:
       artifactId: spring-boot-actuator-autoconfigure
       baseDep:
@@ -845,7 +845,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: 64c7bbc941c70895621ed613f38dc66b73ea9341
+    resolvedIdentifier: da542216009c858c2e8b32cb595578acc19d2df3
     extras:
       artifactId: spring-boot-autoconfigure
       baseDep:
@@ -865,7 +865,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: a910887c01efcc7d12f3f89a7604d436f26eeb90
+    resolvedIdentifier: 391cbf83221ae09c1c0a471b25ab3221dfe46ef1
     extras:
       artifactId: spring-boot-starter
       baseDep:
@@ -884,7 +884,7 @@
   - name: org.springframework.boot.spring-boot-starter-actuator
     version: 2.5.0
     type: compile
-    resolvedIdentifier: 8fc47befa38bdaa2f2b8f421d8532f03005e2851
+    resolvedIdentifier: 76dd6dea415751e05491337b7ff22bd08ae70c7e
     extras:
       artifactId: spring-boot-starter-actuator
       groupId: org.springframework.boot
@@ -897,7 +897,7 @@
     version: 2.5.0
     type: compile
     indirect: true
-    resolvedIdentifier: 22401482ba1c5a1dcd3d33e47295779211b913d8
+    resolvedIdentifier: 60f06908ef3b39d8c8780898e749c4c846fabb84
     extras:
       artifactId: spring-boot-starter-logging
       baseDep:
@@ -917,7 +917,7 @@
     version: 2.5.1
     type: compile
     indirect: true
-    resolvedIdentifier: c950ca1a05e928e9fb75420b4ac07713428e9969
+    resolvedIdentifier: bceeabb4ef399ba7ff8511f2931e1924a41cc921
     extras:
       artifactId: spring-data-commons
       baseDep:
@@ -936,7 +936,7 @@
   - name: org.springframework.data.spring-data-jpa
     version: 2.5.1
     type: compile
-    resolvedIdentifier: 881f7ae140f424b3bdb1b0c27a61b93e0bee9fa5
+    resolvedIdentifier: 461ebcc9fc00dca10a754b0e96583ce7d281d312
     extras:
       artifactId: spring-data-jpa
       groupId: org.springframework.data
@@ -949,7 +949,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: b86edd2455f8c4399068c999beb9ea2a9e7f2047
+    resolvedIdentifier: 0bf1d9d12108b8ab2d9d71d5fd5fee02d3ee5bde
     extras:
       artifactId: spring-aop
       baseDep:
@@ -969,7 +969,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: 8b1eacd7aaa12f7d173a2f0836d28bd0c1b098fe
+    resolvedIdentifier: 654397f55cd4a4734f8b76282e98c88884d0367a
     extras:
       artifactId: spring-beans
       baseDep:
@@ -989,7 +989,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: 330b3957efdcdebe3550b8e2c5d45a4c25496626
+    resolvedIdentifier: 67e3176098c81702c76d20977deec8101b3faf8c
     extras:
       artifactId: spring-context
       baseDep:
@@ -1009,7 +1009,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: 4aad1b62bd347a806fe693c9d67b376a3ad8151c
+    resolvedIdentifier: 44ce199d05bb1ce9682621cd18953ea307485fc1
     extras:
       artifactId: spring-core
       baseDep:
@@ -1029,7 +1029,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: 13351fce0a604957cd6a41478ebb54a953a0245e
+    resolvedIdentifier: 30bd0b3e802e5ba4e4d9fc68e57cc0e755ba9f9f
     extras:
       artifactId: spring-expression
       baseDep:
@@ -1049,7 +1049,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: ccd8bde38bad689737295fa220e1c70680676d72
+    resolvedIdentifier: e1e7c14c73ae5fc616bb941ce8c1e7e62736cadf
     extras:
       artifactId: spring-jcl
       baseDep:
@@ -1068,7 +1068,7 @@
   - name: org.springframework.spring-jdbc
     version: 5.3.7
     type: compile
-    resolvedIdentifier: 5caf72035a9b8a3a09ef82322cd2497aedddc487
+    resolvedIdentifier: a4f87a03116ecde96213642141eb95da05022f51
     extras:
       artifactId: spring-jdbc
       groupId: org.springframework
@@ -1081,7 +1081,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: f1892fe7a6671348d6546facbd40159b7e6f64a2
+    resolvedIdentifier: cc6911f3194cb77d493aa626c661789926027446
     extras:
       artifactId: spring-orm
       baseDep:
@@ -1101,7 +1101,7 @@
     version: 5.3.7
     type: compile
     indirect: true
-    resolvedIdentifier: 98be572c2bf3bd08724363b0bba71bcef59c4739
+    resolvedIdentifier: c6df78e1d9b50b7063e4a196127d75ee9321f68b
     extras:
       artifactId: spring-tx
       baseDep:
@@ -1120,7 +1120,7 @@
   - name: org.springframework.spring-web
     version: 5.3.7
     type: compile
-    resolvedIdentifier: 49e6a8f45e77f14ef16f82c0413254ef493b785f
+    resolvedIdentifier: d9f78e0b045d90dc862cd4a39294a468b3cc6ba9
     extras:
       artifactId: spring-web
       groupId: org.springframework
@@ -1132,7 +1132,7 @@
   - name: org.springframework.spring-webmvc
     version: 5.3.7
     type: compile
-    resolvedIdentifier: 8437c7a572177a34607abdaef2f6b8088488f5c0
+    resolvedIdentifier: d0f042bff56bb90beabc6ed5d062fb87c69e652a
     extras:
       artifactId: spring-webmvc
       groupId: org.springframework
@@ -1145,7 +1145,7 @@
     version: "1.28"
     type: compile
     indirect: true
-    resolvedIdentifier: 7cae037c3014350c923776548e71c9feb7a69259
+    resolvedIdentifier: 3e38757e3eaf549cccd9bbdfa74b2930c177b8af
     extras:
       artifactId: snakeyaml
       baseDep:

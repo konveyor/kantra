@@ -751,11 +751,9 @@ func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, erro
 		"volume",
 		"create",
 		"--opt",
-		"type=none",
+		"type=bind",
 		"--opt",
 		fmt.Sprintf("device=%v", sourceInput),
-		"--opt",
-		"o=bind",
 		volName,
 	}
 
@@ -793,7 +791,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 	}
 	volumes := map[string]string{
 		// application source code
-		a.input: SourceMountPath,
+		volName: SourceMountPath,
 	}
 	// this will make more sense when we have more than 2 supported providers
 	var providerImage string
@@ -836,7 +834,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string, providers []string, ports map[string]int) error {
 	volumes := map[string]string{
 		// application source code
-		a.input: SourceMountPath,
+		volName: SourceMountPath,
 		// output directory
 		a.output: OutputPath,
 	}
