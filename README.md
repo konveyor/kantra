@@ -1,71 +1,116 @@
 # Kantra
 
-Kantra is a CLI that unifies analysis and transformation capabilities of Konveyor.
+Kantra is a CLI that unifies analysis and transformation capabilities of Konveyor. It is available for Linux, Mac and Windows.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Setup (For Mac and Windows Only)](#setup-for-mac-and-windows-only)
+- [Usage](#usage)
+  - [Analyze an application](#analyze)
+  - [Transform an application or XML rules](#transform)
+  - [Test YAML rules](#test)
+- [References](#references)
+- [Code of conduct](#code-of-conduct)
+
+## Prerequisites
+
+_Podman 4+_ is required to run kantra. By default, it is configured to use the podman executable available on the host. 
+
+Although kantra is primarily tested with podman, _Docker Engine 24+_ or _Docker Desktop 4+_ can be used as an alternative. To use docker, set the environment variable `PODMAN_BIN` pointing to the docker executable's path:
+
+```sh
+export PODMAN_BIN=/usr/bin/docker
+```
 
 ## Installation
 
-The easiest way to install Kantra is to get it via the container image.
+To install kantra, simply download the executable for your platform and add it to the path.
 
-1. To download the latest container image using _podman_, follow the instructions for your operating system:
+### Downloading stable release
 
-    * For Linux, run:
-    
-      ```sh
-      podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
-      ```
+Go to the [release page](https://github.com/konveyor/kantra/releases) and download the zip file containing a binary for your platform and architecture. Unzip the archive and add the executable in it to the path. 
 
-    * For MacOS
-    
-      Prior to starting your podman machine, run:
-    
-      ```sh
-      ulimit -n unlimited
-      ```
-      > This must be run after each podman machine reboot.
-    
-      Init your _podman_ machine :
-    
-      ```sh
-      podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
-      ```
-    
-      Increase podman resources:
-    
-      ```sh
-      podman machine set <vm_name> --cpus 4 --memory 4096
-      ```
-    
-      Ensure that we use the connection to the VM `<vm_name>` we created earlier by default:
+### Downloading latest
+
+The easiest way to get the latest exectutable is to get it from the latest container image.
+
+#### Linux
+
+Run:
+
+```sh
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+```
+
+#### Mac
+
+On Mac, you need to start a podman machine prior to running any podman commands (see [Setup for Mac](#mac-1))
+
+Once a machine is started, run:
+
+```sh
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+```
+
+#### Windows
+
+On Mac, you need to start a podman machine prior to running any podman commands (see [Setup for Windows](#windows-1))
+
+Once a machine is started, run:
+
+```sh
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+```
+
+> Ensure that you add the executable to the `PATH`.
+
+## Setup (For Mac and Windows Only)
+
+On Mac and Windows, a podman machine needs to be started prior to running any commands:
+
+##### Mac
       
-      ```sh
-      podman system connection default <vm_name>
-      ```
+Prior to starting your podman machine, run:
     
-      Finally, run:
-    
-      ```sh
-      podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/darwin-kantra kantra && podman rm kantra-download
-      ```
-    
-    * For Windows, run: 
+```sh
+ulimit -n unlimited
+```
 
-      ```sh
-      podman pull quay.io/konveyor/kantra:latest && podman run --name kantra-download quay.io/konveyor/kantra:latest 1> /dev/null 2> /dev/null && podman cp kantra-download:/usr/local/bin/windows-kantra kantra && podman rm kantra-download
-      ```
+Init your podman machine :
 
-2. The above will copy the binary into your current directory. Move it to PATH for system-wide use:
+  * _Podman 4_:
+        
+    Podman 4 requires some host directories to be mounted within the VM:
 
     ```sh
-    sudo mv ./kantra /usr/local/bin/
+    podman machine init <vm_name> -v $HOME:$HOME -v /private/tmp:/private/tmp -v /var/folders/:/var/folders/
     ```
 
-3. To confirm Kantra is installed, run:
+  * _Podman 5_:
+
+    Podman 5 mounts _$HOME_, _/private/tmp_ and _/var/folders_ directories by default, simply init the machine:
 
     ```sh
-    kantra --help
+    podman machine init <vm_name>
     ```
 
-    This should display the help message.
+> If the input and/or output directories you intend to use with kantra fall outside the tree of $HOME, /private/tmp and /var/folders directories, you should mount those directories in addition to the default.
+
+Increase podman resources (minimum 4G memory is required):
+    
+```sh
+podman machine set <vm_name> --cpus 4 --memory 4096
+```
+
+##### Windows
+
+Init the machine:
+
+```sh
+podman machine init <vm_name>
+```
 
 ## Usage
 

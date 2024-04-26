@@ -754,6 +754,8 @@ func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, erro
 		"type=bind",
 		"--opt",
 		fmt.Sprintf("device=%v", sourceInput),
+		"--opt",
+		"o=bind",
 		volName,
 	}
 
@@ -1212,9 +1214,6 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 }
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
-	if len(a.providerContainerNames) == 0 {
-		return nil
-	}
 	if !a.cleanup {
 		return nil
 	}
@@ -1266,13 +1265,25 @@ func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
 // TODO: multiple provider containers
 func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 	for i := range a.providerContainerNames {
+		con := a.providerContainerNames[i]
 		cmd := exec.CommandContext(
 			ctx,
 			Settings.PodmanBinary,
-			"stop", a.providerContainerNames[i])
-		a.log.V(1).Info("removing container",
-			"container", a.providerContainerNames[i])
-		return cmd.Run()
+			"stop", con)
+		a.log.V(1).Info("stopping container", "container", con)
+		err := cmd.Run()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to stop container",
+				"container", con)
+			continue
+		}
+		a.log.V(1).Info("removing container", "container", con)
+		err = exec.CommandContext(ctx, Settings.PodmanBinary, "rm", con).Run()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to remove container",
+				"container", con)
+			continue
+		}
 	}
 	return nil
 }
