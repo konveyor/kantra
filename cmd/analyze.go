@@ -943,7 +943,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if err != nil {
 		return err
 	}
-	err = a.getProviderLogs()
+	err = a.getProviderLogs(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to get provider container logs")
 	}
@@ -1280,26 +1280,26 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 }
 
 // TODO multiple providers
-func (a *analyzeCommand) getProviderLogs() error {
+func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 	if len(a.providerContainerNames) == 0 {
 		return nil
 	}
 	providerLogFilePath := filepath.Join(a.output, "provider.log")
+	providerLog, err := os.Create(providerLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating provider log file at %s", providerLogFilePath)
+	}
+	defer providerLog.Close()
 	a.log.V(1).Info("getting provider container logs",
 		"container", a.providerContainerNames[0])
 
-	logArgs := []string{Settings.PodmanBinary,
+	cmd := exec.CommandContext(
+		ctx,
+		Settings.PodmanBinary,
 		"logs",
-		a.providerContainerNames[0],
-		"&>",
-		providerLogFilePath}
-	joinedArgs := strings.Join(logArgs, " ")
+		a.providerContainerNames[0])
 
-	// send each provider logs to log file
-	cmd := exec.Command(
-		"/bin/sh",
-		"-c",
-		joinedArgs)
-
+	cmd.Stdout = providerLog
+	cmd.Stderr = providerLog
 	return cmd.Run()
 }
