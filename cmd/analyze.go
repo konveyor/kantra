@@ -1294,17 +1294,21 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 		return nil
 	}
 	providerLogFilePath := filepath.Join(a.output, "provider.log")
+	providerLog, err := os.Create(providerLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating provider log file at %s", providerLogFilePath)
+	}
+	defer providerLog.Close()
 	a.log.V(1).Info("getting provider container logs",
 		"container", a.providerContainerNames[0])
 
-	// send each provider logs to log file
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.PodmanBinary,
 		"logs",
-		a.providerContainerNames[0],
-		"&>",
-		providerLogFilePath)
+		a.providerContainerNames[0])
 
+	cmd.Stdout = providerLog
+	cmd.Stderr = providerLog
 	return cmd.Run()
 }
