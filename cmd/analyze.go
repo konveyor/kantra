@@ -751,14 +751,13 @@ func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, erro
 		"volume",
 		"create",
 		"--opt",
-		"type=bind",
+		"type=none",
 		"--opt",
 		fmt.Sprintf("device=%v", sourceInput),
 		"--opt",
 		"o=bind",
 		volName,
 	}
-
 	cmd := exec.Command(Settings.PodmanBinary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
