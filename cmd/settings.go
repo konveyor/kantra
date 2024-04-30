@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -39,10 +40,24 @@ func (c *Config) Load() error {
 			os.Setenv("PODMAN_BIN", podmanPath)
 		}
 	}
+	if err := c.loadRunnerImg(); err != nil {
+		return err
+	}
 
 	err := env.Set(c)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (c *Config) loadRunnerImg() error {
+	if Version != "v99.0.0" {
+		updatedImg := fmt.Sprintf("quay.io/konveyor/kantra:%v", Version)
+		err := os.Setenv("RUNNER_IMG", updatedImg)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
