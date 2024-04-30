@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -35,6 +36,9 @@ type Config struct {
 
 func (c *Config) Load() error {
 	if err := c.loadDefaultPodmanBin(); err != nil {
+		return err
+	}
+	if err := c.loadRunnerImg(); err != nil {
 		return err
 	}
 
@@ -75,4 +79,15 @@ func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func (c *Config) loadRunnerImg() error {
+	if Version != "v99.0.0" {
+		updatedImg := fmt.Sprintf("quay.io/konveyor/kantra:%v", Version)
+		err := os.Setenv("RUNNER_IMG", updatedImg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
