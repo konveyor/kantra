@@ -24,7 +24,7 @@ const (
 type Config struct {
 	RootCommandName string `env:"CMD_NAME" default:"kantra"`
 	PodmanBinary    string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
-	RunnerImage     string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
+	RunnerImage     string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra:release-0.3"`
 	JvmMaxMem       string `env:"JVM_MAX_MEM" default:""`
 }
 
