@@ -1,9 +1,26 @@
 name: Demo Testing
 
-on: ["push", "pull_request", "workflow_dispatch"]
+on:
+  push:
+  pull_request:    
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+        description: Kantra tag to test
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        required: true
+        description: Kantra tag to test
 
 jobs:
-  test:
+  # run tests by building a specific commit from a PR or a branch
+  test-branch:
+    name: Build & test from commit
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Setup Homebrew
@@ -34,7 +51,7 @@ jobs:
           ref: "${{ env.ANALYZER_REF}}"
           path: analyzer-lsp
      
-      - name: Build anaylzer and save image
+      - name: Build analyzer image
         working-directory: analyzer-lsp
         run: |
           podman build -t quay.io/konveyor/analyzer-lsp:latest .
@@ -75,6 +92,56 @@ jobs:
           diff $expected_file $actual_file
 
       - name: Fail if dependencies output does not match expected
+        run: |
+          expected_file=./test-data/deps-output.yaml
+          actual_file=./output/dependencies.yaml
+          sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
+          diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+
+  # run tests using conainer image / binary already published to quay
+  test-published:
+    name: Build & test with published images
+    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Upgrade podman 
+        run: |
+          sudo apt-get install -y ansible
+          export DEB=$(curl -s https://passt.top/builds/latest/x86_64/ | grep deb | awk -F '"' '{ print $4}')
+          sudo ansible -m apt -a deb=https://passt.top/builds/latest/x86_64/${DEB} localhost
+          sudo apt-get remove podman crun
+          brew install crun podman
+
+      - uses: actions/checkout@v3
+      
+      - name: download kantra and run test
+        run: |
+          git clone https://github.com/konveyor/example-applications
+          podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:${{ inputs.tag }}):/usr/local/bin/kantra .
+          podman rm kantra-download
+          ./kantra analyze --input $(pwd)/example-applications/example-1/ \
+            --output ./output/ --target cloud-readiness \
+            --rules ./test-data/jni-native-code-test.windup.xml
+
+      - name: fail if analysis output doesn't match expected
+        run: |
+          expected_file=./test-data/analysis-output.yaml
+          actual_file=./output/output.yaml
+          function filter_and_sort() {
+            yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
+              | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
+              | yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' \
+              | yq e '.[] | (.tags // []) |= sort'
+          }
+          filter_and_sort $expected_file > $expected_file
+          filter_and_sort $actual_file > $actual_file
+          diff $expected_file $actual_file
+
+      - name: fail if deps output doesn't match expected
         run: |
           expected_file=./test-data/deps-output.yaml
           actual_file=./output/dependencies.yaml
