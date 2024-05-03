@@ -1,0 +1,27 @@
+name: Nightly tests
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        type: string
+        default: latest
+        description: Container image tag to use for testing
+  
+jobs:
+  run_test_from_dispatch:
+    name: Run e2e test
+    if: github.event_name == 'workflow_dispatch'
+    uses: konveyor/kantra/.github/workflows/testing.yaml@main
+    with:
+      tag: ${{ inputs.tag }}
+
+  run_test_on_cron_trigger:
+    name: Run e2e test
+    if: github.event_name != 'workflow_dispatch'
+    uses: konveyor/kantra/.github/workflows/testing.yaml@main
+    with:
+      tag: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+

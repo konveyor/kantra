@@ -117,6 +117,8 @@ jobs:
           brew install crun podman
 
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.tag == 'latest' && 'main' || inputs.tag }}
       
       - name: download kantra and run test
         run: |
