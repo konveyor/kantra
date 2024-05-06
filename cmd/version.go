@@ -7,8 +7,11 @@ import (
 )
 
 var (
-	BuildCommit = ""
-	Version     = "v99.0.0"
+	BuildCommit         = ""
+	Version             = "release-0.3"
+	RunnerImage         = "quay.io/konveyor/kantra"
+	RootCommandName     = "kantra"
+	JavaBundlesLocation = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 )
 
 // Use build flags to set correct Version and BuildCommit
@@ -22,6 +25,7 @@ func NewVersionCommand() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("version: %s\n", Version)
 			fmt.Printf("SHA: %s\n", BuildCommit)
+			fmt.Printf("image: %s\n", RunnerImage)
 		},
 	}
 	return versionCmd
