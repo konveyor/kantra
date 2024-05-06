@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/codingconcepts/env"
 )
@@ -19,7 +20,6 @@ const (
 	XMLRulePath            = "/opt/xmlrules"
 	ShimOutputPath         = "/opt/shimoutput"
 	CustomRulePath         = "/opt/input/rules"
-	JavaBundlesLocation    = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 )
 
 type Config struct {
@@ -30,8 +30,6 @@ type Config struct {
 	RunLocal             bool   `env:"RUN_LOCAL"`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
 	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
-	DotNetProviderImage  string `env:"DOTNET_PROVIDER_IMG" default:"quay.io/konveyor/dotnet-external-provider:latest"`
-	YQProviderImage      string `env:"YQ_PROVIDER_IMG" default:"quay.io/konveyor/yq-external-provider:latest"`
 }
 
 func (c *Config) Load() error {
@@ -41,7 +39,12 @@ func (c *Config) Load() error {
 	if err := c.loadRunnerImg(); err != nil {
 		return err
 	}
-
+	if err := c.loadCommandName(); err != nil {
+		return err
+	}
+	if err := c.loadProviders(); err != nil {
+		return err
+	}
 	err := env.Set(c)
 	if err != nil {
 		return err
@@ -82,12 +85,42 @@ func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
 }
 
 func (c *Config) loadRunnerImg() error {
-	if Version != "v99.0.0" {
-		updatedImg := fmt.Sprintf("quay.io/konveyor/kantra:%v", Version)
-		err := os.Setenv("RUNNER_IMG", updatedImg)
+	// if version tag is given in image
+	img := strings.TrimSuffix(RunnerImage, fmt.Sprintf(":%v", Version))
+	updatedImg := fmt.Sprintf("%v:%v", img, Version)
+	err := os.Setenv("RUNNER_IMG", updatedImg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Config) loadCommandName() error {
+	if RootCommandName != "kantra" {
+		err := os.Setenv("CMD_NAME", RootCommandName)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *Config) loadProviders() error {
+	// if version tag is given in image
+	javaImg := strings.TrimSuffix(JavaProviderImage, fmt.Sprintf(":%v", Version))
+	updatedJavaImg := fmt.Sprintf("%v:%v", javaImg, Version)
+	err := os.Setenv("JAVA_PROVIDER_IMG", updatedJavaImg)
+	if err != nil {
+		return err
+	}
+	// if version tag is given in image
+	genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
+	updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
+	err = os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
