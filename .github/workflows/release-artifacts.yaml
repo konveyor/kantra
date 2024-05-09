@@ -12,6 +12,10 @@ on:
        type: string
        default: 'v*'
        description: Pick from tags matching this pattern
+     pre_release:
+       type: boolean
+       description: Look for pre-release?
+       default: false
 
 jobs:
   resolve-and-upload:
@@ -26,6 +30,7 @@ jobs:
       with:
         latest: ${{ github.event.inputs.use_latest_release }}
         tag_pattern: ${{ github.event.inputs.tag_pattern }}
+        prerelease: ${{ github.event.inputs.pre_release }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
