@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/codingconcepts/env"
 )
@@ -19,7 +20,6 @@ const (
 	XMLRulePath            = "/opt/xmlrules"
 	ShimOutputPath         = "/opt/shimoutput"
 	CustomRulePath         = "/opt/input/rules"
-	JavaBundlesLocation    = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 )
 
 type Config struct {
@@ -43,7 +43,9 @@ func (c *Config) Load() error {
 	if err := c.loadRunnerImg(); err != nil {
 		return err
 	}
-
+	if err := c.loadCommandName(); err != nil {
+		return err
+	}
 	err := env.Set(c)
 	if err != nil {
 		return err
@@ -52,9 +54,20 @@ func (c *Config) Load() error {
 }
 
 func (c *Config) loadRunnerImg() error {
-	if Version != "v99.0.0" {
-		updatedImg := fmt.Sprintf("quay.io/konveyor/kantra:%v", Version)
-		err := os.Setenv("RUNNER_IMG", updatedImg)
+	// if version tag is given in image
+	img := strings.TrimSuffix(RunnerImage, fmt.Sprintf(":%v", Version))
+	updatedImg := fmt.Sprintf("%v:%v", img, Version)
+	err := os.Setenv("RUNNER_IMG", updatedImg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Config) loadCommandName() error {
+	if RootCommandName != "kantra" {
+		err := os.Setenv("CMD_NAME", RootCommandName)
 		if err != nil {
 			return err
 		}
