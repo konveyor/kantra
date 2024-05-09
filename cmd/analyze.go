@@ -150,10 +150,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return err
 			}
 			foundProviders := []string{}
-			for _, c := range components {
-				log.Info("Got component", "component language", c.Languages, "path", c.Path)
-				for _, l := range c.Languages {
-					foundProviders = append(foundProviders, strings.ToLower(l.Name))
+			if analyzeCmd.isFileInput {
+				foundProviders = append(foundProviders, javaProvider)
+			} else {
+				for _, c := range components {
+					log.Info("Got component", "component language", c.Languages, "path", c.Path)
+					for _, l := range c.Languages {
+						foundProviders = append(foundProviders, strings.ToLower(l.Name))
+					}
 				}
 			}
 			containerNetworkName, err := analyzeCmd.createContainerNetwork()
@@ -162,7 +166,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return err
 			}
 			// share source app with provider and engine containers
-			containerVolName, err := analyzeCmd.createContainerVolume(analyzeCmd.input)
+			containerVolName, err := analyzeCmd.createContainerVolume()
 			if err != nil {
 				log.Error(err, "failed to create container volume")
 				return err
@@ -263,8 +267,6 @@ func (a *analyzeCommand) Validate() error {
 		if err != nil {
 			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 		}
-		// make sure we mount a file and not a dir
-		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
 		a.isFileInput = true
 	}
 	if a.mode != string(provider.FullAnalysisMode) &&
@@ -475,7 +477,7 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	// only java provider can work with binaries, all others
 	// continue pointing to the directory instead of file
 	if a.isFileInput {
-		otherProvsMountPath = path.Dir(otherProvsMountPath)
+		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
 	}
 
 	javaConfig := provider.Config{
@@ -515,7 +517,7 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "generic",
 					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
-					"dependencyProviderPath":        "/usr/local/bin/go-dependency-provider",
+					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
 				},
 			},
@@ -745,15 +747,22 @@ func (a *analyzeCommand) createContainerNetwork() (string, error) {
 }
 
 // TODO: create for each source input once accepting multiple apps is completed
-func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, error) {
+func (a *analyzeCommand) createContainerVolume() (string, error) {
 	volName := container.RandomName()
+	input, err := filepath.Abs(a.input)
+	if err != nil {
+		return "", err
+	}
+	if a.isFileInput {
+		input = filepath.Dir(input)
+	}
 	args := []string{
 		"volume",
 		"create",
 		"--opt",
 		"type=none",
 		"--opt",
-		fmt.Sprintf("device=%v", sourceInput),
+		fmt.Sprintf("device=%v", input),
 		"--opt",
 		"o=bind",
 		volName,
@@ -761,7 +770,7 @@ func (a *analyzeCommand) createContainerVolume(sourceInput string) (string, erro
 	cmd := exec.Command(Settings.PodmanBinary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return "", err
 	}
