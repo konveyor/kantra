@@ -53,7 +53,7 @@ On Mac, you need to start a podman machine prior to running any podman commands 
 Once a machine is started, run:
 
 ```sh
-podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/darwin-kantra . && podman rm kantra-download
 ```
 
 #### Windows
@@ -63,7 +63,7 @@ On Mac, you need to start a podman machine prior to running any podman commands 
 Once a machine is started, run:
 
 ```sh
-podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/windows-kantra . && podman rm kantra-download
 ```
 
 > Ensure that you add the executable to the `PATH`.
