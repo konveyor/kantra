@@ -65,7 +65,7 @@ type analyzeCommand struct {
 	sources               []string
 	targets               []string
 	labelSelector         string
-	input                 string
+	input                 []string
 	output                string
 	mode                  string
 	rules                 []string
@@ -81,7 +81,7 @@ type analyzeCommand struct {
 	tempDirs []string
 	log      logr.Logger
 	// isFileInput is set when input points to a file and not a dir
-	isFileInput bool
+	isFileInput []bool
 	logLevel    *uint32
 	// used for cleanup
 	networkName            string
@@ -124,13 +124,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
 				analyzeCmd.cleanup = !val
 			}
-			// defer cleaning created resources here instead of PostRun
-			// if Run returns an error, PostRun does not run
-			defer func() {
-				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
-					log.Error(err, "failed to clean temporary directories")
-				}
-			}()
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
 				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
@@ -139,58 +132,63 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
-			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
-			if err != nil {
-				log.Error(err, "failed to convert xml rules")
-				return err
-			}
-			components, err := recognizer.DetectComponents(analyzeCmd.input)
-			if err != nil {
-				log.Error(err, "Failed to determine languages for input")
-				return err
-			}
-			foundProviders := []string{}
-			if analyzeCmd.isFileInput {
-				foundProviders = append(foundProviders, javaProvider)
-			} else {
-				for _, c := range components {
-					log.Info("Got component", "component language", c.Languages, "path", c.Path)
-					for _, l := range c.Languages {
-						foundProviders = append(foundProviders, strings.ToLower(l.Name))
+			for i := range analyzeCmd.input {
+				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
+				if err != nil {
+					log.Error(err, "failed to convert xml rules")
+					return err
+				}
+				components, err := recognizer.DetectComponents(analyzeCmd.input[i])
+				if err != nil {
+					log.Error(err, "Failed to determine languages for input")
+					return err
+				}
+				foundProviders := []string{}
+				if analyzeCmd.isFileInput[i] {
+					foundProviders = append(foundProviders, javaProvider)
+				} else {
+					for _, c := range components {
+						log.Info("Got component", "component language", c.Languages, "path", c.Path)
+						for _, l := range c.Languages {
+							foundProviders = append(foundProviders, strings.ToLower(l.Name))
+						}
 					}
 				}
-			}
-			containerNetworkName, err := analyzeCmd.createContainerNetwork()
-			if err != nil {
-				log.Error(err, "failed to create container network")
-				return err
-			}
-			// share source app with provider and engine containers
-			containerVolName, err := analyzeCmd.createContainerVolume()
-			if err != nil {
-				log.Error(err, "failed to create container volume")
-				return err
-			}
-			// allow for 5 retries of running provider in the case of port in use
-			providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
-			if err != nil {
-				log.Error(err, "failed to run provider")
-				return err
-			}
-			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName, foundProviders, providerPorts)
-			if err != nil {
-				log.Error(err, "failed to run analysis")
-				return err
-			}
-			err = analyzeCmd.CreateJSONOutput()
-			if err != nil {
-				log.Error(err, "failed to create json output file")
-				return err
-			}
-			err = analyzeCmd.GenerateStaticReport(cmd.Context())
-			if err != nil {
-				log.Error(err, "failed to generate static report")
-				return err
+				containerNetworkName, err := analyzeCmd.createContainerNetwork()
+				if err != nil {
+					log.Error(err, "failed to create container network")
+					return err
+				}
+				// share source app with provider and engine containers
+				containerVolName, err := analyzeCmd.createContainerVolume(i)
+				if err != nil {
+					log.Error(err, "failed to create container volume")
+					return err
+				}
+				// allow for 5 retries of running provider in the case of port in use
+				providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
+				if err != nil {
+					log.Error(err, "failed to run provider")
+					return err
+				}
+				err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName, foundProviders, providerPorts, i)
+				if err != nil {
+					log.Error(err, "failed to run analysis")
+					return err
+				}
+				err = analyzeCmd.CreateJSONOutput()
+				if err != nil {
+					log.Error(err, "failed to create json output file")
+					return err
+				}
+				err = analyzeCmd.GenerateStaticReport(cmd.Context(), i)
+				if err != nil {
+					log.Error(err, "failed to generate static report")
+					return err
+				}
+				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+					log.Error(err, "failed to clean temporary directories")
+				}
 			}
 
 			return nil
@@ -202,7 +200,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.labelSelector, "label-selector", "l", "", "run rules based on specified label selector expression")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.rules, "rules", []string{}, "filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...")
-	analyzeCommand.Flags().StringVarP(&analyzeCmd.input, "input", "i", "", "path to application source code or a binary")
+	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.input, "input", "i", []string{}, "path to application source code or a binary. Use multiple times for multiple applications analysis.")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.output, "output", "o", "", "path to the directory for analysis output")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "do not generate static report")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
@@ -228,16 +226,6 @@ func (a *analyzeCommand) Validate() error {
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
-	// do not allow multiple input applications
-	inputNum := 0
-	for _, arg := range os.Args {
-		if arg == "-i" || strings.Contains(arg, "--input") {
-			inputNum += 1
-			if inputNum > 1 {
-				return fmt.Errorf("must specify only one input source")
-			}
-		}
-	}
 	err := a.CheckOverwriteOutput()
 	if err != nil {
 		return err
@@ -256,32 +244,39 @@ func (a *analyzeCommand) Validate() error {
 	if stat != nil && !stat.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", a.output)
 	}
-	stat, err = os.Stat(a.input)
-	if err != nil {
-		return fmt.Errorf("%w failed to stat input path %s", err, a.input)
-	}
-	// when input isn't a dir, it's pointing to a binary
-	// we need abs path to mount the file correctly
-	if !stat.Mode().IsDir() {
-		a.input, err = filepath.Abs(a.input)
+	// Prepare all Applications input
+	a.isFileInput = make([]bool, len(a.input))
+	for i := range a.input {
+		input := a.input[i]
+		stat, err = os.Stat(input)
 		if err != nil {
-			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
+			return fmt.Errorf("%w failed to stat input path %s", err, input)
 		}
-		a.isFileInput = true
-	}
-	if a.mode != string(provider.FullAnalysisMode) &&
-		a.mode != string(provider.SourceOnlyAnalysisMode) {
-		return fmt.Errorf("mode must be one of 'full' or 'source-only'")
-	}
-	if _, err := os.Stat(a.mavenSettingsFile); a.mavenSettingsFile != "" && err != nil {
-		return fmt.Errorf("%w failed to stat maven settings file at path %s", err, a.mavenSettingsFile)
-	}
-	// try to get abs path, if not, continue with relative path
-	if absPath, err := filepath.Abs(a.output); err == nil {
-		a.output = absPath
-	}
-	if absPath, err := filepath.Abs(a.input); err == nil {
-		a.input = absPath
+		// when input isn't a dir, it's pointing to a binary
+		// we need abs path to mount the file correctly
+		if !stat.Mode().IsDir() {
+			input, err = filepath.Abs(input)
+			if err != nil {
+				return fmt.Errorf("%w failed to get absolute path for input file %s", err, input)
+			}
+			a.isFileInput[i] = true // initialize empty before
+		}
+		if a.mode != string(provider.FullAnalysisMode) &&
+			a.mode != string(provider.SourceOnlyAnalysisMode) {
+			return fmt.Errorf("mode must be one of 'full' or 'source-only'")
+		}
+		if _, err := os.Stat(a.mavenSettingsFile); a.mavenSettingsFile != "" && err != nil {
+			return fmt.Errorf("%w failed to stat maven settings file at path %s", err, a.mavenSettingsFile)
+		}
+		// try to get abs path, if not, continue with relative path
+		if absPath, err := filepath.Abs(a.output); err == nil {
+			a.output = absPath
+		}
+		if absPath, err := filepath.Abs(input); err == nil {
+			input = absPath
+		}
+		// Update input array with validated input
+		a.input[i] = input
 	}
 	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
 		a.mavenSettingsFile = absPath
@@ -432,7 +427,6 @@ func listOptionsFromLabels(sl []string, label string) {
 
 			if !slices.Contains(newSl, newSt) {
 				newSl = append(newSl, newSt)
-
 			}
 		}
 	}
@@ -448,7 +442,7 @@ func listOptionsFromLabels(sl []string, label string) {
 	}
 }
 
-func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]int) (map[string]string, error) {
+func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]int, inputIdx int) (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
 		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
@@ -468,7 +462,7 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		}
 	}
 	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
-	if !foundJava && a.isFileInput {
+	if !foundJava && a.isFileInput[inputIdx] {
 		foundJava = true
 	}
 
@@ -476,8 +470,8 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	// when input is a file, it means it's probably a binary
 	// only java provider can work with binaries, all others
 	// continue pointing to the directory instead of file
-	if a.isFileInput {
-		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
+	if a.isFileInput[inputIdx] {
+		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input[inputIdx]))
 	}
 
 	javaConfig := provider.Config{
@@ -747,13 +741,13 @@ func (a *analyzeCommand) createContainerNetwork() (string, error) {
 }
 
 // TODO: create for each source input once accepting multiple apps is completed
-func (a *analyzeCommand) createContainerVolume() (string, error) {
+func (a *analyzeCommand) createContainerVolume(inputIdx int) (string, error) {
 	volName := container.RandomName()
-	input, err := filepath.Abs(a.input)
+	input, err := filepath.Abs(a.input[inputIdx])
 	if err != nil {
 		return "", err
 	}
-	if a.isFileInput {
+	if a.isFileInput[inputIdx] {
 		input = filepath.Dir(input)
 	}
 	args := []string{
@@ -841,7 +835,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 	return providerPorts, nil
 }
 
-func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string, providers []string, ports map[string]int) error {
+func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string, providers []string, ports map[string]int, inputIdx int) error {
 	volumes := map[string]string{
 		// application source code
 		volName: SourceMountPath,
@@ -860,7 +854,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		a.tempDirs = append(a.tempDirs, xmlOutputDir)
 	}
 
-	configVols, err := a.getConfigVolumes(providers, ports)
+	configVols, err := a.getConfigVolumes(providers, ports, inputIdx)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to get config volumes for analysis")
 		return err
@@ -1013,19 +1007,38 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, inputIdx int) error {
 	if a.skipStaticReport {
 		return nil
 	}
 	volumes := map[string]string{
-		a.input:  SourceMountPath,
+		//a.input[inputIdx]:  SourceMountPath, // looks to not be needed
 		a.output: OutputPath,
 	}
+
+	// Prepare report args list with single input analysis
+	applicationNames := []string{filepath.Base(a.input[inputIdx])}
+	outputAnalyses := []string{AnalysisOutputMountPath}
+
+	// Add previous inputs analyses to report
+	if len(a.input) > 1 && inputIdx > 0 {
+		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
+		if err != nil {
+			return err
+		}
+		for i := range outputFiles {
+			outputName := filepath.Base(outputFiles[i])
+			applicationNames = append(applicationNames, strings.SplitN(outputName, "output.yaml.", 2)[1])
+			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
+		}
+	}
+
 	args := []string{}
-	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
-		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
+	staticReportArgs := []string{
+		"/usr/local/bin/js-bundle-generator",
 		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
-		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
+		fmt.Sprintf("--analysis-output-list=%s", strings.Join(outputAnalyses, ",")),
+		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")),
 	}
 	if a.mode == string(provider.FullAnalysisMode) {
 		staticReportArgs = append(staticReportArgs,
@@ -1060,6 +1073,30 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
 	cleanedURI := filepath.Clean(string(uri))
 	a.log.Info("Static report created. Access it at this URL:", "URL", cleanedURI)
+
+	if len(a.input) > 1 {
+		a.log.Info("Moving analysis results for:", "INPUT", a.input[inputIdx])
+		err = a.MoveResults(inputIdx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a *analyzeCommand) MoveResults(inputIdx int) error {
+	outputPath := filepath.Join(a.output, "output.yaml")
+	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
+	// depPath := filepath.Join(a.output, "dependencies.yaml")	// TODO: dependencies
+	err := copyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, filepath.Base(a.input[inputIdx])))
+	if err != nil {
+		return err
+	}
+	err = copyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, filepath.Base(a.input[inputIdx])))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1245,6 +1282,10 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 	if err != nil {
 		a.log.Error(err, "failed to remove volume", "volume", a.volumeName)
 	}
+
+	// Empty container names list after cleanup
+	a.providerContainerNames = []string{}
+
 	return nil
 }
 
