@@ -1,0 +1,12 @@
+[
+    {
+        "name": "go",
+        "initConfig": [{
+            "analysisMode": "full",
+            "providerSpecificConfig": {
+                "lspServerArgs": [],
+                "lspServerInitializationOptions": ""
+            }
+        }]
+    }
+]

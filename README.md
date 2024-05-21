@@ -233,6 +233,7 @@ See different ways to run the test command in the [test runner doc](./docs/testr
 ## References 
 
 - [Example usage scenarios](./docs/examples.md)
+- [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
 
 ## Code of Conduct

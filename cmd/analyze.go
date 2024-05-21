@@ -56,6 +56,15 @@ const (
 	nodeJSProvider = "javascript"
 )
 
+// provider config options
+const (
+	mavenSettingsFile      = "mavenSettingsFile"
+	lspServerPath          = "lspServerPath"
+	lspServerName          = "lspServerName"
+	workspaceFolders       = "workspaceFolders"
+	dependencyProviderPath = "dependencyProviderPath"
+)
+
 // kantra analyze flags
 type analyzeCommand struct {
 	listSources              bool
@@ -74,9 +83,6 @@ type analyzeCommand struct {
 	rules                    []string
 	jaegerEndpoint           string
 	enableDefaultRulesets    bool
-	httpProxy                string
-	httpsProxy               string
-	noProxy                  string
 	contextLines             int
 	incidentSelector         string
 	depFolders               []string
@@ -225,9 +231,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
@@ -583,8 +586,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	default:
 		return nil, fmt.Errorf("unable to find config for provider %v", providers[0])
 	}
-
-	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
 	if !foundJava && a.isFileInput {
 		foundJava = true
 	}
@@ -613,6 +614,7 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			},
 		},
 	}
+
 	if a.mavenSettingsFile != "" {
 		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
@@ -620,9 +622,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			return nil, err
 		}
 		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
-	}
-	if Settings.JvmMaxMem != "" {
-		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
 
 	goConfig := provider.Config{
@@ -692,7 +691,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			},
 		},
 	}
-
 	switch {
 	case foundJava:
 		provConfig = append(provConfig, javaConfig)
@@ -704,30 +702,18 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		provConfig = append(provConfig, nodeJSConfig)
 	}
 
-	// Set proxy to providers
-	if a.httpProxy != "" || a.httpsProxy != "" {
-		proxy := provider.Proxy{
-			HTTPProxy:  a.httpProxy,
-			HTTPSProxy: a.httpsProxy,
-			NoProxy:    a.noProxy,
-		}
-		for i := range provConfig {
-			provConfig[i].Proxy = &proxy
-		}
-	}
-
-	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
+	err = a.getProviderOptions(tempDir, provConfig, providers[0])
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
-		return nil, err
+		if errors.Is(err, os.ErrNotExist) {
+			a.log.V(5).Info("provider options config not found, using default options")
+			err := a.writeProvConfig(tempDir, provConfig)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
-	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
-	if err != nil {
-		a.log.V(1).Error(err,
-			"failed to write provider config", "dir", tempDir, "file", "settings.json")
-		return nil, err
-	}
-
 	settingsVols := map[string]string{
 		tempDir: ConfigMountPath,
 	}
@@ -1501,6 +1487,115 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 
 	return tempOutputDir, nil
+}
+
+func (a *analyzeCommand) writeProvConfig(tempDir string, config []provider.Config) error {
+	jsonData, err := json.MarshalIndent(&config, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal provider config")
+		return err
+	}
+	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err,
+			"failed to write provider config", "dir", tempDir, "file", "settings.json")
+		return err
+	}
+	return nil
+}
+
+func (a *analyzeCommand) getProviderOptions(tempDir string, provConfig []provider.Config, prov string) error {
+	// get provider options from provider settings file
+	home := os.Getenv("HOME")
+	data, err := os.ReadFile(filepath.Join(home, ".kantra", fmt.Sprintf("%v.json", prov)))
+	if err != nil {
+		return err
+	}
+	optionsConfig := &[]provider.Config{}
+	err = yaml.Unmarshal(data, optionsConfig)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to unmarshal provider options file")
+		return err
+	}
+	mergedConfig, err := a.mergeProviderConfig(provConfig, *optionsConfig, tempDir)
+	if err != nil {
+		return err
+	}
+	err = a.writeProvConfig(tempDir, mergedConfig)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *analyzeCommand) mergeProviderConfig(defaultConf, optionsConf []provider.Config, tempDir string) ([]provider.Config, error) {
+	merged := []provider.Config{}
+	seen := map[string]*provider.Config{}
+
+	// find options used for supported providers
+	for idx, conf := range defaultConf {
+		seen[conf.Name] = &defaultConf[idx]
+	}
+
+	for _, conf := range optionsConf {
+		if _, ok := seen[conf.Name]; ok {
+			// set provider config options
+			if conf.ContextLines != 0 {
+				seen[conf.Name].ContextLines = conf.ContextLines
+			}
+			if conf.Proxy != nil {
+				seen[conf.Name].Proxy = conf.Proxy
+			}
+			// set init config options
+			for i, init := range conf.InitConfig {
+				if len(init.AnalysisMode) != 0 {
+					seen[conf.Name].InitConfig[i].AnalysisMode = init.AnalysisMode
+				}
+				if len(init.ProviderSpecificConfig) != 0 {
+					provSpecificConf, err := a.mergeProviderSpecificConfig(init.ProviderSpecificConfig, seen[conf.Name].InitConfig[i].ProviderSpecificConfig, tempDir)
+					if err != nil {
+						return nil, err
+					}
+					seen[conf.Name].InitConfig[i].ProviderSpecificConfig = provSpecificConf
+				}
+			}
+		}
+	}
+	for _, v := range seen {
+		merged = append(merged, *v)
+	}
+	return merged, nil
+}
+
+func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[string]interface{}, tempDir string) (map[string]interface{}, error) {
+	for k, v := range optionsConf {
+		switch {
+		case optionsConf[k] == "":
+			continue
+		// special case for maven settings file to mount correctly
+		case k == mavenSettingsFile:
+			// validate maven settings file
+			if _, err := os.Stat(v.(string)); err != nil {
+				return nil, fmt.Errorf("%w failed to stat maven settings file at path %s", err, v)
+			}
+			if absPath, err := filepath.Abs(v.(string)); err == nil {
+				seenConf[k] = absPath
+			}
+			// copy file to mount path
+			err := copyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
+			if err != nil {
+				a.log.V(1).Error(err, "failed copying maven settings file", "path", v)
+				return nil, err
+			}
+			seenConf[k] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
+			continue
+		// we don't want users to override these options here
+		// use --overrideProviderSettings to do so
+		case k != lspServerPath && k != lspServerName && k != workspaceFolders && k != dependencyProviderPath:
+			seenConf[k] = v
+		}
+	}
+	return seenConf, nil
 }
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
