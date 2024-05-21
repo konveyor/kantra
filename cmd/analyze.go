@@ -1378,6 +1378,8 @@ func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
 func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 	for i := range a.providerContainerNames {
 		con := a.providerContainerNames[i]
+		// because we are using the --rm option when we start the provider container,
+		// it will immediately be removed after it stops
 		cmd := exec.CommandContext(
 			ctx,
 			Settings.PodmanBinary,
@@ -1386,13 +1388,6 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 		err := cmd.Run()
 		if err != nil {
 			a.log.V(1).Error(err, "failed to stop container",
-				"container", con)
-			continue
-		}
-		a.log.V(1).Info("removing container", "container", con)
-		err = exec.CommandContext(ctx, Settings.PodmanBinary, "rm", con).Run()
-		if err != nil {
-			a.log.V(1).Error(err, "failed to remove container",
 				"container", con)
 			continue
 		}
