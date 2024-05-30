@@ -128,13 +128,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
 				analyzeCmd.cleanup = !val
 			}
-			// defer cleaning created resources here instead of PostRun
-			// if Run returns an error, PostRun does not run
-			defer func() {
-				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
-					log.Error(err, "failed to clean temporary directories")
-				}
-			}()
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
 				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
@@ -143,6 +136,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
+			// defer cleaning created resources here instead of PostRun
+			// if Run returns an error, PostRun does not run
+			defer func() {
+				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+					log.Error(err, "failed to clean temporary directories")
+				}
+			}()
 			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to convert xml rules")
