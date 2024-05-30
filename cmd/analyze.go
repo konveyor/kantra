@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -113,7 +114,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			err := analyzeCmd.Validate()
+			err := analyzeCmd.Validate(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -225,13 +226,48 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	return analyzeCommand
 }
 
-func (a *analyzeCommand) Validate() error {
+func (a *analyzeCommand) Validate(ctx context.Context) error {
 	if a.listSources || a.listTargets {
 		return nil
 	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
+	// Validate source labels
+	if len(a.sources) > 0 {
+		var sourcesRaw bytes.Buffer
+		a.fetchLabels(ctx, true, false, &sourcesRaw)
+		knownSources := strings.Split(sourcesRaw.String(), "\n")
+		for _, source := range a.sources {
+			found := false
+			for _, knownSource := range knownSources {
+				if source == knownSource {
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("unknown source: \"%s\"", source)
+			}
+		}
+	}
+	// Validate source labels
+	if len(a.targets) > 0 {
+		var targetRaw bytes.Buffer
+		a.fetchLabels(ctx, false, true, &targetRaw)
+		knownTargets := strings.Split(targetRaw.String(), "\n")
+		for _, source := range a.targets {
+			found := false
+			for _, knownTarget := range knownTargets {
+				if source == knownTarget {
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("unknown target: \"%s\"", source)
+			}
+		}
+	}
+
 	// do not allow multiple input applications
 	inputNum := 0
 	for _, arg := range os.Args {
@@ -327,29 +363,33 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) ListLabels(ctx context.Context) error {
+func (a *analyzeCommand) ListLabels(ctx context.Context) error {	
+	return a.fetchLabels(ctx, a.listSources, a.listTargets, os.Stdout)
+}
+
+func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTargets bool, out io.Writer) error {
 	// reserved labels
 	sourceLabel := outputv1.SourceTechnologyLabel
 	targetLabel := outputv1.TargetTechnologyLabel
 	runMode := "RUN_MODE"
 	runModeContainer := "container"
 	if os.Getenv(runMode) == runModeContainer {
-		if a.listSources {
+		if listSources {
 			sourceSlice, err := readRuleFilesForLabels(sourceLabel)
 			if err != nil {
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			listOptionsFromLabels(sourceSlice, sourceLabel)
+			listOptionsFromLabels(sourceSlice, sourceLabel, out)
 			return nil
 		}
-		if a.listTargets {
+		if listTargets {
 			targetsSlice, err := readRuleFilesForLabels(targetLabel)
 			if err != nil {
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			listOptionsFromLabels(targetsSlice, targetLabel)
+			listOptionsFromLabels(targetsSlice, targetLabel, out)
 			return nil
 		}
 	} else {
@@ -359,7 +399,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			return err
 		}
 		args := []string{"analyze"}
-		if a.listSources {
+		if listSources {
 			args = append(args, "--list-sources")
 		} else {
 			args = append(args, "--list-targets")
@@ -373,6 +413,7 @@ func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
 			container.WithContainerToolBin(Settings.PodmanBinary),
 			container.WithEntrypointArgs(args...),
+			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
 		)
 		if err != nil {
@@ -434,7 +475,7 @@ func getSourceOrTargetLabel(text string, label string) string {
 	return ""
 }
 
-func listOptionsFromLabels(sl []string, label string) {
+func listOptionsFromLabels(sl []string, label string, out io.Writer) {
 	var newSl []string
 	l := label + "="
 
@@ -454,12 +495,12 @@ func listOptionsFromLabels(sl []string, label string) {
 	sort.Strings(newSl)
 
 	if label == outputv1.SourceTechnologyLabel {
-		fmt.Println("available source technologies:")
+		fmt.Println(out, "available source technologies:")
 	} else {
-		fmt.Println("available target technologies:")
+		fmt.Println(out, "available target technologies:")
 	}
 	for _, tech := range newSl {
-		fmt.Println(tech)
+		fmt.Println(out, tech)
 	}
 }
 
