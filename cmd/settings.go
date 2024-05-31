@@ -33,6 +33,10 @@ type Config struct {
 }
 
 func (c *Config) Load() error {
+	err := env.Set(c)
+	if err != nil {
+		return err
+	}
 	if err := c.loadDefaultPodmanBin(); err != nil {
 		return err
 	}
@@ -43,10 +47,6 @@ func (c *Config) Load() error {
 		return err
 	}
 	if err := c.loadProviders(); err != nil {
-		return err
-	}
-	err := env.Set(c)
-	if err != nil {
 		return err
 	}
 	return nil
@@ -85,13 +85,8 @@ func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
 }
 
 func (c *Config) loadRunnerImg() error {
-	// TODO(maufart): ensure Config struct works/parses it values from ENV and defaults correctly
-	runnerImg, found := os.LookupEnv("RUNNER_IMG");
-	if !found {
-		runnerImg = "quay.io/konveyor/kantra"
-	}
 	// if version tag is given in image
-	img := strings.TrimSuffix(runnerImg, fmt.Sprintf(":%v", Version))
+	img := strings.TrimSuffix(RunnerImage, fmt.Sprintf(":%v", Version))
 	updatedImg := fmt.Sprintf("%v:%v", img, Version)
 	err := os.Setenv("RUNNER_IMG", updatedImg)
 	if err != nil {
