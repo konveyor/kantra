@@ -138,20 +138,43 @@ _--input_ must point to a source code directory or a binary file, _--output_ mus
 
 All flags:
 
-```sh
+```
 Flags:
-      --analyze-known-libraries   analyze known open-source libraries
-  -h, --help                      help for analyze
-  -i, --input string              path to application source code or a binary
-      --json-output               create analysis and dependency output as json
-      --list-sources              list rules for available migration sources
-      --list-targets              list rules for available migration targets
-  -m, --mode string               analysis mode. Must be one of 'full' or 'source-only' (default "full")
-  -o, --output string             path to the directory for analysis output
-      --rules stringArray         filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
-      --skip-static-report        do not generate static report
-  -s, --source stringArray        source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
-  -t, --target stringArray        target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
+      --analyze-known-libraries          analyze known open-source libraries
+      --bulk                             running multiple analyze commands in bulk will result to combined static report
+      --context-lines int                number of lines of source code to include in the output for each incident (default 100)
+  -d, --dependency-folders stringArray   directory for dependencies
+      --enable-default-rulesets          run default rulesets with analysis (default true)
+  -h, --help                             help for analyze
+      --http-proxy string                HTTP proxy string URL
+      --https-proxy string               HTTPS proxy string URL
+      --incident-selector string         an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)
+  -i, --input string                     path to application source code or a binary
+      --jaeger-endpoint string           jaeger endpoint to collect traces
+      --json-output                      create analysis and dependency output as json
+  -l, --label-selector string            run rules based on specified label selector expression
+      --list-sources                     list rules for available migration sources
+      --list-targets                     list rules for available migration targets
+      --maven-settings string            path to a custom maven settings file to use
+  -m, --mode string                      analysis mode. Must be one of 'full' or 'source-only' (default "full")
+      --no-proxy string                  proxy excluded URLs (relevant only with proxy)
+  -o, --output string                    path to the directory for analysis output
+      --overwrite                        overwrite output directory
+      --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
+      --skip-static-report               do not generate static report
+  -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
+  -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
+```
+
+#### Analyze multiple applications
+
+By design, kantra supports single application analysis per kantra command execution. However, it is possible use ```--bulk``` option for executing multiple kantra analyze commands with different applications to get an output directory and static-report populated with all applications analysis reports.
+
+Example:
+```sh
+kantra analyze --bulk --input=<path/to/source/A> --output=<path/to/output/ABC>
+kantra analyze --bulk --input=<path/to/source/B> --output=<path/to/output/ABC>
+kantra analyze --bulk --input=<path/to/source/C> --output=<path/to/output/ABC>
 ```
 
 ### Transform
