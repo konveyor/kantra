@@ -495,12 +495,12 @@ func listOptionsFromLabels(sl []string, label string, out io.Writer) {
 	sort.Strings(newSl)
 
 	if label == outputv1.SourceTechnologyLabel {
-		fmt.Println(out, "available source technologies:")
+		fmt.Fprintln(out, "available source technologies:")
 	} else {
-		fmt.Println(out, "available target technologies:")
+		fmt.Fprintln(out, "available target technologies:")
 	}
 	for _, tech := range newSl {
-		fmt.Println(out, tech)
+		fmt.Fprintln(out, tech)
 	}
 }
 
