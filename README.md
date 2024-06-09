@@ -28,49 +28,54 @@ export PODMAN_BIN=/usr/bin/docker
 
 ## Installation
 
-To install kantra, simply download the executable for your platform and add it to the path.
+To install kantra, download the executable for your platform and add it to the path.
 
 ### Downloading stable release
 
 Go to the [release page](https://github.com/konveyor/kantra/releases) and download the zip file containing a binary for your platform and architecture. Unzip the archive and add the executable in it to the path. 
 
-### Downloading latest
+### Downloading the latest / particular version
 
-The easiest way to get the latest exectutable is to get it from the latest container image.
+The easiest way to get the latest (or a particular/older) executable is to get it from the respective container image.
+
+Set the shell variable `kantra_version` to a particular version if you want to grab that version,
+e.g., `kantra_version=v0.4.0`. 
 
 #### Linux
 
 Run:
 
 ```sh
-podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/kantra . && podman rm kantra-download
+${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/kantra . && ${PODMAN_BIN:-podman} rm kantra-download
 ```
 
 #### Mac
 
-On Mac, you need to start a podman machine prior to running any podman commands (see [Setup for Mac](#mac-1))
+When you ar not using Docker for Desktop on your Mac (see above), 
+you need to start a podman machine prior to running any podman commands (see [Setup for Mac](#mac-1))
 
 Once a machine is started, run:
 
 ```sh
-podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/darwin-kantra . && podman rm kantra-download
+${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/darwin-kantra . && ${PODMAN_BIN:-podman} rm kantra-download
 ```
 
 #### Windows
 
-On Mac, you need to start a podman machine prior to running any podman commands (see [Setup for Windows](#windows-1))
+When you ar not using Docker for Desktop on your Windows (see above),
+you need to start a podman machine prior to running any podman commands (see [Setup for Windows](#windows-1))
 
 Once a machine is started, run:
 
 ```sh
-podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:latest):/usr/local/bin/windows-kantra . && podman rm kantra-download
+${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/windows-kantra . && ${PODMAN_BIN:-podman} rm kantra-download
 ```
 
 > Ensure that you add the executable to the `PATH`.
 
 ## Setup (For Mac and Windows Only)
 
-On Mac and Windows, a podman machine needs to be started prior to running any commands:
+On Mac and Windows, a podman machine needs to be started prior to running any commands, unless you are using Docker (for Desktop):
 
 ##### Mac
       
