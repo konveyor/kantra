@@ -36,7 +36,7 @@ Go to the [release page](https://github.com/konveyor/kantra/releases) and downlo
 
 ## Setup (For Mac and Windows Only)
 
-On Mac and Windows, a podman machine needs to be started prior to running any commands:
+On Mac and Windows, a container runtime needs to be started prior to running any commands. See the following instructions for starting Podman:
 
 ##### Mac (Podman)
       
