@@ -23,6 +23,7 @@ type container struct {
 	Name           string
 	image          string
 	NetworkName    string
+	IPv4           string
 	entrypointBin  string
 	entrypointArgs []string
 	workdir        string
@@ -55,6 +56,12 @@ func WithName(n string) Option {
 func WithNetwork(w string) Option {
 	return func(c *container) {
 		c.NetworkName = w
+	}
+}
+
+func WithIPv4(ip string) Option {
+	return func(c *container) {
+		c.IPv4 = ip
 	}
 }
 
@@ -188,6 +195,10 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.NetworkName != "" {
 		args = append(args, "--network")
 		args = append(args, c.NetworkName)
+	}
+	if c.IPv4 != "" {
+		args = append(args, "--ip")
+		args = append(args, c.IPv4)
 	}
 	if c.entrypointBin != "" {
 		args = append(args, "--entrypoint")

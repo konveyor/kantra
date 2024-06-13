@@ -15,6 +15,7 @@ import (
 	"runtime"
 
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -32,7 +33,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 var (
@@ -48,13 +48,34 @@ var (
 	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
 	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
 	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
+	DotnetFrameworks          = map[string]bool{
+		"v1.0":   false,
+		"v1.1":   false,
+		"v2.0":   false,
+		"v3.0":   false,
+		"v3.5":   false,
+		"v4":     false,
+		"v4.5":   true,
+		"v4.5.1": true,
+		"v4.5.2": true,
+		"v4.6":   true,
+		"v4.6.1": true,
+		"v4.6.2": true,
+		"v4.7":   true,
+		"v4.7.1": true,
+		"v4.7.2": true,
+		"v4.8":   true,
+		"v4.8.1": true,
+	}
 )
 
 const (
-	javaProvider   = "java"
-	goProvider     = "go"
-	pythonProvider = "python"
-	nodeJSProvider = "javascript"
+	javaProvider            = "java"
+	goProvider              = "go"
+	pythonProvider          = "python"
+	nodeJSProvider          = "javascript"
+	dotnetProvider          = "dotnet"
+	dotnetFrameworkProvider = "dotnetframework"
 )
 
 // provider config options
@@ -194,6 +215,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					if err != nil {
 						return err
 					}
+				}
+				if len(foundProviders) == 1 && foundProviders[0] == dotnetFrameworkProvider {
+					return analyzeCmd.analyzeDotnetFramework(cmd.Context())
 				}
 				err = analyzeCmd.setProviderInitInfo(foundProviders)
 				if err != nil {
@@ -452,9 +476,20 @@ func (a *analyzeCommand) setProviders(components []model.Component, foundProvide
 	for _, c := range components {
 		a.log.V(5).Info("Got component", "component language", c.Languages, "path", c.Path)
 		for _, l := range c.Languages {
-
+			if l.Name == "C#" {
+				for _, item := range l.Frameworks {
+					supported, ok := DotnetFrameworks[item]
+					if ok {
+						if !supported {
+							err := fmt.Errorf("Unsupported .NET Framework version")
+							a.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
+							return foundProviders, err
+						}
+						return []string{dotnetFrameworkProvider}, nil
+					}
+				}
+			}
 			foundProviders = append(foundProviders, strings.ToLower(l.Name))
-
 		}
 	}
 	return foundProviders, nil
@@ -487,7 +522,11 @@ func (a *analyzeCommand) setProviderInitInfo(foundProviders []string) error {
 				port:  port,
 				image: Settings.GenericProviderImage,
 			}
-
+		case dotnetProvider:
+			a.providersMap[dotnetProvider] = ProviderInit{
+				port:  port,
+				image: Settings.DotnetProviderImage,
+			}
 		}
 	}
 	return nil
@@ -499,6 +538,8 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 		pythonProvider,
 		goProvider,
 		nodeJSProvider,
+		dotnetProvider,
+		dotnetFrameworkProvider,
 	}
 	for _, prov := range providers {
 		//validate other providers
@@ -801,6 +842,20 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		},
 	}
 
+	dotnetConfig := provider.Config{
+		Name:    dotnetProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[dotnetProvider].port),
+		InitConfig: []provider.InitConfig{
+			{
+				Location:     SourceMountPath,
+				AnalysisMode: provider.SourceOnlyAnalysisMode,
+				ProviderSpecificConfig: map[string]interface{}{
+					provider.LspServerPathConfigKey: "/opt/app-root/.dotnet/tools/csharp-ls",
+				},
+			},
+		},
+	}
+
 	provConfig := []provider.Config{
 		{
 			Name: "builtin",
@@ -829,6 +884,8 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 				nodeJSConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
 			}
 			provConfig = append(provConfig, nodeJSConfig)
+		case dotnetProvider:
+			provConfig = append(provConfig, dotnetConfig)
 		}
 	}
 	for prov, _ := range a.providersMap {
@@ -1851,6 +1908,9 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
+	if a.networkName == "" {
+		return nil
+	}
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.PodmanBinary,
@@ -1862,6 +1922,9 @@ func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
+	if a.volumeName == "" {
+		return nil
+	}
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.PodmanBinary,
@@ -1916,6 +1979,220 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 		cmd.Stdout = providerLog
 		cmd.Stderr = providerLog
 		return cmd.Run()
+	}
+
+	return nil
+}
+
+func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
+	if runtime.GOOS != "windows" {
+		err := fmt.Errorf("Unsupported OS")
+		a.log.Error(err, "Analysis of .NET Framework projects is only supported on Windows")
+		return err
+	}
+
+	// TODO(djzager): uncomment when provider handles mode correctly
+	//if a.mode == string(provider.FullAnalysisMode) {
+	//	a.log.V(1).Info("Only source mode analysis is supported")
+	//	a.mode = string(provider.SourceOnlyAnalysisMode)
+	//}
+
+	var err error
+
+	// Create network
+	networkName := container.RandomName()
+	cmd := exec.Command(Settings.PodmanBinary, []string{"network", "create", "-d", "nat", networkName}...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+	a.log.V(1).Info("created container network", "network", networkName)
+	a.networkName = networkName
+	// end create network
+
+	// Create volume
+	// opts aren't supported on Windows
+	// containerVolName, err := a.createContainerVolume()
+	// if err != nil {
+	// 	a.log.Error(err, "failed to create container volume")
+	// 	return err
+	// }
+
+	// Run provider
+	//foundProviders := []string{dotnetFrameworkProvider}
+	//providerPorts, err := a.RunProviders(ctx, networkName, containerVolName, foundProviders, 5)
+	//if err != nil {
+	//	a.log.Error(err, "failed to run provider")
+	//	return err
+	//}
+	input, err := filepath.Abs(a.input)
+	if err != nil {
+		return err
+	}
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return err
+	}
+	a.log.V(1).Info("Starting dotnet-external-provider")
+	providerContainer := container.NewContainer()
+	err = providerContainer.Run(
+		ctx,
+		container.WithImage(Settings.DotnetProviderImage),
+		container.WithLog(a.log.V(1)),
+		container.WithVolumes(map[string]string{
+			input: "C:" + filepath.FromSlash(SourceMountPath),
+		}),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithEntrypointArgs([]string{fmt.Sprintf("--port=%v", port)}...),
+		container.WithDetachedMode(true),
+		container.WithCleanup(a.cleanup),
+		container.WithNetwork(networkName),
+	)
+	if err != nil {
+		return err
+	}
+	a.providerContainerNames = append(a.providerContainerNames, providerContainer.Name)
+	a.log.V(1).Info("Provider started")
+	// end run provider
+
+	// Run analysis
+	// err = a.RunAnalysis(ctx, "", containerVolName, foundProviders, providerPorts)
+	// if err != nil {
+	// 	a.log.Error(err, "failed to run analysis")
+	// 	return err
+	// }
+	tempDir, err := os.MkdirTemp("", "analyze-config-")
+	if err != nil {
+		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+		return err
+	}
+	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
+	a.tempDirs = append(a.tempDirs, tempDir)
+
+	// Set the IP!!!
+	provConfig := []provider.Config{
+		{
+			Name: "builtin",
+			InitConfig: []provider.InitConfig{
+				{
+					Location:     "C:" + filepath.FromSlash(SourceMountPath),
+					AnalysisMode: provider.AnalysisMode(a.mode),
+				},
+			},
+		},
+		{
+			Name:    dotnetProvider,
+			Address: fmt.Sprintf("%v:%v", providerContainer.Name, port),
+			InitConfig: []provider.InitConfig{
+				{
+					Location:     "C:" + filepath.FromSlash(SourceMountPath),
+					AnalysisMode: provider.AnalysisMode(a.mode),
+					ProviderSpecificConfig: map[string]interface{}{
+						provider.LspServerPathConfigKey: "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe",
+					},
+				},
+			},
+		},
+	}
+
+	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal provider config")
+		return err
+	}
+	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err,
+			"failed to write provider config", "dir", tempDir, "file", "settings.json")
+		return err
+	}
+
+	volumes := map[string]string{
+		tempDir:  "C:" + filepath.FromSlash(ConfigMountPath),
+		input:    "C:" + filepath.FromSlash(SourceMountPath),
+		a.output: "C:" + filepath.FromSlash(OutputPath),
+	}
+
+	args := []string{
+		fmt.Sprintf("--provider-settings=%s", "C:"+filepath.FromSlash(ProviderSettingsMountPath)),
+		fmt.Sprintf("--output-file=%s", "C:"+filepath.FromSlash(AnalysisOutputMountPath)),
+		fmt.Sprintf("--context-lines=%d", a.contextLines),
+	}
+
+	if a.enableDefaultRulesets {
+		args = append(args, fmt.Sprintf("--rules=%s/", "C:"+filepath.FromSlash(RulesetPath)))
+	}
+
+	if len(a.rules) > 0 {
+		for index, rule := range a.rules {
+			volumes[rule] = fmt.Sprintf("C:%v-%d", filepath.FromSlash(CustomRulePath), index)
+		}
+		args = append(args, fmt.Sprintf("--rules=%s/", CustomRulePath))
+	}
+
+	if a.jaegerEndpoint != "" {
+		args = append(args, "--enable-jaeger")
+		args = append(args, "--jaeger-endpoint")
+		args = append(args, a.jaegerEndpoint)
+	}
+
+	if a.logLevel != nil {
+		args = append(args, fmt.Sprintf("--verbose=%d", *a.logLevel))
+	}
+	labelSelector := a.getLabelSelector()
+	if labelSelector != "" {
+		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
+	}
+
+	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
+	// create log files
+	analysisLog, err := os.Create(analysisLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
+	}
+	defer analysisLog.Close()
+
+	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
+	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
+
+	c := container.NewContainer()
+	err = c.Run(
+		ctx,
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithVolumes(volumes),
+		container.WithStdout(analysisLog),
+		container.WithStderr(analysisLog),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin(`C:\app\konveyor-analyzer.exe`),
+		container.WithNetwork(networkName),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithCleanup(a.cleanup),
+	)
+	if err != nil {
+		return err
+	}
+	err = a.getProviderLogs(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to get provider container logs")
+	}
+	// end run analysis
+
+	// Create json output
+	err = a.CreateJSONOutput()
+	if err != nil {
+		a.log.Error(err, "failed to create json output file")
+		return err
+	}
+
+	// Generate Static Report
+	err = a.GenerateStaticReport(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to generate static report")
+		return err
 	}
 
 	return nil

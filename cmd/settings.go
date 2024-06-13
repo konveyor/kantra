@@ -29,6 +29,7 @@ type Config struct {
 	RunLocal             bool   `env:"RUN_LOCAL"`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
 	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
+	DotnetProviderImage  string `env:"DOTNET_PROVIDER_IMG" default:"quay.io/konveyor/dotnet-external-provider:latest"`
 }
 
 func (c *Config) Load() error {
