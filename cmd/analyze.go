@@ -1505,9 +1505,22 @@ func (a *analyzeCommand) writeProvConfig(tempDir string, config []provider.Confi
 }
 
 func (a *analyzeCommand) getProviderOptions(tempDir string, provConfig []provider.Config, prov string) error {
+	var confDir string
+	var set bool
+	ops := runtime.GOOS
+	if ops == "linux" {
+		confDir, set = os.LookupEnv("XDG_CONFIG_HOME")
+	}
+	if ops != "linux" || confDir == "" || !set {
+		// on Unix, including macOS, this returns the $HOME environment variable. On Windows, it returns %USERPROFILE%
+		var err error
+		confDir, err = os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+	}
 	// get provider options from provider settings file
-	home := os.Getenv("HOME")
-	data, err := os.ReadFile(filepath.Join(home, ".kantra", fmt.Sprintf("%v.json", prov)))
+	data, err := os.ReadFile(filepath.Join(confDir, ".kantra", fmt.Sprintf("%v.json", prov)))
 	if err != nil {
 		return err
 	}
@@ -1546,18 +1559,18 @@ func (a *analyzeCommand) mergeProviderConfig(defaultConf, optionsConf []provider
 			if conf.Proxy != nil {
 				seen[conf.Name].Proxy = conf.Proxy
 			}
-			// set init config options
-			for i, init := range conf.InitConfig {
-				if len(init.AnalysisMode) != 0 {
-					seen[conf.Name].InitConfig[i].AnalysisMode = init.AnalysisMode
+		}
+		// set init config options
+		for i, init := range conf.InitConfig {
+			if len(init.AnalysisMode) != 0 {
+				seen[conf.Name].InitConfig[i].AnalysisMode = init.AnalysisMode
+			}
+			if len(init.ProviderSpecificConfig) != 0 {
+				provSpecificConf, err := a.mergeProviderSpecificConfig(init.ProviderSpecificConfig, seen[conf.Name].InitConfig[i].ProviderSpecificConfig, tempDir)
+				if err != nil {
+					return nil, err
 				}
-				if len(init.ProviderSpecificConfig) != 0 {
-					provSpecificConf, err := a.mergeProviderSpecificConfig(init.ProviderSpecificConfig, seen[conf.Name].InitConfig[i].ProviderSpecificConfig, tempDir)
-					if err != nil {
-						return nil, err
-					}
-					seen[conf.Name].InitConfig[i].ProviderSpecificConfig = provSpecificConf
-				}
+				seen[conf.Name].InitConfig[i].ProviderSpecificConfig = provSpecificConf
 			}
 		}
 	}

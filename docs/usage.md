@@ -18,12 +18,16 @@
 ## Provider Options
 
 The supported providers have several options to utilize. Examples of the available  
-options can be found [here](../provider_options.json.sample). To read about each of these options,  
+options can be found [here](../java.json.sample) and [here](../golang.json.sample). To read about each of these options,    
 see the analyzer provider [documentation](https://github.com/konveyor/analyzer-lsp/blob/main/docs/providers.md).  
 
-Kantra will look for these options at `$HOME/.kantra/<provider_name>.json`  
-Current providers included are:
-  - java
-  - golang
-  - python
-  - nodejs
+Kantra will look for these options at:  
+- Linux: `$XDG_CONFIG_HOME/.kantra/<provider_name>.json` and then `$HOME/.kantra/<provider_name>.json` 
+- MacOS: `$HOME/.kantra/<provider_name>.json` 
+- Windows: `%USERPROFILE%/.kantra/<provider_name>.json`
+
+Current supported providers are:
+- java
+- golang
+- python
+- nodejs
