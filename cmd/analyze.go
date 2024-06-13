@@ -130,13 +130,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				analyzeCmd.cleanup = !val
 			}
 			if analyzeCmd.overrideProviderSettings == "" {
-				// defer cleaning created resources here instead of PostRun
-				// if Run returns an error, PostRun does not run
-				defer func() {
-					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
-						log.Error(err, "failed to clean temporary directories")
-					}
-				}()
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.ListLabels(cmd.Context())
 					if err != nil {
@@ -177,6 +170,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to create container volume")
 					return err
 				}
+				// defer cleaning created resources here instead of PostRun
+				// if Run returns an error, PostRun does not run
+				defer func() {
+					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+						log.Error(err, "failed to clean temporary directories")
+					}
+				}()
 				// allow for 5 retries of running provider in the case of port in use
 				providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
 				if err != nil {
@@ -334,19 +334,6 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	}
 	if stat != nil && !stat.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", a.output)
-	}
-	stat, err = os.Stat(a.input)
-	if err != nil {
-		return fmt.Errorf("%w failed to stat input path %s", err, a.input)
-	}
-	// when input isn't a dir, it's pointing to a binary
-	// we need abs path to mount the file correctly
-	if !stat.Mode().IsDir() {
-		a.input, err = filepath.Abs(a.input)
-		if err != nil {
-			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
-		}
-		a.isFileInput = true
 	}
 	if len(a.depFolders) != 0 {
 		for i := range a.depFolders {
