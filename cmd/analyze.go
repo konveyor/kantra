@@ -73,7 +73,8 @@ type analyzeCommand struct {
 	analyzeKnownLibraries    bool
 	jsonOutput               bool
 	overwrite                bool
-	mavenSettingsFile        string
+	bulk                     bool
+  mavenSettingsFile        string
 	sources                  []string
 	targets                  []string
 	labelSelector            string
@@ -229,6 +230,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' or 'source-only'")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
@@ -380,8 +382,19 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 			return err
 		}
 	}
-	if !a.overwrite && stat != nil {
-		return fmt.Errorf("output dir %v already exists and --overwrite not set", a.output)
+	if a.bulk {
+		lockStat, _ := os.Stat(filepath.Join(a.output, "analysis.log"))
+		if lockStat != nil {
+			return fmt.Errorf("output dir %v already contains 'analysis.log', it was used for single application analysis or there is running --bulk analysis, try another output dir", a.output)
+		}
+		sameInputStat, _ := os.Stat(fmt.Sprintf("%s.%s", filepath.Join(a.output, "output.yaml"), a.inputShortName()))
+		if sameInputStat != nil {
+			return fmt.Errorf("output dir %v already contains analysis report for provided input '%v', try another input or change output dir", a.output, a.inputShortName())
+		}
+	} else {
+		if !a.overwrite && stat != nil {
+			return fmt.Errorf("output dir %v already exists and --overwrite not set", a.output)
+		}
 	}
 	if a.overwrite && stat != nil {
 		err := os.RemoveAll(a.output)
@@ -1276,11 +1289,32 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		a.input:  SourceMountPath,
 		a.output: OutputPath,
 	}
+
+	// Prepare report args list with single input analysis
+	applicationNames := []string{filepath.Base(a.input)}
+	outputAnalyses := []string{AnalysisOutputMountPath}
+
+	if a.bulk {
+		a.moveResults()
+		// Scan all available analysis output files to be reported
+		applicationNames = nil
+		outputAnalyses = nil
+		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
+		if err != nil {
+			return err
+		}
+		for i := range outputFiles {
+			outputName := filepath.Base(outputFiles[i])
+			applicationNames = append(applicationNames, strings.SplitN(outputName, "output.yaml.", 2)[1])
+			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
+		}
+	}
+
 	args := []string{}
 	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
-		fmt.Sprintf("--analysis-output-list=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
-		fmt.Sprintf("--application-name-list=%s", filepath.Base(a.input)),
+		fmt.Sprintf("--analysis-output-list=%s", strings.Join(outputAnalyses, ",")),
+		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")),
 	}
 	if a.mode == string(provider.FullAnalysisMode) {
 		staticReportArgs = append(staticReportArgs,
@@ -1317,6 +1351,40 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	a.log.Info("Static report created. Access it at this URL:", "URL", cleanedURI)
 
 	return nil
+}
+
+func (a *analyzeCommand) moveResults() error {
+	outputPath := filepath.Join(a.output, "output.yaml")
+	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
+	depsPath := filepath.Join(a.output, "dependencies.yaml")
+	err := copyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, a.inputShortName()))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(outputPath);
+	if err != nil {
+		return err
+	}
+	err = copyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(analysisLogFilePath);
+	if err != nil {
+		return err
+	}
+	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	if err == nil {	// dependencies file presence is optional
+		err = os.Remove(depsPath);
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *analyzeCommand) inputShortName() string {
+	return filepath.Base(a.input)
 }
 
 func (a *analyzeCommand) getLabelSelector() string {
