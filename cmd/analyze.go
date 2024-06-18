@@ -56,31 +56,38 @@ const (
 	nodeJSProvider = "javascript"
 )
 
+// provider config options
+const (
+	mavenSettingsFile      = "mavenSettingsFile"
+	lspServerPath          = "lspServerPath"
+	lspServerName          = "lspServerName"
+	workspaceFolders       = "workspaceFolders"
+	dependencyProviderPath = "dependencyProviderPath"
+)
+
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources           bool
-	listTargets           bool
-	skipStaticReport      bool
-	analyzeKnownLibraries bool
-	jsonOutput            bool
-	overwrite             bool
-	bulk                  bool
-	mavenSettingsFile     string
-	sources               []string
-	targets               []string
-	labelSelector         string
-	input                 string
-	output                string
-	mode                  string
-	rules                 []string
-	jaegerEndpoint        string
-	enableDefaultRulesets bool
-	httpProxy             string
-	httpsProxy            string
-	noProxy               string
-	contextLines          int
-	incidentSelector      string
-	depFolders            []string
+	listSources              bool
+	listTargets              bool
+	skipStaticReport         bool
+	analyzeKnownLibraries    bool
+	jsonOutput               bool
+	overwrite                bool
+	bulk                     bool
+  mavenSettingsFile        string
+	sources                  []string
+	targets                  []string
+	labelSelector            string
+	input                    string
+	output                   string
+	mode                     string
+	rules                    []string
+	jaegerEndpoint           string
+	enableDefaultRulesets    bool
+	contextLines             int
+	incidentSelector         string
+	depFolders               []string
+	overrideProviderSettings string
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
@@ -109,7 +116,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// TODO (pgaikwad): this is nasty
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed {
-				cmd.MarkFlagRequired("input")
+				//cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
 					return err
@@ -129,65 +136,73 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
 				analyzeCmd.cleanup = !val
 			}
-			if analyzeCmd.listSources || analyzeCmd.listTargets {
-				err := analyzeCmd.ListLabels(cmd.Context())
+			if analyzeCmd.overrideProviderSettings == "" {
+				if analyzeCmd.listSources || analyzeCmd.listTargets {
+					err := analyzeCmd.ListLabels(cmd.Context())
+					if err != nil {
+						log.Error(err, "failed to list rule labels")
+						return err
+					}
+					return nil
+				}
+				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
 				if err != nil {
-					log.Error(err, "failed to list rule labels")
+					log.Error(err, "failed to convert xml rules")
 					return err
 				}
-				return nil
-			}
-			// defer cleaning created resources here instead of PostRun
-			// if Run returns an error, PostRun does not run
-			defer func() {
-				if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
-					log.Error(err, "failed to clean temporary directories")
+				components, err := recognizer.DetectComponents(analyzeCmd.input)
+				if err != nil {
+					log.Error(err, "Failed to determine languages for input")
+					return err
 				}
-			}()
-			xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
-			if err != nil {
-				log.Error(err, "failed to convert xml rules")
-				return err
-			}
-			components, err := recognizer.DetectComponents(analyzeCmd.input)
-			if err != nil {
-				log.Error(err, "Failed to determine languages for input")
-				return err
-			}
-			foundProviders := []string{}
-			if analyzeCmd.isFileInput {
-				foundProviders = append(foundProviders, javaProvider)
-			} else {
-				for _, c := range components {
-					log.Info("Got component", "component language", c.Languages, "path", c.Path)
-					for _, l := range c.Languages {
-						foundProviders = append(foundProviders, strings.ToLower(l.Name))
+				foundProviders := []string{}
+				if analyzeCmd.isFileInput {
+					foundProviders = append(foundProviders, javaProvider)
+				} else {
+					for _, c := range components {
+						log.Info("Got component", "component language", c.Languages, "path", c.Path)
+						for _, l := range c.Languages {
+							foundProviders = append(foundProviders, strings.ToLower(l.Name))
+						}
 					}
 				}
+				containerNetworkName, err := analyzeCmd.createContainerNetwork()
+				if err != nil {
+					log.Error(err, "failed to create container network")
+					return err
+				}
+				// share source app with provider and engine containers
+				containerVolName, err := analyzeCmd.createContainerVolume()
+				if err != nil {
+					log.Error(err, "failed to create container volume")
+					return err
+				}
+				// defer cleaning created resources here instead of PostRun
+				// if Run returns an error, PostRun does not run
+				defer func() {
+					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+						log.Error(err, "failed to clean temporary directories")
+					}
+				}()
+				// allow for 5 retries of running provider in the case of port in use
+				providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
+				if err != nil {
+					log.Error(err, "failed to run provider")
+					return err
+				}
+				err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName, foundProviders, providerPorts)
+				if err != nil {
+					log.Error(err, "failed to run analysis")
+					return err
+				}
+			} else {
+				err := analyzeCmd.RunAnalysisOverrideProviderSettings(cmd.Context())
+				if err != nil {
+					log.Error(err, "failed to run analysis")
+					return err
+				}
 			}
-			containerNetworkName, err := analyzeCmd.createContainerNetwork()
-			if err != nil {
-				log.Error(err, "failed to create container network")
-				return err
-			}
-			// share source app with provider and engine containers
-			containerVolName, err := analyzeCmd.createContainerVolume()
-			if err != nil {
-				log.Error(err, "failed to create container volume")
-				return err
-			}
-			// allow for 5 retries of running provider in the case of port in use
-			providerPorts, err := analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, foundProviders, 5)
-			if err != nil {
-				log.Error(err, "failed to run provider")
-				return err
-			}
-			err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName, foundProviders, providerPorts)
-			if err != nil {
-				log.Error(err, "failed to run analysis")
-				return err
-			}
-			err = analyzeCmd.CreateJSONOutput()
+			err := analyzeCmd.CreateJSONOutput()
 			if err != nil {
 				log.Error(err, "failed to create json output file")
 				return err
@@ -218,12 +233,10 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers with be started up")
 
 	return analyzeCommand
 }
@@ -270,14 +283,43 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 		}
 	}
 
-	// do not allow multiple input applications
-	inputNum := 0
-	for _, arg := range os.Args {
-		if arg == "-i" || strings.Contains(arg, "--input") {
-			inputNum += 1
-			if inputNum > 1 {
-				return fmt.Errorf("must specify only one input source")
+	if a.overrideProviderSettings != "" {
+		stat, err := os.Stat(a.overrideProviderSettings)
+		if err != nil {
+			return fmt.Errorf("%w failed to stat overriden provider settings %s", err, a.overrideProviderSettings)
+		}
+		if stat.IsDir() {
+			return fmt.Errorf("provider settings must be a file")
+		}
+		a.overrideProviderSettings, err = filepath.Abs(a.overrideProviderSettings)
+		if err != nil {
+			return fmt.Errorf("%w failed to get absolute path for override provider settings %s", err, a.overrideProviderSettings)
+		}
+	} else if a.input != "" {
+		// do not allow multiple input applications
+		inputNum := 0
+		for _, arg := range os.Args {
+			if arg == "-i" || strings.Contains(arg, "--input") {
+				inputNum += 1
+				if inputNum > 1 {
+					return fmt.Errorf("must specify only one input source")
+				}
 			}
+		}
+		stat, err := os.Stat(a.input)
+		if err != nil {
+			return fmt.Errorf("%w failed to stat input path %s", err, a.input)
+		}
+		// when input isn't a dir, it's pointing to a binary
+		// we need abs path to mount the file correctly
+		if !stat.Mode().IsDir() {
+			a.input, err = filepath.Abs(a.input)
+			if err != nil {
+				return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
+			}
+			// make sure we mount a file and not a dir
+			SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
+			a.isFileInput = true
 		}
 	}
 	err := a.CheckOverwriteOutput()
@@ -297,19 +339,6 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	}
 	if stat != nil && !stat.IsDir() {
 		return fmt.Errorf("output path %s is not a directory", a.output)
-	}
-	stat, err = os.Stat(a.input)
-	if err != nil {
-		return fmt.Errorf("%w failed to stat input path %s", err, a.input)
-	}
-	// when input isn't a dir, it's pointing to a binary
-	// we need abs path to mount the file correctly
-	if !stat.Mode().IsDir() {
-		a.input, err = filepath.Abs(a.input)
-		if err != nil {
-			return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
-		}
-		a.isFileInput = true
 	}
 	if len(a.depFolders) != 0 {
 		for i := range a.depFolders {
@@ -376,7 +405,7 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) ListLabels(ctx context.Context) error {	
+func (a *analyzeCommand) ListLabels(ctx context.Context) error {
 	return a.fetchLabels(ctx, a.listSources, a.listTargets, os.Stdout)
 }
 
@@ -508,12 +537,12 @@ func listOptionsFromLabels(sl []string, label string, out io.Writer) {
 	sort.Strings(newSl)
 
 	if label == outputv1.SourceTechnologyLabel {
-		fmt.Println(out, "available source technologies:")
+		fmt.Fprintln(out, "available source technologies:")
 	} else {
-		fmt.Println(out, "available target technologies:")
+		fmt.Fprintln(out, "available target technologies:")
 	}
 	for _, tech := range newSl {
-		fmt.Println(out, tech)
+		fmt.Fprintln(out, tech)
 	}
 }
 
@@ -557,8 +586,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 	default:
 		return nil, fmt.Errorf("unable to find config for provider %v", providers[0])
 	}
-
-	// TODO (pgaikwad): binaries don't work with alizer right now, we need to revisit this
 	if !foundJava && a.isFileInput {
 		foundJava = true
 	}
@@ -587,6 +614,7 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			},
 		},
 	}
+
 	if a.mavenSettingsFile != "" {
 		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
@@ -594,9 +622,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			return nil, err
 		}
 		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
-	}
-	if Settings.JvmMaxMem != "" {
-		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
 
 	goConfig := provider.Config{
@@ -666,7 +691,6 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 			},
 		},
 	}
-
 	switch {
 	case foundJava:
 		provConfig = append(provConfig, javaConfig)
@@ -678,30 +702,18 @@ func (a *analyzeCommand) getConfigVolumes(providers []string, ports map[string]i
 		provConfig = append(provConfig, nodeJSConfig)
 	}
 
-	// Set proxy to providers
-	if a.httpProxy != "" || a.httpsProxy != "" {
-		proxy := provider.Proxy{
-			HTTPProxy:  a.httpProxy,
-			HTTPSProxy: a.httpsProxy,
-			NoProxy:    a.noProxy,
-		}
-		for i := range provConfig {
-			provConfig[i].Proxy = &proxy
-		}
-	}
-
-	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
+	err = a.getProviderOptions(tempDir, provConfig, providers[0])
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
-		return nil, err
+		if errors.Is(err, os.ErrNotExist) {
+			a.log.V(5).Info("provider options config not found, using default options")
+			err := a.writeProvConfig(tempDir, provConfig)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
-	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
-	if err != nil {
-		a.log.V(1).Error(err,
-			"failed to write provider config", "dir", tempDir, "file", "settings.json")
-		return nil, err
-	}
-
 	settingsVols := map[string]string{
 		tempDir: ConfigMountPath,
 	}
@@ -988,6 +1000,104 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 
 	a.providerContainerNames = append(a.providerContainerNames, con.Name)
 	return providerPorts, nil
+}
+
+func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context) error {
+
+	volumes := map[string]string{
+		// output directory
+		a.output:                   OutputPath,
+		a.overrideProviderSettings: ProviderSettingsMountPath,
+	}
+
+	if len(a.rules) > 0 {
+		ruleVols, err := a.getRulesVolumes()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
+			return err
+		}
+		maps.Copy(volumes, ruleVols)
+	}
+
+	args := []string{
+		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
+		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
+		fmt.Sprintf("--context-lines=%d", a.contextLines),
+	}
+
+	a.enableDefaultRulesets = false
+	if a.enableDefaultRulesets {
+		args = append(args,
+			fmt.Sprintf("--rules=%s/", RulesetPath))
+	}
+
+	if a.incidentSelector != "" {
+		args = append(args,
+			fmt.Sprintf("--incident-selector=%s", a.incidentSelector))
+	}
+
+	if len(a.rules) > 0 {
+		args = append(args,
+			fmt.Sprintf("--rules=%s/", CustomRulePath))
+	}
+
+	if a.jaegerEndpoint != "" {
+		args = append(args, "--enable-jaeger")
+		args = append(args, "--jaeger-endpoint")
+		args = append(args, a.jaegerEndpoint)
+	}
+	if !a.analyzeKnownLibraries {
+		args = append(args,
+			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
+	}
+	if a.logLevel != nil {
+		args = append(args, fmt.Sprintf("--verbose=%d", *a.logLevel))
+	}
+	labelSelector := a.getLabelSelector()
+	if labelSelector != "" {
+		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
+	}
+	if a.mode == string(provider.FullAnalysisMode) {
+		a.log.Info("running dependency retrieval during analysis")
+		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
+	}
+
+	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
+	// create log files
+	analysisLog, err := os.Create(analysisLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
+	}
+	defer analysisLog.Close()
+
+	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
+	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
+	// TODO (pgaikwad): run analysis & deps in parallel
+
+	c := container.NewContainer()
+	err = c.Run(
+		ctx,
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithVolumes(volumes),
+		container.WithStdout(analysisLog),
+		container.WithStderr(analysisLog),
+		container.WithEntrypointArgs(args...),
+		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
+		container.WithNetwork("host"),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithCleanup(a.cleanup),
+	)
+	if err != nil {
+		return err
+	}
+	err = a.getProviderLogs(ctx)
+	if err != nil {
+		a.log.Error(err, "failed to get provider container logs")
+	}
+
+	return nil
 }
 
 func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string, providers []string, ports map[string]int) error {
@@ -1432,6 +1542,128 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 
 	return tempOutputDir, nil
+}
+
+func (a *analyzeCommand) writeProvConfig(tempDir string, config []provider.Config) error {
+	jsonData, err := json.MarshalIndent(&config, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal provider config")
+		return err
+	}
+	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err,
+			"failed to write provider config", "dir", tempDir, "file", "settings.json")
+		return err
+	}
+	return nil
+}
+
+func (a *analyzeCommand) getProviderOptions(tempDir string, provConfig []provider.Config, prov string) error {
+	var confDir string
+	var set bool
+	ops := runtime.GOOS
+	if ops == "linux" {
+		confDir, set = os.LookupEnv("XDG_CONFIG_HOME")
+	}
+	if ops != "linux" || confDir == "" || !set {
+		// on Unix, including macOS, this returns the $HOME environment variable. On Windows, it returns %USERPROFILE%
+		var err error
+		confDir, err = os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+	}
+	// get provider options from provider settings file
+	data, err := os.ReadFile(filepath.Join(confDir, ".kantra", fmt.Sprintf("%v.json", prov)))
+	if err != nil {
+		return err
+	}
+	optionsConfig := &[]provider.Config{}
+	err = yaml.Unmarshal(data, optionsConfig)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to unmarshal provider options file")
+		return err
+	}
+	mergedConfig, err := a.mergeProviderConfig(provConfig, *optionsConfig, tempDir)
+	if err != nil {
+		return err
+	}
+	err = a.writeProvConfig(tempDir, mergedConfig)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *analyzeCommand) mergeProviderConfig(defaultConf, optionsConf []provider.Config, tempDir string) ([]provider.Config, error) {
+	merged := []provider.Config{}
+	seen := map[string]*provider.Config{}
+
+	// find options used for supported providers
+	for idx, conf := range defaultConf {
+		seen[conf.Name] = &defaultConf[idx]
+	}
+
+	for _, conf := range optionsConf {
+		if _, ok := seen[conf.Name]; ok {
+			// set provider config options
+			if conf.ContextLines != 0 {
+				seen[conf.Name].ContextLines = conf.ContextLines
+			}
+			if conf.Proxy != nil {
+				seen[conf.Name].Proxy = conf.Proxy
+			}
+		}
+		// set init config options
+		for i, init := range conf.InitConfig {
+			if len(init.AnalysisMode) != 0 {
+				seen[conf.Name].InitConfig[i].AnalysisMode = init.AnalysisMode
+			}
+			if len(init.ProviderSpecificConfig) != 0 {
+				provSpecificConf, err := a.mergeProviderSpecificConfig(init.ProviderSpecificConfig, seen[conf.Name].InitConfig[i].ProviderSpecificConfig, tempDir)
+				if err != nil {
+					return nil, err
+				}
+				seen[conf.Name].InitConfig[i].ProviderSpecificConfig = provSpecificConf
+			}
+		}
+	}
+	for _, v := range seen {
+		merged = append(merged, *v)
+	}
+	return merged, nil
+}
+
+func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[string]interface{}, tempDir string) (map[string]interface{}, error) {
+	for k, v := range optionsConf {
+		switch {
+		case optionsConf[k] == "":
+			continue
+		// special case for maven settings file to mount correctly
+		case k == mavenSettingsFile:
+			// validate maven settings file
+			if _, err := os.Stat(v.(string)); err != nil {
+				return nil, fmt.Errorf("%w failed to stat maven settings file at path %s", err, v)
+			}
+			if absPath, err := filepath.Abs(v.(string)); err == nil {
+				seenConf[k] = absPath
+			}
+			// copy file to mount path
+			err := copyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
+			if err != nil {
+				a.log.V(1).Error(err, "failed copying maven settings file", "path", v)
+				return nil, err
+			}
+			seenConf[k] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
+			continue
+		// we don't want users to override these options here
+		// use --overrideProviderSettings to do so
+		case k != lspServerPath && k != lspServerName && k != workspaceFolders && k != dependencyProviderPath:
+			seenConf[k] = v
+		}
+	}
+	return seenConf, nil
 }
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {

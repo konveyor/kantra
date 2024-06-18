@@ -1,0 +1,14 @@
+[
+    {
+        "name": "java",
+        "initConfig": [{
+                "providerSpecificConfig": {
+                    "bundles": "",
+                    "depOpenSourceLabelsFile": "",
+                    "jvmMaxMem": "",
+                    "mavenSettingsFile": ""
+                },
+                "analysisMode": "source-only"
+            }]
+    }
+]

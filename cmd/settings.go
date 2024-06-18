@@ -26,7 +26,6 @@ type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
 	PodmanBinary         string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
 	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
-	JvmMaxMem            string `env:"JVM_MAX_MEM" default:""`
 	RunLocal             bool   `env:"RUN_LOCAL"`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
 	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
@@ -85,6 +84,11 @@ func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
 }
 
 func (c *Config) loadRunnerImg() error {
+	// TODO(maufart): ensure Config struct works/parses it values from ENV and defaults correctly
+	// Respect existing RUNNER_IMG setting
+	if os.Getenv("RUNNER_IMG") != "" {
+		return nil
+	}
 	// if version tag is given in image
 	img := strings.TrimSuffix(RunnerImage, fmt.Sprintf(":%v", Version))
 	updatedImg := fmt.Sprintf("%v:%v", img, Version)

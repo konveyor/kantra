@@ -224,6 +224,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 			c.containerToolBin, reproducer)
 	}
 	cmd := exec.CommandContext(ctx, c.containerToolBin, args...)
+	fmt.Printf("%v", cmd.String())
 	errBytes := &bytes.Buffer{}
 	cmd.Stdout = nil
 	cmd.Stderr = errBytes
