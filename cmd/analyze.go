@@ -74,7 +74,7 @@ type analyzeCommand struct {
 	jsonOutput               bool
 	overwrite                bool
 	bulk                     bool
-  mavenSettingsFile        string
+	mavenSettingsFile        string
 	sources                  []string
 	targets                  []string
 	labelSelector            string
@@ -1293,20 +1293,24 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	// Prepare report args list with single input analysis
 	applicationNames := []string{filepath.Base(a.input)}
 	outputAnalyses := []string{AnalysisOutputMountPath}
+	outputDeps := []string{DepsOutputMountPath}
 
 	if a.bulk {
 		a.moveResults()
 		// Scan all available analysis output files to be reported
 		applicationNames = nil
 		outputAnalyses = nil
+		outputDeps = nil
 		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
 		if err != nil {
 			return err
 		}
 		for i := range outputFiles {
 			outputName := filepath.Base(outputFiles[i])
-			applicationNames = append(applicationNames, strings.SplitN(outputName, "output.yaml.", 2)[1])
+			applicationName := strings.SplitN(outputName, "output.yaml.", 2)[1]
+			applicationNames = append(applicationNames, applicationName)
 			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
+			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
 		}
 	}
 
@@ -1316,10 +1320,15 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		fmt.Sprintf("--analysis-output-list=%s", strings.Join(outputAnalyses, ",")),
 		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")),
 	}
-	if a.mode == string(provider.FullAnalysisMode) {
-		staticReportArgs = append(staticReportArgs,
-			fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+	for i := range outputDeps {
+		_, depErr := os.Stat(outputDeps[i])
+		if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
+			// Remove not existing dependency files from statis report generator list
+			outputDeps[i] = ""
+		}
 	}
+	staticReportArgs = append(staticReportArgs, fmt.Sprintf("--deps-output-list=%s", strings.Join(outputDeps, ",")))
+
 	cpArgs := []string{"&& cp -r",
 		"/usr/local/static-report", OutputPath}
 
