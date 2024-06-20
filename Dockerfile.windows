@@ -1,0 +1,68 @@
+ARG VERSION=latest
+
+# FROM quay.io/konveyor/static-report:${VERSION} as static-report
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS rulesets
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+ENV GIT_VERSION 2.45.2
+ENV GIT_SHA256 7ed2a3ce5bbbf8eea976488de5416894ca3e6a0347cee195a7d768ac146d5290
+
+RUN $url = ('https://github.com/git-for-windows/git/releases/download/v{0}.windows.1/MinGit-{0}-64-bit.zip' -f $env:GIT_VERSION); \
+	Write-Host ('Downloading {0} ...' -f $url); \
+	Invoke-WebRequest -Uri $url -OutFile 'git.zip'; \
+	\
+	Write-Host ('Verifying sha256 ({0}) ...' -f $env:GIT_SHA256); \
+	if ((Get-FileHash git.zip -Algorithm sha256).Hash -ne $env:GIT_SHA256) { throw 'SHA256 mismatch' }; \
+	\
+	Write-Host 'Expanding ...'; \
+	Expand-Archive git.zip -DestinationPath C:\git; \
+	\
+	Write-Host 'Removing ...'; \
+	Remove-Item git.zip -Force; \
+	\
+	Write-Host 'Verifying ("git --version") ...'; \
+	C:\git\cmd\git.exe --version; \
+	\
+	Write-Host 'Complete.';
+
+ARG RULESETS_REF=main
+RUN C:\git\cmd\git.exe clone https://github.com/konveyor/rulesets -b $env:RULESETS_REF C:\rulesets
+
+FROM golang:1.21-windowsservercore-ltsc2022 as builder
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
+
+# Copy the go source
+COPY main.go main.go
+COPY cmd/ cmd/
+COPY pkg/ pkg/
+
+# Build
+ARG VERSION=latest
+ARG BUILD_COMMIT
+RUN go build -o kantra.exe main.go
+
+FROM quay.io/konveyor/analyzer-lsp:${VERSION}-windowsservercore-ltsc2022
+
+ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}-ltsc2022
+
+# Set the working directory inside the container
+WORKDIR C:/app
+
+RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\input\rules\custom C:\opt\output C:\opt\xmlrules C:\opt\shimoutput C:\tmp\source-app C:\tmp\source-app\input
+
+# Copy the executable from the builder stage
+COPY --from=builder /workspace/kantra.exe .
+COPY --from=rulesets /rulesets/default/generated/dotnet8 /opt/rulesets
+#COPY --from=static-report /usr/bin/js-bundle-generator .
+#COPY --from=static-report /usr/local/static-report .
+
+# Command to run the executable
+ENTRYPOINT ["kantra.exe"]
