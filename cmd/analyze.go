@@ -69,6 +69,7 @@ var (
 	}
 )
 
+// supported providers
 const (
 	javaProvider            = "java"
 	goProvider              = "go"
@@ -85,6 +86,14 @@ const (
 	lspServerName          = "lspServerName"
 	workspaceFolders       = "workspaceFolders"
 	dependencyProviderPath = "dependencyProviderPath"
+)
+
+// valid java file extensions
+const (
+	JavaArchive       = ".jar"
+	WebArchive        = ".war"
+	EnterpriseArchive = ".ear"
+	ClassFile         = ".class"
 )
 
 // TODO add network and volume w/ interface
@@ -374,6 +383,14 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 		// when input isn't a dir, it's pointing to a binary
 		// we need abs path to mount the file correctly
 		if !stat.Mode().IsDir() {
+			// validate file types
+			fileExt := filepath.Ext(a.input)
+			switch fileExt {
+			case JavaArchive, WebArchive, EnterpriseArchive, ClassFile:
+				a.log.V(5).Info("valid java file found")
+			default:
+				return fmt.Errorf("invalid file type %v", fileExt)
+			}
 			a.input, err = filepath.Abs(a.input)
 			if err != nil {
 				return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
