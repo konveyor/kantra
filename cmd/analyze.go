@@ -1561,9 +1561,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		return err
 	}
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	cleanedURI := filepath.Clean(string(uri))
-	a.log.Info("Static report created. Access it at this URL:", "URL", cleanedURI)
-
+	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 	return nil
 }
 
