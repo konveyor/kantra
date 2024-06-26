@@ -1,6 +1,6 @@
 ARG VERSION=latest
 
-# FROM quay.io/konveyor/static-report:${VERSION} as static-report
+FROM quay.io/konveyor/static-report:${VERSION} as static-report
 
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS rulesets
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
@@ -61,8 +61,8 @@ RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\i
 # Copy the executable from the builder stage
 COPY --from=builder /workspace/kantra.exe .
 COPY --from=rulesets /rulesets/default/generated/dotnet8 /opt/rulesets
-#COPY --from=static-report /usr/bin/js-bundle-generator .
-#COPY --from=static-report /usr/local/static-report .
+COPY --from=static-report /usr/bin/js-bundle-generator .
+COPY --from=static-report /usr/local/static-report ./static-report
 
 # Command to run the executable
 ENTRYPOINT ["kantra.exe"]
