@@ -49,9 +49,9 @@ ARG VERSION=latest
 ARG BUILD_COMMIT
 RUN go build -o kantra.exe main.go
 
-FROM quay.io/konveyor/analyzer-lsp:${VERSION}-windowsservercore-ltsc2022
+FROM quay.io/konveyor/analyzer-lsp:${VERSION}
 
-ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}-ltsc2022
+ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}
 
 # Set the working directory inside the container
 WORKDIR C:/app
