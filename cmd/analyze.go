@@ -2017,11 +2017,16 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		return err
 	}
 
-	// TODO(djzager): uncomment when provider handles mode correctly
-	//if a.mode == string(provider.FullAnalysisMode) {
-	//	a.log.V(1).Info("Only source mode analysis is supported")
-	//	a.mode = string(provider.SourceOnlyAnalysisMode)
-	//}
+	if a.bulk {
+		err := fmt.Errorf("Unsupported option")
+		a.log.Error(err, "Bulk analysis not supported for .NET Framework projects")
+		return err
+	}
+
+	if a.mode == string(provider.FullAnalysisMode) {
+		a.log.V(1).Info("Only source mode analysis is supported")
+		a.mode = string(provider.SourceOnlyAnalysisMode)
+	}
 
 	var err error
 
@@ -2215,11 +2220,48 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	// Generate Static Report
-	err = a.GenerateStaticReport(ctx)
+	if a.skipStaticReport {
+		return nil
+	}
+
+	err = container.NewContainer().Run(
+		ctx,
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithEntrypointBin("powershell"),
+		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(OutputPath)),
+		container.WithVolumes(volumes),
+		container.WithCleanup(a.cleanup),
+	)
 	if err != nil {
-		a.log.Error(err, "failed to generate static report")
 		return err
 	}
+
+	staticReportArgs := []string{
+		fmt.Sprintf(`-output-path=C:\%s\static-report\output.js`, filepath.FromSlash(OutputPath)),
+		fmt.Sprintf("-analysis-output-list=C:%s", filepath.FromSlash(AnalysisOutputMountPath)),
+		fmt.Sprintf("-application-name-list=%s", filepath.Base(a.input)),
+	}
+
+	//staticReportContainer := container.NewContainer()
+	a.log.Info("generating static report", "output", a.output, "args", staticReportArgs)
+	err = container.NewContainer().Run(
+		ctx,
+		container.WithImage(Settings.RunnerImage),
+		container.WithLog(a.log.V(1)),
+		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithEntrypointBin(`C:\app\js-bundle-generator`),
+		container.WithEntrypointArgs(staticReportArgs...),
+		container.WithVolumes(volumes),
+		container.WithCleanup(a.cleanup),
+	)
+	if err != nil {
+		return err
+	}
+
+	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
+	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
