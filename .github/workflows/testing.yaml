@@ -82,6 +82,10 @@ jobs:
         run: |
           ./hack/test_analysis.sh test-data/java-binary
 
+      - name: Run analysis test tackle-testapp with maven settings
+        run: |
+          ./hack/test_analysis.sh test-data/java-testapp-maven-settings
+
   # run tests using conainer image / binary already published to quay
   test-published:
     name: Build & test with published images
