@@ -13,16 +13,22 @@
       artifactId: jackson-bom
       groupId: com.fasterxml.jackson
       pomPath: /opt/input/source/pom.xml
-  - name: com.oracle.database.jdbc.ojdbc8
+  - name: com.h2database.h2
+    version: 2.1.214
+    extras:
+      artifactId: h2
+      groupId: com.h2database
+      pomPath: /opt/input/source/pom.xml
+  - name: com.oracle.database.jdbc.ojdbc11
     version: 21.1.0.0
     extras:
-      artifactId: ojdbc8
+      artifactId: ojdbc11
       groupId: com.oracle.database.jdbc
       pomPath: /opt/input/source/pom.xml
-  - name: io.konveyor.demo.config-utils
+  - name: io.konveyor.demo.configuration-utils
     version: 1.0.0
     extras:
-      artifactId: config-utils
+      artifactId: configuration-utils
       groupId: io.konveyor.demo
       pomPath: /opt/input/source/pom.xml
   - name: org.apache.tomcat.tomcat-jdbc
