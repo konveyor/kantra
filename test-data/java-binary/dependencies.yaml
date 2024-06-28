@@ -1,0 +1,167 @@
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/WEB-INF/lib/acmeair-common-1.0-SNAPSHOT-decompiled/acmeair-common-1.0-SNAPSHOT.jar/acmeair-common-1.0-SNAPSHOT.jar
+  provider: java
+  dependencies:
+  - name: net.wasdev.wlp.sample.acmeair-common
+    version: 1.0-SNAPSHOT
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/net/wasdev/wlp/sample/acmeair-common/1.0-SNAPSHOT
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/WEB-INF/lib/acmeair-services-1.0-SNAPSHOT-decompiled/acmeair-services-1.0-SNAPSHOT.jar/acmeair-services-1.0-SNAPSHOT.jar
+  provider: java
+  dependencies:
+  - name: net.wasdev.wlp.sample.acmeair-services
+    version: 1.0-SNAPSHOT
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/net/wasdev/wlp/sample/acmeair-services/1.0-SNAPSHOT
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/WEB-INF/lib/acmeair-services-jpa-1.0-SNAPSHOT-decompiled/acmeair-services-jpa-1.0-SNAPSHOT.jar/acmeair-services-jpa-1.0-SNAPSHOT.jar
+  provider: java
+  dependencies:
+  - name: net.wasdev.wlp.sample.acmeair-services-jpa
+    version: 1.0-SNAPSHOT
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/net/wasdev/wlp/sample/acmeair-services-jpa/1.0-SNAPSHOT
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/aopalliance-1.0.jar/aopalliance-1.0.jar
+  provider: java
+  dependencies:
+  - name: aopalliance.aopalliance
+    version: "1.0"
+    resolvedIdentifier: 0235ba8b489512805ac13a8f9ea77a1ca5ebe3e8
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/aopalliance/aopalliance/1.0
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/asm-3.3.1.jar/asm-3.3.1.jar
+  provider: java
+  dependencies:
+  - name: asm.asm
+    version: 3.3.1
+    resolvedIdentifier: 1d5f20b4ea675e6fab6ab79f1cd60ec268ddc015
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/asm/asm/3.3.1
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/aspectjrt-1.6.8.jar/aspectjrt-1.6.8.jar
+  provider: java
+  dependencies:
+  - name: org.aspectj.aspectjrt
+    version: 1.6.8
+    resolvedIdentifier: 8c234df6a43dd5ba355803122e33caa7ccd11011
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/aspectj/aspectjrt/1.6.8
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/aspectjweaver-1.6.8.jar/aspectjweaver-1.6.8.jar
+  provider: java
+  dependencies:
+  - name: org.aspectj.aspectjweaver
+    version: 1.6.8
+    resolvedIdentifier: d3fdabe0a1f7f395d64bf9d0c1a3e0f1b98430df
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/aspectj/aspectjweaver/1.6.8
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/cglib-2.2.2.jar/cglib-2.2.2.jar
+  provider: java
+  dependencies:
+  - name: cglib.cglib
+    version: 2.2.2
+    resolvedIdentifier: a47a971686474124562bdd4a7ccbd8ac8c3e8b11
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/cglib/cglib/2.2.2
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/commons-logging-1.1.1.jar/commons-logging-1.1.1.jar
+  provider: java
+  dependencies:
+  - name: commons-logging.commons-logging
+    version: 1.1.1
+    resolvedIdentifier: 5043bfebc3db072ed80fbd362e7caf00e885d8ae
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/commons-logging/commons-logging/1.1.1
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-aop-3.1.2.RELEASE.jar/spring-aop-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-aop
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: a68c5ee96d735ac68c00e226e768ef70ae1d5c57
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-aop/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-asm-3.1.2.RELEASE.jar/spring-asm-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-asm
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: d45753d8048317099395ce7f2bbcdb1776a2e26c
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-asm/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-beans-3.1.2.RELEASE.jar/spring-beans-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-beans
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: 38ff7985f572a87d72023eedce3d720ce1ba4083
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-beans/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-context-3.1.2.RELEASE.jar/spring-context-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-context
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: 06787712741427c1014aaca503d24e3b3f05f396
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-context/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-core-3.1.2.RELEASE.jar/spring-core-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-core
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: dd4295f0567deb2cc629dd647d2f055268c2fd3e
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-core/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-expression-3.1.2.RELEASE.jar/spring-expression-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-expression
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: c6d4aca58f993bda3cce2bc0536bd168cc9d7ed5
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-expression/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-tx-3.1.2.RELEASE.jar/spring-tx-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-tx
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: f9efe9e07e73ab593de0353e01b8bcbaafbfd3c1
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-tx/3.1.2.RELEASE
+- fileURI: /opt/input/source/acmeair-webapp-1.0-SNAPSHOT.war/acmeair-webapp-1-0-SNAPSHOT-war-exploded/WEB-INF/lib/spring-web-3.1.2.RELEASE.jar/spring-web-3.1.2.RELEASE.jar
+  provider: java
+  dependencies:
+  - name: org.springframework.spring-web
+    version: 3.1.2.RELEASE
+    resolvedIdentifier: 34a73557b66ea3c68892c042f2c9ba7e8bff8eac
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-web/3.1.2.RELEASE

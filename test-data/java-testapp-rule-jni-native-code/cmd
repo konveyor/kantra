@@ -1,0 +1,1 @@
+${KANTRA_CMD} analyze --rules jni-native-code-test.windup.xml --target cloud-readiness --input ${TEST_APPS_ROOT}/example-applications/example-1/ --output output --overwrite

@@ -1,0 +1,1 @@
+${KANTRA_CMD} analyze --maven-settings settings.xml --target cloud-readiness --input ${TEST_APPS_ROOT}/tackle-testapp --output output --overwrite
