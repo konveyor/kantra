@@ -1846,14 +1846,15 @@ func (a *analyzeCommand) mergeProviderConfig(defaultConf, optionsConf []provider
 	}
 
 	for _, conf := range optionsConf {
-		if _, ok := seen[conf.Name]; ok {
-			// set provider config options
-			if conf.ContextLines != 0 {
-				seen[conf.Name].ContextLines = conf.ContextLines
-			}
-			if conf.Proxy != nil {
-				seen[conf.Name].Proxy = conf.Proxy
-			}
+		if _, ok := seen[conf.Name]; !ok {
+			continue
+		}
+		// set provider config options
+		if conf.ContextLines != 0 {
+			seen[conf.Name].ContextLines = conf.ContextLines
+		}
+		if conf.Proxy != nil {
+			seen[conf.Name].Proxy = conf.Proxy
 		}
 		// set init config options
 		for i, init := range conf.InitConfig {
