@@ -205,7 +205,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to convert xml rules")
 					return err
 				}
-				components, err := recognizer.DetectComponents(analyzeCmd.input)
+				languages, err := recognizer.Analyze(analyzeCmd.input)
 				if err != nil {
 					log.Error(err, "Failed to determine languages for input")
 					return err
@@ -215,7 +215,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.isFileInput {
 					foundProviders = append(foundProviders, javaProvider)
 				} else {
-					foundProviders, err = analyzeCmd.setProviders(components, foundProviders)
+					foundProviders, err = analyzeCmd.setProviders(languages, foundProviders)
 					if err != nil {
 						log.Error(err, "failed to set provider info")
 						return err
@@ -483,16 +483,16 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) setProviders(components []model.Component, foundProviders []string) ([]string, error) {
+func (a *analyzeCommand) setProviders(languages []model.Language, foundProviders []string) ([]string, error) {
 	if len(a.provider) > 0 {
 		for _, p := range a.provider {
 			foundProviders = append(foundProviders, p)
 			return foundProviders, nil
 		}
 	}
-	for _, c := range components {
-		a.log.V(5).Info("Got component", "component language", c.Languages, "path", c.Path)
-		for _, l := range c.Languages {
+	for _, l := range languages {
+		if l.CanBeComponent {
+			a.log.V(5).Info("Got language", "component language", l)
 			if l.Name == "C#" {
 				for _, item := range l.Frameworks {
 					supported, ok := DotnetFrameworks[item]
