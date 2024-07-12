@@ -2030,9 +2030,30 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 
 	var err error
 
+	// Check configuration
+	var systemInfo struct {
+		Plugins struct {
+			Network []string `json:"network"`
+		} `json:"plugins"`
+	}
+	cmd := exec.Command(Settings.PodmanBinary, []string{"system", "info", "--format=json"}...)
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(out, &systemInfo); err != nil {
+		return err
+	}
+	a.log.V(5).Info("container network plugins", "plugins", systemInfo)
+	if !slices.Contains(systemInfo.Plugins.Network, "nat") {
+		err := fmt.Errorf("Unsupported container client configuration")
+		a.log.Error(err, ".NET Framework projects must be analyzed using docker configured to run Windows containers")
+		return err
+	}
+
 	// Create network
 	networkName := container.RandomName()
-	cmd := exec.Command(Settings.PodmanBinary, []string{"network", "create", "-d", "nat", networkName}...)
+	cmd = exec.Command(Settings.PodmanBinary, []string{"network", "create", "-d", "nat", networkName}...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
