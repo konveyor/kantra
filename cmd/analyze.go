@@ -505,6 +505,8 @@ func (a *analyzeCommand) setProviders(languages []model.Language, foundProviders
 						return []string{dotnetFrameworkProvider}, nil
 					}
 				}
+				foundProviders = append(foundProviders, dotnetProvider)
+				continue
 			}
 			if l.Name == "JavaScript" {
 				for _, item := range l.Tools {
