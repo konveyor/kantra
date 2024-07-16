@@ -28,13 +28,13 @@ fi
 expected_file=output.yaml
 actual_file=output/output.yaml
 function filter_and_sort() {
-  yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
-    | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
-    | yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' \
-    | yq e '.[] | (.tags // []) |= sort'
+  yq -i e 'del(.[].skipped) | del(.[].unmatched)' $1
+  yq -i e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' $1
+  yq -i e '.[]?.violations[]?.incidents |= sort_by(.uri)' $1
+  yq -i e '.[] | (.tags // []) |= sort' $1
 }
-filter_and_sort $expected_file > $expected_file
-filter_and_sort $actual_file > $actual_file
+filter_and_sort $expected_file
+filter_and_sort $actual_file
 diff $expected_file $actual_file
 
 

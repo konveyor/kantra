@@ -20,4 +20,10 @@ Example usage from kantra project directory:
 
 ```
 $ ./hack/test_analysis.sh test-data/<analysis-test-dir>
+
+```
+
+Or from actual test directory
+```
+$ ../../hack/test_analysis.sh .
 ```
