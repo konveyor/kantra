@@ -27,24 +27,23 @@ fi
 # Check analysis result
 expected_file=output.yaml
 actual_file=output/output.yaml
-function filter_and_sort() {
+function filter_and_sort_file() {
   yq -i e 'del(.[].skipped) | del(.[].unmatched)' $1
   yq -i e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' $1
   yq -i e '.[]?.violations[]?.incidents |= sort_by(.uri)' $1
   yq -i e '.[] | (.tags // []) |= sort' $1
 }
-filter_and_sort $expected_file
-filter_and_sort $actual_file
-diff $expected_file $actual_file
+#filter_and_sort_file $expected_file
+filter_and_sort_file $actual_file
+diff $expected_file $actual_file && echo "[PASS] Analysis output file (output/output.yaml) content is matches to expected output.yaml file."
 
 
 # Check dependencies
 if [ -f dependencies.yaml ]; then
     expected_file=dependencies.yaml
     actual_file=output/dependencies.yaml
-    sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
-    sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
-    diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+    sed 's/^[ \t-]*//' $actual_file | sort -s > $actual_file
+    diff $expected_file $actual_file && echo "[PASS] Analysis dependencies (output/dependencies.yaml) content is matches to expected dependencies.yaml file."
 fi
 
 exit 0
