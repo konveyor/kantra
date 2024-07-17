@@ -43,7 +43,7 @@ if [ -f dependencies.yaml ]; then
     expected_file=dependencies.yaml
     actual_file=output/dependencies.yaml
     sed 's/^[ \t-]*//' $actual_file | sort -s > $actual_file
-    diff $expected_file $actual_file && echo "[PASS] Analysis dependencies (output/dependencies.yaml) content is matches to expected dependencies.yaml file."
+    diff $expected_file $actual_file && echo "[PASS] Dependencies (output/dependencies.yaml) content is matches to expected dependencies.yaml file."
 fi
 
 exit 0
