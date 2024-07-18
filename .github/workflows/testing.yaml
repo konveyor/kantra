@@ -79,10 +79,12 @@ jobs:
           ./hack/test_analysis.sh test-data/java-testapp-rule-jni-native-code
 
       - name: Run analysis test java binary file
+        if: '!cancelled()'
         run: |
           ./hack/test_analysis.sh test-data/java-binary
 
       - name: Run analysis test tackle-testapp with maven settings
+        if: '!cancelled()'
         run: |
           ./hack/test_analysis.sh test-data/java-testapp-maven-settings
 
