@@ -33,9 +33,9 @@ function filter_and_sort_file() {
   yq -i e '.[]?.violations[]?.incidents |= sort_by(.uri)' $1
   yq -i e '.[] | (.tags // []) |= sort' $1
 }
-#filter_and_sort_file $expected_file
+# Expected files should be started as copy of verified actual output.yaml and/or modified manually
 filter_and_sort_file $actual_file
-diff $expected_file $actual_file && echo "[PASS] Analysis output file (output/output.yaml) content is matches to expected output.yaml file."
+diff $expected_file $actual_file && echo "[PASS] Analysis output file (output/output.yaml) content is matches to expected output.yaml file." || (echo "[FAIL] Different analysis output, expected output.yaml doesn't match to output/output.yaml."; exit 1)
 
 
 # Check dependencies
@@ -43,7 +43,7 @@ if [ -f dependencies.yaml ]; then
     expected_file=dependencies.yaml
     actual_file=output/dependencies.yaml
     sed 's/^[ \t-]*//' $actual_file | sort -s > $actual_file
-    diff $expected_file $actual_file && echo "[PASS] Dependencies (output/dependencies.yaml) content is matches to expected dependencies.yaml file."
+    diff $expected_file $actual_file && echo "[PASS] Dependencies (output/dependencies.yaml) content is matches to expected dependencies.yaml file." || (echo "[FAIL] Different dependencies output, expected dependencies.yaml doesn't match to output/dependencies.yaml."; exit 2)
 fi
 
 exit 0
