@@ -34,10 +34,11 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				return nil
 			}
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
-				RunLocal:        Settings.RunLocal,
-				ContainerImage:  Settings.RunnerImage,
-				ProgressPrinter: testing.PrintProgress,
-				Log:             log.V(3),
+				RunLocal:         Settings.RunLocal,
+				ContainerImage:   Settings.RunnerImage,
+				ContainerToolBin: Settings.PodmanBinary,
+				ProgressPrinter:  testing.PrintProgress,
+				Log:              log.V(3),
 			})
 			testing.PrintSummary(os.Stdout, results)
 			if err != nil {
