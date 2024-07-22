@@ -33,6 +33,7 @@ type TestOptions struct {
 	BaseProviderConfig []provider.Config
 	RunLocal           bool
 	ContainerImage     string
+	ContainerToolBin   string
 	ProgressPrinter    ResultPrinter
 	Log                logr.Logger
 }
@@ -204,7 +205,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				}
 			default:
 				if reproducerCmd, err = runInContainer(
-					logger, opts.ContainerImage, logFile, volumes, analysisParams); err != nil {
+					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams); err != nil {
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
@@ -315,7 +316,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (str
 	return fmt.Sprintf("konveyor-analyzer %s", strings.Join(args, " ")), cmd.Run()
 }
 
-func runInContainer(consoleLogger logr.Logger, image string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams) (string, error) {
+func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams) (string, error) {
 	if image == "" {
 		image = "quay.io/konveyor/analyzer-lsp:latest"
 	}
@@ -342,6 +343,7 @@ func runInContainer(consoleLogger logr.Logger, image string, logFile io.Writer, 
 		container.WithImage(image),
 		container.WithLog(consoleLogger),
 		container.WithEntrypointBin("konveyor-analyzer"),
+		container.WithContainerToolBin(containerBin),
 		container.WithEntrypointArgs(args...),
 		container.WithVolumes(volumes),
 		container.WithWorkDir("/shared/"),
