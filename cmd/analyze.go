@@ -1545,6 +1545,9 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		a.output: OutputPath,
 	}
 
+	args := []string{}
+	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
+		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js"))}
 	// Prepare report args list with single input analysis
 	applicationNames := []string{filepath.Base(a.input)}
 	outputAnalyses := []string{AnalysisOutputMountPath}
@@ -1567,28 +1570,27 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
 			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
 		}
-	}
-
-	args := []string{}
-	staticReportArgs := []string{"/usr/local/bin/js-bundle-generator",
-		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js")),
-		fmt.Sprintf("--analysis-output-list=%s", strings.Join(outputAnalyses, ",")),
-		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")),
-	}
-	for i := range outputDeps {
-		_, depErr := os.Stat(outputDeps[i])
-		if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
-			// Remove not existing dependency files from statis report generator list
-			outputDeps[i] = ""
+		for i := range outputDeps {
+			_, depErr := os.Stat(outputDeps[i])
+			if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
+				// Remove not existing dependency files from statis report generator list
+				outputDeps[i] = ""
+			}
 		}
+		staticReportArgs = append(staticReportArgs,
+			fmt.Sprintf("--deps-output-list=%s", strings.Join(outputDeps, ",")))
 	}
 
-	// as of now, only java provider has dep capability
+	staticReportArgs = append(staticReportArgs,
+		fmt.Sprintf("--analysis-output-list=%s", strings.Join(outputAnalyses, ",")),
+		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")))
+
+	// as of now, only java and go providers has dep capability
 	_, hasJava := a.providersMap[javaProvider]
 	_, hasGo := a.providersMap[goProvider]
 	if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
 		staticReportArgs = append(staticReportArgs,
-			fmt.Sprintf("--deps-output-list=%s", strings.Join(outputDeps, ",")))
+			fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
 	}
 
 	cpArgs := []string{"&& cp -r",
