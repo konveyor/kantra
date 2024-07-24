@@ -136,8 +136,9 @@ type analyzeCommand struct {
 	tempDirs []string
 	log      logr.Logger
 	// isFileInput is set when input points to a file and not a dir
-	isFileInput bool
-	logLevel    *uint32
+	isFileInput  bool
+	needsBuiltin bool
+	logLevel     *uint32
 	// used for cleanup
 	networkName            string
 	volumeName             string
@@ -219,6 +220,17 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					if err != nil {
 						log.Error(err, "failed to set provider info")
 						return err
+					}
+					// alizer does not detect certain files such as xml
+					// in this case we need to run only the analyzer to use builtin provider
+					if len(foundProviders) == 0 {
+						analyzeCmd.needsBuiltin = true
+						err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, analyzeCmd.input)
+						if err != nil {
+							log.Error(err, "failed to run analysis")
+							return err
+						}
+						return nil
 					}
 					err = analyzeCmd.validateProviders(foundProviders)
 					if err != nil {
@@ -896,46 +908,53 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 			},
 		},
 	}
-	vols, dependencyFolders := a.getDepsFolders()
-	for prov, _ := range a.providersMap {
-		switch prov {
-		case javaProvider:
-			provConfig = append(provConfig, javaConfig)
-		case goProvider:
-			provConfig = append(provConfig, goConfig)
-		case pythonProvider:
-			if len(dependencyFolders) != 0 {
-				pythonConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
-			}
-			provConfig = append(provConfig, pythonConfig)
-		case nodeJSProvider:
-			if len(dependencyFolders) != 0 {
-				nodeJSConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
-			}
-			provConfig = append(provConfig, nodeJSConfig)
-		case dotnetProvider:
-			provConfig = append(provConfig, dotnetConfig)
-		}
-	}
-	for prov, _ := range a.providersMap {
-		err = a.getProviderOptions(tempDir, provConfig, prov)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				a.log.V(5).Info("provider options config not found, using default options")
-				err := a.writeProvConfig(tempDir, provConfig)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
-		}
-	}
+
 	settingsVols := map[string]string{
 		tempDir: ConfigMountPath,
 	}
-	if len(vols) != 0 {
-		maps.Copy(settingsVols, vols)
+	if !a.needsBuiltin {
+		vols, dependencyFolders := a.getDepsFolders()
+		if len(vols) != 0 {
+			maps.Copy(settingsVols, vols)
+		}
+		for prov, _ := range a.providersMap {
+			switch prov {
+			case javaProvider:
+				provConfig = append(provConfig, javaConfig)
+			case goProvider:
+				provConfig = append(provConfig, goConfig)
+			case pythonProvider:
+				if len(dependencyFolders) != 0 {
+					pythonConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
+				}
+				provConfig = append(provConfig, pythonConfig)
+			case nodeJSProvider:
+				if len(dependencyFolders) != 0 {
+					nodeJSConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
+				}
+				provConfig = append(provConfig, nodeJSConfig)
+			case dotnetProvider:
+				provConfig = append(provConfig, dotnetConfig)
+			}
+		}
+		for prov, _ := range a.providersMap {
+			err = a.getProviderOptions(tempDir, provConfig, prov)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					a.log.V(5).Info("provider options config not found, using default options")
+					err := a.writeProvConfig(tempDir, provConfig)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, err
+				}
+			}
+		}
+	}
+	err = a.writeProvConfig(tempDir, provConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	// attempt to create a .m2 directory we can use to speed things a bit
@@ -1369,8 +1388,10 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 	// default rulesets are only java rules
 	// may want to change this in the future
-	if _, ok := a.providersMap[javaProvider]; !ok {
-		a.enableDefaultRulesets = false
+	if !a.needsBuiltin {
+		if _, ok := a.providersMap[javaProvider]; !ok {
+			a.enableDefaultRulesets = false
+		}
 	}
 	if a.enableDefaultRulesets {
 		args = append(args,
@@ -1422,9 +1443,16 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	a.log.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
 	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
-	// TODO (pgaikwad): run analysis & deps in parallel
 
+	var networkName string
+	if !a.needsBuiltin {
+		networkName = fmt.Sprintf("container:%v", a.providerContainerNames[0])
+		// only running builtin provider
+	} else {
+		networkName = "none"
+	}
 	c := container.NewContainer()
+	// TODO (pgaikwad): run analysis & deps in parallel
 	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
@@ -1434,7 +1462,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		container.WithStderr(analysisLog),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
-		container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
+		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.PodmanBinary),
 		container.WithCleanup(a.cleanup),
 	)
@@ -1910,7 +1938,7 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 }
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
-	if !a.cleanup {
+	if !a.cleanup || a.needsBuiltin {
 		return nil
 	}
 	a.log.V(1).Info("removing temp dirs")
@@ -1986,7 +2014,7 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
-	if len(a.providerContainerNames) == 0 {
+	if len(a.providerContainerNames) == 0 || a.needsBuiltin {
 		return nil
 	}
 	providerLogFilePath := filepath.Join(a.output, "provider.log")
