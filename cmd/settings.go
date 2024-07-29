@@ -113,18 +113,33 @@ func (c *Config) loadCommandName() error {
 
 func (c *Config) loadProviders() error {
 	// if version tag is given in image
-	javaImg := strings.TrimSuffix(JavaProviderImage, fmt.Sprintf(":%v", Version))
-	updatedJavaImg := fmt.Sprintf("%v:%v", javaImg, Version)
-	err := os.Setenv("JAVA_PROVIDER_IMG", updatedJavaImg)
-	if err != nil {
-		return err
+	if os.Getenv("JAVA_PROVIDER_IMG") == "" {
+		javaImg := strings.TrimSuffix(JavaProviderImage, fmt.Sprintf(":%v", Version))
+		updatedJavaImg := fmt.Sprintf("%v:%v", javaImg, Version)
+		err := os.Setenv("JAVA_PROVIDER_IMG", updatedJavaImg)
+		if err != nil {
+			return err
+		}
 	}
-	// if version tag is given in image
-	genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
-	updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
-	err = os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
-	if err != nil {
-		return err
+
+	if os.Getenv("GENERIC_PROVIDER_IMG") == "" {
+		// if version tag is given in image
+		genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
+		updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
+		err := os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
+		if err != nil {
+			return err
+		}
+	}
+
+	if os.Getenv("DOTNET_PROVIDER_IMG") == "" {
+		// if version tag is given in image
+		dotnetImg := strings.TrimSuffix(DotnetProviderImage, fmt.Sprintf(":%v", Version))
+		updatedDotnetImg := fmt.Sprintf("%v:%v", dotnetImg, Version)
+		err := os.Setenv("DOTNET_PROVIDER_IMG", updatedDotnetImg)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

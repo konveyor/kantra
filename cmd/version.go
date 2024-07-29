@@ -14,6 +14,7 @@ var (
 	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
 	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
+	DotnetProviderImage  = "quay.io/konveyor/dotnet-external-provider"
 )
 
 // Use build flags to set correct Version and BuildCommit
