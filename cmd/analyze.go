@@ -245,6 +245,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to set provider init info")
 					return err
 				}
+				// defer cleaning created resources here instead of PostRun
+				// if Run returns an error, PostRun does not run
+				defer func() {
+					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+						log.Error(err, "failed to clean temporary directories")
+					}
+				}()
 				containerNetworkName, err := analyzeCmd.createContainerNetwork()
 				if err != nil {
 					log.Error(err, "failed to create container network")
@@ -267,13 +274,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to run analysis")
 					return err
 				}
-				// defer cleaning created resources here instead of PostRun
-				// if Run returns an error, PostRun does not run
-				defer func() {
-					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
-						log.Error(err, "failed to clean temporary directories")
-					}
-				}()
 			} else {
 				err := analyzeCmd.RunAnalysisOverrideProviderSettings(cmd.Context())
 				if err != nil {
