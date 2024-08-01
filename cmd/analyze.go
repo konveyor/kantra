@@ -201,11 +201,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.providersMap == nil {
 					analyzeCmd.providersMap = make(map[string]ProviderInit)
 				}
-				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
-				if err != nil {
-					log.Error(err, "failed to convert xml rules")
-					return err
-				}
 				languages, err := recognizer.Analyze(analyzeCmd.input)
 				if err != nil {
 					log.Error(err, "Failed to determine languages for input")
@@ -221,17 +216,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						log.Error(err, "failed to set provider info")
 						return err
 					}
-					// alizer does not detect certain files such as xml
-					// in this case we need to run only the analyzer to use builtin provider
-					if len(foundProviders) == 0 {
-						analyzeCmd.needsBuiltin = true
-						err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, analyzeCmd.input)
-						if err != nil {
-							log.Error(err, "failed to run analysis")
-							return err
-						}
-						return nil
-					}
 					err = analyzeCmd.validateProviders(foundProviders)
 					if err != nil {
 						return err
@@ -240,6 +224,18 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if len(foundProviders) == 1 && foundProviders[0] == dotnetFrameworkProvider {
 					return analyzeCmd.analyzeDotnetFramework(cmd.Context())
 				}
+				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
+				if err != nil {
+					log.Error(err, "failed to convert xml rules")
+					return err
+				}
+				// alizer does not detect certain files such as xml
+				// in this case we need to run only the analyzer to use builtin provider
+				if len(foundProviders) == 0 {
+					analyzeCmd.needsBuiltin = true
+					return analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, analyzeCmd.input)
+				}
+
 				err = analyzeCmd.setProviderInitInfo(foundProviders)
 				if err != nil {
 					log.Error(err, "failed to set provider init info")
