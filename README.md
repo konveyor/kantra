@@ -20,10 +20,10 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 _Podman 4+_ is required to run kantra. By default, it is configured to use the podman executable available on the host. 
 
-Although kantra is primarily tested with podman, _Docker Engine 24+_ or _Docker Desktop 4+_ can be used as an alternative. To use docker, set the environment variable `PODMAN_BIN` pointing to the docker executable's path:
+Although kantra is primarily tested with podman, _Docker Engine 24+_ or _Docker Desktop 4+_ can be used as an alternative. To use docker, set the environment variable `CONTAINER_TOOL` pointing to the docker executable's path:
 
 ```sh
-export PODMAN_BIN=/usr/bin/docker
+export CONTAINER_TOOL=/usr/bin/docker
 ```
 
 ## Installation
@@ -46,7 +46,7 @@ e.g., `kantra_version=v0.4.0`.
 Run:
 
 ```sh
-${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/kantra . && ${PODMAN_BIN:-podman} rm kantra-download
+${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/kantra . && ${CONTAINER_TOOL:-podman} rm kantra-download
 ```
 
 #### Mac
@@ -57,7 +57,7 @@ you need to start a podman machine prior to running any podman commands (see [Se
 Once a machine is started, run:
 
 ```sh
-${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/darwin-kantra . && ${PODMAN_BIN:-podman} rm kantra-download
+${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/darwin-kantra . && ${CONTAINER_TOOL:-podman} rm kantra-download
 ```
 
 #### Windows
@@ -68,7 +68,7 @@ you need to start a podman machine prior to running any podman commands (see [Se
 Once a machine is started, run:
 
 ```sh
-${PODMAN_BIN:-podman} cp $(${PODMAN_BIN:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/windows-kantra . && ${PODMAN_BIN:-podman} rm kantra-download
+${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-download quay.io/konveyor/kantra:${kantra_version:-latest}):/usr/local/bin/windows-kantra . && ${CONTAINER_TOOL:-podman} rm kantra-download
 ```
 
 > Ensure that you add the executable to the `PATH`.
