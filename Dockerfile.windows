@@ -60,7 +60,7 @@ RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\i
 
 # Copy the executable from the builder stage
 COPY --from=builder /workspace/kantra.exe .
-COPY --from=rulesets /rulesets/default/generated/dotnet /opt/rulesets
+COPY --from=rulesets /rulesets/preview/dotnet /opt/rulesets
 COPY --from=static-report /usr/bin/js-bundle-generator .
 COPY --from=static-report /usr/local/static-report ./static-report
 
