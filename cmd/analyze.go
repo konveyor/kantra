@@ -201,7 +201,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.providersMap == nil {
 					analyzeCmd.providersMap = make(map[string]ProviderInit)
 				}
-				languages, err := recognizer.Analyze(analyzeCmd.input)
+				comps, err := recognizer.DetectComponents(analyzeCmd.input)
 				if err != nil {
 					log.Error(err, "Failed to determine languages for input")
 					return err
@@ -211,7 +211,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.isFileInput {
 					foundProviders = append(foundProviders, javaProvider)
 				} else {
-					foundProviders, err = analyzeCmd.setProviders(languages, foundProviders)
+					foundProviders, err = analyzeCmd.setProviders(comps, foundProviders)
 					if err != nil {
 						log.Error(err, "failed to set provider info")
 						return err
@@ -491,44 +491,54 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) setProviders(languages []model.Language, foundProviders []string) ([]string, error) {
+func (a *analyzeCommand) setProviders(components []model.Component, foundProviders []string) ([]string, error) {
 	if len(a.provider) > 0 {
 		for _, p := range a.provider {
 			foundProviders = append(foundProviders, p)
 			return foundProviders, nil
 		}
 	}
-	for _, l := range languages {
-		if l.CanBeComponent {
-			a.log.V(5).Info("Got language", "component language", l)
-			if l.Name == "C#" {
-				for _, item := range l.Frameworks {
-					supported, ok := DotnetFrameworks[item]
-					if ok {
-						if !supported {
-							err := fmt.Errorf("Unsupported .NET Framework version")
-							a.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
-							return foundProviders, err
+	for _, c := range components {
+		for _, l := range c.Languages {
+			if l.CanBeComponent {
+
+				// .NET Case
+				if l.Name == "C#" {
+					for _, item := range l.Frameworks {
+						supported, ok := DotnetFrameworks[item]
+						if ok {
+							if !supported {
+								err := fmt.Errorf("Unsupported .NET Framework version")
+								a.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
+								return foundProviders, err
+							}
+							return []string{dotnetFrameworkProvider}, nil
 						}
-						return []string{dotnetFrameworkProvider}, nil
+					}
+					foundProviders = append(foundProviders, dotnetProvider)
+					continue
+				}
+
+				// NodeJS Case
+				if l.Name == "JavaScript" {
+					for _, item := range l.Tools {
+						if (item == "NodeJs" || item == "Node.js" || item == "nodejs") && !slices.Contains(foundProviders, nodeJSProvider) {
+							foundProviders = append(foundProviders, nodeJSProvider)
+							// only need one instance of provider
+							break
+						}
+					}
+
+					// other providers
+				} else {
+					if !slices.Contains(foundProviders, strings.ToLower(l.Name)) {
+						foundProviders = append(foundProviders, strings.ToLower(l.Name))
 					}
 				}
-				foundProviders = append(foundProviders, dotnetProvider)
-				continue
-			}
-			if l.Name == "JavaScript" {
-				for _, item := range l.Tools {
-					if item == "NodeJs" || item == "Node.js" || item == "nodejs" {
-						foundProviders = append(foundProviders, nodeJSProvider)
-						// only need one instance of provider
-						break
-					}
-				}
-			} else {
-				foundProviders = append(foundProviders, strings.ToLower(l.Name))
 			}
 		}
 	}
+	a.log.V(5).Info("Got providers", "provider(s)", foundProviders)
 	return foundProviders, nil
 }
 
