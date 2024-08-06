@@ -24,7 +24,7 @@ const (
 
 type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
-	ContainerBinary      string `env:"CONTAINER_TOOL"`
+	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/docker"`
 	PodmanBinary         string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
 	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
 	RunLocal             bool   `env:"RUN_LOCAL"`
