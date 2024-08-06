@@ -224,6 +224,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if len(foundProviders) == 1 && foundProviders[0] == dotnetFrameworkProvider {
 					return analyzeCmd.analyzeDotnetFramework(cmd.Context())
 				}
+
+				// default rulesets are only java rules
+				// may want to change this in the future
+				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 {
+					if _, ok := analyzeCmd.providersMap[javaProvider]; !ok {
+						return fmt.Errorf("No providers found with default rules. Use --rules option")
+					}
+				}
+
 				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
 				if err != nil {
 					log.Error(err, "failed to convert xml rules")
@@ -1284,7 +1293,6 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 		fmt.Sprintf("--context-lines=%d", a.contextLines),
 	}
 
-	a.enableDefaultRulesets = false
 	if a.enableDefaultRulesets {
 		args = append(args,
 			fmt.Sprintf("--rules=%s/", RulesetPath))
@@ -1396,13 +1404,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
 		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", a.contextLines),
-	}
-	// default rulesets are only java rules
-	// may want to change this in the future
-	if !a.needsBuiltin {
-		if _, ok := a.providersMap[javaProvider]; !ok {
-			a.enableDefaultRulesets = false
-		}
 	}
 	if a.enableDefaultRulesets {
 		args = append(args,
