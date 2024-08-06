@@ -1139,6 +1139,21 @@ func (a *analyzeCommand) createContainerVolume() (string, error) {
 	if a.isFileInput {
 		input = filepath.Dir(input)
 	}
+	if runtime.GOOS == "windows" {
+		// TODO(djzager): Thank ChatGPT
+		// Extract the volume name (e.g., "C:")
+		// Remove the volume name from the path to get the remaining part
+		// Convert backslashes to forward slashes
+		// Remove the colon from the volume name and convert to lowercase
+		volumeName := filepath.VolumeName(input)
+		remainingPath := input[len(volumeName):]
+		remainingPath = filepath.ToSlash(remainingPath)
+		driveLetter := strings.ToLower(strings.TrimSuffix(volumeName, ":"))
+
+		// Construct the Linux-style path
+		input = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
+	}
+
 	args := []string{
 		"volume",
 		"create",
