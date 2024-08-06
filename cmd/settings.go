@@ -55,8 +55,8 @@ func (c *Config) Load() error {
 
 func (c *Config) loadDefaultPodmanBin() error {
 	// Respect existing CONTAINER_TOOL setting.
-	if os.Getenv("CONTAINER_TOOL") != "" || os.Getenv("PODMAN_BIN") != "" {		
-			return nil
+	if os.Getenv("CONTAINER_TOOL") != "" || os.Getenv("PODMAN_BIN") != "" {
+		return nil
 	}
 	// Try to use podman. If it's not found, try to use docker.
 	found, err := c.trySetDefaultPodmanBin("podman")
