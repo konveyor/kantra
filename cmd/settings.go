@@ -24,7 +24,8 @@ const (
 
 type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
-	PodmanBinary         string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`
+	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`
+	PodmanBinary         string `env:"PODMAN_BIN" default:"/usr/bin/podman"`
 	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
 	RunLocal             bool   `env:"RUN_LOCAL"`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
@@ -54,8 +55,8 @@ func (c *Config) Load() error {
 
 func (c *Config) loadDefaultPodmanBin() error {
 	// Respect existing CONTAINER_TOOL setting.
-	if os.Getenv("CONTAINER_TOOL") != "" {
-		return nil
+	if os.Getenv("CONTAINER_TOOL") != "" || os.Getenv("PODMAN_BIN") != "" {		
+			return nil
 	}
 	// Try to use podman. If it's not found, try to use docker.
 	found, err := c.trySetDefaultPodmanBin("podman")
@@ -77,8 +78,12 @@ func (c *Config) trySetDefaultPodmanBin(file string) (found bool, err error) {
 		return false, err
 	}
 	// If file was found in PATH and it's not already going to be used, specify it in the env var.
-	if path != "" && path != c.PodmanBinary {
+	if path != "" && path != c.ContainerBinary {
 		os.Setenv("CONTAINER_TOOL", path)
+		return true, nil
+	}
+	if path != "" && path != c.PodmanBinary {
+		os.Setenv("PODMAN_BIN", path)
 		return true, nil
 	}
 	return false, nil
