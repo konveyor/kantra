@@ -1,0 +1,528 @@
+name: azure/springboot
+description: Recommend OpenFeign instead of Feign.
+violations: []
+tags: null
+name: camel3
+description: Rules for changes between Camel 3.0 and Camel 4.0
+violations: []
+tags: null
+name: camel3/camel2
+description: Rules for changes in XML file (e.g. pom.xml) to run on Apache Camel 3
+violations: []
+tags: null
+name: cloud-readiness
+description: This ruleset detects logging configurations that may be problematic when migrating an application to a cloud environment.
+violations:
+  local-storage-00001:
+    description: File system - Java IO
+    category: mandatory
+    labels:
+      - konveyor.io/source
+      - konveyor.io/target=cloud-readiness
+      - storage
+    incidents:
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "35          em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());\n36          em.setJpaProperties(additionalProperties());\n37  \n38          return em;\n39      }\n40      \n41      @Bean\n42      public DataSource dataSource() {\n43      \tApplicationConfiguration config = new ApplicationConfiguration();\n44          final DriverManagerDataSource dataSource = new DriverManagerDataSource();\n45          dataSource.setDriverClassName(config.getProperty(\"jdbc.driverClassName\"));\n46          dataSource.setUrl(config.getProperty(\"jdbc.url\"));\n47          dataSource.setUsername(config.getProperty(\"jdbc.user\"));\n48          dataSource.setPassword(config.getProperty(\"jdbc.password\"));\n49  \n50          return dataSource;\n51      }\n52  \n53      @Bean\n54      public PlatformTransactionManager transactionManager() {\n55          final JpaTransactionManager transactionManager = new JpaTransactionManager();"
+        lineNumber: 45
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: dataSource
+          package: io.konveyor.demo.ordermanagement.config
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "36          em.setJpaProperties(additionalProperties());\n37  \n38          return em;\n39      }\n40      \n41      @Bean\n42      public DataSource dataSource() {\n43      \tApplicationConfiguration config = new ApplicationConfiguration();\n44          final DriverManagerDataSource dataSource = new DriverManagerDataSource();\n45          dataSource.setDriverClassName(config.getProperty(\"jdbc.driverClassName\"));\n46          dataSource.setUrl(config.getProperty(\"jdbc.url\"));\n47          dataSource.setUsername(config.getProperty(\"jdbc.user\"));\n48          dataSource.setPassword(config.getProperty(\"jdbc.password\"));\n49  \n50          return dataSource;\n51      }\n52  \n53      @Bean\n54      public PlatformTransactionManager transactionManager() {\n55          final JpaTransactionManager transactionManager = new JpaTransactionManager();\n56          transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());"
+        lineNumber: 46
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: dataSource
+          package: io.konveyor.demo.ordermanagement.config
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "37  \n38          return em;\n39      }\n40      \n41      @Bean\n42      public DataSource dataSource() {\n43      \tApplicationConfiguration config = new ApplicationConfiguration();\n44          final DriverManagerDataSource dataSource = new DriverManagerDataSource();\n45          dataSource.setDriverClassName(config.getProperty(\"jdbc.driverClassName\"));\n46          dataSource.setUrl(config.getProperty(\"jdbc.url\"));\n47          dataSource.setUsername(config.getProperty(\"jdbc.user\"));\n48          dataSource.setPassword(config.getProperty(\"jdbc.password\"));\n49  \n50          return dataSource;\n51      }\n52  \n53      @Bean\n54      public PlatformTransactionManager transactionManager() {\n55          final JpaTransactionManager transactionManager = new JpaTransactionManager();\n56          transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());\n57          return transactionManager;"
+        lineNumber: 47
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: dataSource
+          package: io.konveyor.demo.ordermanagement.config
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "38          return em;\n39      }\n40      \n41      @Bean\n42      public DataSource dataSource() {\n43      \tApplicationConfiguration config = new ApplicationConfiguration();\n44          final DriverManagerDataSource dataSource = new DriverManagerDataSource();\n45          dataSource.setDriverClassName(config.getProperty(\"jdbc.driverClassName\"));\n46          dataSource.setUrl(config.getProperty(\"jdbc.url\"));\n47          dataSource.setUsername(config.getProperty(\"jdbc.user\"));\n48          dataSource.setPassword(config.getProperty(\"jdbc.password\"));\n49  \n50          return dataSource;\n51      }\n52  \n53      @Bean\n54      public PlatformTransactionManager transactionManager() {\n55          final JpaTransactionManager transactionManager = new JpaTransactionManager();\n56          transactionManager.setEntityManagerFactory(entityManagerFactory().getObject());\n57          return transactionManager;\n58      }"
+        lineNumber: 48
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: dataSource
+          package: io.konveyor.demo.ordermanagement.config
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "58      }\n59  \n60      @Bean\n61      public PersistenceExceptionTranslationPostProcessor exceptionTranslation() {\n62          return new PersistenceExceptionTranslationPostProcessor();\n63      }\n64  \n65      final Properties additionalProperties() {\n66      \tApplicationConfiguration config = new ApplicationConfiguration();\n67          final Properties hibernateProperties = new Properties();\n68          hibernateProperties.setProperty(\"hibernate.hbm2ddl.auto\", config.getProperty(\"hibernate.hbm2ddl.auto\"));\n69          hibernateProperties.setProperty(\"hibernate.dialect\", config.getProperty(\"hibernate.dialect\"));\n70          hibernateProperties.setProperty(\"hibernate.cache.use_second_level_cache\", \"false\");\n71  \n72          return hibernateProperties;\n73      }\n74  }\n"
+        lineNumber: 68
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: additionalProperties
+          package: io.konveyor.demo.ordermanagement.config
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: |-
+          An application running inside a container could lose access to a file in local storage.
+
+           Recommendations
+
+           The following recommendations depend on the function of the file in local storage:
+
+           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
+           * Caching: Use a cache backing service.
+           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
+           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
+           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
+        codeSnip: "59  \n60      @Bean\n61      public PersistenceExceptionTranslationPostProcessor exceptionTranslation() {\n62          return new PersistenceExceptionTranslationPostProcessor();\n63      }\n64  \n65      final Properties additionalProperties() {\n66      \tApplicationConfiguration config = new ApplicationConfiguration();\n67          final Properties hibernateProperties = new Properties();\n68          hibernateProperties.setProperty(\"hibernate.hbm2ddl.auto\", config.getProperty(\"hibernate.hbm2ddl.auto\"));\n69          hibernateProperties.setProperty(\"hibernate.dialect\", config.getProperty(\"hibernate.dialect\"));\n70          hibernateProperties.setProperty(\"hibernate.cache.use_second_level_cache\", \"false\");\n71  \n72          return hibernateProperties;\n73      }\n74  }\n"
+        lineNumber: 69
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+          kind: Method
+          name: additionalProperties
+          package: io.konveyor.demo.ordermanagement.config
+    links:
+      - url: https://docs.openshift.com/container-platform/4.5/builds/creating-build-inputs.html#builds-input-secrets-configmaps_creating-build-inputs
+        title: 'OpenShift Container Platform: Input secrets and ConfigMaps'
+      - url: https://docs.openshift.com/container-platform/4.5/logging/cluster-logging.html
+        title: 'OpenShift Container Platform: Understanding cluster logging'
+      - url: https://docs.openshift.com/container-platform/4.5/storage/understanding-persistent-storage.html
+        title: 'OpenShift Container Platform: Understanding persistent storage'
+      - url: https://12factor.net/backing-services
+        title: 'Twelve-Factor App: Backing services'
+      - url: https://12factor.net/config
+        title: 'Twelve-Factor App: Config'
+      - url: https://12factor.net/logs
+        title: 'Twelve-Factor App: Logs'
+    effort: 1
+tags: null
+name: discovery-rules
+tags:
+  - EJB XML
+  - Java Source
+  - Maven XML
+  - Properties
+violations:
+  hardcoded-ip-address:
+    description: Hardcoded IP Address
+    category: mandatory
+    labels:
+      - discovery
+      - konveyor.io/target=cloud-readiness
+      - konveyor.io/target=discovery
+    incidents:
+      - uri: file:///opt/input/source/src/main/resources/persistence.properties
+        message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
+        codeSnip: "  1   jdbc.driverClassName=oracle.jdbc.driver.OracleDriver\n  2   jdbc.url=jdbc:oracle:thin:@10.19.2.93:1521:xe\n  3   jdbc.user=customers\n  4   jdbc.password=customers\n  5   hibernate.hbm2ddl.auto=create-drop\n  6   hibernate.dialect=org.hibernate.dialect.OracleDialect\n  7  \n  8  # PostgreSQL\n  9  #jdbc.driverClassName=org.postgresql.Driver \n 10  #jdbc.url=jdbc:postgresql://customers-postgresql:5432/customers\n 11  #jdbc.user=customers\n 12  #jdbc.password=customers\n 13  #hibernate.hbm2ddl.auto=create-drop\n 14  #hibernate.dialect=org.hibernate.dialect.PostgreSQL9Dialect\n"
+        lineNumber: 2
+        variables:
+          matchingText: 10.19.2.93
+      - uri: file:///opt/input/source/target/classes/persistence.properties
+        message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
+        codeSnip: "  1   jdbc.driverClassName=oracle.jdbc.driver.OracleDriver\n  2   jdbc.url=jdbc:oracle:thin:@10.19.2.93:1521:xe\n  3   jdbc.user=customers\n  4   jdbc.password=customers\n  5   hibernate.hbm2ddl.auto=create-drop\n  6   hibernate.dialect=org.hibernate.dialect.OracleDialect\n  7  \n  8  # PostgreSQL\n  9  #jdbc.driverClassName=org.postgresql.Driver \n 10  #jdbc.url=jdbc:postgresql://customers-postgresql:5432/customers\n 11  #jdbc.user=customers\n 12  #jdbc.password=customers\n 13  #hibernate.hbm2ddl.auto=create-drop\n 14  #hibernate.dialect=org.hibernate.dialect.PostgreSQL9Dialect\n"
+        lineNumber: 2
+        variables:
+          matchingText: 10.19.2.93
+    effort: 1
+insights:
+  discover-java-files:
+    description: Java source files
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - konveyor.io/target=discovery
+      - tag=Java Source
+    incidents:
+      - uri: file:///opt/input/source/configuration-utils/src/main/java/io/konveyor/demo/config/ApplicationConfiguration.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/config/WebConfig.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/controller/CustomerController.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/exception/ResourceNotFoundException.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/exception/handler/ExceptionHandlingController.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/repository/CustomerRepository.java
+        message: ""
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/service/CustomerService.java
+        message: ""
+  discover-maven-xml:
+    description: Maven XML file
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - konveyor.io/target=discovery
+      - tag=Maven XML
+    incidents:
+      - uri: file:///opt/input/source/configuration-utils/pom.xml
+        message: ""
+      - uri: file:///opt/input/source/pom.xml
+        message: ""
+  discover-properties-file:
+    description: Properties file
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - konveyor.io/target=discovery
+      - tag=Properties
+    incidents:
+      - uri: file:///opt/input/source/src/main/resources/persistence.properties
+        message: ""
+      - uri: file:///opt/input/source/target/classes/persistence.properties
+        message: ""
+  windup-discover-ejb-configuration:
+    description: EJB XML Configuration
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - konveyor.io/target=discovery
+      - tag=EJB XML
+    incidents:
+      - uri: file:///opt/input/source/configuration-utils/pom.xml
+        message: ""
+        codeSnip: "  1  <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n  2  \n  3  <project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n  4  \txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  5  \txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n  6  \t<modelVersion>4.0.0</modelVersion>\n  7  \t<groupId>io.konveyor.demo</groupId>\n  8  \t<artifactId>configuration-utils</artifactId>\n  9  \t<version>1.0.0</version>\n 10  \n 11  \t<name>configuration-utils</name>\n 12  \n 13  \t<properties>\n 14  \t\t<java.version>1.8</java.version>\n 15  \t\t<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n 16  \t\t<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>\n 17  \t\t<maven.compiler.source>${java.version}</maven.compiler.source>\n 18  \t\t<maven.compiler.target>${java.version}</maven.compiler.target>\n 19  \n 20  \t\t<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>\n 21  \t\t<maven-resources-plugin.version>3.2.0</maven-resources-plugin.version>\n 22  \t</properties>\n 23  \n 24  \t<dependencies>\n 25  \t\t<dependency>\n 26  \t\t\t<groupId>junit</groupId>\n 27  \t\t\t<artifactId>junit</artifactId>\n 28  \t\t\t<version>4.11</version>\n 29  \t\t\t<scope>test</scope>\n 30  \t\t</dependency>\n 31  \t</dependencies>\n 32  \n 33  \t<build>\n 34  \t\t<plugins>\n 35  \t\t\t<plugin>\n 36  \t\t\t\t<groupId>org.apache.maven.plugins</groupId>\n 37  \t\t\t\t<artifactId>maven-compiler-plugin</artifactId>\n 38  \t\t\t\t<version>${maven-compiler-plugin.version}</version>\n 39  \t\t\t</plugin>\n 40  \t\t\t<plugin>\n 41  \t\t\t\t<groupId>org.apache.maven.plugins</groupId>\n 42  \t\t\t\t<artifactId>maven-resources-plugin</artifactId>\n 43  \t\t\t\t<version>${maven-resources-plugin.version}</version>\n 44  \t\t\t\t<configuration>\n 45  \t\t\t\t\t<encoding>UTF-8</encoding>\n 46  \t\t\t\t</configuration>\n 47  \t\t\t</plugin>\n 48  \t\t</plugins>\n 49  \t</build>\n 50  \t<distributionManagement>\n 51  \t <repository>\n 52  \t\t <id>tackle-testapp-public</id>\n 53  \t\t <name>GitHub tackle-testapp-public Apache Maven Packages</name>\n 54  \t\t <url>https://maven.pkg.github.com/konveyor/tackle-testapp-public</url>\n 55  \t </repository>\n 56  \t</distributionManagement>\n 57  </project>\n"
+        lineNumber: 6
+        variables:
+          data: ""
+          innerText: "\n\n\n\t4.0.0\n\tio.konveyor.demo\n\tconfiguration-utils\n\t1.0.0\n\n\tconfiguration-utils\n\n\t\n\t\t1.8\n\t\tUTF-8\n\t\tUTF-8\n\t\t${java.version}\n\t\t${java.version}\n\n\t\t3.8.1\n\t\t3.2.0\n\t\n\n\t\n\t\t\n\t\t\tjunit\n\t\t\tjunit\n\t\t\t4.11\n\t\t\ttest\n\t\t\n\t\n\n\t\n\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-compiler-plugin\n\t\t\t\t${maven-compiler-plugin.version}\n\t\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-resources-plugin\n\t\t\t\t${maven-resources-plugin.version}\n\t\t\t\t\n\t\t\t\t\tUTF-8\n\t\t\t\t\n\t\t\t\n\t\t\n\t\n\t\n\t \n\t\t tackle-testapp-public\n\t\t GitHub tackle-testapp-public Apache Maven Packages\n\t\t https://maven.pkg.github.com/konveyor/tackle-testapp-public\n\t \n\t\n\n"
+          matchingXML: <?xml version="1.0" encoding="UTF-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"><modelVersion>4.0.0</modelVersion><groupId>io.konveyor.demo</groupId><artifactId>configuration-utils</artifactId><version>1.0.0</version><name>configuration-utils</name><properties><java.version>1.8</java.version><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding><maven.compiler.source>${java.version}</maven.compiler.source><maven.compiler.target>${java.version}</maven.compiler.target><maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version><maven-resources-plugin.version>3.2.0</maven-resources-plugin.version></properties><dependencies><dependency><groupId>junit</groupId><artifactId>junit</artifactId><version>4.11</version><scope>test</scope></dependency></dependencies><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>${maven-compiler-plugin.version}</version></plugin><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>${maven-resources-plugin.version}</version><configuration><encoding>UTF-8</encoding></configuration></plugin></plugins></build><distributionManagement><repository><id>tackle-testapp-public</id><name>GitHub tackle-testapp-public Apache Maven Packages</name><url>https://maven.pkg.github.com/konveyor/tackle-testapp-public</url></repository></distributionManagement></project>
+      - uri: file:///opt/input/source/pom.xml
+        message: ""
+        codeSnip: "  1  <project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n  2  \txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  3  \txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n  4  \t<modelVersion>4.0.0</modelVersion>\n  5  \t<groupId>io.konveyor.demo</groupId>\n  6  \t<artifactId>customers-tomcat</artifactId>\n  7  \t<version>0.0.1-SNAPSHOT</version>\n  8  \n  9  \t<name>Order Management</name>\n 10  \t<packaging>war</packaging>\n 11  \t<description>Remaining services for the legacy Order Management application</description>\n 12  \n 13  \t<properties>\n 14  \t\t<java.version>1.8</java.version>\n 15  \t\t<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n 16  \t\t<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>\n 17  \t\t<maven.compiler.source>${java.version}</maven.compiler.source>\n 18  \t\t<maven.compiler.target>${java.version}</maven.compiler.target>\n 19  \t\t<spring-framework.version>5.3.7</spring-framework.version>\n 20  \t\t<tomcat.version>9.0.46</tomcat.version>\n 21  \t\t<spring-data.version>2021.0.1</spring-data.version>\n 22  \t\t<hibernate.version>5.4.32.Final</hibernate.version>\n 23  \t\t<hibernate-validator.version>6.2.0.Final</hibernate-validator.version>\n 24  \n 25  \t\t<postgresql-driver.version>42.2.20</postgresql-driver.version>\n 26  \t\t<jackson.version>2.12.3</jackson.version>\n 27  \n 28  \t\t<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>\n 29  \t\t<maven-war-plugin.version>3.3.1</maven-war-plugin.version>\n 30  \t\t<maven-resources-plugin.version>3.2.0</maven-resources-plugin.version>\n 31  \n 32  \t</properties>\n 33  \n 34  \t<dependencyManagement>\n 35  \t\t<dependencies>\n 36  \t\t\t<dependency>\n 37  \t\t\t\t<groupId>com.fasterxml.jackson</groupId>\n 38  \t\t\t\t<artifactId>jackson-bom</artifactId>\n 39  \t\t\t\t<version>${jackson.version}</version>\n 40  \t\t\t\t<scope>import</scope>\n 41  \t\t\t\t<type>pom</type>\n 42  \t\t\t</dependency>\n 43  \t\t\t<dependency>\n 44  \t\t\t\t<groupId>org.springframework.data</groupId>\n 45  \t\t\t\t<artifactId>spring-data-bom</artifactId>\n 46  \t\t\t\t<version>${spring-data.version}</version>\n 47  \t\t\t\t<scope>import</scope>\n 48  \t\t\t\t<type>pom</type>\n 49  \t\t\t</dependency>\n 50  \t\t</dependencies>\n 51  \t</dependencyManagement>\n 52  \t<dependencies>\n 53  \t\t<dependency>\n 54  \t\t\t<groupId>org.apache.tomcat</groupId>\n 55  \t\t\t<artifactId>tomcat-servlet-api</artifactId>\n 56  \t\t\t<version>${tomcat.version}</version>\n 57  \t\t\t<scope>provided</scope>\n 58  \t\t</dependency>\n 59  \t\t<dependency>\n 60  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n 61  \t\t\t<artifactId>jackson-core</artifactId>\n 62  \t\t</dependency>\n 63  \t\t<dependency>\n 64  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n 65  \t\t\t<artifactId>jackson-databind</artifactId>\n 66  \t\t</dependency>\n 67  \t\t<dependency>\n 68  \t\t\t<groupId>org.springframework.data</groupId>\n 69  \t\t\t<artifactId>spring-data-jpa</artifactId>\n 70  \t\t</dependency>\n 71  \n 72  \t\t<dependency>\n 73  \t\t\t<groupId>org.springframework</groupId>\n 74  \t\t\t<artifactId>spring-jdbc</artifactId>\n 75  \t\t\t<version>${spring-framework.version}</version>\n 76  \t\t</dependency>\n 77  \t\t<dependency>\n 78  \t\t\t<groupId>org.springframework</groupId>\n 79  \t\t\t<artifactId>spring-webmvc</artifactId>\n 80  \t\t\t<version>${spring-framework.version}</version>\n 81  \t\t</dependency>\n 82  \t\t<dependency>\n 83  \t\t\t<groupId>org.springframework</groupId>\n 84  \t\t\t<artifactId>spring-web</artifactId>\n 85  \t\t\t<version>${spring-framework.version}</version>\n 86  \t\t</dependency>\n 87  \t\t<dependency>\n 88  \t\t\t<groupId>org.springframework.boot</groupId>\n 89  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n 90  \t\t\t<version>2.5.0</version>\n 91  \t\t</dependency>\n 92  \t\t<dependency>\n 93  \t\t\t<groupId>org.apache.tomcat</groupId>\n 94  \t\t\t<artifactId>tomcat-jdbc</artifactId>\n 95  \t\t\t<version>${tomcat.version}</version>\n 96  \t\t\t<scope>runtime</scope>\n 97  \t\t</dependency>\n 98  \t\t<dependency>\n 99  \t\t\t<groupId>org.hibernate</groupId>\n100  \t\t\t<artifactId>hibernate-entitymanager</artifactId>\n101  \t\t\t<version>${hibernate.version}</version>\n102  \t\t</dependency>\n103  \t\t<dependency>\n104  \t\t\t<groupId>org.hibernate.validator</groupId>\n105  \t\t\t<artifactId>hibernate-validator</artifactId>"
+        lineNumber: 4
+        variables:
+          data: ""
+          innerText: "\n\t4.0.0\n\tio.konveyor.demo\n\tcustomers-tomcat\n\t0.0.1-SNAPSHOT\n\n\tOrder Management\n\twar\n\tRemaining services for the legacy Order Management application\n\n\t\n\t\t1.8\n\t\tUTF-8\n\t\tUTF-8\n\t\t${java.version}\n\t\t${java.version}\n\t\t5.3.7\n\t\t9.0.46\n\t\t2021.0.1\n\t\t5.4.32.Final\n\t\t6.2.0.Final\n\n\t\t42.2.20\n\t\t2.12.3\n\n\t\t3.8.1\n\t\t3.3.1\n\t\t3.2.0\n\n\t\n\n\t\n\t\t\n\t\t\t\n\t\t\t\tcom.fasterxml.jackson\n\t\t\t\tjackson-bom\n\t\t\t\t${jackson.version}\n\t\t\t\timport\n\t\t\t\tpom\n\t\t\t\n\t\t\t\n\t\t\t\torg.springframework.data\n\t\t\t\tspring-data-bom\n\t\t\t\t${spring-data.version}\n\t\t\t\timport\n\t\t\t\tpom\n\t\t\t\n\t\t\n\t\n\t\n\t\t\n\t\t\torg.apache.tomcat\n\t\t\ttomcat-servlet-api\n\t\t\t${tomcat.version}\n\t\t\tprovided\n\t\t\n\t\t\n\t\t\tcom.fasterxml.jackson.core\n\t\t\tjackson-core\n\t\t\n\t\t\n\t\t\tcom.fasterxml.jackson.core\n\t\t\tjackson-databind\n\t\t\n\t\t\n\t\t\torg.springframework.data\n\t\t\tspring-data-jpa\n\t\t\n\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-jdbc\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-webmvc\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-web\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework.boot\n\t\t\tspring-boot-starter-actuator\n\t\t\t2.5.0\n\t\t\n\t\t\n\t\t\torg.apache.tomcat\n\t\t\ttomcat-jdbc\n\t\t\t${tomcat.version}\n\t\t\truntime\n\t\t\n\t\t\n\t\t\torg.hibernate\n\t\t\thibernate-entitymanager\n\t\t\t${hibernate.version}\n\t\t\n\t\t\n\t\t\torg.hibernate.validator\n\t\t\thibernate-validator\n\t\t\t${hibernate-validator.version}\n\t\t\n\t\t\n\t\t\tch.qos.logback\n\t\t\tlogback-classic\n\t\t\t1.1.7\n\t\t\n\t\t\n\t\t\tcom.oracle.database.jdbc\n\t\t\tojdbc11\n\t\t\t21.1.0.0\n\t\t\n\t\t\n\t\t\torg.postgresql\n\t\t\tpostgresql\n\t\t\t42.2.23\n\t\t\n\t\t\n    \tcom.h2database\n    \th2\n    \t2.1.214\n\t\t\n\t\t\n\t\t\n\t\t\tio.konveyor.demo\n\t\t\tconfiguration-utils\n\t\t\t1.0.0\n\t\t\n\n\t\n\t\n\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-compiler-plugin\n\t\t\t\t${maven-compiler-plugin.version}\n\t\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-war-plugin\n\t\t\t\t${maven-war-plugin.version}\n\t\t\t\t\n\t\t\t\t\tfalse\n\t\t\t\t\n\t\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-resources-plugin\n\t\t\t\t${maven-resources-plugin.version}\n\t\t\t\t\n\t\t\t\t\tUTF-8\n\t\t\t\t\n\t\t\t\n\t\t\n\t\n\t\n   \n     tackle-testapp-public\n     GitHub tackle-testapp-public Apache Maven Packages\n     https://maven.pkg.github.com/konveyor/tackle-testapp-public\n   \n\t\n\t\n\t\n\t\ttackle-testapp-public\n\t\tGitHub tackle-testapp-public Apache Maven Packages\n\t\thttps://maven.pkg.github.com/konveyor/tackle-testapp-public\n\t\n\n\n\n"
+          matchingXML: <?xml?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"><modelVersion>4.0.0</modelVersion><groupId>io.konveyor.demo</groupId><artifactId>customers-tomcat</artifactId><version>0.0.1-SNAPSHOT</version><name>Order Management</name><packaging>war</packaging><description>Remaining services for the legacy Order Management application</description><properties><java.version>1.8</java.version><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding><maven.compiler.source>${java.version}</maven.compiler.source><maven.compiler.target>${java.version}</maven.compiler.target><spring-framework.version>5.3.7</spring-framework.version><tomcat.version>9.0.46</tomcat.version><spring-data.version>2021.0.1</spring-data.version><hibernate.version>5.4.32.Final</hibernate.version><hibernate-validator.version>6.2.0.Final</hibernate-validator.version><postgresql-driver.version>42.2.20</postgresql-driver.version><jackson.version>2.12.3</jackson.version><maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version><maven-war-plugin.version>3.3.1</maven-war-plugin.version><maven-resources-plugin.version>3.2.0</maven-resources-plugin.version></properties><dependencyManagement><dependencies><dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson.version}</version><scope>import</scope><type>pom</type></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-bom</artifactId><version>${spring-data.version}</version><scope>import</scope><type>pom</type></dependency></dependencies></dependencyManagement><dependencies><dependency><groupId>org.apache.tomcat</groupId><artifactId>tomcat-servlet-api</artifactId><version>${tomcat.version}</version><scope>provided</scope></dependency><dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-core</artifactId></dependency><dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-jpa</artifactId></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId><version>2.5.0</version></dependency><dependency><groupId>org.apache.tomcat</groupId><artifactId>tomcat-jdbc</artifactId><version>${tomcat.version}</version><scope>runtime</scope></dependency><dependency><groupId>org.hibernate</groupId><artifactId>hibernate-entitymanager</artifactId><version>${hibernate.version}</version></dependency><dependency><groupId>org.hibernate.validator</groupId><artifactId>hibernate-validator</artifactId><version>${hibernate-validator.version}</version></dependency><dependency><groupId>ch.qos.logback</groupId><artifactId>logback-classic</artifactId><version>1.1.7</version></dependency><dependency><groupId>com.oracle.database.jdbc</groupId><artifactId>ojdbc11</artifactId><version>21.1.0.0</version></dependency><dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.2.23</version></dependency><dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><version>2.1.214</version></dependency><!-- Corporate libraries --><dependency><groupId>io.konveyor.demo</groupId><artifactId>configuration-utils</artifactId><version>1.0.0</version></dependency></dependencies><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>${maven-compiler-plugin.version}</version></plugin><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-war-plugin</artifactId><version>${maven-war-plugin.version}</version><configuration><failOnMissingWebXml>false</failOnMissingWebXml></configuration></plugin><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>${maven-resources-plugin.version}</version><configuration><encoding>UTF-8</encoding></configuration></plugin></plugins></build><distributionManagement><repository><id>tackle-testapp-public</id><name>GitHub tackle-testapp-public Apache Maven Packages</name><url>https://maven.pkg.github.com/konveyor/tackle-testapp-public</url></repository></distributionManagement><repositories><repository><id>tackle-testapp-public</id><name>GitHub tackle-testapp-public Apache Maven Packages</name><url>https://maven.pkg.github.com/konveyor/tackle-testapp-public</url></repository></repositories></project>
+name: droolsjbpm
+description: This ruleset provides help for migrating to a unified KIE (Knowledge Is Everything) API in the upgrade from version 5 to 6.
+violations: []
+tags: null
+name: eap6/java-ee/seam
+description: This ruleset provides generic migration knowledge from the Seam 2 UI controls to pure JSF 2 UI Controls
+violations: []
+tags: null
+name: eap7/weblogic/tests/data
+violations: []
+tags: null
+name: eap8/eap7
+description: This ruleset provides analysis of Java EE applications that need to change certain CDI-related method calls.
+violations: []
+tags: null
+name: eapxp/thorntail
+description: This ruleset provides analysis of Maven built applications that use Thorntail Maven Plugin, which should be replaced by JBoss EAP XP Bootable JAR Maven Plugin, when migrating to JBoss EAP XP.
+violations: []
+tags: null
+name: filemappings
+description: This rule set configures the organization matching functionality, using known root-package prefixes to identify libraries and other code.
+violations: []
+tags: null
+name: fuse-service-works/soa-p-5
+description: This ruleset provides analysis of JBoss SOA Platform 5 applications and provides information on how to migrate these to Red Hat JBoss Fuse Service Works
+violations: []
+tags: null
+name: fuse/sonicesb
+description: This ruleset contains rules that assist in migrating from Sonic ESB to Apache Camel.
+violations: []
+tags: null
+name: hibernate
+description: This ruleset provides analysis of deprecated Hibernate java constructs and their migration to newer one.
+violations: []
+tags: null
+name: jakarta-ee9
+violations: []
+tags: null
+name: jws5
+description: This ruleset provides analysis of applications that need to change their pom dependencies to upgrade dependencies that belong to the groupId `org.apache.tomcat`
+violations: []
+tags: null
+name: openjdk11/openjdk8
+description: This ruleset provides analysis with respect to API removals between OpenJDK 8 and 11.
+violations: []
+tags: null
+name: openjdk17
+description: This ruleset provides analysis regarding deprecated APIs in OpenJDK 21.
+violations: []
+tags: null
+name: openjdk17/openjdk11
+description: This ruleset provides analysis Security Manager classes and methods deprecated between OpenJDK 11 to 17.
+violations: []
+tags: null
+name: openjdk7/oraclejdk7
+description: This ruleset provides analysis with respect to the migration from OracleJDK to OpenJDK.
+violations: []
+tags: null
+name: openliberty/websphere
+description: This ruleset identifies usage of Java APIs and technologies which are not provided by Open Liberty.
+violations: []
+tags: null
+name: os/windows
+description: This is a ruleset for Windows operating system specific rules while migrating to Linux operating system.
+violations: []
+tags: null
+name: quarkus/springboot
+description: This ruleset gives hints to migrate from SpringBoot devtools to Quarkus
+violations: []
+tags: null
+name: rhr/springboot
+description: Verify the version of the Spring Boot framework is compatible with those supported by Red Hat Runtimes
+violations: []
+tags: null
+name: technology-usage
+description: This ruleset provides analysis of logging libraries.
+tags:
+  - Bean=EJB XML
+  - Connect=EJB XML
+  - Connect=Servlet
+  - Embedded framework - Spring MVC
+  - Embedded framework - Spring Web
+  - Embedded library - Spring Boot Actuator
+  - Embedded=Properties
+  - Embedded=Spring Web
+  - HTTP=Servlet
+  - Java EE=EJB XML
+  - Java EE=JPA named queries
+  - Java EE=Servlet
+  - Java Servlet
+  - Other=Properties
+  - Persistence=JPA named queries
+  - Servlet
+  - Spring Boot Actuator
+  - Spring MVC
+  - Spring Web
+  - Store=JPA named queries
+  - Sustain=Properties
+  - View=Spring Web
+  - Web=Spring Web
+insights:
+  embedded-framework-08400:
+    description: Embedded framework - Spring Web
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Embedded framework - Spring Web
+      - tag=Spring Web
+    incidents:
+      - uri: file:///opt/input/source/pom.xml
+        message: ""
+        codeSnip: "74  \t\t\t<artifactId>spring-jdbc</artifactId>\n75  \t\t\t<version>${spring-framework.version}</version>\n76  \t\t</dependency>\n77  \t\t<dependency>\n78  \t\t\t<groupId>org.springframework</groupId>\n79  \t\t\t<artifactId>spring-webmvc</artifactId>\n80  \t\t\t<version>${spring-framework.version}</version>\n81  \t\t</dependency>\n82  \t\t<dependency>\n83  \t\t\t<groupId>org.springframework</groupId>\n84  \t\t\t<artifactId>spring-web</artifactId>\n85  \t\t\t<version>${spring-framework.version}</version>\n86  \t\t</dependency>\n87  \t\t<dependency>\n88  \t\t\t<groupId>org.springframework.boot</groupId>\n89  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n90  \t\t\t<version>2.5.0</version>\n91  \t\t</dependency>\n92  \t\t<dependency>\n93  \t\t\t<groupId>org.apache.tomcat</groupId>\n94  \t\t\t<artifactId>tomcat-jdbc</artifactId>"
+        lineNumber: 83
+        variables:
+          name: org.springframework.spring-web
+          version: 5.3.7
+  javaee-technology-usage-00120:
+    description: Java Servlet
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Java Servlet
+      - tag=Servlet
+    incidents:
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+        message: ""
+        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n 5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n 8  import org.springframework.web.context.ContextLoaderListener;\n 9  import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;\n10  import org.springframework.web.servlet.DispatcherServlet;\n11  \n12  public class OrderManagementAppInitializer implements WebApplicationInitializer  {\n13  "
+        lineNumber: 3
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+          kind: Module
+          name: javax.servlet.ServletContext
+          package: io.konveyor.demo.ordermanagement
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+        message: ""
+        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n 5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n 8  import org.springframework.web.context.ContextLoaderListener;\n 9  import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;\n10  import org.springframework.web.servlet.DispatcherServlet;\n11  \n12  public class OrderManagementAppInitializer implements WebApplicationInitializer  {\n13  \n14  \t@Override"
+        lineNumber: 4
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+          kind: Module
+          name: javax.servlet.ServletException
+          package: io.konveyor.demo.ordermanagement
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+        message: ""
+        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n 5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n 8  import org.springframework.web.context.ContextLoaderListener;\n 9  import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;\n10  import org.springframework.web.servlet.DispatcherServlet;\n11  \n12  public class OrderManagementAppInitializer implements WebApplicationInitializer  {\n13  \n14  \t@Override\n15  \tpublic void onStartup(ServletContext container) throws ServletException {"
+        lineNumber: 5
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+          kind: Module
+          name: javax.servlet.ServletRegistration
+          package: io.konveyor.demo.ordermanagement
+  javaee-technology-usage-00230:
+    description: ""
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Connect=Servlet
+      - tag=HTTP=Servlet
+      - tag=Java EE=Servlet
+    incidents:
+      - uri: ""
+        message: ""
+        variables:
+          tags:
+            - Servlet
+  mvc-01220:
+    description: Embedded framework - Spring MVC
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Embedded framework - Spring MVC
+      - tag=Spring MVC
+    incidents:
+      - uri: file:///opt/input/source/pom.xml
+        message: ""
+        codeSnip: "69  \t\t\t<artifactId>spring-data-jpa</artifactId>\n70  \t\t</dependency>\n71  \n72  \t\t<dependency>\n73  \t\t\t<groupId>org.springframework</groupId>\n74  \t\t\t<artifactId>spring-jdbc</artifactId>\n75  \t\t\t<version>${spring-framework.version}</version>\n76  \t\t</dependency>\n77  \t\t<dependency>\n78  \t\t\t<groupId>org.springframework</groupId>\n79  \t\t\t<artifactId>spring-webmvc</artifactId>\n80  \t\t\t<version>${spring-framework.version}</version>\n81  \t\t</dependency>\n82  \t\t<dependency>\n83  \t\t\t<groupId>org.springframework</groupId>\n84  \t\t\t<artifactId>spring-web</artifactId>\n85  \t\t\t<version>${spring-framework.version}</version>\n86  \t\t</dependency>\n87  \t\t<dependency>\n88  \t\t\t<groupId>org.springframework.boot</groupId>\n89  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>"
+        lineNumber: 78
+        variables:
+          name: org.springframework.spring-webmvc
+          version: 5.3.7
+  non-xml-technology-usage-02000:
+    description: ""
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Bean=EJB XML
+      - tag=Connect=EJB XML
+      - tag=Java EE=EJB XML
+    incidents:
+      - uri: ""
+        message: ""
+        variables:
+          tags:
+            - EJB XML
+  non-xml-technology-usage-20000:
+    description: ""
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Embedded=Properties
+      - tag=Other=Properties
+      - tag=Sustain=Properties
+    incidents:
+      - uri: ""
+        message: ""
+        variables:
+          tags:
+            - Properties
+  observability-0100:
+    description: Embedded library - Spring Boot Actuator
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Embedded library - Spring Boot Actuator
+      - tag=Spring Boot Actuator
+    incidents:
+      - uri: file:///opt/input/source/pom.xml
+        message: ""
+        codeSnip: "79  \t\t\t<artifactId>spring-webmvc</artifactId>\n80  \t\t\t<version>${spring-framework.version}</version>\n81  \t\t</dependency>\n82  \t\t<dependency>\n83  \t\t\t<groupId>org.springframework</groupId>\n84  \t\t\t<artifactId>spring-web</artifactId>\n85  \t\t\t<version>${spring-framework.version}</version>\n86  \t\t</dependency>\n87  \t\t<dependency>\n88  \t\t\t<groupId>org.springframework.boot</groupId>\n89  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n90  \t\t\t<version>2.5.0</version>\n91  \t\t</dependency>\n92  \t\t<dependency>\n93  \t\t\t<groupId>org.apache.tomcat</groupId>\n94  \t\t\t<artifactId>tomcat-jdbc</artifactId>\n95  \t\t\t<version>${tomcat.version}</version>\n96  \t\t\t<scope>runtime</scope>\n97  \t\t</dependency>\n98  \t\t<dependency>\n99  \t\t\t<groupId>org.hibernate</groupId>"
+        lineNumber: 88
+        variables:
+          name: org.springframework.boot.spring-boot-starter-actuator
+          version: 2.5.0
+  technology-usage-database-01200:
+    description: ""
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Java EE=JPA named queries
+      - tag=Persistence=JPA named queries
+      - tag=Store=JPA named queries
+    incidents:
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+        message: ""
+        codeSnip: " 1  package io.konveyor.demo.ordermanagement.model;\n 2  \n 3  import javax.persistence.Column;\n 4  import javax.persistence.Entity;\n 5  import javax.persistence.GeneratedValue;\n 6  import javax.persistence.GenerationType;\n 7  import javax.persistence.Id;\n 8  import javax.persistence.SequenceGenerator;\n 9  import javax.persistence.Table;\n10  \n11  @Entity\n12  @Table(name = \"customers\")\n13  public class Customer {\n14  \t@Id\n15      @SequenceGenerator(\n16              name = \"customersSequence\",\n17              sequenceName = \"customers_id_seq\",\n18              allocationSize = 1,\n19              initialValue = 6)\n20      @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = \"customersSequence\")\n21  \tprivate Long id;"
+        lineNumber: 11
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+          kind: Class
+          name: Entity
+          package: io.konveyor.demo.ordermanagement.model
+      - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+        message: ""
+        codeSnip: " 2  \n 3  import javax.persistence.Column;\n 4  import javax.persistence.Entity;\n 5  import javax.persistence.GeneratedValue;\n 6  import javax.persistence.GenerationType;\n 7  import javax.persistence.Id;\n 8  import javax.persistence.SequenceGenerator;\n 9  import javax.persistence.Table;\n10  \n11  @Entity\n12  @Table(name = \"customers\")\n13  public class Customer {\n14  \t@Id\n15      @SequenceGenerator(\n16              name = \"customersSequence\",\n17              sequenceName = \"customers_id_seq\",\n18              allocationSize = 1,\n19              initialValue = 6)\n20      @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = \"customersSequence\")\n21  \tprivate Long id;\n22  \t"
+        lineNumber: 12
+        variables:
+          file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+          kind: Class
+          name: Entity
+          package: io.konveyor.demo.ordermanagement.model
+  technology-usage-embedded-framework-08400:
+    description: ""
+    labels:
+      - discovery
+      - konveyor.io/include=always
+      - tag=Embedded=Spring Web
+      - tag=View=Spring Web
+      - tag=Web=Spring Web
+    incidents:
+      - uri: ""
+        message: ""
+        variables:
+          tags:
+            - Spring Web
+violations: []
