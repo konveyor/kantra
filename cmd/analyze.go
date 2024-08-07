@@ -227,10 +227,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				// default rulesets are only java rules
 				// may want to change this in the future
-				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 {
-					if _, ok := analyzeCmd.providersMap[javaProvider]; !ok {
-						return fmt.Errorf("No providers found with default rules. Use --rules option")
-					}
+				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, javaProvider) {
+					return fmt.Errorf("No providers found with default rules. Use --rules option")
 				}
 
 				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
