@@ -36,7 +36,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
 				RunLocal:         Settings.RunLocal,
 				ContainerImage:   Settings.RunnerImage,
-				ContainerToolBin: Settings.PodmanBinary,
+				ContainerToolBin: Settings.ContainerBinary,
 				ProgressPrinter:  testing.PrintProgress,
 				Log:              log.V(3),
 			})
