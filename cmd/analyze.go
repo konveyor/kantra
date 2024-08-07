@@ -607,7 +607,7 @@ func (a *analyzeCommand) fetchProviders(ctx context.Context, out io.Writer) erro
 			container.WithLog(a.log.V(1)),
 			container.WithEnv(runMode, runModeContainer),
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
-			container.WithContainerToolBin(Settings.PodmanBinary),
+			container.WithContainerToolBin(Settings.ContainerBinary),
 			container.WithEntrypointArgs(args...),
 			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
@@ -682,7 +682,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			container.WithEnv(runMode, runModeContainer),
 			container.WithVolumes(volumes),
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
-			container.WithContainerToolBin(Settings.PodmanBinary),
+			container.WithContainerToolBin(Settings.ContainerBinary),
 			container.WithEntrypointArgs(args...),
 			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
@@ -1116,7 +1116,7 @@ func (a *analyzeCommand) createContainerNetwork() (string, error) {
 		networkName,
 	}
 
-	cmd := exec.Command(Settings.PodmanBinary, args...)
+	cmd := exec.Command(Settings.ContainerBinary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -1150,7 +1150,7 @@ func (a *analyzeCommand) createContainerVolume() (string, error) {
 		"o=bind",
 		volName,
 	}
-	cmd := exec.Command(Settings.PodmanBinary, args...)
+	cmd := exec.Command(Settings.ContainerBinary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -1202,7 +1202,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithImage(init.image),
 				container.WithLog(a.log.V(1)),
 				container.WithVolumes(volumes),
-				container.WithContainerToolBin(Settings.PodmanBinary),
+				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
@@ -1226,7 +1226,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithImage(init.image),
 				container.WithLog(a.log.V(1)),
 				container.WithVolumes(volumes),
-				container.WithContainerToolBin(Settings.PodmanBinary),
+				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
@@ -1330,7 +1330,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
 		container.WithNetwork("host"),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
@@ -1459,7 +1459,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
 		container.WithNetwork(networkName),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
@@ -1606,7 +1606,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
 		container.WithEntrypointBin("/bin/sh"),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointArgs(staticReportCmd...),
 		container.WithVolumes(volumes),
 		container.WithcFlag(true),
@@ -1802,7 +1802,7 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		container.WithVolumes(volumes),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
@@ -1968,7 +1968,7 @@ func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
 	}
 	cmd := exec.CommandContext(
 		ctx,
-		Settings.PodmanBinary,
+		Settings.ContainerBinary,
 		"network",
 		"rm", a.networkName)
 	a.log.V(1).Info("removing container network",
@@ -1982,7 +1982,7 @@ func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
 	}
 	cmd := exec.CommandContext(
 		ctx,
-		Settings.PodmanBinary,
+		Settings.ContainerBinary,
 		"volume",
 		"rm", a.volumeName)
 	a.log.V(1).Info("removing created volume",
@@ -1997,7 +1997,7 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 		// it will immediately be removed after it stops
 		cmd := exec.CommandContext(
 			ctx,
-			Settings.PodmanBinary,
+			Settings.ContainerBinary,
 			"stop", con)
 		a.log.V(1).Info("stopping container", "container", con)
 		err := cmd.Run()
@@ -2027,7 +2027,7 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 
 		cmd := exec.CommandContext(
 			ctx,
-			Settings.PodmanBinary,
+			Settings.ContainerBinary,
 			"logs",
 			a.providerContainerNames[i])
 
@@ -2065,7 +2065,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 			Network []string `json:"network"`
 		} `json:"plugins"`
 	}
-	cmd := exec.Command(Settings.PodmanBinary, []string{"system", "info", "--format=json"}...)
+	cmd := exec.Command(Settings.ContainerBinary, []string{"system", "info", "--format=json"}...)
 	out, err := cmd.Output()
 	if err != nil {
 		return err
@@ -2082,7 +2082,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 
 	// Create network
 	networkName := container.RandomName()
-	cmd = exec.Command(Settings.PodmanBinary, []string{"network", "create", "-d", "nat", networkName}...)
+	cmd = exec.Command(Settings.ContainerBinary, []string{"network", "create", "-d", "nat", networkName}...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -2125,7 +2125,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithVolumes(map[string]string{
 			input: "C:" + filepath.FromSlash(SourceMountPath),
 		}),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointArgs([]string{fmt.Sprintf("--port=%v", port)}...),
 		container.WithDetachedMode(true),
 		container.WithCleanup(a.cleanup),
@@ -2250,7 +2250,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin(`C:\app\konveyor-analyzer.exe`),
 		container.WithNetwork(networkName),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
 	)
 	if err != nil {
@@ -2278,7 +2278,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		ctx,
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointBin("powershell"),
 		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(OutputPath)),
 		container.WithVolumes(volumes),
@@ -2300,7 +2300,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		ctx,
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
-		container.WithContainerToolBin(Settings.PodmanBinary),
+		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointBin(`C:\app\js-bundle-generator`),
 		container.WithEntrypointArgs(staticReportArgs...),
 		container.WithVolumes(volumes),
