@@ -57,7 +57,9 @@ func (c *Config) loadDefaultPodmanBin() error {
 	if os.Getenv("CONTAINER_TOOL") != "" {
 		return nil
 	}
-	if os.Getenv("PODMAN_BIN") != "" {
+	podmanBin := os.Getenv("PODMAN_BIN")
+	if podmanBin != "" {
+		os.Setenv("CONTAINER_TOOL", podmanBin)
 		return nil
 	}
 	// Try to use podman. If it's not found, try to use docker.
