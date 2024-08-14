@@ -2217,7 +2217,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	if a.enableDefaultRulesets {
-		args = append(args, fmt.Sprintf("--rules=C:%s\\", filepath.FromSlash(RulesetPath)))
+		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(RulesetPath)))
 	}
 
 	if len(a.rules) > 0 {
