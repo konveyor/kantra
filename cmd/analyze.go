@@ -2005,7 +2005,8 @@ func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
-	for i := range a.providerContainerNames {
+	// if multiple provider containers, we need to remove the first created provider container last
+	for i := len(a.providerContainerNames) - 1; i >= 0; i-- {
 		con := a.providerContainerNames[i]
 		// because we are using the --rm option when we start the provider container,
 		// it will immediately be removed after it stops
