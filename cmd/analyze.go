@@ -2217,14 +2217,20 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	if a.enableDefaultRulesets {
-		args = append(args, fmt.Sprintf("--rules=%s/", "C:"+filepath.FromSlash(RulesetPath)))
+		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(RulesetPath)))
 	}
 
 	if len(a.rules) > 0 {
-		for index, rule := range a.rules {
-			volumes[rule] = fmt.Sprintf("C:%v-%d", filepath.FromSlash(CustomRulePath), index)
+		ruleVols, err := a.getRulesVolumes()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
+			return err
 		}
-		args = append(args, fmt.Sprintf("--rules=%s/", CustomRulePath))
+		for key, value := range ruleVols {
+			volumes[key] = "C:" + filepath.FromSlash(value)
+		}
+
+		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(CustomRulePath)))
 	}
 
 	if a.jaegerEndpoint != "" {
