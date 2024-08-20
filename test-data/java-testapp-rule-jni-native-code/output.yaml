@@ -1,36 +1,5 @@
 description: This ruleset detects Java Native Interface (JNI) and Java Native Access (JNA) code, which may be problematic when migrating an application to a cloud environment.
-violations:
-  jni-native-code-00000-test:
-    description: Java native libraries (JNI, JNA)
-    category: mandatory
-    labels:
-      - jni
-      - konveyor.io/source
-      - konveyor.io/target=cloud-readiness
-    incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: |-
-          Java native libraries might not run in a cloud or container environment.
-
-           Recommendations
-
-           * Review the purpose of the native library in your application.
-           * Check whether the native library is compatible with a cloud environment.
-           * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.
-           * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  \n31  \tpublic String getProperty (String name) {\n32  \t\treturn config.getProperty(name);"
-        lineNumber: 22
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Method
-          name: loadProperties
-          package: io.konveyor.demo.config
-    links:
-      - url: https://access.redhat.com/solutions/229443
-        title: How to load native libraries and access them via JNI in EAP (with or without a module)
-      - url: https://access.redhat.com/solutions/1444643
-        title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
-    effort: 7
+violations: []
 tags: null
 name: azure/springboot
 description: Recommend OpenFeign instead of Feign.
@@ -46,80 +15,7 @@ violations: []
 tags: null
 name: cloud-readiness
 description: This ruleset detects logging configurations that may be problematic when migrating an application to a cloud environment.
-violations:
-  jni-native-code-00000:
-    description: Java native libraries (JNI, JNA)
-    category: mandatory
-    labels:
-      - jni
-      - konveyor.io/source
-      - konveyor.io/target=cloud-readiness
-    incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: |-
-          Java native libraries might not run in a cloud or container environment.
-
-           Recommendations
-
-           * Review the purpose of the native library in your application.
-           * Check whether the native library is compatible with a cloud environment.
-           * Reuse or embed the native library or application in a cloud environment, for example, in a JBoss module.
-           * Replace, remove, or rewrite the native library or application using a cloud-compatible equivalent.
-        codeSnip: "12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  \n31  \tpublic String getProperty (String name) {\n32  \t\treturn config.getProperty(name);"
-        lineNumber: 22
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Method
-          name: loadProperties
-          package: io.konveyor.demo.config
-    links:
-      - url: https://access.redhat.com/solutions/229443
-        title: How to load native libraries and access them via JNI in EAP (with or without a module)
-      - url: https://access.redhat.com/solutions/1444643
-        title: Is it supported to compile the JNI code as 32-bit shared libraries and use it in 64-bit compiled Java code ?
-    effort: 7
-  local-storage-00001:
-    description: File system - Java IO
-    category: mandatory
-    labels:
-      - konveyor.io/source
-      - konveyor.io/target=cloud-readiness
-      - storage
-    incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: |-
-          An application running inside a container could lose access to a file in local storage.
-
-           Recommendations
-
-           The following recommendations depend on the function of the file in local storage:
-
-           * Logging: Log to standard output and use a centralized log collector to analyze the logs.
-           * Caching: Use a cache backing service.
-           * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
-           * Data storage: Use a database backing service for relational data or use a persistent data storage system.
-           * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
-        codeSnip: "10  \n11  \tpublic ApplicationConfiguration() {\n12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  "
-        lineNumber: 20
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Constructor
-          name: loadProperties
-          package: io.konveyor.demo.config
-    links:
-      - url: https://docs.openshift.com/container-platform/4.5/builds/creating-build-inputs.html#builds-input-secrets-configmaps_creating-build-inputs
-        title: 'OpenShift Container Platform: Input secrets and ConfigMaps'
-      - url: https://docs.openshift.com/container-platform/4.5/logging/cluster-logging.html
-        title: 'OpenShift Container Platform: Understanding cluster logging'
-      - url: https://docs.openshift.com/container-platform/4.5/storage/understanding-persistent-storage.html
-        title: 'OpenShift Container Platform: Understanding persistent storage'
-      - url: https://12factor.net/backing-services
-        title: 'Twelve-Factor App: Backing services'
-      - url: https://12factor.net/config
-        title: 'Twelve-Factor App: Config'
-      - url: https://12factor.net/logs
-        title: 'Twelve-Factor App: Logs'
-    effort: 1
+violations: []
 tags: null
 name: discovery-rules
 tags:
@@ -307,7 +203,6 @@ description: This ruleset provides analysis of logging libraries.
 tags:
   - Bean=EJB XML
   - Connect=EJB XML
-  - Connect=JNI
   - Connect=Servlet
   - Embedded Spring Data JPA
   - Embedded framework - Micrometer
@@ -326,12 +221,10 @@ tags:
   - Integration=Micrometer
   - Inversion of Control=Spring DI
   - Java EE=EJB XML
-  - Java EE=JNI
   - Java EE=JPA named queries
   - Java EE=Servlet
   - Java Servlet
   - Micrometer
-  - Other=JNI
   - Other=Properties
   - Persistence=JPA named queries
   - Persistence=Spring Data JPA
@@ -514,33 +407,6 @@ insights:
         variables:
           name: org.springframework.boot.spring-boot-starter-actuator
           version: 2.5.0
-  technology-usage-connect-01100:
-    description: ""
-    labels:
-      - discovery
-      - konveyor.io/include=always
-      - tag=Connect=JNI
-      - tag=Java EE=JNI
-      - tag=Other=JNI
-    incidents:
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: ""
-        codeSnip: " 3  import java.io.FileInputStream;\n 4  import java.io.InputStream;\n 5  import java.util.Properties;\n 6  \n 7  public class ApplicationConfiguration {\n 8  \n 9  \tprivate Properties config;\n10  \n11  \tpublic ApplicationConfiguration() {\n12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  "
-        lineNumber: 13
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Constructor
-          name: ApplicationConfiguration
-          package: io.konveyor.demo.config
-      - uri: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-        message: ""
-        codeSnip: "12  \t\tsuper();\n13  \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19  \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\")) {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26  \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  \n31  \tpublic String getProperty (String name) {\n32  \t\treturn config.getProperty(name);"
-        lineNumber: 22
-        variables:
-          file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
-          kind: Method
-          name: loadProperties
-          package: io.konveyor.demo.config
   technology-usage-database-01200:
     description: ""
     labels:

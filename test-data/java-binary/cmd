@@ -1,1 +1,1 @@
-${KANTRA_CMD} analyze --target cloud-readiness --input acmeair-webapp-1.0-SNAPSHOT.war --output output --overwrite
+${KANTRA_CMD} analyze --target cloud-readiness --input acmeair-webapp-1.0-SNAPSHOT.war -m source-only --output output --overwrite
