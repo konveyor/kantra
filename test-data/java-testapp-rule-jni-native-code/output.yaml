@@ -44,6 +44,7 @@ violations:
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
+    effort: 1
 insights:
   discover-java-files:
     description: Java source files
@@ -92,8 +93,6 @@ insights:
       - tag=Properties
     incidents:
       - uri: file:///opt/input/source/src/main/resources/persistence.properties
-        message: ""
-      - uri: file:///opt/input/source/target/classes/persistence.properties
         message: ""
   windup-discover-ejb-configuration:
     description: EJB XML Configuration
