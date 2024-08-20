@@ -70,9 +70,11 @@ jobs:
       
       - name: Fetch sample applications
         run: |
-          git clone https://github.com/konveyor/example-applications $(pwd)/hack/tmp/example-applications
-          git clone https://github.com/konveyor/tackle-testapp-public $(pwd)/hack/tmp/tackle-testapp
-          git clone https://github.com/ivargrimstad/jakartaee-duke $(pwd)/hack/tmp/jakartaee-duke
+          git clone --depth 1 https://github.com/konveyor/example-applications $(pwd)/hack/tmp/example-applications
+          git clone --depth 1 https://github.com/konveyor/tackle-testapp-public $(pwd)/hack/tmp/tackle-testapp
+          git clone --depth 1 https://github.com/ivargrimstad/jakartaee-duke $(pwd)/hack/tmp/jakartaee-duke
+          git clone --depth 1 https://github.com/konveyor-ecosystem/coolstore.git $(pwd)/hack/tmp/coolstore-main
+          git clone --depth 1 --branch quarkus https://github.com/konveyor-ecosystem/coolstore.git $(pwd)/hack/tmp/coolstore-quarkus
 
       - name: Run analysis test java custom rule
         run: |
