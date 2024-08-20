@@ -44,19 +44,6 @@ violations:
         lineNumber: 2
         variables:
           matchingText: 169.60.225.216
-      - uri: file:///opt/input/source/target/classes/persistence.properties
-        message: When migrating environments, hard-coded IP addresses may need to be modified or eliminated.
-        codeSnip: |2
-            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
-            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
-            3  jdbc.user=customers
-            4  jdbc.password=customers
-            5  hibernate.hbm2ddl.auto=create-drop
-            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
-        lineNumber: 2
-        variables:
-          matchingText: 169.60.225.216
-    effort: 1
 insights:
   discover-java-files:
     description: Java source files
