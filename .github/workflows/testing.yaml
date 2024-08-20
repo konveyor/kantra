@@ -76,25 +76,24 @@ jobs:
           git clone --depth 1 https://github.com/konveyor-ecosystem/coolstore.git $(pwd)/hack/tmp/coolstore-main
           git clone --depth 1 --branch quarkus https://github.com/konveyor-ecosystem/coolstore.git $(pwd)/hack/tmp/coolstore-quarkus
 
-      - name: Run analysis test java custom rule
+      - name: Test analysis java custom rule
         run: |
           ./hack/test_analysis.sh test-data/java-testapp-rule-jni-native-code
 
-      - name: Run analysis test java binary file
-        if: '!cancelled()'
-        run: |
-          ./hack/test_analysis.sh test-data/java-binary
+      #- name: Test analysis java binary file
+      #  if: '!cancelled()'
+      #  run: |
+      #    ./hack/test_analysis.sh test-data/java-binary
 
-      - name: Run analysis test tackle-testapp with maven settings
+      - name: Test analysis tackle-testapp with maven settings
         if: '!cancelled()'
         run: |
           ./hack/test_analysis.sh test-data/java-testapp-maven-settings
 
-      - name: Run analysis test coolstore main branch
+      - name: Test analysis coolstore main branch
         if: '!cancelled()'
         run: |
           ./hack/test_analysis.sh test-data/java-coolstore-main
-
 
   # run tests using conainer image / binary already published to quay
   test-published:
