@@ -95,6 +95,11 @@ jobs:
         run: |
           ./hack/test_analysis.sh test-data/java-coolstore-main
 
+      - name: Test analysis coolstore quarkus branch
+        if: '!cancelled()'
+        run: |
+          ./hack/test_analysis.sh test-data/java-coolstore-quarkus
+
   # run tests using conainer image / binary already published to quay
   test-published:
     name: Build & test with published images
