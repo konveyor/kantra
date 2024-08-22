@@ -162,7 +162,7 @@ func NewContainer() *container {
 		stdout:           []io.Writer{os.Stdout},
 		env:              map[string]string{},
 		stderr:           []io.Writer{os.Stderr},
-		Name:             RandomName(),
+		Name:             "",
 		NetworkName:      "",
 		// by default, remove the container after run()
 		cleanup:  true,
@@ -191,6 +191,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.Name != "" {
 		args = append(args, "--name")
 		args = append(args, c.Name)
+	} else {
+		args = append(args, "--name")
+		args = append(args, RandomName())
 	}
 	if c.NetworkName != "" {
 		args = append(args, "--network")

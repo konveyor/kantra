@@ -37,8 +37,6 @@ func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
 	if a.networkName == "" {
 		return nil
 	}
-	a.log.V(1).Info("removing container network",
-		"network", a.networkName)
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.PodmanBinary,
