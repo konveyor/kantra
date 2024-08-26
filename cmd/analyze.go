@@ -1121,7 +1121,7 @@ func (a *analyzeCommand) createTempRuleSet(path string, name string) error {
 }
 
 func (a *analyzeCommand) createContainerNetwork() (string, error) {
-	networkName := container.RandomName()
+	networkName := fmt.Sprintf("network-%v", container.RandomName())
 	args := []string{
 		"network",
 		"create",
@@ -1143,7 +1143,7 @@ func (a *analyzeCommand) createContainerNetwork() (string, error) {
 
 // TODO: create for each source input once accepting multiple apps is completed
 func (a *analyzeCommand) createContainerVolume() (string, error) {
-	volName := container.RandomName()
+	volName := fmt.Sprintf("volume-%v", container.RandomName())
 	input, err := filepath.Abs(a.input)
 	if err != nil {
 		return "", err
@@ -1233,6 +1233,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
+				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
 			)
 			if err != nil {
@@ -1257,6 +1258,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
+				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
 			)
 			if err != nil {
