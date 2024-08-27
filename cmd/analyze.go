@@ -1577,6 +1577,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		outputAnalyses = nil
 		outputDeps = nil
 		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
+		// optional
+		depFiles, _ := filepath.Glob(fmt.Sprintf("%s/dependencies.yaml.*", a.output))
 		if err != nil {
 			return err
 		}
@@ -1587,8 +1589,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
 			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
 		}
-		for i := range outputDeps {
-			_, depErr := os.Stat(outputDeps[i])
+		for i := range depFiles {
+			_, depErr := os.Stat(depFiles[i])
 			if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
 				// Remove not existing dependency files from statis report generator list
 				outputDeps[i] = ""
@@ -1603,11 +1605,13 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")))
 
 	// as of now, only java and go providers has dep capability
-	_, hasJava := a.providersMap[javaProvider]
-	_, hasGo := a.providersMap[goProvider]
-	if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
-		staticReportArgs = append(staticReportArgs,
-			fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+	if !a.bulk {
+		_, hasJava := a.providersMap[javaProvider]
+		_, hasGo := a.providersMap[goProvider]
+		if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
+			staticReportArgs = append(staticReportArgs,
+				fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+		}
 	}
 
 	cpArgs := []string{"&& cp -r",
@@ -1662,7 +1666,7 @@ func (a *analyzeCommand) moveResults() error {
 	if err != nil {
 		return err
 	}
-	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 	if err == nil { // dependencies file presence is optional
 		err = os.Remove(depsPath)
 		if err != nil {
