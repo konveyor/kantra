@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"runtime"
 
@@ -181,6 +182,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
 				analyzeCmd.cleanup = !val
 			}
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+			defer stop()
+
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.ListLabels(cmd.Context())
@@ -222,7 +226,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					}
 				}
 				if len(foundProviders) == 1 && foundProviders[0] == dotnetFrameworkProvider {
-					return analyzeCmd.analyzeDotnetFramework(cmd.Context())
+					return analyzeCmd.analyzeDotnetFramework(ctx)
 				}
 
 				// default rulesets are only java rules
@@ -231,7 +235,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return fmt.Errorf("No providers found with default rules. Use --rules option")
 				}
 
-				xmlOutputDir, err := analyzeCmd.ConvertXML(cmd.Context())
+				xmlOutputDir, err := analyzeCmd.ConvertXML(ctx)
 				if err != nil {
 					log.Error(err, "failed to convert xml rules")
 					return err
@@ -240,7 +244,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				// in this case we need to run only the analyzer to use builtin provider
 				if len(foundProviders) == 0 {
 					analyzeCmd.needsBuiltin = true
-					return analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, analyzeCmd.input)
+					return analyzeCmd.RunAnalysis(ctx, xmlOutputDir, analyzeCmd.input)
 				}
 
 				err = analyzeCmd.setProviderInitInfo(foundProviders)
@@ -251,7 +255,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				// defer cleaning created resources here instead of PostRun
 				// if Run returns an error, PostRun does not run
 				defer func() {
-					if err := analyzeCmd.CleanAnalysisResources(cmd.Context()); err != nil {
+					// start other context here to cleanup in case of program interrupt
+					if err := analyzeCmd.CleanAnalysisResources(context.TODO()); err != nil {
 						log.Error(err, "failed to clean temporary directories")
 					}
 				}()
@@ -267,18 +272,18 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 				// allow for 5 retries of running provider in the case of port in use
-				err = analyzeCmd.RunProviders(cmd.Context(), containerNetworkName, containerVolName, 5)
+				err = analyzeCmd.RunProviders(ctx, containerNetworkName, containerVolName, 5)
 				if err != nil {
 					log.Error(err, "failed to run provider")
 					return err
 				}
-				err = analyzeCmd.RunAnalysis(cmd.Context(), xmlOutputDir, containerVolName)
+				err = analyzeCmd.RunAnalysis(ctx, xmlOutputDir, containerVolName)
 				if err != nil {
 					log.Error(err, "failed to run analysis")
 					return err
 				}
 			} else {
-				err := analyzeCmd.RunAnalysisOverrideProviderSettings(cmd.Context())
+				err := analyzeCmd.RunAnalysisOverrideProviderSettings(ctx)
 				if err != nil {
 					log.Error(err, "failed to run analysis")
 					return err
@@ -290,7 +295,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return err
 			}
 
-			err = analyzeCmd.GenerateStaticReport(cmd.Context())
+			err = analyzeCmd.GenerateStaticReport(ctx)
 			if err != nil {
 				log.Error(err, "failed to generate static report")
 				return err
@@ -1116,7 +1121,7 @@ func (a *analyzeCommand) createTempRuleSet(path string, name string) error {
 }
 
 func (a *analyzeCommand) createContainerNetwork() (string, error) {
-	networkName := container.RandomName()
+	networkName := fmt.Sprintf("network-%v", container.RandomName())
 	args := []string{
 		"network",
 		"create",
@@ -1138,7 +1143,7 @@ func (a *analyzeCommand) createContainerNetwork() (string, error) {
 
 // TODO: create for each source input once accepting multiple apps is completed
 func (a *analyzeCommand) createContainerVolume() (string, error) {
-	volName := container.RandomName()
+	volName := fmt.Sprintf("volume-%v", container.RandomName())
 	input, err := filepath.Abs(a.input)
 	if err != nil {
 		return "", err
@@ -1228,6 +1233,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
+				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
 			)
 			if err != nil {
@@ -1252,6 +1258,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
 				container.WithCleanup(a.cleanup),
+				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
 			)
 			if err != nil {
@@ -1570,6 +1577,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		outputAnalyses = nil
 		outputDeps = nil
 		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
+		// optional
+		depFiles, _ := filepath.Glob(fmt.Sprintf("%s/dependencies.yaml.*", a.output))
 		if err != nil {
 			return err
 		}
@@ -1580,8 +1589,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
 			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
 		}
-		for i := range outputDeps {
-			_, depErr := os.Stat(outputDeps[i])
+		for i := range depFiles {
+			_, depErr := os.Stat(depFiles[i])
 			if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
 				// Remove not existing dependency files from statis report generator list
 				outputDeps[i] = ""
@@ -1596,11 +1605,13 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")))
 
 	// as of now, only java and go providers has dep capability
-	_, hasJava := a.providersMap[javaProvider]
-	_, hasGo := a.providersMap[goProvider]
-	if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
-		staticReportArgs = append(staticReportArgs,
-			fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+	if !a.bulk {
+		_, hasJava := a.providersMap[javaProvider]
+		_, hasGo := a.providersMap[goProvider]
+		if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
+			staticReportArgs = append(staticReportArgs,
+				fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+		}
 	}
 
 	cpArgs := []string{"&& cp -r",
@@ -1655,7 +1666,7 @@ func (a *analyzeCommand) moveResults() error {
 	if err != nil {
 		return err
 	}
-	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 	if err == nil { // dependencies file presence is optional
 		err = os.Remove(depsPath)
 		if err != nil {
@@ -1947,82 +1958,6 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 		}
 	}
 	return seenConf, nil
-}
-
-func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
-	if !a.cleanup || a.needsBuiltin {
-		return nil
-	}
-	a.log.V(1).Info("removing temp dirs")
-	for _, path := range a.tempDirs {
-		err := os.RemoveAll(path)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
-			continue
-		}
-	}
-	err := a.RmProviderContainers(ctx)
-	if err != nil {
-		a.log.Error(err, "failed to remove provider container")
-	}
-	err = a.RmNetwork(ctx)
-	if err != nil {
-		a.log.Error(err, "failed to remove network", "network", a.networkName)
-	}
-	err = a.RmVolumes(ctx)
-	if err != nil {
-		a.log.Error(err, "failed to remove volume", "volume", a.volumeName)
-	}
-	return nil
-}
-
-func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
-	if a.networkName == "" {
-		return nil
-	}
-	cmd := exec.CommandContext(
-		ctx,
-		Settings.PodmanBinary,
-		"network",
-		"rm", a.networkName)
-	a.log.V(1).Info("removing container network",
-		"network", a.networkName)
-	return cmd.Run()
-}
-
-func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
-	if a.volumeName == "" {
-		return nil
-	}
-	cmd := exec.CommandContext(
-		ctx,
-		Settings.PodmanBinary,
-		"volume",
-		"rm", a.volumeName)
-	a.log.V(1).Info("removing created volume",
-		"volume", a.volumeName)
-	return cmd.Run()
-}
-
-func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
-	for i := range a.providerContainerNames {
-		con := a.providerContainerNames[i]
-		// because we are using the --rm option when we start the provider container,
-		// it will immediately be removed after it stops
-		cmd := exec.CommandContext(
-			ctx,
-			Settings.PodmanBinary,
-			"stop", con)
-		a.log.V(1).Info("stopping container", "container", con)
-		err := cmd.Run()
-		if err != nil {
-			a.log.V(1).Error(err, "failed to stop container",
-				"container", con)
-			continue
-		}
-	}
-
-	return nil
 }
 
 func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
