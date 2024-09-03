@@ -7,14 +7,9 @@ import (
 )
 
 var (
-	BuildCommit          = ""
-	Version              = "latest"
-	RunnerImage          = "quay.io/konveyor/kantra"
-	RootCommandName      = "kantra"
-	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
-	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
-	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
-	DotnetProviderImage  = "quay.io/konveyor/dotnet-external-provider"
+	BuildCommit = ""
+	Version     = "latest"
+	RunnerImage = "quay.io/konveyor/kantra"
 )
 
 // Use build flags to set correct Version and BuildCommit
