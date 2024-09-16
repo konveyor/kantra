@@ -1559,6 +1559,15 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	if a.skipStaticReport {
 		return nil
 	}
+	// it's possible for dependency analysis to fail
+	// in this case we still want to generate a static report for successful source analysis
+	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
+	if errors.Is(noDepFileErr, os.ErrNotExist) {
+		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
+		return noDepFileErr
+	}
+
 	volumes := map[string]string{
 		a.input:  SourceMountPath,
 		a.output: OutputPath,
@@ -1591,15 +1600,18 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
 			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
 		}
-		for i := range depFiles {
-			_, depErr := os.Stat(depFiles[i])
-			if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
-				// Remove not existing dependency files from statis report generator list
-				outputDeps[i] = ""
+
+		if !errors.Is(noDepFileErr, os.ErrNotExist) {
+			for i := range depFiles {
+				_, depErr := os.Stat(depFiles[i])
+				if a.mode != string(provider.FullAnalysisMode) || depErr != nil {
+					// Remove not existing dependency files from statis report generator list
+					outputDeps[i] = ""
+				}
 			}
+			staticReportArgs = append(staticReportArgs,
+				fmt.Sprintf("--deps-output-list=%s", strings.Join(outputDeps, ",")))
 		}
-		staticReportArgs = append(staticReportArgs,
-			fmt.Sprintf("--deps-output-list=%s", strings.Join(outputDeps, ",")))
 	}
 
 	staticReportArgs = append(staticReportArgs,
@@ -1607,7 +1619,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		fmt.Sprintf("--application-name-list=%s", strings.Join(applicationNames, ",")))
 
 	// as of now, only java and go providers has dep capability
-	if !a.bulk {
+	if !a.bulk && !errors.Is(noDepFileErr, os.ErrNotExist) {
 		_, hasJava := a.providersMap[javaProvider]
 		_, hasGo := a.providersMap[goProvider]
 		if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
