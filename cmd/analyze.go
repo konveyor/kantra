@@ -1208,6 +1208,14 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		// application source code
 		volName: SourceMountPath,
 	}
+	if a.mavenSettingsFile != "" {
+		configVols, err := a.getConfigVolumes()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to get config volumes for analysis")
+			return err
+		}
+		maps.Copy(volumes, configVols)
+	}
 	vols, _ := a.getDepsFolders()
 	if len(vols) != 0 {
 		maps.Copy(volumes, vols)
