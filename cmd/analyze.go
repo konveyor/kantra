@@ -126,6 +126,9 @@ type analyzeCommand struct {
 	rules                    []string
 	jaegerEndpoint           string
 	enableDefaultRulesets    bool
+	httpProxy                string
+	httpsProxy               string
+	noProxy                  string
 	contextLines             int
 	incidentSelector         string
 	depFolders               []string
@@ -322,6 +325,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
@@ -925,7 +931,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		if len(vols) != 0 {
 			maps.Copy(settingsVols, vols)
 		}
-		for prov, _ := range a.providersMap {
+		for prov := range a.providersMap {
 			switch prov {
 			case javaProvider:
 				provConfig = append(provConfig, javaConfig)
@@ -945,7 +951,19 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 				provConfig = append(provConfig, dotnetConfig)
 			}
 		}
-		for prov, _ := range a.providersMap {
+		// Set proxy to providers
+		if a.httpProxy != "" || a.httpsProxy != "" {
+			proxy := provider.Proxy{
+				HTTPProxy:  a.httpProxy,
+				HTTPSProxy: a.httpsProxy,
+				NoProxy:    a.noProxy,
+			}
+			for i := range provConfig {
+				provConfig[i].Proxy = &proxy
+			}
+		}
+
+		for prov := range a.providersMap {
 			err = a.getProviderOptions(tempDir, provConfig, prov)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
