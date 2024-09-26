@@ -28,7 +28,9 @@ export CONTAINER_TOOL=/usr/bin/docker
 
 ## Installation
 
-To install kantra, download the executable for your platform and add it to the path.
+To install kantra, download the executable for your platform and add it to the path.  
+
+Note: For Mac you might get a "Apple could not verify" error message. If you do you can run `xattr -d com.apple.quarantine kantra` to have Apple trust the `kantra` binary.
 
 ### Downloading stable release
 
@@ -51,7 +53,7 @@ ${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-do
 
 #### Mac
 
-When you ar not using Docker for Desktop on your Mac (see above), 
+When you are not using Docker for Desktop on your Mac (see above), 
 you need to start a podman machine prior to running any podman commands (see [Setup for Mac](#mac-1))
 
 Once a machine is started, run:
@@ -62,7 +64,7 @@ ${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-do
 
 #### Windows
 
-When you ar not using Docker for Desktop on your Windows (see above),
+When you are not using Docker for Desktop on your Windows (see above),
 you need to start a podman machine prior to running any podman commands (see [Setup for Windows](#windows-1))
 
 Once a machine is started, run:
