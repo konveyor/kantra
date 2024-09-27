@@ -796,16 +796,20 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 }
 
 func (b *analyzeBinCommand) buildStaticReportOutput(ctx context.Context, log *os.File) error {
-	// build static report
-	cmd := exec.Command("./static-report.sh")
+	outputFileSrcPath := filepath.Join(b.homeKantraDir, "static-report", "public")
+	outputFileDestPath := filepath.Join(b.homeKantraDir, "static-report", "static-report")
+
+	// move output.js file to build dir
+	cmd := exec.Command("cp", filepath.Join(outputFileSrcPath, "output.js"),
+		filepath.Join(outputFileDestPath, "output.js"))
 	cmd.Stdout = log
 	err := cmd.Run()
 	if err != nil {
 		return err
 	}
 
-	// move build dir to analysis output
-	cmd = exec.Command("cp", "-r", filepath.Join(b.homeKantraDir, "static-report", "static-report"), b.output)
+	// move build dir to user output dir
+	cmd = exec.Command("cp", "-r", outputFileDestPath, b.output)
 	cmd.Stdout = log
 	err = cmd.Run()
 	if err != nil {
