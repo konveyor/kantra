@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -161,74 +160,13 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			}
 
 			// Get the configs
-			configs, err := analyzeBinCmd.createJavaProviderConfig()
+			finalConfigs, err := analyzeBinCmd.createProviderConfigs()
 			if err != nil {
 				log.Error(err, "unable to get Java configuration")
 				os.Exit(1)
 			}
-			// we add builtin configs by default for all locations
-			defaultBuiltinConfigs := []provider.InitConfig{}
-			seenBuiltinConfigs := map[string]bool{}
-			finalConfigs := []provider.Config{}
-			for _, config := range configs {
-				if config.Name != "builtin" {
-					finalConfigs = append(finalConfigs, config)
-				}
-				for _, initConf := range config.InitConfig {
-					if _, ok := seenBuiltinConfigs[initConf.Location]; !ok {
-						if initConf.Location != "" {
-							if stat, err := os.Stat(initConf.Location); err == nil && stat.IsDir() {
-								builtinLocation, err := filepath.Abs(initConf.Location)
-								if err != nil {
-									builtinLocation = initConf.Location
-								}
-								seenBuiltinConfigs[builtinLocation] = true
-								builtinConf := provider.InitConfig{Location: builtinLocation}
-								if config.Name == "builtin" {
-									builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
-								}
-								defaultBuiltinConfigs = append(defaultBuiltinConfigs, builtinConf)
-							}
-						}
-					}
-				}
-			}
 
-			finalConfigs = append(finalConfigs, provider.Config{
-				Name:       "builtin",
-				InitConfig: defaultBuiltinConfigs,
-			})
-
-			providers := map[string]provider.InternalProviderClient{}
-			providerLocations := []string{}
-			for _, config := range finalConfigs {
-				config.ContextLines = analyzeBinCmd.contextLines
-				for _, ind := range config.InitConfig {
-					providerLocations = append(providerLocations, ind.Location)
-				}
-				// IF analsyis mode is set from the CLI, then we will override this for each init config
-				if analyzeBinCmd.mode != "" {
-					inits := []provider.InitConfig{}
-					for _, i := range config.InitConfig {
-						i.AnalysisMode = provider.AnalysisMode(analyzeBinCmd.mode)
-						inits = append(inits, i)
-					}
-					config.InitConfig = inits
-				}
-				var prov provider.InternalProviderClient
-				// only create java and builtin providers
-				if config.Name == javaProvider {
-					prov = java.NewJavaProvider(log, "java", analyzeBinCmd.contextLines, config)
-
-				} else if config.Name == "builtin" {
-					prov, err = lib.GetProviderClient(config, log)
-					if err != nil {
-						log.Error(err, "failed to create builtin provider")
-						os.Exit(1)
-					}
-				}
-				providers[config.Name] = prov
-			}
+			providers, providerLocations := analyzeBinCmd.setInternalProviders(log, finalConfigs)
 
 			engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 			//start up the rule eng
@@ -261,39 +199,14 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 					needProviders[k] = v
 				}
 			}
-
-			// Now that we have all the providers, we need to start them.
-			additionalBuiltinConfigs := []provider.InitConfig{}
-			for name, provider := range needProviders {
-				switch name {
-				// other providers can return additional configs for the builtin provider
-				// therefore, we initiate builtin provider separately at the end
-				case "builtin":
-					continue
-				default:
-					initCtx, initSpan := tracing.StartNewSpan(ctx, "init",
-						attribute.Key("provider").String(name))
-					additionalBuiltinConfs, err := provider.ProviderInit(initCtx, nil)
-					if err != nil {
-						log.Error(err, "unable to init the providers", "provider", name)
-						os.Exit(1)
-					}
-					if additionalBuiltinConfs != nil {
-						additionalBuiltinConfigs = append(additionalBuiltinConfigs, additionalBuiltinConfs...)
-					}
-					initSpan.End()
-				}
+			err = analyzeBinCmd.startProviders(ctx, needProviders)
+			if err != nil {
+				os.Exit(1)
 			}
 
-			if builtinClient, ok := needProviders["builtin"]; ok {
-				if _, err = builtinClient.ProviderInit(ctx, additionalBuiltinConfigs); err != nil {
-					os.Exit(1)
-				}
-			}
-
+			// start dependency analysis for full analysis mode only
 			wg := &sync.WaitGroup{}
 			var depSpan trace.Span
-
 			if analyzeBinCmd.mode == string(provider.FullAnalysisMode) {
 				var depCtx context.Context
 				depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
@@ -429,7 +342,6 @@ func (b *analyzeBinCommand) Validate(ctx context.Context) error {
 			return fmt.Errorf("%w failed to stat input path %s", err, b.input)
 		}
 		// when input isn't a dir, it's pointing to a binary
-		// we need abs path to mount the file correctly
 		if !stat.Mode().IsDir() {
 			// validate file types
 			fileExt := filepath.Ext(b.input)
@@ -439,12 +351,6 @@ func (b *analyzeBinCommand) Validate(ctx context.Context) error {
 			default:
 				return fmt.Errorf("invalid file type %v", fileExt)
 			}
-			b.input, err = filepath.Abs(b.input)
-			if err != nil {
-				return fmt.Errorf("%w failed to get absolute path for input file %s", err, b.input)
-			}
-			// make sure we mount a file and not a dir
-			SourceMountPath = path.Join(SourceMountPath, filepath.Base(b.input))
 			b.isFileInput = true
 		}
 	}
@@ -584,7 +490,7 @@ func (b *analyzeBinCommand) setBins() error {
 	return nil
 }
 
-func (b *analyzeBinCommand) createJavaProviderConfig() ([]provider.Config, error) {
+func (b *analyzeBinCommand) createProviderConfigs() ([]provider.Config, error) {
 	javaConfig := provider.Config{
 		Name:       javaProvider,
 		BinaryPath: b.binMap["jdtls"],
@@ -642,7 +548,112 @@ func (b *analyzeBinCommand) createJavaProviderConfig() ([]provider.Config, error
 			"failed to write provider config", "dir", b.output, "file", "settings.json")
 		return nil, err
 	}
-	return provConfig, nil
+	configs := b.setConfigs(provConfig)
+	return configs, nil
+}
+
+func (b *analyzeBinCommand) setConfigs(configs []provider.Config) []provider.Config {
+	// we add builtin configs by default for all locations
+	defaultBuiltinConfigs := []provider.InitConfig{}
+	seenBuiltinConfigs := map[string]bool{}
+	finalConfigs := []provider.Config{}
+	for _, config := range configs {
+		if config.Name != "builtin" {
+			finalConfigs = append(finalConfigs, config)
+		}
+		for _, initConf := range config.InitConfig {
+			if _, ok := seenBuiltinConfigs[initConf.Location]; !ok {
+				if initConf.Location != "" {
+					if stat, err := os.Stat(initConf.Location); err == nil && stat.IsDir() {
+						builtinLocation, err := filepath.Abs(initConf.Location)
+						if err != nil {
+							builtinLocation = initConf.Location
+						}
+						seenBuiltinConfigs[builtinLocation] = true
+						builtinConf := provider.InitConfig{Location: builtinLocation}
+						if config.Name == "builtin" {
+							builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
+						}
+						defaultBuiltinConfigs = append(defaultBuiltinConfigs, builtinConf)
+					}
+				}
+			}
+		}
+	}
+
+	finalConfigs = append(finalConfigs, provider.Config{
+		Name:       "builtin",
+		InitConfig: defaultBuiltinConfigs,
+	})
+
+	return finalConfigs
+}
+
+func (b *analyzeBinCommand) setInternalProviders(log logr.Logger, finalConfigs []provider.Config) (map[string]provider.InternalProviderClient, []string) {
+	providers := map[string]provider.InternalProviderClient{}
+	providerLocations := []string{}
+	for _, config := range finalConfigs {
+		config.ContextLines = b.contextLines
+		for _, ind := range config.InitConfig {
+			providerLocations = append(providerLocations, ind.Location)
+		}
+		// IF analsyis mode is set from the CLI, then we will override this for each init config
+		if b.mode != "" {
+			inits := []provider.InitConfig{}
+			for _, i := range config.InitConfig {
+				i.AnalysisMode = provider.AnalysisMode(b.mode)
+				inits = append(inits, i)
+			}
+			config.InitConfig = inits
+		}
+		var prov provider.InternalProviderClient
+		var err error
+		// only create java and builtin providers
+		if config.Name == javaProvider {
+			prov = java.NewJavaProvider(log, "java", b.contextLines, config)
+
+		} else if config.Name == "builtin" {
+			prov, err = lib.GetProviderClient(config, log)
+			if err != nil {
+				log.Error(err, "failed to create builtin provider")
+				os.Exit(1)
+			}
+		}
+		providers[config.Name] = prov
+	}
+	return providers, providerLocations
+}
+
+func (b *analyzeBinCommand) startProviders(ctx context.Context, needProviders map[string]provider.InternalProviderClient) error {
+	// Now that we have all the providers, we need to start them.
+	additionalBuiltinConfigs := []provider.InitConfig{}
+	for name, provider := range needProviders {
+		switch name {
+		// other providers can return additional configs for the builtin provider
+		// therefore, we initiate builtin provider separately at the end
+		case "builtin":
+			continue
+		default:
+			initCtx, initSpan := tracing.StartNewSpan(ctx, "init",
+				attribute.Key("provider").String(name))
+			additionalBuiltinConfs, err := provider.ProviderInit(initCtx, nil)
+			if err != nil {
+				b.log.Error(err, "unable to init the providers", "provider", name)
+				os.Exit(1)
+			}
+			if additionalBuiltinConfs != nil {
+				additionalBuiltinConfigs = append(additionalBuiltinConfigs, additionalBuiltinConfs...)
+			}
+			initSpan.End()
+		}
+	}
+
+	if builtinClient, ok := needProviders["builtin"]; ok {
+		if _, err := builtinClient.ProviderInit(ctx, additionalBuiltinConfigs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[string]provider.InternalProviderClient, log logr.Logger, errLog logr.Logger, depOutputFile string, wg *sync.WaitGroup) {
