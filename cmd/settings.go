@@ -12,16 +12,6 @@ import (
 
 var Settings = &Config{}
 
-const (
-	RulesetPath            = "/opt/rulesets"
-	OpenRewriteRecipesPath = "/opt/openrewrite"
-	InputPath              = "/opt/input"
-	OutputPath             = "/opt/output"
-	XMLRulePath            = "/opt/xmlrules"
-	ShimOutputPath         = "/opt/shimoutput"
-	CustomRulePath         = "/opt/input/rules"
-)
-
 type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
 	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`

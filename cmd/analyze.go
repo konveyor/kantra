@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,7 +16,6 @@ import (
 
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/devfile/alizer/pkg/apis/model"
@@ -70,6 +68,17 @@ var (
 	}
 )
 
+// analyzer container paths
+const (
+	RulesetPath            = "/opt/rulesets"
+	OpenRewriteRecipesPath = "/opt/openrewrite"
+	InputPath              = "/opt/input"
+	OutputPath             = "/opt/output"
+	XMLRulePath            = "/opt/xmlrules"
+	ShimOutputPath         = "/opt/shimoutput"
+	CustomRulePath         = "/opt/input/rules"
+)
+
 // supported providers
 const (
 	javaProvider            = "java"
@@ -86,15 +95,6 @@ const (
 	WebArchive        = ".war"
 	EnterpriseArchive = ".ear"
 	ClassFile         = ".class"
-)
-
-// provider config options
-const (
-	mavenSettingsFile      = "mavenSettingsFile"
-	lspServerPath          = "lspServerPath"
-	lspServerName          = "lspServerName"
-	workspaceFolders       = "workspaceFolders"
-	dependencyProviderPath = "dependencyProviderPath"
 )
 
 // TODO add network and volume w/ interface
@@ -664,7 +664,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 	runModeContainer := "container"
 	if os.Getenv(runMode) == runModeContainer {
 		if listSources {
-			sourceSlice, err := readRuleFilesForLabels(sourceLabel)
+			sourceSlice, err := a.readRuleFilesForLabels(sourceLabel)
 			if err != nil {
 				a.log.Error(err, "failed to read rule labels")
 				return err
@@ -673,7 +673,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			return nil
 		}
 		if listTargets {
-			targetsSlice, err := readRuleFilesForLabels(targetLabel)
+			targetsSlice, err := a.readRuleFilesForLabels(targetLabel)
 			if err != nil {
 				a.log.Error(err, "failed to read rule labels")
 				return err
@@ -713,84 +713,13 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 	return nil
 }
 
-func readRuleFilesForLabels(label string) ([]string, error) {
+func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
 	err := filepath.WalkDir(RulesetPath, walkRuleSets(RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	return labelsSlice, nil
-}
-
-func walkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
-	return func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			*labelsSlice, err = readRuleFile(path, labelsSlice, label)
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	}
-}
-
-func readRuleFile(filePath string, labelsSlice *[]string, label string) ([]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanWords)
-
-	for scanner.Scan() {
-		// add source/target labels to slice
-		label := getSourceOrTargetLabel(scanner.Text(), label)
-		if len(label) > 0 && !slices.Contains(*labelsSlice, label) {
-			*labelsSlice = append(*labelsSlice, label)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return *labelsSlice, nil
-}
-
-func getSourceOrTargetLabel(text string, label string) string {
-	if strings.Contains(text, label) {
-		return text
-	}
-	return ""
-}
-
-func listOptionsFromLabels(sl []string, label string, out io.Writer) {
-	var newSl []string
-	l := label + "="
-
-	for _, label := range sl {
-		newSt := strings.TrimPrefix(label, l)
-
-		if newSt != label {
-			newSt = strings.TrimSuffix(newSt, "+")
-			newSt = strings.TrimSuffix(newSt, "-")
-
-			if !slices.Contains(newSl, newSt) {
-				newSl = append(newSl, newSt)
-
-			}
-		}
-	}
-	sort.Strings(newSl)
-
-	if label == outputv1.SourceTechnologyLabel {
-		fmt.Fprintln(out, "available source technologies:")
-	} else {
-		fmt.Fprintln(out, "available target technologies:")
-	}
-	for _, tech := range newSl {
-		fmt.Fprintln(out, tech)
-	}
 }
 
 func (a *analyzeCommand) getDepsFolders() (map[string]string, []string) {
