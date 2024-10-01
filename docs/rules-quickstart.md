@@ -13,11 +13,11 @@ migration paths over time.
    1. [How to install](#how-to-install-kantra)
    1. [How to use](#how-to-use-kantra)
    1. [Usage examples](#usage-examples)
-1. [Walkthrough](#walkthrough)
 1. [What is a rule?](#what-is-a-rule)
    1. [Parts of a rule](#parts-of-a-rule)
    1. [Conditions](#conditions)
-
+   1. [Writing rules](#writing-rules)
+1. [Walkthrough](#walkthrough)
 
 ### What is Kantra?
 Kantra is a CLI wrapper for the rules engine that powers Konveyor. Kantra allows users to do quick static analysis
@@ -48,68 +48,6 @@ a binary for your OS and architecture.
 - Generate report to migrate to Quarkus from EAP7, but do not analyze dependencies:
   - `kantra --input ~/Apps/my-eap7-application --source eap7 --target quarkus --mode source-only`
 
-### Walkthrough
-To get a feel of the Kantra workflow, let's try this sample walkthrough:
-1. Install kantra:
-    1. Go to [Kantra releases](https://github.com/konveyor/kantra/releases) and download for your arch and OS.
-    2. Install podman or docker if not already installed.
-2. Clone [the Coolstore app](https://github.com/konveyor-ecosystem/coolstore) to a directory of your choice:
-    1. `git clone git@github.com:konveyor-ecosystem/coolstore.git`
-3. We are going to analyze the Coolstore app to perform a migration from Java EE to Quarkus. In order to do this,
-   run the following command:
-    1. `kantra --input <path-to>/coolstore --target quarkus --target jakarta-ee9+ --target cloud-readiness --overwrite`
-        1. The `--input` parameter indicates the path to the source code to analyze
-        2. The different `--target` parameters indicate the migration paths we want to check. Since we want to migrate to Quarkus, we might also need to migrate our app to the Jakarta namespaces. We also want to see if our app would be ready to be deployed to the cloud.
-        3. Lastly, `--overwrite` will rewrite a previously generated report if it exists.
-4. After running successfully, a link will appear to the generated report. Follow it and open `index.html`. You should see a report [like this](https://jwmatthews.github.io/sample_kantra_reports/coolstore-quarkus/out/static-report/#/applications).
-    1. In "Applications", you can find all the analyzed applications; in this case, since we have specified only one input, only one application appears: "coolstore".
-    2. By clicking on the "Issues" link of the left hand panel, you can see all the issues raised by Konveyor.
-    3. Let's filter them by target == "cloud-readiness" and check the one with title "File system - Java IO". Inside
-       you can see all the source code files where the issue was found.
-5. Let's create a custom rule specifically for this application. Let's say we want to detect all `ProductService`s declared
-   as a field annotated with the `@Inject` annotation. For that, we will need a condition that looks like this:
-```yaml
-# The rule ID. Must be unique.
-- ruleID: coolstore-rule-00001
-# The category. This indicates if the change MUST be done (mandatory), CAN be done (optional),
-# or if it can't be decided (potential).
-  category: mandatory
-# An approximate calculation of the effort it would take to fix the issue in the code
-  effort: 1
-# A set of labels, including source and target technologies and tags
-  labels:
-  - konveyor.io/source=java-ee
-  - konveyor.io/source=jakarta-ee
-  - konveyor.io/target=quarkus
-  - quarkus
-# The triggering condition:
-  when:
-  # This will be a java condition
-    java.referenced:
-    # Match on the ProductService class...
-      pattern: com.redhat.coolstore.service.ProductService
-    # ...when it's used in a field declaration...
-      location: FIELD
-    # ...and also when it's annotated with @Inject.
-      annotated:
-        pattern: javax.inject.Inject
-# A short description of the issue.  
-  description: Do not use ProductService with Inject
-# A more descriptive and long explanation of the issue, potentially with code snippets and examples of solving.
-  message: "ProductService cannot be used with the @Inject annotation in version 2 of the coolstore application"
-# An array of links with more information about the issue
-  links:
-  - title: 'Add some link here'
-    url: https://www.example.com
-```
-6. Now save this file in a folder as `rule.yaml`, and add another file called `ruleset.yaml` in the same folder
-   with the following content:
-```yaml
-name: sample/ruleset
-description: This is a sample ruleset
-```
-7. Run kantra again with the new rule and check the results:
-    1. `kantra --input <path-to>/coolstore --target quarkus --target jakarta-ee9+ --target cloud-readiness --overwrite`
 
 
 ### What is a rule?
@@ -202,5 +140,103 @@ when:
 #### Writing rules
 The best way to learn to write rules is to check the examples we have in the [default ruleset](https://github.com/konveyor/rulesets).
 Additional documentation can also be found in the [analyzer docs](https://github.com/konveyor/analyzer-lsp/blob/main/docs/rules.md),
-with all available fields explained.
+with all available fields explained. Check the next section for a sample walkthrough of writing a rule, testing it and
+executing it.
 
+### Walkthrough
+To get a feel of the Kantra workflow, let's try this sample walkthrough:
+1. Install kantra:
+    1. Go to [Kantra releases](https://github.com/konveyor/kantra/releases) and download for your arch and OS.
+    2. Install podman or docker if not already installed.
+2. Clone [the Coolstore app](https://github.com/konveyor-ecosystem/coolstore) to a directory of your choice:
+    1. `git clone git@github.com:konveyor-ecosystem/coolstore.git`
+3. We are going to analyze the Coolstore app to perform a migration from Java EE to Quarkus. In order to do this,
+   run the following command:
+    1. `kantra --input <path-to>/coolstore --target quarkus --target jakarta-ee9+ --target cloud-readiness --overwrite`
+        1. The `--input` parameter indicates the path to the source code to analyze
+        2. The different `--target` parameters indicate the migration paths we want to check. Since we want to migrate to Quarkus, we might also need to migrate our app to the Jakarta namespaces. We also want to see if our app would be ready to be deployed to the cloud.
+        3. Lastly, `--overwrite` will rewrite a previously generated report if it exists.
+4. After running successfully, a link will appear to the generated report. Follow it and open `index.html`. You should see a report [like this](https://jwmatthews.github.io/sample_kantra_reports/coolstore-quarkus/out/static-report/#/applications).
+    1. In "Applications", you can find all the analyzed applications; in this case, since we have specified only one input, only one application appears: "coolstore".
+    2. By clicking on the "Issues" link of the left hand panel, you can see all the issues raised by Konveyor.
+    3. Let's filter them by target == "cloud-readiness" and check the one with title "File system - Java IO". Inside
+       you can see all the source code files where the issue was found.
+5. Let's create a custom rule specifically for this application. Let's say we want to detect all `ProductService`s declared
+   as a field annotated with the `@Inject` annotation. For that, we will need a condition that looks like this:
+```yaml
+# The rule ID. Must be unique.
+- ruleID: coolstore-rule-00001
+# The category. This indicates if the change MUST be done (mandatory), CAN be done (optional),
+# or if it can't be decided (potential).
+  category: mandatory
+# An approximate calculation of the effort it would take to fix the issue in the code
+  effort: 1
+# A set of labels, including source and target technologies and tags
+  labels:
+  - konveyor.io/source=java-ee
+  - konveyor.io/source=jakarta-ee
+  - konveyor.io/target=quarkus
+  - quarkus
+# The triggering condition:
+  when:
+  # This will be a java condition
+    java.referenced:
+    # Match on the ProductService class...
+      pattern: com.redhat.coolstore.service.ProductService
+    # ...when it's used in a field declaration...
+      location: FIELD
+    # ...and also when it's annotated with @Inject.
+      annotated:
+        pattern: javax.inject.Inject
+# A short description of the issue.  
+  description: Do not use ProductService with Inject
+# A more descriptive and long explanation of the issue, potentially with code snippets and examples of solving.
+  message: "ProductService cannot be used with the @Inject annotation in version 2 of the coolstore application"
+# An array of links with more information about the issue
+  links:
+  - title: 'Add some link here'
+    url: https://www.example.com
+```
+6. Now save this file in a folder as `rule.yaml`, and add another file called `ruleset.yaml` in the same folder
+   with the following content:
+```yaml
+name: sample/ruleset
+description: This is a sample ruleset
+```
+7. Run kantra again with the new rule and check the results:
+    1. `kantra --input <path-to>/coolstore --target quarkus --target jakarta-ee9+ --target cloud-readiness --overwrite`
+
+#### Testing our rule
+It is ideal to have tests for each rule that we write. For that purpose, kantra has a test runner that allows us
+to write tests and run them against sample code. [Here](https://github.com/konveyor/kantra/blob/main/docs/testrunner.md)
+are the docs for the test runner.
+
+Writing a test is easy. In the case of the rule we have just written, and having the coolstore app as data for our test,
+we could have the following dir structure with a new `rule.test.yaml` file and the coolstore app as data:
+```
+.
+├── ruleset.yaml
+├── rule.test.yaml
+├── rule.yaml
+└── test-data
+    └── coolstore
+```
+Tests must be named following the `*.test.yaml` convention in order for the analyzer to ignore them when running a normal
+analysis. In the case of the test runner, it will pick up whatever it finds ending in `*.test.yaml`.
+
+Given this structure, our test could look like this:
+```yaml
+rulesPath: ./rule.yaml
+providers:
+- name: java
+  dataPath: ./test-data/coolstore
+tests:
+- ruleID: coolstore-rule-00001
+  testCases:
+  - name: coolstore-rule-00001-test-01
+    hasIncidents:
+      exactly: 2
+      messageMatches: "ProductService cannot be used with the @Inject annotation in version 2 of the coolstore application"
+```
+It will check that two incidents are occurring in the analyzer output, and that the message corresponds to that of the rule.
+To execute it simply run `kantra test .`.
