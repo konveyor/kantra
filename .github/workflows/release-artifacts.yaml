@@ -42,6 +42,25 @@ jobs:
         podman cp kantra-download:/usr/local/bin/darwin-kantra . && zip kantra.darwin.${{ matrix.arch }}.zip darwin-kantra
         podman cp kantra-download:/usr/local/bin/windows-kantra windows-kantra.exe && zip kantra.windows.${{ matrix.arch }}.zip windows-kantra.exe
 
+    - name: Extract containerless reqs
+      run: |
+        image=quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
+        podman create --name kantra-download ${image}
+        podman cp kantra-download:/jdtls . && zip -r kantra.linux.${{ matrix.arch }}.zip jdtls
+        podman cp kantra-download:/bin/fernflower.jar . && zip kantra.linux.${{ matrix.arch }}.zip fernflower.jar
+        podman cp kantra-download:/usr/local/static-report . && zip -r kantra.linux.${{ matrix.arch }}.zip static-report  
+        podman cp kantra-download:/opt/rulesets . && zip -r kantra.linux.${{ matrix.arch }}.zip rulesets
+              
+        podman cp kantra-download:/jdtls . && zip -r kantra.darwin.${{ matrix.arch }}.zip jdtls
+        podman cp kantra-download:/bin/fernflower.jar . && zip kantra.darwin.${{ matrix.arch }}.zip fernflower.jar
+        podman cp kantra-download:/usr/local/static-report . && zip -r kantra.darwin.${{ matrix.arch }}.zip static-report
+        podman cp kantra-download:/opt/rulesets . && zip -r kantra.darwin.${{ matrix.arch }}.zip rulesets
+
+        podman cp kantra-download:/jdtls . && zip -r kantra.windows.${{ matrix.arch }}.zip jdtls
+        podman cp kantra-download:/bin/fernflower.jar . && zip kantra.windows.${{ matrix.arch }}.zip fernflower.jar
+        podman cp kantra-download:/usr/local/static-report . && zip -r kantra.windows.${{ matrix.arch }}.zip static-report
+        podman cp kantra-download:/opt/rulesets . && zip -r kantra.windows.${{ matrix.arch }}.zip rulesets
+
     - name: Upload linux binary
       uses: actions/upload-release-asset@v1
       env:
@@ -72,3 +91,4 @@ jobs:
         asset_name: kantra.darwin.${{ matrix.arch }}.zip
         asset_content_type: application/zip
 
+      
