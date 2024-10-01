@@ -45,7 +45,6 @@ jobs:
     - name: Extract containerless reqs
       run: |
         image=quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
-        podman create --name kantra-download ${image}
         podman cp kantra-download:/jdtls . && zip -r kantra.linux.${{ matrix.arch }}.zip jdtls
         podman cp kantra-download:/bin/fernflower.jar . && zip kantra.linux.${{ matrix.arch }}.zip fernflower.jar
         podman cp kantra-download:/usr/local/static-report . && zip -r kantra.linux.${{ matrix.arch }}.zip static-report  
