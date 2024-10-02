@@ -771,7 +771,7 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 	applicationName := []string{filepath.Base(b.input)}
 	outputAnalysis := []string{filepath.Join(b.output, "output.yaml")}
 	outputDeps := []string{filepath.Join(b.output, "dependencies.yaml")}
-	outputJSPath := filepath.Join(staticReportPath, "public", "output.js")
+	outputJSPath := filepath.Join(staticReportPath, "output.js")
 
 	if depsErr {
 		outputDeps = []string{}
@@ -796,22 +796,12 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 }
 
 func (b *analyzeBinCommand) buildStaticReportOutput(ctx context.Context, log *os.File) error {
-	outputFileSrcPath := filepath.Join(b.homeKantraDir, "static-report", "public")
-	outputFileDestPath := filepath.Join(b.homeKantraDir, "static-report", "static-report")
-
-	// move output.js file to build dir
-	cmd := exec.Command("cp", filepath.Join(outputFileSrcPath, "output.js"),
-		filepath.Join(outputFileDestPath, "output.js"))
-	cmd.Stdout = log
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
+	outputFileDestPath := filepath.Join(b.homeKantraDir, "static-report")
 
 	// move build dir to user output dir
-	cmd = exec.Command("cp", "-r", outputFileDestPath, b.output)
+	cmd := exec.Command("cp", "-r", outputFileDestPath, b.output)
 	cmd.Stdout = log
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}
