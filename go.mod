@@ -71,10 +71,9 @@ require (
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.5.3
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240926004552-328558364c2f
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240930182605-8f5ccf72040d
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 )
- 
