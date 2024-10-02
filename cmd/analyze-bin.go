@@ -429,7 +429,11 @@ func (b *analyzeBinCommand) fetchLabels(ctx context.Context, listSources, listTa
 
 func (b *analyzeBinCommand) walkRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(b.homeKantraDir, RulesetsLocation)
+	path := filepath.Join(b.homeKantraDir, "rulesets")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		b.log.Error(err, "cannot find ruleset, ensure containerless-kantra-deps are in place")
+		return nil, err
+	}
 	err := filepath.WalkDir(path, walkRuleSets(path, label, &labelsSlice))
 	if err != nil {
 		return nil, err
