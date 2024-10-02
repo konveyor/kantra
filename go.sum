@@ -87,6 +87,8 @@ github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240925163006-aa4d8cacbcc9/go.mod h1:O7Bh3ECVCvRdsDv2qR8UG5S3so4PXmI7PrYrrm78YIY=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240926004552-328558364c2f h1:0jj9ayb1qpMP8wu+LdF+2jSHZN5JeGVP69iJqaYPpYA=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240926004552-328558364c2f/go.mod h1:O7Bh3ECVCvRdsDv2qR8UG5S3so4PXmI7PrYrrm78YIY=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240930182605-8f5ccf72040d h1:zCaOFmnO4MNPS3L6bZ4+nYdy+twgkgbxDSeZaz9N4fw=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240930182605-8f5ccf72040d/go.mod h1:O7Bh3ECVCvRdsDv2qR8UG5S3so4PXmI7PrYrrm78YIY=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.0 h1:WgNl7dwNpEZ6jJ9k1snq4pZsg7DOEN8hP9Xw0Tsjwk0=
