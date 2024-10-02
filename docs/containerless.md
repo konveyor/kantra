@@ -1,19 +1,25 @@
-## Test and Run Containerless Kantra
+# Run Containerless Kantra
 
-### Clone the requirements:
+Have OpenJDK 17+ and Maven installed
+
+## Download kantra and requirements:
+
+Download appropriate zip for your OS [here](https://github.com/konveyor/kantra/releases/tag/v0.6.0-alpha.1) 
+
+## Move kantra binary to your $PATH:
 
 ```sh
-git clone https://github.com/eemcmullan/containerless-kantra-deps.git
+mv $HOME/kantra.<os>.<arch>/<os>-kantra /usr/bin
 ```
 
-## Move them to where kantra will look for packged binaries and default rulesets:
+### Move requirements to kantra known location:
 
 ```sh
-mv $HOME/containerless-kantra-deps $HOME/.kantra
+mv $HOME/kantra.<os>.<arch> $HOME/.kantra
 ```
 
-### From kantra, run:
+## Run analysis:
 
 ```sh
-go run main.go analyze-bin  --input <java-app> --output <output-dir> --rules <java-rules>
+kantra analyze-bin  --input <java-app> --output <output-dir> --rules <java-rules>
 ```
