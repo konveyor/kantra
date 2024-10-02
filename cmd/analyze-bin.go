@@ -286,6 +286,16 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 }
 
 func (b *analyzeBinCommand) Validate(ctx context.Context) error {
+	// Validate .kantra in home directory and its content (containerless)
+	requiredDirs := []string{b.homeKantraDir, filepath.Join(b.homeKantraDir, RulesetsLocation), filepath.Join(b.homeKantraDir, JavaBundlesLocation), filepath.Join(b.homeKantraDir, JDTLSBinLocation)}
+	for _, path := range requiredDirs {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			b.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
+			return err
+		}
+	}
+
+	// Print-only methods
 	if b.listSources || b.listTargets {
 		return nil
 	}
@@ -430,6 +440,10 @@ func (b *analyzeBinCommand) fetchLabels(ctx context.Context, listSources, listTa
 func (b *analyzeBinCommand) walkRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
 	path := filepath.Join(b.homeKantraDir, RulesetsLocation)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		b.log.Error(err, "cannot open provided path")
+		return nil, err
+	}
 	err := filepath.WalkDir(path, walkRuleSets(path, label, &labelsSlice))
 	if err != nil {
 		return nil, err
