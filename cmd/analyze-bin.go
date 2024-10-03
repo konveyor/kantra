@@ -131,18 +131,25 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			}
 			defer analysisLog.Close()
 
-			logrusLog := logrus.New()
-			logrusLog.SetOutput(analysisLog)
-			logrusLog.SetFormatter(&logrus.TextFormatter{})
-			// need to do research on mapping in logrusr to level here TODO
-			logrusLog.SetLevel(logrus.Level(logLevel))
-			log := logrusr.New(logrusLog)
+			defer func() {
+				if err := analyzeBinCmd.cleanlsDirs(); err != nil {
+					log.Error(err, "failed to clean language server directories")
+				}
+			}()
 
+			// log output from analyzer to file
+			logrusAnalyzerLog := logrus.New()
+			logrusAnalyzerLog.SetOutput(analysisLog)
+			logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
+			logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
+			analyzeLog := logrusr.New(logrusAnalyzerLog)
+
+			// log kantra errs to stderr
 			logrusErrLog := logrus.New()
-			logrusErrLog.SetOutput(analysisLog)
+			logrusErrLog.SetOutput(os.Stderr)
 			errLog := logrusr.New(logrusErrLog)
 
-			fmt.Println("running analysis")
+			log.Info("running source analysis")
 			labelSelectors := analyzeBinCmd.getLabelSelector()
 
 			selectors := []engine.RuleSelector{}
@@ -157,24 +164,25 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 
 			err = analyzeBinCmd.setBins()
 			if err != nil {
-				log.Error(err, "unable to get binaries")
+				log.Error(err, "unable to find kantra dependencies")
 				os.Exit(1)
 			}
 
 			// Get the configs
+			log.Info("creating provider config")
 			finalConfigs, err := analyzeBinCmd.createProviderConfigs()
 			if err != nil {
-				errLog.Error(err, "unable to get Java configuration")
+				errLog.Error(err, "unable to get Java provider configuration")
 				os.Exit(1)
 			}
 
-			providers, providerLocations := analyzeBinCmd.setInternalProviders(log, finalConfigs)
+			providers, providerLocations := analyzeBinCmd.setInternalProviders(finalConfigs, analyzeLog)
 
 			engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 			//start up the rule eng
 			eng := engine.CreateRuleEngine(engineCtx,
 				10,
-				log,
+				analyzeLog,
 				engine.WithContextLines(analyzeBinCmd.contextLines),
 				engine.WithIncidentSelector(analyzeBinCmd.incidentSelector),
 				engine.WithLocationPrefixes(providerLocations),
@@ -182,7 +190,7 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 
 			parser := parser.RuleParser{
 				ProviderNameToClient: providers,
-				Log:                  log.WithName("parser"),
+				Log:                  analyzeLog.WithName("parser"),
 			}
 
 			ruleSets := []engine.RuleSet{}
@@ -192,6 +200,8 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 				analyzeBinCmd.rules = append(analyzeBinCmd.rules, filepath.Join(analyzeBinCmd.homeKantraDir, RulesetsLocation))
 			}
 			for _, f := range analyzeBinCmd.rules {
+				log.Info("parsing rules for analysis", "rules", f)
+
 				internRuleSet, internNeedProviders, err := parser.LoadRules(f)
 				if err != nil {
 					log.Error(err, "unable to parse all the rules for ruleset", "file", f)
@@ -214,11 +224,12 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 				depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
 				wg.Add(1)
 
-				fmt.Println("running dependency analysis")
-				go analyzeBinCmd.DependencyOutput(depCtx, providers, log, errLog, "dependencies.yaml", wg)
+				log.Info("running depencency analysis")
+				go analyzeBinCmd.DependencyOutput(depCtx, providers, "dependencies.yaml", wg)
 			}
 
 			// This will already wait
+			log.Info("evaluating rules for violations. see analysis.log for more info")
 			rulesets := eng.RunRules(ctx, ruleSets, selectors...)
 			engineSpan.End()
 			wg.Wait()
@@ -236,12 +247,12 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			})
 
 			// Write results out to CLI
+			log.Info("writing analysis results to output", "output", analyzeBinCmd.output)
 			b, err := yaml.Marshal(rulesets)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println("writing analysis results to output", "output", analyzeBinCmd.output)
 			err = os.WriteFile(filepath.Join(analyzeBinCmd.output, "output.yaml"), b, 0644)
 			if err != nil {
 				os.Exit(1) // Treat the error as a fatal error
@@ -453,16 +464,21 @@ func (b *analyzeBinCommand) walkRuleFilesForLabels(label string) ([]string, erro
 	return labelsSlice, nil
 }
 
-func (a *analyzeBinCommand) CheckOverwriteOutput() error {
+func (b *analyzeBinCommand) CheckOverwriteOutput() error {
 	// default overwrite to false so check for already existing output dir
-	stat, err := os.Stat(a.output)
+	stat, err := os.Stat(b.output)
 	if err != nil {
+		// some other err
 		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
-	if a.overwrite && stat != nil {
-		err := os.RemoveAll(a.output)
+	if !b.overwrite && stat != nil {
+		return fmt.Errorf("output dir %v already exists and --overwrite not set", b.output)
+	}
+
+	if b.overwrite && stat != nil {
+		err := os.RemoveAll(b.output)
 		if err != nil {
 			return err
 		}
@@ -605,10 +621,11 @@ func (b *analyzeBinCommand) setConfigs(configs []provider.Config) []provider.Con
 	return finalConfigs
 }
 
-func (b *analyzeBinCommand) setInternalProviders(log logr.Logger, finalConfigs []provider.Config) (map[string]provider.InternalProviderClient, []string) {
+func (b *analyzeBinCommand) setInternalProviders(finalConfigs []provider.Config, analysisLog logr.Logger) (map[string]provider.InternalProviderClient, []string) {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 	for _, config := range finalConfigs {
+		b.log.Info("setting provider from provider config", "provider", config.Name)
 		config.ContextLines = b.contextLines
 		for _, ind := range config.InitConfig {
 			providerLocations = append(providerLocations, ind.Location)
@@ -626,12 +643,12 @@ func (b *analyzeBinCommand) setInternalProviders(log logr.Logger, finalConfigs [
 		var err error
 		// only create java and builtin providers
 		if config.Name == javaProvider {
-			prov = java.NewJavaProvider(log, "java", b.contextLines, config)
+			prov = java.NewJavaProvider(analysisLog, "java", b.contextLines, config)
 
 		} else if config.Name == "builtin" {
-			prov, err = lib.GetProviderClient(config, log)
+			prov, err = lib.GetProviderClient(config, analysisLog)
 			if err != nil {
-				log.Error(err, "failed to create builtin provider")
+				b.log.Error(err, "failed to create builtin provider")
 				os.Exit(1)
 			}
 		}
@@ -644,6 +661,7 @@ func (b *analyzeBinCommand) startProviders(ctx context.Context, needProviders ma
 	// Now that we have all the providers, we need to start them.
 	additionalBuiltinConfigs := []provider.InitConfig{}
 	for name, provider := range needProviders {
+		b.log.Info("starting provider", "provider", name)
 		switch name {
 		// other providers can return additional configs for the builtin provider
 		// therefore, we initiate builtin provider separately at the end
@@ -672,7 +690,7 @@ func (b *analyzeBinCommand) startProviders(ctx context.Context, needProviders ma
 	return nil
 }
 
-func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[string]provider.InternalProviderClient, log logr.Logger, errLog logr.Logger, depOutputFile string, wg *sync.WaitGroup) {
+func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[string]provider.InternalProviderClient, depOutputFile string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var depsFlat []konveyor.DepsFlatItem
 	var depsTree []konveyor.DepsTreeItem
@@ -681,7 +699,7 @@ func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[
 	for _, prov := range providers {
 		deps, err := prov.GetDependencies(ctx)
 		if err != nil {
-			errLog.Error(err, "failed to get list of dependencies for provider", "provider", "java")
+			b.log.Error(err, "failed to get list of dependencies for provider", "provider", "java")
 		}
 		for u, ds := range deps {
 			newDeps := ds
@@ -693,7 +711,7 @@ func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[
 		}
 
 		if depsFlat == nil && depsTree == nil {
-			errLog.Info("failed to get dependencies from all given providers")
+			b.log.Info("failed to get dependencies from all given providers")
 			return
 		}
 	}
@@ -710,13 +728,13 @@ func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[
 
 	by, err = yaml.Marshal(depsFlat)
 	if err != nil {
-		errLog.Error(err, "failed to marshal dependency data as yaml")
+		b.log.Error(err, "failed to marshal dependency data as yaml")
 		return
 	}
 
 	err = os.WriteFile(filepath.Join(b.output, depOutputFile), by, 0644)
 	if err != nil {
-		errLog.Error(err, "failed to write dependencies to output file", "file", depOutputFile)
+		b.log.Error(err, "failed to write dependencies to output file", "file", depOutputFile)
 		return
 	}
 
@@ -726,6 +744,7 @@ func (b *analyzeBinCommand) createJSONOutput() error {
 	if !b.jsonOutput {
 		return nil
 	}
+	b.log.Info("writing analysis results as json output", "output", b.output)
 	outputPath := filepath.Join(b.output, "output.yaml")
 	depPath := filepath.Join(b.output, "dependencies.yaml")
 
@@ -793,7 +812,7 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 		outputDeps = []string{}
 	}
 	// create output.js file from analysis output.yaml
-	apps, err := validateFlags(outputAnalysis, applicationName, outputDeps)
+	apps, err := validateFlags(outputAnalysis, applicationName, outputDeps, b.log)
 	if err != nil {
 		log.Fatalln("failed to validate flags", err)
 	}
@@ -803,7 +822,7 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 		log.Fatalln("failed to load report data from analysis output", err)
 	}
 
-	err = generateJSBundle(apps, outputJSPath)
+	err = generateJSBundle(apps, outputJSPath, b.log)
 	if err != nil {
 		log.Fatalln("failed to generate output.js file from template", err)
 	}
@@ -829,6 +848,7 @@ func (b *analyzeBinCommand) GenerateStaticReport(ctx context.Context) error {
 	if b.skipStaticReport {
 		return nil
 	}
+	b.log.Info("generating static report")
 	staticReportLogFilePath := filepath.Join(b.output, "static-report.log")
 	staticReportLog, err := os.Create(staticReportLogFilePath)
 	if err != nil {
