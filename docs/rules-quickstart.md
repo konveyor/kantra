@@ -221,6 +221,9 @@ we could have the following dir structure with a new `rule.test.yaml` file and t
 └── test-data
     └── coolstore
 ```
+:warning: At the moment there is a [bug](https://github.com/konveyor/kantra/issues/350) involving test data and other data being in the way of the engine recognizing
+rules. Place the `test-data` folder outside of the rule folder and change the test below accordingly.
+
 Tests must be named following the `*.test.yaml` convention in order for the analyzer to ignore them when running a normal
 analysis. In the case of the test runner, it will pick up whatever it finds ending in `*.test.yaml`.
 
