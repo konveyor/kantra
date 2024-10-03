@@ -143,11 +143,13 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			errLog := logrusr.New(logrusErrLog)
 
 			fmt.Println("running analysis")
+			labelSelectors := analyzeBinCmd.getLabelSelector()
+
 			selectors := []engine.RuleSelector{}
-			if analyzeBinCmd.labelSelector != "" {
-				selector, err := labels.NewLabelSelector[*engine.RuleMeta](analyzeBinCmd.labelSelector, nil)
+			if labelSelectors != "" {
+				selector, err := labels.NewLabelSelector[*engine.RuleMeta](labelSelectors, nil)
 				if err != nil {
-					log.Error(err, "failed to create label selector from expression", "selector", analyzeBinCmd.labelSelector)
+					errLog.Error(err, "failed to create label selector from expression", "selector", labelSelectors)
 					os.Exit(1)
 				}
 				selectors = append(selectors, selector)
@@ -162,7 +164,7 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			// Get the configs
 			finalConfigs, err := analyzeBinCmd.createProviderConfigs()
 			if err != nil {
-				log.Error(err, "unable to get Java configuration")
+				errLog.Error(err, "unable to get Java configuration")
 				os.Exit(1)
 			}
 
@@ -858,4 +860,53 @@ func (b *analyzeBinCommand) GenerateStaticReport(ctx context.Context) error {
 	b.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
+}
+
+func (b *analyzeBinCommand) getLabelSelector() string {
+	if b.labelSelector != "" {
+		return b.labelSelector
+	}
+	if (b.sources == nil || len(b.sources) == 0) &&
+		(b.targets == nil || len(b.targets) == 0) {
+		return ""
+	}
+	// default labels are applied everytime either a source or target is specified
+	defaultLabels := []string{"discovery"}
+	targets := []string{}
+	for _, target := range b.targets {
+		targets = append(targets,
+			fmt.Sprintf("%s=%s", outputv1.TargetTechnologyLabel, target))
+	}
+	sources := []string{}
+	for _, source := range b.sources {
+		sources = append(sources,
+			fmt.Sprintf("%s=%s", outputv1.SourceTechnologyLabel, source))
+	}
+	targetExpr := ""
+	if len(targets) > 0 {
+		targetExpr = fmt.Sprintf("(%s)", strings.Join(targets, " || "))
+	}
+	sourceExpr := ""
+	if len(sources) > 0 {
+		sourceExpr = fmt.Sprintf("(%s)", strings.Join(sources, " || "))
+	}
+	if targetExpr != "" {
+		if sourceExpr != "" {
+			// when both targets and sources are present, AND them
+			return fmt.Sprintf("(%s && %s) || (%s)",
+				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
+		} else {
+			// when target is specified, but source is not
+			// use a catch-all expression for source
+			return fmt.Sprintf("(%s && %s) || (%s)",
+				targetExpr, outputv1.SourceTechnologyLabel, strings.Join(defaultLabels, " || "))
+		}
+	}
+	if sourceExpr != "" {
+		// when only source is specified, OR them all
+		return fmt.Sprintf("%s || (%s)",
+			sourceExpr, strings.Join(defaultLabels, " || "))
+	}
+
+	return ""
 }
