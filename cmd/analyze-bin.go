@@ -59,10 +59,9 @@ type analyzeBinCommand struct {
 	contextLines          int
 	incidentSelector      string
 
-	//for cleaning
-	binMap        map[string]string
-	homeKantraDir string
-	log           logr.Logger
+	reqMap    map[string]string
+	kantraDir string
+	log       logr.Logger
 	// isFileInput is set when input points to a file and not a dir
 	isFileInput bool
 	logLevel    *uint32
@@ -115,8 +114,8 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 				return nil
 			}
 
-			if analyzeBinCmd.binMap == nil {
-				analyzeBinCmd.binMap = make(map[string]string)
+			if analyzeBinCmd.reqMap == nil {
+				analyzeBinCmd.reqMap = make(map[string]string)
 			}
 
 			defer os.Remove(filepath.Join(analyzeBinCmd.output, "settings.json"))
@@ -162,7 +161,7 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 				selectors = append(selectors, selector)
 			}
 
-			err = analyzeBinCmd.setBins()
+			err = analyzeBinCmd.setBinMap()
 			if err != nil {
 				log.Error(err, "unable to find kantra dependencies")
 				os.Exit(1)
@@ -197,7 +196,7 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			needProviders := map[string]provider.InternalProviderClient{}
 
 			if analyzeBinCmd.enableDefaultRulesets {
-				analyzeBinCmd.rules = append(analyzeBinCmd.rules, filepath.Join(analyzeBinCmd.homeKantraDir, RulesetsLocation))
+				analyzeBinCmd.rules = append(analyzeBinCmd.rules, filepath.Join(analyzeBinCmd.kantraDir, RulesetsLocation))
 			}
 			for _, f := range analyzeBinCmd.rules {
 				log.Info("parsing rules for analysis", "rules", f)
@@ -300,7 +299,7 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 
 func (b *analyzeBinCommand) Validate(ctx context.Context) error {
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{b.homeKantraDir, filepath.Join(b.homeKantraDir, RulesetsLocation), filepath.Join(b.homeKantraDir, JavaBundlesLocation), filepath.Join(b.homeKantraDir, JDTLSBinLocation)}
+	requiredDirs := []string{b.kantraDir, filepath.Join(b.kantraDir, RulesetsLocation), filepath.Join(b.kantraDir, JavaBundlesLocation), filepath.Join(b.kantraDir, JDTLSBinLocation)}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			b.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
@@ -452,7 +451,7 @@ func (b *analyzeBinCommand) fetchLabels(ctx context.Context, listSources, listTa
 
 func (b *analyzeBinCommand) walkRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(b.homeKantraDir, RulesetsLocation)
+	path := filepath.Join(b.kantraDir, RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		b.log.Error(err, "cannot open provided path")
 		return nil, err
@@ -487,30 +486,53 @@ func (b *analyzeBinCommand) CheckOverwriteOutput() error {
 }
 
 func (b *analyzeBinCommand) setKantraDir() error {
-	var homeDir string
-	var set bool
+	var dir string
+	var err error
+	set := true
+	reqs := []string{
+		RulesetsLocation,
+		"jdtls",
+		"static-report",
+	}
+	// check current dir first for reqs
+	dir, err = os.Getwd()
+	if err != nil {
+		return err
+	}
+	for _, v := range reqs {
+		_, err := os.Stat(filepath.Join(dir, v))
+		if err != nil {
+			set = false
+			b.log.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra")
+			break
+		}
+	}
+	// all reqs found here
+	if set {
+		b.kantraDir = dir
+		return nil
+	}
+	// fall back to $HOME/.kantra
 	ops := runtime.GOOS
 	if ops == "linux" {
-		homeDir, set = os.LookupEnv("XDG_CONFIG_HOME")
+		dir, set = os.LookupEnv("XDG_CONFIG_HOME")
 	}
-	if ops != "linux" || homeDir == "" || !set {
+	if ops != "linux" || dir == "" || !set {
 		// on Unix, including macOS, this returns the $HOME environment variable. On Windows, it returns %USERPROFILE%
-		var err error
-		homeDir, err = os.UserHomeDir()
+		dir, err = os.UserHomeDir()
 		if err != nil {
 			return err
 		}
 	}
-	b.homeKantraDir = filepath.Join(homeDir, ".kantra")
+	b.kantraDir = filepath.Join(dir, ".kantra")
 	return nil
 }
 
-func (b *analyzeBinCommand) setBins() error {
-	b.binMap["bundle"] = filepath.Join(b.homeKantraDir, JavaBundlesLocation)
-	b.binMap["jdtls"] = filepath.Join(b.homeKantraDir, JDTLSBinLocation)
-
+func (b *analyzeBinCommand) setBinMap() error {
+	b.reqMap["bundle"] = filepath.Join(b.kantraDir, JavaBundlesLocation)
+	b.reqMap["jdtls"] = filepath.Join(b.kantraDir, JDTLSBinLocation)
 	// validate
-	for _, v := range b.binMap {
+	for _, v := range b.reqMap {
 		stat, err := os.Stat(v)
 		if err != nil {
 			return fmt.Errorf("%w failed to stat bin %s", err, v)
@@ -525,15 +547,15 @@ func (b *analyzeBinCommand) setBins() error {
 func (b *analyzeBinCommand) createProviderConfigs() ([]provider.Config, error) {
 	javaConfig := provider.Config{
 		Name:       javaProvider,
-		BinaryPath: b.binMap["jdtls"],
+		BinaryPath: b.reqMap["jdtls"],
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     b.input,
 				AnalysisMode: provider.AnalysisMode(b.mode),
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 javaProvider,
-					"bundles":                       b.binMap["bundle"],
-					provider.LspServerPathConfigKey: b.binMap["jdtls"],
+					"bundles":                       b.reqMap["bundle"],
+					provider.LspServerPathConfigKey: b.reqMap["jdtls"],
 				},
 			},
 		},
@@ -831,7 +853,7 @@ func (b *analyzeBinCommand) buildStaticReportFile(ctx context.Context, staticRep
 }
 
 func (b *analyzeBinCommand) buildStaticReportOutput(ctx context.Context, log *os.File) error {
-	outputFileDestPath := filepath.Join(b.homeKantraDir, "static-report")
+	outputFileDestPath := filepath.Join(b.kantraDir, "static-report")
 
 	// move build dir to user output dir
 	cmd := exec.Command("cp", "-r", outputFileDestPath, b.output)
@@ -867,7 +889,7 @@ func (b *analyzeBinCommand) GenerateStaticReport(ctx context.Context) error {
 		return noDepFileErr
 	}
 
-	staticReportAanlyzePath := filepath.Join(b.homeKantraDir, "static-report")
+	staticReportAanlyzePath := filepath.Join(b.kantraDir, "static-report")
 	err = b.buildStaticReportFile(ctx, staticReportAanlyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
 	if err != nil {
 		return err
