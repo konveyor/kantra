@@ -1,0 +1,2 @@
+${KANTRA_CMD} analyze --target quarkus --target jakarta-ee --target jakarta-ee8 --target jakarta-ee9 --target cloud-readiness \
+  --input ${TEST_APPS_ROOT}/coolstore-quarkus --output output -m source-only --overwrite
