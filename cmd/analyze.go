@@ -244,10 +244,19 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 				// alizer does not detect certain files such as xml
-				// in this case we need to run only the analyzer to use builtin provider
+				// in this case, we can first check for a java project
+				// if not found, only start builtin provider
 				if len(foundProviders) == 0 {
-					analyzeCmd.needsBuiltin = true
-					return analyzeCmd.RunAnalysis(ctx, xmlOutputDir, analyzeCmd.input)
+					foundJava, err := analyzeCmd.detectJavaProviderFallback()
+					if err != nil {
+						return err
+					}
+					if foundJava {
+						foundProviders = append(foundProviders, javaProvider)
+					} else {
+						analyzeCmd.needsBuiltin = true
+						return analyzeCmd.RunAnalysis(ctx, xmlOutputDir, analyzeCmd.input)
+					}
 				}
 
 				err = analyzeCmd.setProviderInitInfo(foundProviders)
@@ -2311,4 +2320,34 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
+}
+
+func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
+	a.log.V(7).Info("language files not found. Using fallback")
+	pomPath := filepath.Join(a.input, "pom.xml")
+	_, err := os.Stat(pomPath)
+	// some other error
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	if err == nil {
+		return true, nil
+	}
+	// try gradle next
+	gradlePath := filepath.Join(a.input, "build.gradle")
+	_, err = os.Stat(gradlePath)
+	// some other error
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return false, err
+
+		// java project not found
+	} else if err != nil && errors.Is(err, os.ErrNotExist) {
+		a.log.V(7).Info("language files not found. Only starting builtin provider")
+		return false, nil
+
+	} else if err == nil {
+		return true, nil
+	}
+
+	return false, nil
 }
