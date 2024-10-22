@@ -113,11 +113,9 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
-
 			if analyzeBinCmd.reqMap == nil {
 				analyzeBinCmd.reqMap = make(map[string]string)
 			}
-
 			defer os.Remove(filepath.Join(analyzeBinCmd.output, "settings.json"))
 
 			ctx, cancelFunc := context.WithCancel(context.Background())
@@ -130,6 +128,19 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			}
 			defer analysisLog.Close()
 
+			// try to convert any xml rules
+			xmlTempDir, err := analyzeBinCmd.ConvertXML()
+			if err != nil {
+				log.Error(err, "failed to convert xml rules")
+				return err
+			}
+			defer os.RemoveAll(xmlTempDir)
+			xmlDirEmpty, err := IsXMLDirEmpty(xmlTempDir)
+			if err != nil {
+				return err
+			}
+
+			// clean jdtls dirs after analysis
 			defer func() {
 				if err := analyzeBinCmd.cleanlsDirs(); err != nil {
 					log.Error(err, "failed to clean language server directories")
@@ -198,6 +209,10 @@ func NewAnalyzeBinCmd(log logr.Logger) *cobra.Command {
 			if analyzeBinCmd.enableDefaultRulesets {
 				analyzeBinCmd.rules = append(analyzeBinCmd.rules, filepath.Join(analyzeBinCmd.kantraDir, RulesetsLocation))
 			}
+			if !xmlDirEmpty {
+				analyzeBinCmd.rules = append(analyzeBinCmd.rules, xmlTempDir)
+			}
+
 			for _, f := range analyzeBinCmd.rules {
 				log.Info("parsing rules for analysis", "rules", f)
 
@@ -733,7 +748,7 @@ func (b *analyzeBinCommand) DependencyOutput(ctx context.Context, providers map[
 		}
 
 		if depsFlat == nil && depsTree == nil {
-			b.log.Info("failed to get dependencies from all given providers")
+			b.log.V(4).Info("did not get dependencies from all given providers")
 			return
 		}
 	}
