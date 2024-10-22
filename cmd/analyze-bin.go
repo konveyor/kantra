@@ -51,6 +51,19 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	defer analysisLog.Close()
 
+	// try to convert any xml rules
+	xmlTempDir, err := a.ConvertXMLContainerless()
+	if err != nil {
+		a.log.Error(err, "failed to convert xml rules")
+		return err
+	}
+	defer os.RemoveAll(xmlTempDir)
+	xmlDirEmpty, err := IsXMLDirEmpty(xmlTempDir)
+	if err != nil {
+		return err
+	}
+
+	// clean jdtls dirs after analysis
 	defer func() {
 		if err := a.cleanlsDirs(); err != nil {
 			a.log.Error(err, "failed to clean language server directories")
@@ -119,6 +132,10 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	if a.enableDefaultRulesets {
 		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
+	if !xmlDirEmpty {
+		a.rules = append(a.rules, xmlTempDir)
+	}
+
 	for _, f := range a.rules {
 		a.log.Info("parsing rules for analysis", "rules", f)
 
@@ -502,7 +519,7 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 		}
 
 		if depsFlat == nil && depsTree == nil {
-			a.log.Info("failed to get dependencies from all given providers")
+			a.log.V(4).Info("did not get dependencies from all given providers")
 			return
 		}
 	}

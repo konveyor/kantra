@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,6 +15,9 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
+
+	"github.com/fabianvf/windup-rulesets-yaml/pkg/conversion"
+	"github.com/fabianvf/windup-rulesets-yaml/pkg/windup"
 )
 
 type windupShimCommand struct {
@@ -180,4 +185,51 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (a *analyzeCommand) ConvertXMLContainerless() (string, error) {
+	shimLogFilePath := filepath.Join(a.output, "shim.log")
+	shimLog, err := os.Create(shimLogFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer shimLog.Close()
+	os.Stdout = shimLog
+
+	tempDir, err := os.MkdirTemp("", "analyze-rules-")
+	if err != nil {
+		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+		return "", err
+	}
+	a.log.V(7).Info("created temp directory for xml rules", "dir", tempDir)
+
+	for _, location := range a.rules {
+		rulesets := []windup.Ruleset{}
+		ruletests := []windup.Ruletest{}
+		err := filepath.WalkDir(location, walkXML(location, &rulesets, &ruletests))
+		if err != nil {
+			a.log.V(1).Error(err, "failed to get get xml rule")
+		}
+		_, err = conversion.ConvertWindupRulesetsToAnalyzer(rulesets, location, tempDir, true, false)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	return tempDir, nil
+}
+
+func walkXML(root string, rulesets *[]windup.Ruleset, rulestest *[]windup.Ruletest) fs.WalkDirFunc {
+	return func(path string, d fs.DirEntry, err error) error {
+		if !strings.HasSuffix(path, ".xml") {
+			return nil
+		}
+		if rulesets != nil {
+			ruleset := windup.ProcessWindupRuleset(path)
+			if ruleset != nil {
+				*rulesets = append(*rulesets, *ruleset)
+			}
+		}
+		return err
+	}
 }
