@@ -102,3 +102,18 @@ func listOptionsFromLabels(sl []string, label string, out io.Writer) {
 		fmt.Fprintln(out, tech)
 	}
 }
+
+func IsXMLDirEmpty(dir string) (bool, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdir(1)
+	if err == io.EOF {
+		return true, nil
+	}
+
+	return false, err
+}
