@@ -148,6 +148,10 @@ type analyzeCommand struct {
 	volumeName             string
 	providerContainerNames []string
 	cleanup                bool
+
+	// for containerless cmd
+	reqMap    map[string]string
+	kantraDir string
 }
 
 // analyzeCmd represents the analyze command
@@ -171,6 +175,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
+			if Settings.RunLocal {
+				err := analyzeCmd.setKantraDir()
+				if err != nil {
+					analyzeCmd.log.Error(err, "unable to get analyze reqs")
+					return err
+				}
+			}
 			err := analyzeCmd.Validate(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to validate flags")
@@ -188,6 +199,27 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
+			// ***** RUN CONTAINERLESS MODE *****
+			if Settings.RunLocal {
+				log.Info("\n running analysis in containerless mode")
+				if analyzeCmd.listSources || analyzeCmd.listTargets {
+					err := analyzeCmd.listLabelsContainerless(ctx)
+					if err != nil {
+						analyzeCmd.log.Error(err, "failed to list rule labels")
+						return err
+					}
+					return nil
+				}
+				err := analyzeCmd.RunAnalysisContainerless(cmd.Context())
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+			log.Info("RUN_LOCAL not set. running analysis in container mode")
+
+			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.ListLabels(cmd.Context())
@@ -356,7 +388,11 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	// Validate source labels
 	if len(a.sources) > 0 {
 		var sourcesRaw bytes.Buffer
-		a.fetchLabels(ctx, true, false, &sourcesRaw)
+		if Settings.RunLocal {
+			a.fetchLabelsContainerless(ctx, true, false, &sourcesRaw)
+		} else {
+			a.fetchLabels(ctx, true, false, &sourcesRaw)
+		}
 		knownSources := strings.Split(sourcesRaw.String(), "\n")
 		for _, source := range a.sources {
 			found := false
@@ -370,10 +406,14 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 			}
 		}
 	}
-	// Validate source labels
+	// Validate target labels
 	if len(a.targets) > 0 {
 		var targetRaw bytes.Buffer
-		a.fetchLabels(ctx, false, true, &targetRaw)
+		if Settings.RunLocal {
+			a.fetchLabelsContainerless(ctx, false, true, &targetRaw)
+		} else {
+			a.fetchLabels(ctx, false, true, &targetRaw)
+		}
 		knownTargets := strings.Split(targetRaw.String(), "\n")
 		for _, source := range a.targets {
 			found := false
@@ -640,7 +680,7 @@ func (a *analyzeCommand) fetchProviders(ctx context.Context, out io.Writer) erro
 			container.WithCleanup(a.cleanup),
 		)
 		if err != nil {
-			a.log.Error(err, "failed listing labels")
+			a.log.Error(err, "failed listing providers")
 			return err
 		}
 	}
@@ -1464,6 +1504,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	if !a.jsonOutput {
 		return nil
 	}
+	a.log.Info("writing analysis results as json output", "output", a.output)
 	outputPath := filepath.Join(a.output, "output.yaml")
 	depPath := filepath.Join(a.output, "dependencies.yaml")
 
@@ -1489,31 +1530,32 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 		return err
 	}
 
-	// as of now only java & go have dep capability
-	_, hasJava := a.providersMap[javaProvider]
-	_, hasGo := a.providersMap[goProvider]
-	if (hasJava || hasGo) && len(a.providersMap) == 1 && a.mode == string(provider.FullAnalysisMode) {
-		depData, err := os.ReadFile(depPath)
-		if err != nil {
-			return err
-		}
-		depOutput := &[]outputv1.DepsFlatItem{}
-		err = yaml.Unmarshal(depData, depOutput)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to unmarshal dependencies yaml")
-			return err
-		}
+	// in case of no dep output
+	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
+	if errors.Is(noDepFileErr, os.ErrNotExist) || a.mode == string(provider.SourceOnlyAnalysisMode) {
+		a.log.Info("skipping dependency output for json output")
+		return nil
+	}
+	depData, err := os.ReadFile(depPath)
+	if err != nil {
+		return err
+	}
+	depOutput := &[]outputv1.DepsFlatItem{}
+	err = yaml.Unmarshal(depData, depOutput)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to unmarshal dependencies yaml")
+		return err
+	}
 
-		jsonDataDep, err := json.MarshalIndent(depOutput, "", "	")
-		if err != nil {
-			a.log.V(1).Error(err, "failed to marshal dependencies file to json")
-			return err
-		}
-		err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
-			return err
-		}
+	jsonDataDep, err := json.MarshalIndent(depOutput, "", "	")
+	if err != nil {
+		a.log.V(1).Error(err, "failed to marshal dependencies file to json")
+		return err
+	}
+	err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
+		return err
 	}
 
 	return nil
@@ -1551,9 +1593,9 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		applicationNames = nil
 		outputAnalyses = nil
 		outputDeps = nil
-		outputFiles, err := filepath.Glob(fmt.Sprintf("%s/output.yaml.*", a.output))
+		outputFiles, err := filepath.Glob(filepath.Join(a.output, "output.yaml.*"))
 		// optional
-		depFiles, _ := filepath.Glob(fmt.Sprintf("%s/dependencies.yaml.*", a.output))
+		depFiles, _ := filepath.Glob(filepath.Join(a.output, "dependencies.yaml.*"))
 		if err != nil {
 			return err
 		}
