@@ -330,6 +330,9 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 	if a.mavenSettingsFile != "" {
 		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
 	}
+	if Settings.JvmMaxMem != "" {
+		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
+	}
 
 	provConfig := []provider.Config{
 		{
