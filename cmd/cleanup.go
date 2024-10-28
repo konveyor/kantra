@@ -82,8 +82,8 @@ func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
 	return nil
 }
 
-func (b *analyzeBinCommand) cleanlsDirs() error {
-	b.log.V(7).Info("removing language server dirs")
+func (a *analyzeCommand) cleanlsDirs() error {
+	a.log.V(7).Info("removing language server dirs")
 	// this assumes dirs created in wd
 	lsDirs := []string{
 		"org.eclipse.core.runtime",
@@ -94,7 +94,7 @@ func (b *analyzeBinCommand) cleanlsDirs() error {
 	for _, path := range lsDirs {
 		err := os.RemoveAll(path)
 		if err != nil {
-			b.log.Error(err, "failed to delete temporary dir", "dir", path)
+			a.log.Error(err, "failed to delete temporary dir", "dir", path)
 			continue
 		}
 	}

@@ -48,7 +48,6 @@ func init() {
 	rootCmd.AddCommand(NewAnalyzeCmd(logger))
 	rootCmd.AddCommand(NewTestCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
-	rootCmd.AddCommand(NewAnalyzeBinCmd(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

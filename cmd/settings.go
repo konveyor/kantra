@@ -23,13 +23,22 @@ type Config struct {
 }
 
 func (c *Config) Load() error {
+	if err := c.loadCommandName(); err != nil {
+		return err
+	}
+	runContainerlessStr := os.Getenv("RUN_LOCAL")
+	if runContainerlessStr != "" && runContainerlessStr == "true" {
+		err := env.Set(c)
+		if err != nil {
+			return err
+		}
+		// do not need other env vars for containerless analysis
+		return nil
+	}
 	if err := c.loadDefaultPodmanBin(); err != nil {
 		return err
 	}
 	if err := c.loadRunnerImg(); err != nil {
-		return err
-	}
-	if err := c.loadCommandName(); err != nil {
 		return err
 	}
 	if err := c.loadProviders(); err != nil {
