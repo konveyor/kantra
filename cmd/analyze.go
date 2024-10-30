@@ -1074,6 +1074,42 @@ func (a *analyzeCommand) handleDir(p string, tempDir string, basePath string) er
 	return err
 }
 
+func copyFolderContents(src string, dst string) error {
+	err := os.MkdirAll(dst, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	contents, err := source.Readdir(-1)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range contents {
+		sourcePath := filepath.Join(src, item.Name())
+		destinationPath := filepath.Join(dst, item.Name())
+
+		if item.IsDir() {
+			// Recursively copy subdirectories
+			if err := copyFolderContents(sourcePath, destinationPath); err != nil {
+				return err
+			}
+		} else {
+			// Copy file
+			if err := copyFileContents(sourcePath, destinationPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func copyFileContents(src string, dst string) (err error) {
 	source, err := os.Open(src)
 	if err != nil {

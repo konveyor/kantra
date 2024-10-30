@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -559,16 +558,14 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 }
 
 func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.File) error {
-	outputFileDestPath := filepath.Join(a.kantraDir, "static-report")
+	outputFolderSrcPath := filepath.Join(a.kantraDir, "static-report")
+	outputFolderDestPath := filepath.Join(a.output, "static-report")
 
-	// move build dir to user output dir
-	cmd := exec.Command("cp", "-r", outputFileDestPath, a.output)
-	cmd.Stdout = log
-	err := cmd.Run()
+	//copy static report files to output folder
+	err := copyFolderContents(outputFolderSrcPath, outputFolderDestPath)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
