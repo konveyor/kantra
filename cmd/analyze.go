@@ -828,6 +828,9 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		}
 		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
 	}
+	if Settings.JvmMaxMem != "" {
+		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
+	}
 
 	goConfig := provider.Config{
 		Name:    goProvider,
