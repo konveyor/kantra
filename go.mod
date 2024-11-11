@@ -6,11 +6,8 @@ require (
 	github.com/devfile/alizer v1.6.1
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.2
-	github.com/nxadm/tail v1.4.8
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/spf13/cobra v1.8.1
-	github.com/swaggest/openapi-go v0.2.50
-	github.com/vifraa/gopom v1.0.0
 	go.lsp.dev/uri v0.3.0
 	go.opentelemetry.io/otel v1.22.0
 	go.opentelemetry.io/otel/trace v1.22.0
@@ -42,10 +39,13 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/moby/buildkit v0.14.1 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/swaggest/jsonschema-go v0.3.70 // indirect
+	github.com/swaggest/openapi-go v0.2.50 // indirect
 	github.com/swaggest/refl v1.3.0 // indirect
+	github.com/vifraa/gopom v1.0.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/metric v1.22.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.21.0 // indirect
@@ -71,7 +71,7 @@ require (
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.5.3
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20240930182605-8f5ccf72040d
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241107203043-172d684c168d
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
