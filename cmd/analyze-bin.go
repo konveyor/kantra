@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/bombsimon/logrusr/v3"
@@ -533,16 +534,37 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 
 func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReportPath string, depsErr bool) error {
 	// Prepare report args list with single input analysis
-	applicationName := []string{filepath.Base(a.input)}
-	outputAnalysis := []string{filepath.Join(a.output, "output.yaml")}
+	applicationNames := []string{filepath.Base(a.input)}
+	outputAnalyses := []string{filepath.Join(a.output, "output.yaml")}
 	outputDeps := []string{filepath.Join(a.output, "dependencies.yaml")}
 	outputJSPath := filepath.Join(staticReportPath, "output.js")
+
+	if a.bulk {
+		// Scan all available analysis output files to be reported
+		applicationNames = nil
+		outputAnalyses = nil
+		outputDeps = nil
+		outputFiles, err := filepath.Glob(filepath.Join(a.output, "output.yaml.*"))
+		// optional
+		outputDeps, _ := filepath.Glob(filepath.Join(a.output, "dependencies.yaml.*"))
+		if err != nil {
+			return err
+		}
+		for i := range outputFiles {
+			outputName := filepath.Base(outputFiles[i])
+			applicationName := strings.SplitN(outputName, "output.yaml.", 2)[1]
+			applicationNames = append(applicationNames, applicationName)
+			outputAnalyses = append(outputAnalyses, outputFiles[i])
+			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
+		}
+
+	}
 
 	if depsErr {
 		outputDeps = []string{}
 	}
 	// create output.js file from analysis output.yaml
-	apps, err := validateFlags(outputAnalysis, applicationName, outputDeps, a.log)
+	apps, err := validateFlags(outputAnalyses, applicationNames, outputDeps, a.log)
 	if err != nil {
 		log.Fatalln("failed to validate flags", err)
 	}
@@ -595,8 +617,12 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 		return noDepFileErr
 	}
 
-	staticReportAanlyzePath := filepath.Join(a.kantraDir, "static-report")
-	err = a.buildStaticReportFile(ctx, staticReportAanlyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
+	if a.bulk {
+		a.moveResults()
+	}
+
+	staticReportAnalyzePath := filepath.Join(a.kantraDir, "static-report")
+	err = a.buildStaticReportFile(ctx, staticReportAnalyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
 	if err != nil {
 		return err
 	}
