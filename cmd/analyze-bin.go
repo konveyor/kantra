@@ -545,8 +545,6 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 		outputAnalyses = nil
 		outputDeps = nil
 		outputFiles, err := filepath.Glob(filepath.Join(a.output, "output.yaml.*"))
-		// optional
-		outputDeps, _ := filepath.Glob(filepath.Join(a.output, "dependencies.yaml.*"))
 		if err != nil {
 			return err
 		}
@@ -555,7 +553,12 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 			applicationName := strings.SplitN(outputName, "output.yaml.", 2)[1]
 			applicationNames = append(applicationNames, applicationName)
 			outputAnalyses = append(outputAnalyses, outputFiles[i])
-			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
+			deps := fmt.Sprintf("%s.%s", filepath.Join(a.output, "dependencies.yaml"), applicationName)
+			// If deps for given application are missing, empty the deps path allowing skip it in static-report
+			if _, err := os.Stat(deps); errors.Is(err, os.ErrNotExist) {
+				deps = ""
+			}
+			outputDeps = append(outputDeps, deps)
 		}
 
 	}
