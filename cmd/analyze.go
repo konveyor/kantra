@@ -201,6 +201,10 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			// ***** RUN CONTAINERLESS MODE *****
 			if Settings.RunLocal {
+				if analyzeCmd.listProviders {
+					log.Info("\n containerless analysis mode set; only java provider supported")
+					return nil
+				}
 				log.Info("\n running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.listLabelsContainerless(ctx)
