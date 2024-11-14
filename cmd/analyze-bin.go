@@ -8,9 +8,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -212,6 +215,30 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
+	// validate mvn and openjdk install
+	_, mvnErr := exec.LookPath("mvn")
+	if mvnErr != nil {
+		return fmt.Errorf("%w cannot find requirement maven; ensure maven is installed", mvnErr)
+
+	}
+	cmd := exec.Command("java", "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+	if strings.Contains(string(output), "openjdk") {
+		re := regexp.MustCompile(`openjdk version "(.*?)"`)
+		match := re.FindStringSubmatch(string(output))
+		jdkVersionStr := strings.Split(match[1], ".")
+		jdkVersionInt, err := strconv.Atoi(jdkVersionStr[0])
+		if err != nil {
+			return err
+		}
+		if jdkVersionInt < 17 {
+			return fmt.Errorf("cannot find requirement openjdk17+; ensure openjdk17+ is installed")
+		}
+	}
+
 	// Validate .kantra in home directory and its content (containerless)
 	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation), filepath.Join(a.kantraDir, JDTLSBinLocation)}
 	for _, path := range requiredDirs {
