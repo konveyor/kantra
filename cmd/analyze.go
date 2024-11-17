@@ -148,6 +148,7 @@ type analyzeCommand struct {
 	volumeName             string
 	providerContainerNames []string
 	cleanup                bool
+	runLocal               bool
 
 	// for containerless cmd
 	reqMap    map[string]string
@@ -175,7 +176,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			if Settings.RunLocal {
+			if analyzeCmd.runLocal {
 				err := analyzeCmd.setKantraDir()
 				if err != nil {
 					analyzeCmd.log.Error(err, "unable to get analyze reqs")
@@ -200,12 +201,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			defer stop()
 
 			// ***** RUN CONTAINERLESS MODE *****
-			if Settings.RunLocal {
+
+			if analyzeCmd.runLocal {
 				if analyzeCmd.listProviders {
 					log.Info("\n containerless analysis mode set; only java provider supported")
 					return nil
 				}
-				log.Info("\n running analysis in containerless mode")
+				log.Info("\n --run-local set. running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.listLabelsContainerless(ctx)
 					if err != nil {
@@ -221,7 +223,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				return nil
 			}
-			log.Info("RUN_LOCAL not set. running analysis in container mode")
+			log.Info("--run-local not set. running analysis in container mode")
 
 			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
@@ -378,6 +380,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers will be started up")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 
 	return analyzeCommand
 }
@@ -392,7 +395,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	// Validate source labels
 	if len(a.sources) > 0 {
 		var sourcesRaw bytes.Buffer
-		if Settings.RunLocal {
+		if a.runLocal {
 			a.fetchLabelsContainerless(ctx, true, false, &sourcesRaw)
 		} else {
 			a.fetchLabels(ctx, true, false, &sourcesRaw)
@@ -413,7 +416,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	// Validate target labels
 	if len(a.targets) > 0 {
 		var targetRaw bytes.Buffer
-		if Settings.RunLocal {
+		if a.runLocal {
 			a.fetchLabelsContainerless(ctx, false, true, &targetRaw)
 		} else {
 			a.fetchLabels(ctx, false, true, &targetRaw)
@@ -740,7 +743,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			a.log.Error(err, "failed getting rules volumes")
 			return err
 		}
-		args := []string{"analyze"}
+		args := []string{"analyze", "--run-local=false"}
 		if listSources {
 			args = append(args, "--list-sources")
 		} else {
