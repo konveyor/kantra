@@ -215,7 +215,31 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
-	// validate mvn and openjdk install
+	// validate mvn, python, and openjdk install
+	// windows does not use python3 as executable name
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("python", "--version")
+		output, err := cmd.Output()
+		if err != nil {
+			return err
+		}
+		version := strings.TrimSpace(string(output))
+		pythonVersionStr := strings.Split(version, " ")
+		versionStr := strings.Split(pythonVersionStr[1], ".")
+		versionInt, err := strconv.Atoi(versionStr[0])
+		if err != nil {
+			return err
+		}
+		if versionInt < 3 {
+			return fmt.Errorf("%w cannot find requirement python3; ensure python3 is installed", err)
+		}
+	} else {
+		_, pythonErr := exec.LookPath("python3")
+		if pythonErr != nil {
+			return fmt.Errorf("%w cannot find requirement python3; ensure python3 is installed", pythonErr)
+
+		}
+	}
 	_, mvnErr := exec.LookPath("mvn")
 	if mvnErr != nil {
 		return fmt.Errorf("%w cannot find requirement maven; ensure maven is installed", mvnErr)
@@ -237,6 +261,9 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 		if jdkVersionInt < 17 {
 			return fmt.Errorf("cannot find requirement openjdk17+; ensure openjdk17+ is installed")
 		}
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		return fmt.Errorf("JAVA_HOME is not set; ensure JAVA_HOME is set")
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
