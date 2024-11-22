@@ -97,7 +97,9 @@ func PrintProgress(w io.WriteCloser, results []Result) {
 			for _, tcResult := range testCases {
 				// only output failed test cases
 				if !tcResult.Passed {
-					tcsResult = fmt.Sprintf("%s    %s\tFAILED\n", tcsResult, tcResult.TestCaseName)
+					if tcResult.TestCaseName != "" {
+						tcsResult = fmt.Sprintf("%s    %s\tFAILED\n", tcsResult, tcResult.TestCaseName)
+					}
 					for _, reason := range tcResult.FailureReasons {
 						tcsResult = fmt.Sprintf("%s    - %s\t\n", tcsResult, reason)
 					}
