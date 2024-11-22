@@ -21,6 +21,7 @@ type openRewriteCommand struct {
 	log               logr.Logger
 	cleanup           bool
 	mavenSettingsFile string
+	mavenDebugLog     bool
 }
 
 func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
@@ -61,6 +62,7 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.goal, "goal", "g", "dryRun", "target goal")
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.input, "input", "i", "", "path to application source code directory")
 	openRewriteCommand.Flags().StringVarP(&openRewriteCmd.mavenSettingsFile, "maven-settings", "s", "", "path to a custom maven settings file to use")
+	openRewriteCommand.Flags().BoolVarP(&openRewriteCmd.mavenDebugLog, "maven debug log level", "x", false, "enable Maven debug logging")
 
 	return openRewriteCommand
 }
@@ -150,6 +152,10 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	if o.mavenSettingsFile != "" {
 		o.log.Info("using custom maven settings file", "path", o.mavenSettingsFile)
 		args = append(args, "-s", o.mavenSettingsFile)
+	}
+	if o.mavenDebugLog {
+		o.log.Info("Setting Maven log to debug")
+		args = append(args, "-X")
 	}
 
 	err := container.NewContainer().Run(
