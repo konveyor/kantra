@@ -99,6 +99,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		selectors = append(selectors, selector)
 	}
 
+	var dependencyLabelSelector *labels.LabelSelector[*konveyor.Dep]
+	depLabel := fmt.Sprintf("%v=open-source", provider.DepSourceLabel)
+	if a.analyzeKnownLibraries {
+		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
+		if err != nil {
+			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
+			os.Exit(1)
+		}
+	}
+
 	err = a.setBinMapContainerless()
 	if err != nil {
 		a.log.Error(err, "unable to find kantra dependencies")
@@ -128,6 +138,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	parser := parser.RuleParser{
 		ProviderNameToClient: providers,
 		Log:                  analyzeLog.WithName("parser"),
+		DepLabelSelector:     dependencyLabelSelector,
 	}
 
 	ruleSets := []engine.RuleSet{}
@@ -368,6 +379,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 					"lspServerName":                 javaProvider,
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
+					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
 				},
 			},
 		},
