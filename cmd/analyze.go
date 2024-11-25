@@ -235,7 +235,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					}
 					return nil
 				}
-				if analyzeCmd.listProviders {
+				if analyzeCmd.listProviders && !analyzeCmd.runLocal {
 					err := analyzeCmd.ListSupportedProviders(cmd.Context())
 					if err != nil {
 						log.Error(err, "failed to list providers")
