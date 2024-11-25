@@ -84,8 +84,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konveyor/analyzer-lsp v0.5.3 h1:RPIcH5s5oQysfKz3o0rnK8pVmwp3MWpIdCheT1gklrw=
 github.com/konveyor/analyzer-lsp v0.5.3/go.mod h1:Gqj6MRUA2Jjjw19tUguJB6Bqj4dLwZzb68FmAUok0ac=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241107203043-172d684c168d h1:P9hRAD/k1cTdOYJBVDuHESSUIbPsXS3hB3T0msSIryA=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241107203043-172d684c168d/go.mod h1:0OaNuH9HgJZbXPKmblcAfJ+4qyuS5Rc0dp3kmMvjtKk=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241121143855-40356f86d20e h1:uftzXgOWAxmrq4RAdg2dr66RloEDlBPmdYVPK5QXQuo=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241121143855-40356f86d20e/go.mod h1:0OaNuH9HgJZbXPKmblcAfJ+4qyuS5Rc0dp3kmMvjtKk=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
