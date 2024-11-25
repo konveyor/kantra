@@ -200,13 +200,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
+			if analyzeCmd.listProviders {
+				analyzeCmd.ListAllProviders()
+				return nil
+			}
+
 			// ***** RUN CONTAINERLESS MODE *****
 
 			if analyzeCmd.runLocal {
-				if analyzeCmd.listProviders {
-					log.Info("\n containerless analysis mode set; only java provider supported")
-					return nil
-				}
 				log.Info("\n --run-local set. running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.listLabelsContainerless(ctx)
@@ -231,14 +232,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					err := analyzeCmd.ListLabels(cmd.Context())
 					if err != nil {
 						log.Error(err, "failed to list rule labels")
-						return err
-					}
-					return nil
-				}
-				if analyzeCmd.listProviders && !analyzeCmd.runLocal {
-					err := analyzeCmd.ListSupportedProviders(cmd.Context())
-					if err != nil {
-						log.Error(err, "failed to list providers")
 						return err
 					}
 					return nil
@@ -661,50 +654,24 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 	return nil
 }
 
-func (a *analyzeCommand) ListSupportedProviders(ctx context.Context) error {
-	return a.fetchProviders(ctx, os.Stdout)
-}
-
-func (a *analyzeCommand) fetchProviders(ctx context.Context, out io.Writer) error {
-	runMode := "RUN_MODE"
-	runModeContainer := "container"
-	if os.Getenv(runMode) == runModeContainer {
-		a.listAllProviders(out)
-		return nil
-	} else {
-		args := []string{"analyze",
-			"--list-providers",
-		}
-		err := container.NewContainer().Run(
-			ctx,
-			container.WithImage(Settings.RunnerImage),
-			container.WithLog(a.log.V(1)),
-			container.WithEnv(runMode, runModeContainer),
-			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
-			container.WithContainerToolBin(Settings.ContainerBinary),
-			container.WithEntrypointArgs(args...),
-			container.WithStdout(out),
-			container.WithCleanup(a.cleanup),
-		)
-		if err != nil {
-			a.log.Error(err, "failed listing providers")
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *analyzeCommand) listAllProviders(out io.Writer) {
-	supportedProvs := []string{
+func (a *analyzeCommand) ListAllProviders() {
+	supportedProvsContainer := []string{
 		"java",
 		"python",
 		"go",
 		"dotnet",
 		"nodejs",
 	}
-	fmt.Fprintln(out, "\navailable supported providers:")
-	for _, prov := range supportedProvs {
-		fmt.Fprintln(out, prov)
+	supportedProvsContainerless := []string{
+		"java",
+	}
+	fmt.Println("container analysis supported providers:")
+	for _, prov := range supportedProvsContainer {
+		fmt.Fprintln(os.Stdout, prov)
+	}
+	fmt.Println("containerless analysis supported providers (default):")
+	for _, prov := range supportedProvsContainerless {
+		fmt.Fprintln(os.Stdout, prov)
 	}
 }
 
