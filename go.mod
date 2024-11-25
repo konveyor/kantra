@@ -72,7 +72,7 @@ require (
 	github.com/fabianvf/windup-rulesets-yaml v0.5.3
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.5.3
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241121143855-40356f86d20e
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20241107203043-172d684c168d
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
