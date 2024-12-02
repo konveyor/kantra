@@ -232,14 +232,14 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 		cmd := exec.Command("python", "--version")
 		output, err := cmd.Output()
 		if err != nil {
-			return err
+			return fmt.Errorf("%w cannot execute required command python; ensure python is installed", err)
 		}
 		version := strings.TrimSpace(string(output))
 		pythonVersionStr := strings.Split(version, " ")
 		versionStr := strings.Split(pythonVersionStr[1], ".")
 		versionInt, err := strconv.Atoi(versionStr[0])
 		if err != nil {
-			return err
+			return fmt.Errorf("%w cannot parse python version", err)
 		}
 		if versionInt < 3 {
 			return fmt.Errorf("%w cannot find requirement python3; ensure python3 is installed", err)
@@ -259,7 +259,7 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	cmd := exec.Command("java", "-version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w cannot execute required command java; ensure java is installed", err)
 	}
 	if strings.Contains(string(output), "openjdk") {
 		re := regexp.MustCompile(`openjdk version "(.*?)"`)
@@ -267,7 +267,7 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 		jdkVersionStr := strings.Split(match[1], ".")
 		jdkVersionInt, err := strconv.Atoi(jdkVersionStr[0])
 		if err != nil {
-			return err
+			return fmt.Errorf("%w cannot parse java version", err)
 		}
 		if jdkVersionInt < 17 {
 			return fmt.Errorf("cannot find requirement openjdk17+; ensure openjdk17+ is installed")
