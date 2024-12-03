@@ -278,7 +278,8 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation), filepath.Join(a.kantraDir, JDTLSBinLocation)}
+	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation),
+		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
