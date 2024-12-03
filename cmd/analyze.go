@@ -170,7 +170,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
 				!cmd.Flags().Lookup("list-providers").Changed {
-				//cmd.MarkFlagRequired("input")
+				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
 					return err
