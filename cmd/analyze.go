@@ -104,6 +104,7 @@ type ProviderInit struct {
 	// used for failed provider container retry attempts
 	isRunning     bool
 	containerName string
+	provider      Provider
 }
 
 // kantra analyze flags
@@ -608,28 +609,33 @@ func (a *analyzeCommand) setProviderInitInfo(foundProviders []string) error {
 		switch prov {
 		case javaProvider:
 			a.providersMap[javaProvider] = ProviderInit{
-				port:  port,
-				image: Settings.JavaProviderImage,
+				port:     port,
+				image:    Settings.JavaProviderImage,
+				provider: &JavaProvider{},
 			}
 		case goProvider:
 			a.providersMap[goProvider] = ProviderInit{
-				port:  port,
-				image: Settings.GenericProviderImage,
+				port:     port,
+				image:    Settings.GenericProviderImage,
+				provider: &GoProvider{},
 			}
 		case pythonProvider:
 			a.providersMap[pythonProvider] = ProviderInit{
-				port:  port,
-				image: Settings.GenericProviderImage,
+				port:     port,
+				image:    Settings.GenericProviderImage,
+				provider: &PythonProvider{},
 			}
 		case nodeJSProvider:
 			a.providersMap[nodeJSProvider] = ProviderInit{
-				port:  port,
-				image: Settings.GenericProviderImage,
+				port:     port,
+				image:    Settings.GenericProviderImage,
+				provider: &NodeJsProvider{},
 			}
 		case dotnetProvider:
 			a.providersMap[dotnetProvider] = ProviderInit{
-				port:  port,
-				image: Settings.DotnetProviderImage,
+				port:     port,
+				image:    Settings.DotnetProviderImage,
+				provider: &DotNetProvider{},
 			}
 		}
 	}
@@ -769,143 +775,28 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
-	otherProvsMountPath := SourceMountPath
-	// when input is a file, it means it's probably a binary
-	// only java provider can work with binaries, all others
-	// continue pointing to the directory instead of file
-	if a.isFileInput {
-		SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
-	}
-
-	javaConfig := provider.Config{
-		Name:    javaProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[javaProvider].port),
-		InitConfig: []provider.InitConfig{
-			{
-				Location:     SourceMountPath,
-				AnalysisMode: provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 javaProvider,
-					"bundles":                       JavaBundlesLocation,
-					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
-					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
-				},
-			},
-		},
-	}
-
-	if a.mavenSettingsFile != "" {
-		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
-		if err != nil {
-			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
-			return nil, err
-		}
-		javaConfig.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
-	}
-	if Settings.JvmMaxMem != "" {
-		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
-	}
-
-	goConfig := provider.Config{
-		Name:    goProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[goProvider].port),
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
-					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
-					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
-				},
-			},
-		},
-	}
-
-	pythonConfig := provider.Config{
-		Name:    pythonProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[pythonProvider].port),
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
-					provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
-				},
-			},
-		},
-	}
-
-	nodeJSConfig := provider.Config{
-		Name:    nodeJSProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[nodeJSProvider].port),
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "nodejs",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
-					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
-				},
-			},
-		},
-	}
-
-	dotnetConfig := provider.Config{
-		Name:    dotnetProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[dotnetProvider].port),
-		InitConfig: []provider.InitConfig{
-			{
-				Location:     SourceMountPath,
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					provider.LspServerPathConfigKey: "/opt/app-root/.dotnet/tools/csharp-ls",
-				},
-			},
-		},
-	}
-
-	provConfig := []provider.Config{
-		{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     otherProvsMountPath,
-					AnalysisMode: provider.AnalysisMode(a.mode),
-				},
-			},
-		},
-	}
+	var provConfig []provider.Config
+	var builtinProvider = BuiltinProvider{}
+	var config, _ = builtinProvider.GetConfigVolume(a, tempDir)
+	provConfig = append(provConfig, config)
 
 	settingsVols := map[string]string{
 		tempDir: ConfigMountPath,
 	}
 	if !a.needsBuiltin {
-		vols, dependencyFolders := a.getDepsFolders()
+		vols, _ := a.getDepsFolders()
 		if len(vols) != 0 {
 			maps.Copy(settingsVols, vols)
 		}
-		for prov := range a.providersMap {
-			switch prov {
-			case javaProvider:
-				provConfig = append(provConfig, javaConfig)
-			case goProvider:
-				provConfig = append(provConfig, goConfig)
-			case pythonProvider:
-				if len(dependencyFolders) != 0 {
-					pythonConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
-				}
-				provConfig = append(provConfig, pythonConfig)
-			case nodeJSProvider:
-				if len(dependencyFolders) != 0 {
-					nodeJSConfig.InitConfig[0].ProviderSpecificConfig["dependencyFolders"] = dependencyFolders
-				}
-				provConfig = append(provConfig, nodeJSConfig)
-			case dotnetProvider:
-				provConfig = append(provConfig, dotnetConfig)
+		for _, provInfo := range a.providersMap {
+			var volConfig, err = provInfo.provider.GetConfigVolume(a, tempDir)
+			if err != nil {
+				a.log.V(1).Error(err, "failed creating volume configs")
+				return nil, err
 			}
+			provConfig = append(provConfig, volConfig)
 		}
+
 		// Set proxy to providers
 		if a.httpProxy != "" || a.httpsProxy != "" {
 			proxy := provider.Proxy{
