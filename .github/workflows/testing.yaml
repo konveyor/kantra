@@ -29,8 +29,8 @@ jobs:
       - name: Upgrade podman 
         run: |
           sudo apt-get install -y ansible
-          export DEB=$(curl -s https://passt.top/builds/latest/x86_64/ | grep deb | awk -F '"' '{ print $4}')
-          sudo ansible -m apt -a deb=https://passt.top/builds/latest/x86_64/${DEB} localhost
+#          export DEB=$(curl -s https://passt.top/builds/latest/x86_64/ | grep deb | awk -F '"' '{ print $4}')
+#          sudo ansible -m apt -a deb=https://passt.top/builds/latest/x86_64/${DEB} localhost
           sudo apt-get remove podman crun
           brew install crun podman
 
