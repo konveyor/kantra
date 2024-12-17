@@ -100,8 +100,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	var dependencyLabelSelector *labels.LabelSelector[*konveyor.Dep]
-	depLabel := fmt.Sprintf("%v=open-source", provider.DepSourceLabel)
-	if a.analyzeKnownLibraries {
+	depLabel := fmt.Sprintf("!%v=open-source", provider.DepSourceLabel)
+	if !a.analyzeKnownLibraries {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
