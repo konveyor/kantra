@@ -816,7 +816,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 					"lspServerName":                 "generic",
 					"workspaceFolders":              []string{fmt.Sprintf("file://%s", otherProvsMountPath)},
 					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
-					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
+					provider.LspServerPathConfigKey: "/usr/local/bin/gopls",
 				},
 			},
 		},

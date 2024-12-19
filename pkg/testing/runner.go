@@ -68,7 +68,7 @@ var defaultProviderConfig = []provider.Config{
 				AnalysisMode: provider.FullAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: "/root/go/bin/gopls",
+					provider.LspServerPathConfigKey: "/usr/local/bin/gopls",
 					"lspServerArgs":                 []string{},
 					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 				},
