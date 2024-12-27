@@ -23,7 +23,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
-	"github.com/konveyor/analyzer-lsp/engine"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/phayes/freeport"
@@ -135,33 +134,18 @@ type analyzeCommand struct {
 	depFolders               []string
 	overrideProviderSettings string
 	provider                 []string
-	providersMap             map[string]ProviderInit
-
-	// tempDirs list of temporary dirs created, used for cleanup
-	tempDirs []string
-	log      logr.Logger
-	// isFileInput is set when input points to a file and not a dir
-	isFileInput  bool
-	needsBuiltin bool
-	logLevel     *uint32
-	// used for cleanup
-	networkName            string
-	volumeName             string
-	providerContainerNames []string
-	cleanup                bool
-	runLocal               bool
-
-	// for containerless cmd
-	reqMap    map[string]string
-	kantraDir string
+	logLevel                 *uint32
+	cleanup                  bool
+	runLocal                 bool
+	CommandContext
 }
 
 // analyzeCmd represents the analyze command
 func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCmd := &analyzeCommand{
-		log:     log,
 		cleanup: true,
 	}
+	analyzeCmd.log = log
 
 	analyzeCommand := &cobra.Command{
 		Use:   "analyze",
@@ -310,7 +294,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 				// share source app with provider and engine containers
-				containerVolName, err := analyzeCmd.createContainerVolume()
+				containerVolName, err := analyzeCmd.createContainerVolume(analyzeCmd.input)
 				if err != nil {
 					log.Error(err, "failed to create container volume")
 					return err
@@ -366,9 +350,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", loadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", loadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", loadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", LoadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", LoadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", LoadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
@@ -598,48 +582,6 @@ func (a *analyzeCommand) setProviders(languages []model.Language, foundProviders
 		}
 	}
 	return foundProviders, nil
-}
-
-func (a *analyzeCommand) setProviderInitInfo(foundProviders []string) error {
-	for _, prov := range foundProviders {
-		port, err := freeport.GetFreePort()
-		if err != nil {
-			return err
-		}
-		switch prov {
-		case javaProvider:
-			a.providersMap[javaProvider] = ProviderInit{
-				port:     port,
-				image:    Settings.JavaProviderImage,
-				provider: &JavaProvider{},
-			}
-		case goProvider:
-			a.providersMap[goProvider] = ProviderInit{
-				port:     port,
-				image:    Settings.GenericProviderImage,
-				provider: &GoProvider{},
-			}
-		case pythonProvider:
-			a.providersMap[pythonProvider] = ProviderInit{
-				port:     port,
-				image:    Settings.GenericProviderImage,
-				provider: &PythonProvider{},
-			}
-		case nodeJSProvider:
-			a.providersMap[nodeJSProvider] = ProviderInit{
-				port:     port,
-				image:    Settings.GenericProviderImage,
-				provider: &NodeJsProvider{},
-			}
-		case dotnetProvider:
-			a.providersMap[dotnetProvider] = ProviderInit{
-				port:     port,
-				image:    Settings.DotnetProviderImage,
-				provider: &DotNetProvider{},
-			}
-		}
-	}
-	return nil
 }
 
 func (a *analyzeCommand) validateProviders(providers []string) error {
@@ -920,174 +862,6 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
 
 	return rulesVolumes, nil
-}
-
-func (a *analyzeCommand) handleDir(p string, tempDir string, basePath string) error {
-	newDir, err := filepath.Rel(basePath, p)
-	if err != nil {
-		return err
-	}
-	tempDir = filepath.Join(tempDir, newDir)
-	a.log.Info("creating nested tmp dir", "tempDir", tempDir, "newDir", newDir)
-	err = os.Mkdir(tempDir, 0777)
-	if err != nil {
-		return err
-	}
-	a.log.V(5).Info("create temp rule set for dir", "dir", tempDir)
-	err = a.createTempRuleSet(tempDir, filepath.Base(p))
-	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp ruleset", "path", tempDir)
-		return err
-	}
-	return err
-}
-
-func copyFolderContents(src string, dst string) error {
-	err := os.MkdirAll(dst, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	source, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	contents, err := source.Readdir(-1)
-	if err != nil {
-		return err
-	}
-
-	for _, item := range contents {
-		sourcePath := filepath.Join(src, item.Name())
-		destinationPath := filepath.Join(dst, item.Name())
-
-		if item.IsDir() {
-			// Recursively copy subdirectories
-			if err := copyFolderContents(sourcePath, destinationPath); err != nil {
-				return err
-			}
-		} else {
-			// Copy file
-			if err := copyFileContents(sourcePath, destinationPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func copyFileContents(src string, dst string) (err error) {
-	source, err := os.Open(src)
-	if err != nil {
-		return nil
-	}
-	defer source.Close()
-	destination, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
-	_, err = io.Copy(destination, source)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *analyzeCommand) createTempRuleSet(path string, name string) error {
-	a.log.Info("creating temp ruleset ", "path", path, "name", name)
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	tempRuleSet := engine.RuleSet{
-		Name:        name,
-		Description: "temp ruleset",
-	}
-	yamlData, err := yaml.Marshal(&tempRuleSet)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(filepath.Join(path, "ruleset.yaml"), yamlData, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *analyzeCommand) createContainerNetwork() (string, error) {
-	networkName := fmt.Sprintf("network-%v", container.RandomName())
-	args := []string{
-		"network",
-		"create",
-		networkName,
-	}
-
-	cmd := exec.Command(Settings.ContainerBinary, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-	a.log.V(1).Info("created container network", "network", networkName)
-	// for cleanup
-	a.networkName = networkName
-	return networkName, nil
-}
-
-// TODO: create for each source input once accepting multiple apps is completed
-func (a *analyzeCommand) createContainerVolume() (string, error) {
-	volName := fmt.Sprintf("volume-%v", container.RandomName())
-	input, err := filepath.Abs(a.input)
-	if err != nil {
-		return "", err
-	}
-	if a.isFileInput {
-		input = filepath.Dir(input)
-	}
-	if runtime.GOOS == "windows" {
-		// TODO(djzager): Thank ChatGPT
-		// Extract the volume name (e.g., "C:")
-		// Remove the volume name from the path to get the remaining part
-		// Convert backslashes to forward slashes
-		// Remove the colon from the volume name and convert to lowercase
-		volumeName := filepath.VolumeName(input)
-		remainingPath := input[len(volumeName):]
-		remainingPath = filepath.ToSlash(remainingPath)
-		driveLetter := strings.ToLower(strings.TrimSuffix(volumeName, ":"))
-
-		// Construct the Linux-style path
-		input = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
-	}
-
-	args := []string{
-		"volume",
-		"create",
-		"--opt",
-		"type=none",
-		"--opt",
-		fmt.Sprintf("device=%v", input),
-		"--opt",
-		"o=bind",
-		volName,
-	}
-	cmd := exec.Command(Settings.ContainerBinary, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return "", err
-	}
-	a.log.V(1).Info("created container volume", "volume", volName)
-	// for cleanup
-	a.volumeName = volName
-	return volName, nil
 }
 
 func (a *analyzeCommand) retryProviderContainer(ctx context.Context, networkName string, volName string, retry int) error {
@@ -1650,20 +1424,6 @@ func (a *analyzeCommand) getLabelSelector() string {
 			sourceExpr, strings.Join(defaultLabels, " || "))
 	}
 	return ""
-}
-
-func isXMLFile(rule string) bool {
-	return path.Ext(rule) == ".xml"
-}
-
-func loadEnvInsensitive(variableName string) string {
-	lowerValue := os.Getenv(strings.ToLower(variableName))
-	upperValue := os.Getenv(strings.ToUpper(variableName))
-	if lowerValue != "" {
-		return lowerValue
-	} else {
-		return upperValue
-	}
 }
 
 func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]string, error) {

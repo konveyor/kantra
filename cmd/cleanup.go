@@ -34,48 +34,48 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 	return nil
 }
 
-func (a *analyzeCommand) RmNetwork(ctx context.Context) error {
-	if a.networkName == "" {
+func (c *CommandContext) RmNetwork(ctx context.Context) error {
+	if c.networkName == "" {
 		return nil
 	}
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.ContainerBinary,
 		"network",
-		"rm", a.networkName)
-	a.log.V(1).Info("removing container network",
-		"network", a.networkName)
+		"rm", c.networkName)
+	c.log.V(1).Info("removing container network",
+		"network", c.networkName)
 	return cmd.Run()
 }
 
-func (a *analyzeCommand) RmVolumes(ctx context.Context) error {
-	if a.volumeName == "" {
+func (c *CommandContext) RmVolumes(ctx context.Context) error {
+	if c.volumeName == "" {
 		return nil
 	}
 	cmd := exec.CommandContext(
 		ctx,
 		Settings.ContainerBinary,
 		"volume",
-		"rm", a.volumeName)
-	a.log.V(1).Info("removing created volume",
-		"volume", a.volumeName)
+		"rm", c.volumeName)
+	c.log.V(1).Info("removing created volume",
+		"volume", c.volumeName)
 	return cmd.Run()
 }
 
-func (a *analyzeCommand) RmProviderContainers(ctx context.Context) error {
+func (c *CommandContext) RmProviderContainers(ctx context.Context) error {
 	// if multiple provider containers, we need to remove the first created provider container last
-	for i := len(a.providerContainerNames) - 1; i >= 0; i-- {
-		con := a.providerContainerNames[i]
+	for i := len(c.providerContainerNames) - 1; i >= 0; i-- {
+		con := c.providerContainerNames[i]
 		// because we are using the --rm option when we start the provider container,
 		// it will immediately be removed after it stops
 		cmd := exec.CommandContext(
 			ctx,
 			Settings.ContainerBinary,
 			"stop", con)
-		a.log.V(1).Info("stopping provider container", "container", con)
+		c.log.V(1).Info("stopping provider container", "container", con)
 		err := cmd.Run()
 		if err != nil {
-			a.log.V(1).Error(err, "failed to stop container",
+			c.log.V(1).Error(err, "failed to stop container",
 				"container", con)
 			continue
 		}
