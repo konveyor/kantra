@@ -27,7 +27,6 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/phayes/freeport"
 	"go.lsp.dev/uri"
-	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
