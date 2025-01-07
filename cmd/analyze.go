@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/fs"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
@@ -233,7 +233,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.isFileInput {
 					foundProviders = append(foundProviders, javaProvider)
 				} else {
-					foundProviders, err = analyzeCmd.setProviders(languages, foundProviders)
+					foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
 					if err != nil {
 						log.Error(err, "failed to set provider info")
 						return err
@@ -540,47 +540,6 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 		}
 	}
 	return nil
-}
-
-func (a *analyzeCommand) setProviders(languages []model.Language, foundProviders []string) ([]string, error) {
-	if len(a.provider) > 0 {
-		for _, p := range a.provider {
-			foundProviders = append(foundProviders, p)
-			return foundProviders, nil
-		}
-	}
-	for _, l := range languages {
-		if l.CanBeComponent {
-			a.log.V(5).Info("Got language", "component language", l)
-			if l.Name == "C#" {
-				for _, item := range l.Frameworks {
-					supported, ok := DotnetFrameworks[item]
-					if ok {
-						if !supported {
-							err := fmt.Errorf("Unsupported .NET Framework version")
-							a.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
-							return foundProviders, err
-						}
-						return []string{dotnetFrameworkProvider}, nil
-					}
-				}
-				foundProviders = append(foundProviders, dotnetProvider)
-				continue
-			}
-			if l.Name == "JavaScript" {
-				for _, item := range l.Tools {
-					if item == "NodeJs" || item == "Node.js" || item == "nodejs" {
-						foundProviders = append(foundProviders, nodeJSProvider)
-						// only need one instance of provider
-						break
-					}
-				}
-			} else {
-				foundProviders = append(foundProviders, strings.ToLower(l.Name))
-			}
-		}
-	}
-	return foundProviders, nil
 }
 
 func (a *analyzeCommand) validateProviders(providers []string) error {
