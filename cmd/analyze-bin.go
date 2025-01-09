@@ -53,7 +53,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed creating provider log file at %s", analysisLogFilePath)
 	}
-	defer analysisLog.Close()
 
 	// try to convert any xml rules
 	xmlTempDir, err := a.ConvertXMLContainerless()
@@ -215,6 +214,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
+
+	// Ensure analysis log is closed before creating static-report (needed for bulk on Windows)
+	analysisLog.Close()
 
 	err = a.GenerateStaticReportContainerless(ctx)
 	if err != nil {
