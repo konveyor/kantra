@@ -53,6 +53,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed creating provider log file at %s", analysisLogFilePath)
 	}
+	defer analysisLog.Close()
 
 	// try to convert any xml rules
 	xmlTempDir, err := a.ConvertXMLContainerless()
