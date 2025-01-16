@@ -19,7 +19,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.24.0 // indirect
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	github.com/antchfx/xpath v1.3.1 // indirect
 	github.com/bufbuild/protocompile v0.10.0 // indirect
@@ -59,7 +58,6 @@ require (
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	google.golang.org/grpc v1.68.0-dev // indirect
 	google.golang.org/protobuf v1.36.3 // indirect
