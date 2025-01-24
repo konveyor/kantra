@@ -216,6 +216,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		return err
 	}
 
+	// Ensure analysis log is closed before creating static-report (needed for bulk on Windows)
+	analysisLog.Close()
+
 	err = a.GenerateStaticReportContainerless(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
