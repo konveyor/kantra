@@ -119,7 +119,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 			mountTempDir = true
 			xmlFileName := filepath.Base(r)
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
-			err := copyFileContents(r, destFile)
+			err := CopyFileContents(r, destFile)
 			if err != nil {
 				w.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
