@@ -1,6 +1,6 @@
 # Run Containerless Kantra
 
-Have OpenJDK 17+, Maven, and python3 installed
+Have OpenJDK 17+ and Maven installed
 
 Have $JAVA_HOME set.
 
