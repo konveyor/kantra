@@ -72,8 +72,8 @@ require (
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/fabianvf/windup-rulesets-yaml v0.5.3
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.6.0-rc.2
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250115213046-db383c4dfdea
+	github.com/konveyor/analyzer-lsp v0.6.0-alpha.2.0.20250115183201-2f9344a41b10
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250129143638-35bb8a364cdb
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect

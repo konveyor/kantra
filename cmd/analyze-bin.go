@@ -382,6 +382,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
+					"cleanExplodedBin":              true,
 					"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
 					"lspServerName":                 javaProvider,
 					"bundles":                       a.reqMap["bundle"],
