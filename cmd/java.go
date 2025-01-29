@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/konveyor/analyzer-lsp/provider"
 	"path"
 	"path/filepath"
+
+	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 type JavaProvider struct {
@@ -39,7 +40,7 @@ func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provid
 	}
 
 	if a.mavenSettingsFile != "" {
-		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tmpDir, "settings.xml"))
+		err := CopyFileContents(a.mavenSettingsFile, filepath.Join(tmpDir, "settings.xml"))
 		if err != nil {
 			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
 			return provider.Config{}, err
