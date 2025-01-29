@@ -224,7 +224,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				return nil
 			}
-			log.Info("--run-local not set. running analysis in container mode")
+			log.Info("--run-local set to false. Running analysis in container mode")
 
 			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
@@ -795,7 +795,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	}
 
 	if a.mavenSettingsFile != "" {
-		err := copyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
+		err := CopyFileContents(a.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
 			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
 			return nil, err
@@ -980,7 +980,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 				continue
 			}
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
-			err := copyFileContents(r, destFile)
+			err := CopyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
@@ -1012,7 +1012,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 					}
 					destFile := filepath.Join(tempDir, relpath)
 					a.log.V(5).Info("copying file main", "source", path, "dest", destFile)
-					err = copyFileContents(path, destFile)
+					err = CopyFileContents(path, destFile)
 					if err != nil {
 						a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 						return err
@@ -1078,7 +1078,7 @@ func copyFolderContents(src string, dst string) error {
 			}
 		} else {
 			// Copy file
-			if err := copyFileContents(sourcePath, destinationPath); err != nil {
+			if err := CopyFileContents(sourcePath, destinationPath); err != nil {
 				return err
 			}
 		}
@@ -1087,7 +1087,7 @@ func copyFolderContents(src string, dst string) error {
 	return nil
 }
 
-func copyFileContents(src string, dst string) (err error) {
+func CopyFileContents(src string, dst string) (err error) {
 	source, err := os.Open(src)
 	if err != nil {
 		return nil
@@ -1683,7 +1683,7 @@ func (a *analyzeCommand) moveResults() error {
 	outputPath := filepath.Join(a.output, "output.yaml")
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
 	depsPath := filepath.Join(a.output, "dependencies.yaml")
-	err := copyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, a.inputShortName()))
+	err := CopyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, a.inputShortName()))
 	if err != nil {
 		return err
 	}
@@ -1691,7 +1691,7 @@ func (a *analyzeCommand) moveResults() error {
 	if err != nil {
 		return err
 	}
-	err = copyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	err = CopyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
 	if err != nil {
 		return err
 	}
@@ -1699,7 +1699,7 @@ func (a *analyzeCommand) moveResults() error {
 	if err != nil {
 		return err
 	}
-	err = copyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
+	err = CopyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 	if err == nil { // dependencies file presence is optional
 		err = os.Remove(depsPath)
 		if err != nil {
@@ -1792,7 +1792,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 			mountTempDir = true
 			xmlFileName := filepath.Base(r)
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
-			err := copyFileContents(r, destFile)
+			err := CopyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
@@ -1977,7 +1977,7 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 				seenConf[k] = absPath
 			}
 			// copy file to mount path
-			err := copyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
+			err := CopyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
 			if err != nil {
 				a.log.V(1).Error(err, "failed copying maven settings file", "path", v)
 				return nil, err
