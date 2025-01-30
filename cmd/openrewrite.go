@@ -4,12 +4,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
+)
+
+// path in container for maven settings file
+const (
+	settingsFileMountPath = "/tmp/source-app/input"
 )
 
 type openRewriteCommand struct {
@@ -150,8 +156,22 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
 
 	if o.mavenSettingsFile != "" {
+		tempDir, err := os.MkdirTemp("", "openrewrite-settings-")
+		if err != nil {
+			o.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+			return err
+		}
+		o.log.V(1).Info("created directory for maven settings file", "dir", tempDir)
+		defer os.RemoveAll(tempDir)
+
+		err = CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
+		if err != nil {
+			o.log.V(1).Error(err, "failed copying maven settings file", "path", o.mavenSettingsFile)
+			return err
+		}
+		volumes[tempDir] = settingsFileMountPath
 		o.log.Info("using custom maven settings file", "path", o.mavenSettingsFile)
-		args = append(args, "-s", o.mavenSettingsFile)
+		args = append(args, "-s", path.Join(settingsFileMountPath, "settings.xml"))
 	}
 	if o.mavenDebugLog {
 		o.log.Info("Setting Maven log to debug")

@@ -208,7 +208,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				return nil
 			}
-			log.Info("--run-local not set. running analysis in container mode")
+			log.Info("--run-local set to false. Running analysis in container mode")
 
 			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {

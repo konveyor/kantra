@@ -100,8 +100,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	var dependencyLabelSelector *labels.LabelSelector[*konveyor.Dep]
-	depLabel := fmt.Sprintf("%v=open-source", provider.DepSourceLabel)
-	if a.analyzeKnownLibraries {
+	depLabel := fmt.Sprintf("!%v=open-source", provider.DepSourceLabel)
+	if !a.analyzeKnownLibraries {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
@@ -215,6 +215,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
+
+	// Ensure analysis log is closed before creating static-report (needed for bulk on Windows)
+	analysisLog.Close()
 
 	err = a.GenerateStaticReportContainerless(ctx)
 	if err != nil {
@@ -379,6 +382,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
+					"cleanExplodedBin":              true,
 					"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
 					"lspServerName":                 javaProvider,
 					"bundles":                       a.reqMap["bundle"],
