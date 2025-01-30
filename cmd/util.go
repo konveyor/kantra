@@ -61,7 +61,7 @@ func copyFolderContents(src string, dst string) error {
 			}
 		} else {
 			// Copy file
-			if err := copyFileContents(sourcePath, destinationPath); err != nil {
+			if err := CopyFileContents(sourcePath, destinationPath); err != nil {
 				return err
 			}
 		}
@@ -70,7 +70,7 @@ func copyFolderContents(src string, dst string) error {
 	return nil
 }
 
-func copyFileContents(src string, dst string) (err error) {
+func CopyFileContents(src string, dst string) (err error) {
 	source, err := os.Open(src)
 	if err != nil {
 		return nil
