@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-type CommandContext struct {
+type AnalyzeCommandContext struct {
 	providersMap map[string]ProviderInit
 
 	// tempDirs list of temporary dirs created, used for cleanup
@@ -34,7 +34,7 @@ type CommandContext struct {
 	kantraDir string
 }
 
-func (c *CommandContext) setProviders(providers []string, languages []model.Language, foundProviders []string) ([]string, error) {
+func (c *AnalyzeCommandContext) setProviders(providers []string, languages []model.Language, foundProviders []string) ([]string, error) {
 	if len(providers) > 0 {
 		for _, p := range providers {
 			foundProviders = append(foundProviders, p)
@@ -75,7 +75,7 @@ func (c *CommandContext) setProviders(providers []string, languages []model.Lang
 	return foundProviders, nil
 }
 
-func (c *CommandContext) setProviderInitInfo(foundProviders []string) error {
+func (c *AnalyzeCommandContext) setProviderInitInfo(foundProviders []string) error {
 	for _, prov := range foundProviders {
 		port, err := freeport.GetFreePort()
 		if err != nil {
@@ -117,7 +117,7 @@ func (c *CommandContext) setProviderInitInfo(foundProviders []string) error {
 	return nil
 }
 
-func (c *CommandContext) handleDir(p string, tempDir string, basePath string) error {
+func (c *AnalyzeCommandContext) handleDir(p string, tempDir string, basePath string) error {
 	newDir, err := filepath.Rel(basePath, p)
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func (c *CommandContext) handleDir(p string, tempDir string, basePath string) er
 	return err
 }
 
-func (c *CommandContext) createTempRuleSet(path string, name string) error {
+func (c *AnalyzeCommandContext) createTempRuleSet(path string, name string) error {
 	c.log.Info("creating temp ruleset ", "path", path, "name", name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -161,7 +161,7 @@ func (c *CommandContext) createTempRuleSet(path string, name string) error {
 	return nil
 }
 
-func (c *CommandContext) createContainerNetwork() (string, error) {
+func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 	networkName := fmt.Sprintf("network-%v", container.RandomName())
 	args := []string{
 		"network",
@@ -183,7 +183,7 @@ func (c *CommandContext) createContainerNetwork() (string, error) {
 }
 
 // TODO: create for each source input once accepting multiple apps is completed
-func (c *CommandContext) createContainerVolume(inputPath string) (string, error) {
+func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string, error) {
 	volName := fmt.Sprintf("volume-%v", container.RandomName())
 	input, err := filepath.Abs(inputPath)
 	if err != nil {

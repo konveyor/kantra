@@ -34,7 +34,7 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 	return nil
 }
 
-func (c *CommandContext) RmNetwork(ctx context.Context) error {
+func (c *AnalyzeCommandContext) RmNetwork(ctx context.Context) error {
 	if c.networkName == "" {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (c *CommandContext) RmNetwork(ctx context.Context) error {
 	return cmd.Run()
 }
 
-func (c *CommandContext) RmVolumes(ctx context.Context) error {
+func (c *AnalyzeCommandContext) RmVolumes(ctx context.Context) error {
 	if c.volumeName == "" {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (c *CommandContext) RmVolumes(ctx context.Context) error {
 	return cmd.Run()
 }
 
-func (c *CommandContext) RmProviderContainers(ctx context.Context) error {
+func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error {
 	// if multiple provider containers, we need to remove the first created provider container last
 	for i := len(c.providerContainerNames) - 1; i >= 0; i-- {
 		con := c.providerContainerNames[i]

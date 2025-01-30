@@ -136,7 +136,7 @@ type analyzeCommand struct {
 	logLevel                 *uint32
 	cleanup                  bool
 	runLocal                 bool
-	CommandContext
+	AnalyzeCommandContext
 }
 
 // analyzeCmd represents the analyze command
