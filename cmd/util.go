@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -31,6 +33,74 @@ const (
 	workspaceFolders       = "workspaceFolders"
 	dependencyProviderPath = "dependencyProviderPath"
 )
+
+func copyFolderContents(src string, dst string) error {
+	err := os.MkdirAll(dst, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	contents, err := source.Readdir(-1)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range contents {
+		sourcePath := filepath.Join(src, item.Name())
+		destinationPath := filepath.Join(dst, item.Name())
+
+		if item.IsDir() {
+			// Recursively copy subdirectories
+			if err := copyFolderContents(sourcePath, destinationPath); err != nil {
+				return err
+			}
+		} else {
+			// Copy file
+			if err := CopyFileContents(sourcePath, destinationPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func CopyFileContents(src string, dst string) (err error) {
+	source, err := os.Open(src)
+	if err != nil {
+		return nil
+	}
+	defer source.Close()
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func LoadEnvInsensitive(variableName string) string {
+	lowerValue := os.Getenv(strings.ToLower(variableName))
+	upperValue := os.Getenv(strings.ToUpper(variableName))
+	if lowerValue != "" {
+		return lowerValue
+	} else {
+		return upperValue
+	}
+}
+
+func isXMLFile(rule string) bool {
+	return path.Ext(rule) == ".xml"
+}
 
 func walkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
 	return func(path string, d fs.DirEntry, err error) error {
