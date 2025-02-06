@@ -2,17 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor/analyzer-lsp/engine"
 	"github.com/phayes/freeport"
 	"gopkg.in/yaml.v2"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 type AnalyzeCommandContext struct {
@@ -189,8 +190,25 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 	if err != nil {
 		return "", err
 	}
+
 	if c.isFileInput {
-		input = filepath.Dir(input)
+		//create temp dir and move bin file to mount
+		file := filepath.Base(input)
+		tempDir, err := os.MkdirTemp("", "java-bin-")
+		if err != nil {
+			c.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+			return "", err
+		}
+		c.log.V(1).Info("created temp directory for Java input file", "dir", tempDir)
+		// for cleanup
+		c.tempDirs = append(c.tempDirs, tempDir)
+
+		err = CopyFileContents(input, filepath.Join(tempDir, file))
+		if err != nil {
+			c.log.V(1).Error(err, "failed copying binary file")
+			return "", err
+		}
+		input = tempDir
 	}
 	if runtime.GOOS == "windows" {
 		// TODO(djzager): Thank ChatGPT

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/fs"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
+
+	"gopkg.in/yaml.v2"
 
 	"path/filepath"
 	"slices"
@@ -872,7 +873,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
-				container.WithCleanup(a.cleanup),
+				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
 			)
@@ -897,7 +898,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
-				container.WithCleanup(a.cleanup),
+				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
 			)

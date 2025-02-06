@@ -79,6 +79,17 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 				"container", con)
 			continue
 		}
+		cmd = exec.CommandContext(
+			ctx,
+			Settings.ContainerBinary,
+			"rm", con)
+		c.log.V(1).Info("removing provider container", "container", con)
+		err = cmd.Run()
+		if err != nil {
+			c.log.V(1).Error(err, "failed to remove container",
+				"container", con)
+			continue
+		}
 	}
 	return nil
 }
