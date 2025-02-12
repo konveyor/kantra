@@ -14,6 +14,8 @@ import (
 	"path"
 	"runtime"
 
+	"gopkg.in/yaml.v2"
+
 	"path/filepath"
 	"slices"
 	"strings"
@@ -28,7 +30,6 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/phayes/freeport"
 	"go.lsp.dev/uri"
-	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
@@ -1158,7 +1159,23 @@ func (a *analyzeCommand) createContainerVolume() (string, error) {
 		return "", err
 	}
 	if a.isFileInput {
-		input = filepath.Dir(input)
+		//create temp dir and move bin file to mount
+		file := filepath.Base(input)
+		tempDir, err := os.MkdirTemp("", "java-bin-")
+		if err != nil {
+			a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+			return "", err
+		}
+		a.log.V(1).Info("created temp directory for Java input file", "dir", tempDir)
+		// for cleanup
+		a.tempDirs = append(a.tempDirs, tempDir)
+
+		err = CopyFileContents(input, filepath.Join(tempDir, file))
+		if err != nil {
+			a.log.V(1).Error(err, "failed copying binary file")
+			return "", err
+		}
+		input = tempDir
 	}
 	if runtime.GOOS == "windows" {
 		// TODO(djzager): Thank ChatGPT
@@ -1249,7 +1266,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
-				container.WithCleanup(a.cleanup),
+				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
 			)
@@ -1274,7 +1291,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
 				container.WithDetachedMode(true),
-				container.WithCleanup(a.cleanup),
+				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
 			)
