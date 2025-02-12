@@ -76,6 +76,8 @@ type IncidentVerification struct {
 type InsightVerification struct {
 	// CountBased defines a simple test case passing criteria based on count of insights
 	CountBased *CountBasedVerification `yaml:",inline,omitempty" json:",inline,omitempty"`
+	// LocationBased defines a detailed test case passing criteria based on each incident
+	LocationBased *LocationBasedVerification `yaml:",inline,omitempty" json:",inline,omitempty"`
 }
 
 func (i *IncidentVerification) MarshalYAML() (interface{}, error) {
@@ -253,10 +255,24 @@ func (l LocationVerification) Validate() error {
 	return nil
 }
 
+type Violation interface {
+	GetCountBased() *CountBasedVerification
+	GetLocationBased() *LocationBasedVerification
+}
+
 func (t TestCase) Verify(output konveyor.RuleSet) []string {
 	failures := []string{}
 	violation, violationExists := output.Violations[t.RuleID]
 	insight, insightExists := output.Insights[t.RuleID]
+
+	// violations and insights are essentially the same: a container for incidents
+	var incidents []konveyor.Incident
+	if violationExists {
+		incidents = violation.Incidents
+	} else if insightExists {
+		incidents = insight.Incidents
+	}
+
 	existsInUnmatched := false
 	for _, unmatchd := range output.Unmatched {
 		if unmatchd == t.RuleID {
@@ -299,15 +315,22 @@ func (t TestCase) Verify(output konveyor.RuleSet) []string {
 		return true
 	}
 
-	if t.HasIncidents != nil {
-		countBased := t.HasIncidents.CountBased
-		locationBased := t.HasIncidents.LocationBased
+	if t.HasIncidents != nil || t.HasInsights != nil {
+		var countBased *CountBasedVerification
+		var locationBased *LocationBasedVerification
+		if t.HasIncidents != nil {
+			countBased = t.HasIncidents.CountBased
+			locationBased = t.HasIncidents.LocationBased
+		} else if t.HasInsights != nil {
+			countBased = t.HasInsights.CountBased
+			locationBased = t.HasInsights.LocationBased
+		}
 
 		if locationBased != nil {
-			for _, loc := range t.HasIncidents.LocationBased.Locations {
+			for _, loc := range locationBased.Locations {
 				foundIncidentsInFile := []konveyor.Incident{}
-				for idx := range violation.Incidents {
-					incident := &violation.Incidents[idx]
+				for idx := range incidents {
+					incident := &incidents[idx]
 					if strings.HasSuffix(string(incident.URI), filepath.Clean(*loc.FileURI)) {
 						foundIncidentsInFile = append(foundIncidentsInFile, *incident)
 					}
@@ -350,41 +373,20 @@ func (t TestCase) Verify(output konveyor.RuleSet) []string {
 			}
 		}
 		if countBased != nil {
-			if countBased.Exactly != nil && *countBased.Exactly != len(violation.Incidents) {
+			if countBased.Exactly != nil && *countBased.Exactly != len(incidents) {
 				return append(failures,
 					fmt.Sprintf("expected exactly %d incidents, got %d",
-						*countBased.Exactly, len(violation.Incidents)))
+						*countBased.Exactly, len(incidents)))
 			}
-			if countBased.AtLeast != nil && *countBased.AtLeast > len(violation.Incidents) {
+			if countBased.AtLeast != nil && *countBased.AtLeast > len(incidents) {
 				return append(failures,
 					fmt.Sprintf("expected at least %d incidents, got %d",
-						*countBased.AtLeast, len(violation.Incidents)))
+						*countBased.AtLeast, len(incidents)))
 			}
-			if countBased.AtMost != nil && *countBased.AtMost < len(violation.Incidents) {
+			if countBased.AtMost != nil && *countBased.AtMost < len(incidents) {
 				return append(failures,
 					fmt.Sprintf("expected at most %d incidents, got %d",
-						*countBased.AtMost, len(violation.Incidents)))
-			}
-		}
-	}
-	if t.HasInsights != nil {
-		countBased := t.HasInsights.CountBased
-
-		if countBased != nil {
-			if countBased.Exactly != nil && *countBased.Exactly != len(insight.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected exactly %d incidents, got %d",
-						*countBased.Exactly, len(insight.Incidents)))
-			}
-			if countBased.AtLeast != nil && *countBased.AtLeast > len(insight.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected at least %d incidents, got %d",
-						*countBased.AtLeast, len(insight.Incidents)))
-			}
-			if countBased.AtMost != nil && *countBased.AtMost < len(insight.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected at most %d incidents, got %d",
-						*countBased.AtMost, len(insight.Incidents)))
+						*countBased.AtMost, len(incidents)))
 			}
 		}
 	}
