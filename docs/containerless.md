@@ -6,7 +6,7 @@ Have $JAVA_HOME set.
 
 ## Download kantra and requirements:
 
-Download appropriate zip for your OS [here](https://github.com/konveyor/kantra/releases/tag/v0.6.0-alpha.2) 
+Download appropriate zip for your OS [here](https://github.com/konveyor/kantra/releases)
 
 ## Move kantra binary to your $PATH:
 
