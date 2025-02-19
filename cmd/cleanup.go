@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"runtime"
 )
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
@@ -95,11 +94,6 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 }
 
 func (a *analyzeCommand) cleanlsDirs() error {
-	// TODO clean this up for windows
-	// currently a perm issue with deleting these dirs
-	if runtime.GOOS == "windows" {
-		return nil
-	}
 	a.log.V(7).Info("removing language server dirs")
 	// this assumes dirs created in wd
 	lsDirs := []string{
