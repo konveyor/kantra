@@ -94,12 +94,7 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 	return nil
 }
 
-func (a *analyzeCommand) cleanlsDirs() error {
-	// TODO clean this up for windows
-	// currently a perm issue with deleting these dirs
-	if runtime.GOOS == "windows" {
-		return nil
-	}
+func (a *analyzeCommand) cleanlsDirs() error {	
 	a.log.V(7).Info("removing language server dirs")
 	// this assumes dirs created in wd
 	lsDirs := []string{
