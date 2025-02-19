@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"runtime"
 )
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
@@ -94,7 +93,7 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 	return nil
 }
 
-func (a *analyzeCommand) cleanlsDirs() error {	
+func (a *analyzeCommand) cleanlsDirs() error {
 	a.log.V(7).Info("removing language server dirs")
 	// this assumes dirs created in wd
 	lsDirs := []string{
