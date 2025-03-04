@@ -193,7 +193,6 @@ instances: 1
 				Output:        flagFile{},
 				ExpectSuccess: true,
 				ExpectedOut: `name: test-app
-version: ""
 timeout: 60
 instances: 1
 `,
@@ -213,7 +212,6 @@ instances: 1
 				Output:        flagFile{setFlag: true},
 				ExpectSuccess: true,
 				ExpectedOut: `name: test-app
-version: ""
 timeout: 60
 instances: 1
 `,
