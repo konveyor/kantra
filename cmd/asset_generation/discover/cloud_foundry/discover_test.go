@@ -181,37 +181,31 @@ instances: 1
 
 		Entry("discovers manifest and prints output to standard output when flags are valid",
 			flagTest{
-				Input:              flagFile{setFlag: true},
-				Output:             flagFile{setFlag: false},
-				ExpectSuccess:      true,
-				ExpectedOut:        "test-app",
-				ExpectErr:          false,
-				ExpectedErrMessage: "",
-				OutputVerification: false},
+				Input:         flagFile{setFlag: true},
+				Output:        flagFile{},
+				ExpectSuccess: true,
+				ExpectedOut:   "test-app",
+			},
 		),
 		Entry("discovers manifest and prints output to standard output when flags are valid and verify output",
 			flagTest{
 				Input:         flagFile{setFlag: true},
-				Output:        flagFile{setFlag: false},
+				Output:        flagFile{},
 				ExpectSuccess: true,
 				ExpectedOut: `name: test-app
 version: ""
 timeout: 60
 instances: 1
 `,
-				ExpectErr:          false,
 				ExpectedErrMessage: "",
 				OutputVerification: true},
 		),
 		Entry("writes to output file when --output flag is given",
 			flagTest{
-				Input:              flagFile{setFlag: true},
-				Output:             flagFile{setFlag: true},
-				ExpectSuccess:      true,
-				ExpectedOut:        "",
-				ExpectErr:          false,
-				ExpectedErrMessage: "",
-				OutputVerification: false},
+				Input:         flagFile{setFlag: true},
+				Output:        flagFile{setFlag: true},
+				ExpectSuccess: true,
+			},
 		),
 		Entry("writes to output file when --output flag is given and verify output",
 			flagTest{
@@ -223,31 +217,25 @@ version: ""
 timeout: 60
 instances: 1
 `,
-				ExpectErr:          false,
-				ExpectedErrMessage: "",
 				OutputVerification: true},
 		),
 		Entry("returns an error when input file is missing",
 			flagTest{
-				Input:              flagFile{setFlag: false},
-				Output:             flagFile{setFlag: false},
-				ExpectSuccess:      false,
-				ExpectedOut:        "",
+				Input:              flagFile{},
+				Output:             flagFile{},
 				ExpectErr:          true,
 				ExpectedErrMessage: "required flag",
-				OutputVerification: false},
+			},
 		),
 
 		Entry("returns an error when input file does not exist",
 
 			flagTest{
 				Input:              flagFile{setFlag: true, filePath: "nonexistent.yaml"},
-				Output:             flagFile{setFlag: false},
-				ExpectSuccess:      false,
-				ExpectedOut:        "",
+				Output:             flagFile{},
 				ExpectErr:          true,
 				ExpectedErrMessage: "no such file or directory",
-				OutputVerification: false},
+			},
 		),
 	)
 })
