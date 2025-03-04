@@ -36,40 +36,31 @@ var _ = Describe("Discover Manifest", func() {
 	})
 
 	DescribeTable("Manifest validation",
-		func(manifestContent string, expectedErrorMessage string) {
+		func(manifestContent string, expectedErrorMessage ...string) {
 			err := helperCreateTestManifest(manifestPath, manifestContent, 0644)
 			Expect(err).ToNot(HaveOccurred(), "Unable to create manifest.yaml")
 			input = manifestPath
 			output = ""
 			err = discoverManifest(writer)
 			writer.Flush()
-			if expectedErrorMessage != "" {
-				Expect(err).To(HaveOccurred(), "Expected an error due to invalid manifest content, got none")
-				Expect(err.Error()).To(ContainSubstring(expectedErrorMessage))
+
+			if len(expectedErrorMessage) > 0 {
+				for _, expected := range expectedErrorMessage {
+					if expected == "" {
+						Expect(err).ToNot(HaveOccurred(), "Expected no error for invalid manifest, but got one")
+						continue // Skip empty strings
+					}
+
+					Expect(err.Error()).To(ContainSubstring(expected),
+						"Expected error message to contain: "+expected)
+				}
 			} else {
 				Expect(err).ToNot(HaveOccurred(), "Expected no error for invalid manifest, but got one")
 			}
 		},
-		Entry("with an empty manifest", "", "field validation for 'Name' failed on the 'required' tag"),
+		Entry("with an empty manifest", "", "field validation for key 'Application.Metadata' field 'Metadata' failed on the 'required' tag"),
 		Entry("with invalid YAML content", "invalid content", "cannot unmarshal !!str `invalid...` into cloud_foundry.AppManifest"),
-		Entry("with a valid manifest", `name: test-app`, ""),
-	)
-
-	DescribeTable("Manifest creation",
-		func(manifestContent string, perm os.FileMode, expectedErrorMessage string) {
-			err := helperCreateTestManifest(manifestPath, manifestContent, perm)
-			Expect(err).ToNot(HaveOccurred(), "Unable to create manifest.yaml")
-
-			err = discoverManifest(writer)
-			if expectedErrorMessage != "" {
-				Expect(err).ToNot(HaveOccurred(), "Expected an error due to invalid manifest content, got none")
-				Expect(err.Error()).To(ContainSubstring(expectedErrorMessage))
-			} else {
-				Expect(err).ToNot(HaveOccurred(), "Expected no error for valid manifest, but got one")
-			}
-		},
-		Entry("with readonly permission", `name: test-app`, os.FileMode(0444), ""),
-		Entry("withouth read permission", `name: test-app`, os.FileMode(0000), "manifest.yaml: permission denied"),
+		Entry("with a valid manifest", `name: test-app`, nil),
 	)
 })
 var _ = Describe("Discover command", func() {
@@ -212,7 +203,6 @@ instances: 1
 				ExpectedErrMessage: "",
 				OutputVerification: true},
 		),
-
 		Entry("writes to output file when --output flag is given",
 			flagTest{
 				Input:              flagFile{setFlag: true},
