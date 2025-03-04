@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	discover "github.com/gciavarrini/cf-application-discovery/pkg/discover/cloud_foundry"
 	"github.com/go-logr/logr"
+	discover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -54,7 +54,7 @@ func discoverManifest(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	a, err := discover.Discover(ma, "1", "default")
+	a, err := discover.Discover(ma)
 	if err != nil {
 		return err
 
