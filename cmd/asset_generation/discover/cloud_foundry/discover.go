@@ -69,5 +69,5 @@ func discoverManifest(writer io.Writer) error {
 		fmt.Fprintf(writer, "%s", b)
 		return nil
 	}
-	return os.WriteFile(output, b, 0444)
+	return os.WriteFile(output, b, 0644)
 }
