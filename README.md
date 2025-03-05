@@ -134,7 +134,7 @@ Kantra has five subcommands:
 
 4. _discover_: This subcommand allows to discover application and outputs a YAML representation of source platform resources.
 
-5. _generate_: This subcommand allora to analyze the source plaftform and/or application and output a discovery manifest.
+5. _generate_: This subcommand allows to analyze the source plaftform and/or application and output a discovery manifest.
 
 ### Analyze
 
