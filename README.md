@@ -13,6 +13,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
   - [Analyze an application](#analyze)
   - [Transform an application or XML rules](#transform)
   - [Test YAML rules](#test)
+  - [Asset Generation](#asset-generation)
 - [References](#references)
 - [Code of conduct](#code-of-conduct)
 
@@ -266,25 +267,33 @@ Asset generation consist of two subcommands _discover_ and _generate_.
 #### Discover
 Discover application outputs a YAML representation of source platform resources.
 
-To run a discover, run:
-
-`kantra discover --input=<path/to/yaml/manifest>`
-
-_--input_ must point to a yaml manifest file.
-
-
-All flags:
-
 ```sh
 Flags:
   -h, --help             help for discover
       --list-platforms   List available supported discovery platform.
 ```
 
+Select one of the supported platforms:
+
+`kantra discover cloud-foundry -h`
+
+All flags:
+
+```sh
+Flags:
+  -h, --help                  help for cloud-foundry
+      --input string          specify the location of the manifest.yaml to analyze.
+      --output string         output file (default: standard output).
+      --use-live-connection   uses live platform connections for real-time discovery (not implemented)
+```
+
+To run a discover on Cloud Foundry manifest, run:
+
+`kantra discover cloud_foundry --input=<path-to/manifest-yaml>`
+
 #### Generate
 
 Analyze the source platform and/or application and output discovery manifest.
-
 
 To generate a discovery manifest, run:
 
