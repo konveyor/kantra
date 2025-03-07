@@ -13,6 +13,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
   - [Analyze an application](#analyze)
   - [Transform an application or XML rules](#transform)
   - [Test YAML rules](#test)
+  - [Asset Generation](#asset-generation)
 - [References](#references)
 - [Code of conduct](#code-of-conduct)
 
@@ -123,13 +124,17 @@ podman machine init <vm_name>
 
 ## Usage
 
-Kantra has three subcommands:
+Kantra has five subcommands:
 
 1. _analyze_: This subcommand allows running source code analysis on input source code or a binary.
 
 2. _transform_: This subcommand allows either converting XML rules to YAML or running OpenRewrite recipes on source code.
 
 3. _test_: This subcommand allows testing YAML rules.
+
+4. _discover_: This subcommand allows to discover application and outputs a YAML representation of source platform resources.
+
+5. _generate_: This subcommand allows to analyze the source plaftform and/or application and output a discovery manifest.
 
 ### Analyze
 
@@ -254,6 +259,65 @@ kantra test /path/to/a/single/tests/file.test.yaml
 The output of tests is printed on the console.
 
 See different ways to run the test command in the [test runner doc](./docs/testrunner.md#running-tests)
+
+### Asset Generation
+
+Asset generation consist of two subcommands _discover_ and _generate_.
+
+#### Discover
+Discover application outputs a YAML representation of source platform resources.
+
+```sh
+Flags:
+  -h, --help             help for discover
+      --list-platforms   List available supported discovery platform.
+```
+
+Select one of the supported platforms:
+
+`kantra discover cloud-foundry -h`
+
+All flags:
+
+```sh
+Flags:
+  -h, --help                  help for cloud-foundry
+      --input string          specify the location of the manifest.yaml to analyze.
+      --output string         output file (default: standard output).
+      --use-live-connection   uses live platform connections for real-time discovery (not implemented)
+```
+
+To run a discover on Cloud Foundry manifest, run:
+
+`kantra discover cloud_foundry --input=<path-to/manifest-yaml>`
+
+#### Generate
+
+Analyze the source platform and/or application and output discovery manifest.
+
+To generate a discovery manifest, run:
+
+`kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart>`
+
+All flags
+
+```sh
+Flags:
+  -h, --help   help for generate
+```
+_generate_ subcommand has a _helm_ subcommand that generates the helm template manifest.
+
+All flags:
+
+```sh
+Flags:
+      --chart-dir string    Directory to the Helm chart to use for chart generation.
+  -h, --help                help for helm
+      --input string        Specifies the discover manifest file
+      --non-k8s-only        Render only the non-Kubernetes templates located in the files/konveyor directory of the chart
+      --output-dir string   Directory to save the generated Helm chart. Defaults to stdout
+      --set stringArray     Set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+```
 
 ## References 
 

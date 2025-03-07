@@ -29,7 +29,7 @@ RUN $url = ('https://github.com/git-for-windows/git/releases/download/v{0}.windo
 ARG RULESETS_REF=main
 RUN C:\git\cmd\git.exe clone https://github.com/konveyor/rulesets -b $env:RULESETS_REF C:\rulesets
 
-FROM golang:1.21-windowsservercore-ltsc2022 as builder
+FROM golang:1.22-windowsservercore-ltsc2022 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

@@ -39,3 +39,36 @@ static-report
 `kantra transform openrewrite --input=<path-to/jakartaee-duke> --target=jakarta-imports`
 
 - Inspect the `jakartaee-duke` application source code diff to see the transformation  
+
+### Asset Generation
+
+#### Discover
+
+- View supported source platform resources 
+`kantra discover --list-platforms`
+
+- Output a YAML representation of source platform resources  
+`kantra discover --input=<path-to/manifest-yaml>`
+
+    For example:  
+    `./kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
+
+- Print a YAML representation of source platform resources  
+`kantra discover --input=<path-to/manifest-yaml> --output=<path-to/ouput-file>`
+
+    For example:  
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output=/tmp/output.yaml`
+
+#### Generate
+
+- Output the Helm template manifests  
+`kantra generate helm --input=<path-to/discover-manifest> --chart-dir=<path-to/helm-chart>`
+    
+    For example:  
+    `kantra generate helm --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml`
+
+- Print the Helm template manifests  
+`kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart> --output-dir=<path-to/output-dir>`
+    
+    For example:  
+    `kantra generate helm --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml --output-dir=/tmp/generate-dir`
