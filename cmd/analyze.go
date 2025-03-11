@@ -112,6 +112,7 @@ type analyzeCommand struct {
 	listSources              bool
 	listTargets              bool
 	listProviders            bool
+	listLanguages            bool
 	skipStaticReport         bool
 	analyzeKnownLibraries    bool
 	jsonOutput               bool
@@ -125,6 +126,7 @@ type analyzeCommand struct {
 	output                   string
 	mode                     string
 	rules                    []string
+	tempRuleDir              string
 	jaegerEndpoint           string
 	enableDefaultRulesets    bool
 	httpProxy                string
@@ -170,12 +172,16 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// TODO (pgaikwad): this is nasty
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
-				!cmd.Flags().Lookup("list-providers").Changed {
+				!cmd.Flags().Lookup("list-providers").Changed &&
+				!cmd.Flags().Lookup("list-languages").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
 					return err
 				}
+			}
+			if cmd.Flags().Lookup("list-languages").Changed {
+				cmd.MarkFlagRequired("input")
 			}
 			if analyzeCmd.runLocal {
 				err := analyzeCmd.setKantraDir()
@@ -206,8 +212,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return nil
 			}
 
-			// ***** RUN CONTAINERLESS MODE *****
+			// skip container mode check
+			if analyzeCmd.listLanguages {
+				analyzeCmd.runLocal = false
+			}
 
+			// ***** RUN CONTAINERLESS MODE *****
 			if analyzeCmd.runLocal {
 				log.Info("\n --run-local set. running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -225,7 +235,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				return nil
 			}
-			log.Info("--run-local set to false. Running analysis in container mode")
 
 			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
@@ -245,6 +254,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "Failed to determine languages for input")
 					return err
 				}
+				if analyzeCmd.listLanguages {
+					err := listLanguages(languages, analyzeCmd.input)
+					if err != nil {
+						return err
+					}
+					return nil
+				}
+				log.Info("--run-local set to false. Running analysis in container mode")
 				foundProviders := []string{}
 				// file input means a binary was given which only the java provider can use
 				if analyzeCmd.isFileInput {
@@ -351,6 +368,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "list rules for available migration sources")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listProviders, "list-providers", false, "list available supported providers")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listLanguages, "list-languages", false, "list found application language(s)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.labelSelector, "label-selector", "l", "", "run rules based on specified label selector expression")
@@ -380,13 +398,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 }
 
 func (a *analyzeCommand) Validate(ctx context.Context) error {
-	if a.listSources || a.listTargets || a.listProviders {
+	if a.listSources || a.listTargets || a.listProviders || a.listLanguages {
 		return nil
 	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
 	// Validate source labels
+	// allow custom sources/targets if custom rules are set
 	if len(a.sources) > 0 {
 		var sourcesRaw bytes.Buffer
 		if a.runLocal {
@@ -686,6 +705,9 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 	targetLabel := outputv1.TargetTechnologyLabel
 	runMode := "RUN_MODE"
 	runModeContainer := "container"
+	rulePath := "RULE_PATH"
+	customRulePath := ""
+
 	if os.Getenv(runMode) == runModeContainer {
 		if listSources {
 			sourceSlice, err := a.readRuleFilesForLabels(sourceLabel)
@@ -711,6 +733,10 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			a.log.Error(err, "failed getting rules volumes")
 			return err
 		}
+
+		if len(a.rules) > 0 {
+			customRulePath = filepath.Join(CustomRulePath, a.tempRuleDir)
+		}
 		args := []string{"analyze", "--run-local=false"}
 		if listSources {
 			args = append(args, "--list-sources")
@@ -722,6 +748,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			container.WithImage(Settings.RunnerImage),
 			container.WithLog(a.log.V(1)),
 			container.WithEnv(runMode, runModeContainer),
+			container.WithEnv(rulePath, customRulePath),
 			container.WithVolumes(volumes),
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
 			container.WithContainerToolBin(Settings.ContainerBinary),
@@ -742,6 +769,13 @@ func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) 
 	err := filepath.WalkDir(RulesetPath, walkRuleSets(RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
+	}
+	rulePath := os.Getenv("RULE_PATH")
+	if rulePath != "" {
+		err := filepath.WalkDir(rulePath, walkRuleSets(rulePath, label, &labelsSlice))
+		if err != nil {
+			return nil, err
+		}
 	}
 	return labelsSlice, nil
 }
@@ -962,6 +996,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	}
 	rulesVolumes := make(map[string]string)
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
+	a.tempRuleDir = filepath.Base(tempDir)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
 		return nil, err
@@ -2351,4 +2386,18 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 	}
 
 	return false, nil
+}
+
+func listLanguages(languages []model.Language, input string) error {
+	switch {
+	case len(languages) == 0:
+		return fmt.Errorf("failed to detect application language(s)")
+	default:
+		fmt.Fprintln(os.Stdout, "found languages for input application:", input)
+		for _, l := range languages {
+			fmt.Fprintln(os.Stdout, l.Name)
+		}
+		fmt.Fprintln(os.Stdout, "run --list-providers to view supported language providers")
+	}
+	return nil
 }
