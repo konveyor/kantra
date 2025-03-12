@@ -112,7 +112,6 @@ type analyzeCommand struct {
 	listSources              bool
 	listTargets              bool
 	listProviders            bool
-	listLanguages            bool
 	skipStaticReport         bool
 	analyzeKnownLibraries    bool
 	jsonOutput               bool
@@ -172,16 +171,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// TODO (pgaikwad): this is nasty
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
-				!cmd.Flags().Lookup("list-providers").Changed &&
-				!cmd.Flags().Lookup("list-languages").Changed {
+				!cmd.Flags().Lookup("list-providers").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
 					return err
 				}
-			}
-			if cmd.Flags().Lookup("list-languages").Changed {
-				cmd.MarkFlagRequired("input")
 			}
 			if analyzeCmd.runLocal {
 				err := analyzeCmd.setKantraDir()
@@ -210,11 +205,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.listProviders {
 				analyzeCmd.ListAllProviders()
 				return nil
-			}
-
-			// skip container mode check
-			if analyzeCmd.listLanguages {
-				analyzeCmd.runLocal = false
 			}
 
 			// ***** RUN CONTAINERLESS MODE *****
@@ -254,13 +244,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "Failed to determine languages for input")
 					return err
 				}
-				if analyzeCmd.listLanguages {
-					err := listLanguages(languages, analyzeCmd.input)
-					if err != nil {
-						return err
-					}
-					return nil
-				}
+
 				log.Info("--run-local set to false. Running analysis in container mode")
 				foundProviders := []string{}
 				// file input means a binary was given which only the java provider can use
@@ -368,7 +352,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "list rules for available migration sources")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listProviders, "list-providers", false, "list available supported providers")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listLanguages, "list-languages", false, "list found application language(s)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.labelSelector, "label-selector", "l", "", "run rules based on specified label selector expression")
@@ -398,7 +381,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 }
 
 func (a *analyzeCommand) Validate(ctx context.Context) error {
-	if a.listSources || a.listTargets || a.listProviders || a.listLanguages {
+	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
@@ -2386,18 +2369,4 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 	}
 
 	return false, nil
-}
-
-func listLanguages(languages []model.Language, input string) error {
-	switch {
-	case len(languages) == 0:
-		return fmt.Errorf("failed to detect application language(s)")
-	default:
-		fmt.Fprintln(os.Stdout, "found languages for input application:", input)
-		for _, l := range languages {
-			fmt.Fprintln(os.Stdout, l.Name)
-		}
-		fmt.Fprintln(os.Stdout, "run --list-providers to view supported language providers")
-	}
-	return nil
 }
