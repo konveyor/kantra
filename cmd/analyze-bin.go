@@ -311,14 +311,6 @@ func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]st
 	if err != nil {
 		return nil, err
 	}
-	if len(a.rules) > 0 {
-		for _, p := range a.rules {
-			err := filepath.WalkDir(p, walkRuleSets(p, label, &labelsSlice))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
 	return labelsSlice, nil
 }
 
