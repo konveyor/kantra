@@ -193,7 +193,11 @@ func (a *analyzeCommand) ConvertXMLContainerless() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer shimLog.Close()
+	originalStdout := os.Stdout
+	defer func() {
+		os.Stdout = originalStdout
+		shimLog.Close()
+	}()
 	os.Stdout = shimLog
 
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
