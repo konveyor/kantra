@@ -5,10 +5,11 @@ package cmd
 
 import (
 	"context"
+	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/logger"
 	"log"
 	"os"
 
-	"github.com/bombsimon/logrusr/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +20,7 @@ const (
 )
 
 var logLevel uint32
-var logrusLog *logrus.Logger
+var analysisLogger *logr.Logger
 var noCleanup bool
 
 // rootCmd represents the base command when called without any subcommands
@@ -31,7 +32,7 @@ var rootCmd = &cobra.Command{
 		// TODO (pgaikwad): this is a hack to set log level
 		// this won't work if any subcommand ovverrides this func
 		_ = cmd.ParseFlags(args)
-		logrusLog.SetLevel(logrus.Level(logLevel))
+		logger.GetLogrus().SetLevel(logrus.Level(logLevel))
 	},
 }
 
@@ -39,14 +40,11 @@ func init() {
 	rootCmd.PersistentFlags().Uint32Var(&logLevel, logLevelFlag, 4, "log level")
 	rootCmd.PersistentFlags().BoolVar(&noCleanup, noCleanupFlag, false, "do not cleanup temporary resources")
 
-	logrusLog = logrus.New()
-	logrusLog.SetOutput(os.Stdout)
-	logrusLog.SetFormatter(&logrus.TextFormatter{})
-
-	logger := logrusr.New(logrusLog)
-	rootCmd.AddCommand(NewTransformCommand(logger))
-	rootCmd.AddCommand(NewAnalyzeCmd(logger))
-	rootCmd.AddCommand(NewTestCommand(logger))
+	logger.InitLogger()
+	analysisLogger = logger.GetLogger()
+	rootCmd.AddCommand(NewTransformCommand())
+	rootCmd.AddCommand(NewAnalyzeCmd())
+	rootCmd.AddCommand(NewTestCommand())
 	rootCmd.AddCommand(NewVersionCommand())
 }
 

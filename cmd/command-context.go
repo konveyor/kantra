@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/devfile/alizer/pkg/apis/model"
-	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor/analyzer-lsp/engine"
 	"github.com/phayes/freeport"
@@ -21,7 +20,7 @@ type AnalyzeCommandContext struct {
 
 	// tempDirs list of temporary dirs created, used for cleanup
 	tempDirs []string
-	log      logr.Logger
+	//log      logr.Logger
 	// isFileInput is set when input points to a file and not a dir
 	isFileInput  bool
 	needsBuiltin bool
@@ -44,14 +43,14 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 	}
 	for _, l := range languages {
 		if l.CanBeComponent {
-			c.log.V(5).Info("Got language", "component language", l)
+			analysisLogger.V(5).Info("Got language", "component language", l)
 			if l.Name == "C#" {
 				for _, item := range l.Frameworks {
 					supported, ok := DotnetFrameworks[item]
 					if ok {
 						if !supported {
 							err := fmt.Errorf("unsupported .NET Framework version")
-							c.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
+							analysisLogger.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
 							return foundProviders, err
 						}
 						return []string{dotnetFrameworkProvider}, nil
@@ -124,22 +123,22 @@ func (c *AnalyzeCommandContext) handleDir(p string, tempDir string, basePath str
 		return err
 	}
 	tempDir = filepath.Join(tempDir, newDir)
-	c.log.Info("creating nested tmp dir", "tempDir", tempDir, "newDir", newDir)
+	analysisLogger.Info("creating nested tmp dir", "tempDir", tempDir, "newDir", newDir)
 	err = os.Mkdir(tempDir, 0777)
 	if err != nil {
 		return err
 	}
-	c.log.V(5).Info("create temp rule set for dir", "dir", tempDir)
+	analysisLogger.V(5).Info("create temp rule set for dir", "dir", tempDir)
 	err = c.createTempRuleSet(tempDir, filepath.Base(p))
 	if err != nil {
-		c.log.V(1).Error(err, "failed to create temp ruleset", "path", tempDir)
+		analysisLogger.V(1).Error(err, "failed to create temp ruleset", "path", tempDir)
 		return err
 	}
 	return err
 }
 
 func (c *AnalyzeCommandContext) createTempRuleSet(path string, name string) error {
-	c.log.Info("creating temp ruleset ", "path", path, "name", name)
+	analysisLogger.Info("creating temp ruleset ", "path", path, "name", name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -177,7 +176,7 @@ func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c.log.V(1).Info("created container network", "network", networkName)
+	analysisLogger.V(1).Info("created container network", "network", networkName)
 	// for cleanup
 	c.networkName = networkName
 	return networkName, nil
@@ -196,16 +195,16 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 		file := filepath.Base(input)
 		tempDir, err := os.MkdirTemp("", "java-bin-")
 		if err != nil {
-			c.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+			analysisLogger.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 			return "", err
 		}
-		c.log.V(1).Info("created temp directory for Java input file", "dir", tempDir)
+		analysisLogger.V(1).Info("created temp directory for Java input file", "dir", tempDir)
 		// for cleanup
 		c.tempDirs = append(c.tempDirs, tempDir)
 
 		err = CopyFileContents(input, filepath.Join(tempDir, file))
 		if err != nil {
-			c.log.V(1).Error(err, "failed copying binary file")
+			analysisLogger.V(1).Error(err, "failed copying binary file")
 			return "", err
 		}
 		input = tempDir
@@ -243,7 +242,7 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 	if err != nil {
 		return "", err
 	}
-	c.log.V(1).Info("created container volume", "volume", volName)
+	analysisLogger.V(1).Info("created container volume", "volume", volName)
 	// for cleanup
 	c.volumeName = volName
 	return volName, nil

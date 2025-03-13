@@ -42,7 +42,7 @@ func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provid
 	if a.mavenSettingsFile != "" {
 		err := CopyFileContents(a.mavenSettingsFile, filepath.Join(tmpDir, "settings.xml"))
 		if err != nil {
-			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
+			analysisLogger.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
 			return provider.Config{}, err
 		}
 		p.config.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")

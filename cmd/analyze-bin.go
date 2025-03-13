@@ -38,7 +38,7 @@ import (
 func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	err := a.ValidateContainerless(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to validate flags")
+		analysisLogger.Error(err, "failed to validate flags")
 		return err
 	}
 
@@ -58,7 +58,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	// try to convert any xml rules
 	xmlTempDir, err := a.ConvertXMLContainerless()
 	if err != nil {
-		a.log.Error(err, "failed to convert xml rules")
+		analysisLogger.Error(err, "failed to convert xml rules")
 		return err
 	}
 	defer os.RemoveAll(xmlTempDir)
@@ -70,7 +70,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	// clean jdtls dirs after analysis
 	defer func() {
 		if err := a.cleanlsDirs(); err != nil {
-			a.log.Error(err, "failed to clean language server directories")
+			analysisLogger.Error(err, "failed to clean language server directories")
 		}
 	}()
 
@@ -86,7 +86,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	logrusErrLog.SetOutput(os.Stderr)
 	errLog := logrusr.New(logrusErrLog)
 
-	a.log.Info("running source analysis")
+	analysisLogger.Info("running source analysis")
 	labelSelectors := a.getLabelSelector()
 
 	selectors := []engine.RuleSelector{}
@@ -111,12 +111,12 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	err = a.setBinMapContainerless()
 	if err != nil {
-		a.log.Error(err, "unable to find kantra dependencies")
+		analysisLogger.Error(err, "unable to find kantra dependencies")
 		os.Exit(1)
 	}
 
 	// Get the configs
-	a.log.Info("creating provider config")
+	analysisLogger.Info("creating provider config")
 	finalConfigs, err := a.createProviderConfigsContainerless()
 	if err != nil {
 		errLog.Error(err, "unable to get Java provider configuration")
@@ -152,11 +152,11 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	for _, f := range a.rules {
-		a.log.Info("parsing rules for analysis", "rules", f)
+		analysisLogger.Info("parsing rules for analysis", "rules", f)
 
 		internRuleSet, internNeedProviders, err := parser.LoadRules(f)
 		if err != nil {
-			a.log.Error(err, "unable to parse all the rules for ruleset", "file", f)
+			analysisLogger.Error(err, "unable to parse all the rules for ruleset", "file", f)
 		}
 		ruleSets = append(ruleSets, internRuleSet...)
 		for k, v := range internNeedProviders {
@@ -176,12 +176,12 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
 		wg.Add(1)
 
-		a.log.Info("running depencency analysis")
+		analysisLogger.Info("running depencency analysis")
 		go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 	}
 
 	// This will already wait
-	a.log.Info("evaluating rules for violations. see analysis.log for more info")
+	analysisLogger.Info("evaluating rules for violations. see analysis.log for more info")
 	rulesets := eng.RunRules(ctx, ruleSets, selectors...)
 	engineSpan.End()
 	wg.Wait()
@@ -199,7 +199,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	})
 
 	// Write results out to CLI
-	a.log.Info("writing analysis results to output", "output", a.output)
+	analysisLogger.Info("writing analysis results to output", "output", a.output)
 	b, err := yaml.Marshal(rulesets)
 	if err != nil {
 		return err
@@ -212,7 +212,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	err = a.CreateJSONOutput()
 	if err != nil {
-		a.log.Error(err, "failed to create json output file")
+		analysisLogger.Error(err, "failed to create json output file")
 		return err
 	}
 
@@ -221,7 +221,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	err = a.GenerateStaticReportContainerless(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to generate static report")
+		analysisLogger.Error(err, "failed to generate static report")
 		return err
 	}
 
@@ -261,7 +261,7 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
+			analysisLogger.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
 			return err
 		}
 	}
@@ -281,7 +281,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 	if listSources {
 		sourceSlice, err := a.walkRuleFilesForLabelsContainerless(sourceLabel)
 		if err != nil {
-			a.log.Error(err, "failed to read rule labels")
+			analysisLogger.Error(err, "failed to read rule labels")
 			return err
 		}
 		listOptionsFromLabels(sourceSlice, sourceLabel, out)
@@ -290,7 +290,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 	if listTargets {
 		targetsSlice, err := a.walkRuleFilesForLabelsContainerless(targetLabel)
 		if err != nil {
-			a.log.Error(err, "failed to read rule labels")
+			analysisLogger.Error(err, "failed to read rule labels")
 			return err
 		}
 		listOptionsFromLabels(targetsSlice, targetLabel, out)
@@ -304,7 +304,7 @@ func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]st
 	labelsSlice := []string{}
 	path := filepath.Join(a.kantraDir, RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		a.log.Error(err, "cannot open provided path")
+		analysisLogger.Error(err, "cannot open provided path")
 		return nil, err
 	}
 	err := filepath.WalkDir(path, walkRuleSets(path, label, &labelsSlice))
@@ -332,7 +332,7 @@ func (a *analyzeCommand) setKantraDir() error {
 		_, err := os.Stat(filepath.Join(dir, v))
 		if err != nil {
 			set = false
-			a.log.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra")
+			analysisLogger.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra")
 			break
 		}
 	}
@@ -428,12 +428,12 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
+		analysisLogger.V(1).Error(err, "failed to marshal provider config")
 		return nil, err
 	}
 	err = os.WriteFile(filepath.Join(a.output, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err,
+		analysisLogger.V(1).Error(err,
 			"failed to write provider config", "dir", a.output, "file", "settings.json")
 		return nil, err
 	}
@@ -482,7 +482,7 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 	for _, config := range finalConfigs {
-		a.log.Info("setting provider from provider config", "provider", config.Name)
+		analysisLogger.Info("setting provider from provider config", "provider", config.Name)
 		config.ContextLines = a.contextLines
 		for _, ind := range config.InitConfig {
 			providerLocations = append(providerLocations, ind.Location)
@@ -505,7 +505,7 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 		} else if config.Name == "builtin" {
 			prov, err = lib.GetProviderClient(config, analysisLog)
 			if err != nil {
-				a.log.Error(err, "failed to create builtin provider")
+				analysisLogger.Error(err, "failed to create builtin provider")
 				os.Exit(1)
 			}
 		}
@@ -518,7 +518,7 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 	// Now that we have all the providers, we need to start them.
 	additionalBuiltinConfigs := []provider.InitConfig{}
 	for name, provider := range needProviders {
-		a.log.Info("starting provider", "provider", name)
+		analysisLogger.Info("starting provider", "provider", name)
 		switch name {
 		// other providers can return additional configs for the builtin provider
 		// therefore, we initiate builtin provider separately at the end
@@ -529,7 +529,7 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 				attribute.Key("provider").String(name))
 			additionalBuiltinConfs, err := provider.ProviderInit(initCtx, nil)
 			if err != nil {
-				a.log.Error(err, "unable to init the providers", "provider", name)
+				analysisLogger.Error(err, "unable to init the providers", "provider", name)
 				os.Exit(1)
 			}
 			if additionalBuiltinConfs != nil {
@@ -556,7 +556,7 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 	for _, prov := range providers {
 		deps, err := prov.GetDependencies(ctx)
 		if err != nil {
-			a.log.Error(err, "failed to get list of dependencies for provider", "provider", "java")
+			analysisLogger.Error(err, "failed to get list of dependencies for provider", "provider", "java")
 		}
 		for u, ds := range deps {
 			newDeps := ds
@@ -568,7 +568,7 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 		}
 
 		if depsFlat == nil && depsTree == nil {
-			a.log.V(4).Info("did not get dependencies from all given providers")
+			analysisLogger.V(4).Info("did not get dependencies from all given providers")
 			return
 		}
 	}
@@ -585,13 +585,13 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 
 	by, err = yaml.Marshal(depsFlat)
 	if err != nil {
-		a.log.Error(err, "failed to marshal dependency data as yaml")
+		analysisLogger.Error(err, "failed to marshal dependency data as yaml")
 		return
 	}
 
 	err = os.WriteFile(filepath.Join(a.output, depOutputFile), by, 0644)
 	if err != nil {
-		a.log.Error(err, "failed to write dependencies to output file", "file", depOutputFile)
+		analysisLogger.Error(err, "failed to write dependencies to output file", "file", depOutputFile)
 		return
 	}
 
@@ -632,7 +632,7 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 		outputDeps = []string{}
 	}
 	// create output.js file from analysis output.yaml
-	apps, err := validateFlags(outputAnalyses, applicationNames, outputDeps, a.log)
+	apps, err := validateFlags(outputAnalyses, applicationNames, outputDeps)
 	if err != nil {
 		log.Fatalln("failed to validate flags", err)
 	}
@@ -642,7 +642,7 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 		log.Fatalln("failed to load report data from analysis output", err)
 	}
 
-	err = generateJSBundle(apps, outputJSPath, a.log)
+	err = generateJSBundle(apps, outputJSPath)
 	if err != nil {
 		log.Fatalln("failed to generate output.js file from template", err)
 	}
@@ -666,7 +666,7 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	if a.skipStaticReport {
 		return nil
 	}
-	a.log.Info("generating static report")
+	analysisLogger.Info("generating static report")
 	staticReportLogFilePath := filepath.Join(a.output, "static-report.log")
 	staticReportLog, err := os.Create(staticReportLogFilePath)
 	if err != nil {
@@ -678,7 +678,7 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	// in this case we still want to generate a static report for successful source analysis
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) {
-		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+		analysisLogger.Info("unable to get dependency output in static report. generating static report from source analysis only")
 
 		// some other err
 	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
@@ -699,7 +699,7 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 		return err
 	}
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
+	analysisLogger.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }

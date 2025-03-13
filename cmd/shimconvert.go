@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
@@ -24,13 +23,11 @@ type windupShimCommand struct {
 	input  []string
 	output string
 
-	log     logr.Logger
 	cleanup bool
 }
 
-func NewWindupShimCommand(log logr.Logger) *cobra.Command {
+func NewWindupShimCommand() *cobra.Command {
 	windupShimCmd := &windupShimCommand{
-		log:     log,
 		cleanup: true,
 	}
 
@@ -47,7 +44,7 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 
 			err := windupShimCmd.Validate()
 			if err != nil {
-				log.Error(err, "failed to validate flags")
+				analysisLogger.Error(err, "failed to validate flags")
 				return err
 			}
 			return nil
@@ -58,7 +55,7 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 			}
 			err := windupShimCmd.Run(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed to execute windup shim")
+				analysisLogger.Error(err, "failed to execute windup shim")
 				return err
 			}
 			return nil
@@ -111,7 +108,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 	for _, r := range w.input {
 		stat, err := os.Stat(r)
 		if err != nil {
-			w.log.V(1).Error(err, "failed to stat rules")
+			analysisLogger.V(1).Error(err, "failed to stat rules")
 			return nil, err
 		}
 		// move xml rule files from user into dir to mount
@@ -121,7 +118,7 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
 			err := CopyFileContents(r, destFile)
 			if err != nil {
-				w.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+				analysisLogger.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
@@ -137,10 +134,10 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 func (w *windupShimCommand) Run(ctx context.Context) error {
 	tempDir, err := os.MkdirTemp("", "transform-rules-")
 	if err != nil {
-		w.log.V(1).Error(err, "failed to create temp dir for rules")
+		analysisLogger.V(1).Error(err, "failed to create temp dir for rules")
 		return err
 	}
-	w.log.V(1).Info("created temp directory for XML rules", "dir", tempDir)
+	analysisLogger.V(1).Info("created temp directory for XML rules", "dir", tempDir)
 	if w.cleanup {
 		defer os.RemoveAll(tempDir)
 	}
@@ -149,7 +146,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	}
 	ruleVols, err := w.getRulesVolumes(tempDir)
 	if err != nil {
-		w.log.V(1).Error(err, "failed to get xml rules for conversion")
+		analysisLogger.V(1).Error(err, "failed to get xml rules for conversion")
 		return err
 	}
 	maps.Copy(volumes, ruleVols)
@@ -165,13 +162,13 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
-	w.log.Info("running windup-shim convert command",
+	analysisLogger.Info("running windup-shim convert command",
 		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
-	w.log.Info("generating shim log in file", "file", shimLogPath)
+	analysisLogger.Info("generating shim log in file", "file", shimLogPath)
 	err = container.NewContainer().Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(w.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithVolumes(volumes),
 		container.WithStdout(shimLog),
 		container.WithStderr(shimLog),
@@ -181,7 +178,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		container.WithCleanup(w.cleanup),
 	)
 	if err != nil {
-		w.log.V(1).Error(err, "failed to run convert command")
+		analysisLogger.V(1).Error(err, "failed to run convert command")
 		return err
 	}
 	return nil
@@ -198,17 +195,17 @@ func (a *analyzeCommand) ConvertXMLContainerless() (string, error) {
 
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+		analysisLogger.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 		return "", err
 	}
-	a.log.V(7).Info("created temp directory for xml rules", "dir", tempDir)
+	analysisLogger.V(7).Info("created temp directory for xml rules", "dir", tempDir)
 
 	for _, location := range a.rules {
 		rulesets := []windup.Ruleset{}
 		ruletests := []windup.Ruletest{}
 		err := filepath.WalkDir(location, walkXML(location, &rulesets, &ruletests))
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get get xml rule")
+			analysisLogger.V(1).Error(err, "failed to get get xml rule")
 		}
 		_, err = conversion.ConvertWindupRulesetsToAnalyzer(rulesets, location, tempDir, true, false)
 		if err != nil {

@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/devfile/alizer/pkg/apis/recognizer"
-	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
@@ -31,69 +30,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"
-)
-
-var (
-	// TODO (pgaikwad): this assumes that the $USER in container is always root, it may not be the case in future
-	M2Dir = path.Join("/", "root", ".m2")
-	// application source path inside the container
-	SourceMountPath = path.Join(InputPath, "source")
-	// analyzer config files
-	ConfigMountPath = path.Join(InputPath, "config")
-	// user provided rules path
-	RulesMountPath = path.Join(RulesetPath, "input")
-	// paths to files in the container
-	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
-	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
-	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
-	DotnetFrameworks          = map[string]bool{
-		"v1.0":   false,
-		"v1.1":   false,
-		"v2.0":   false,
-		"v3.0":   false,
-		"v3.5":   false,
-		"v4":     false,
-		"v4.5":   true,
-		"v4.5.1": true,
-		"v4.5.2": true,
-		"v4.6":   true,
-		"v4.6.1": true,
-		"v4.6.2": true,
-		"v4.7":   true,
-		"v4.7.1": true,
-		"v4.7.2": true,
-		"v4.8":   true,
-		"v4.8.1": true,
-	}
-)
-
-// analyzer container paths
-const (
-	RulesetPath            = "/opt/rulesets"
-	OpenRewriteRecipesPath = "/opt/openrewrite"
-	InputPath              = "/opt/input"
-	OutputPath             = "/opt/output"
-	XMLRulePath            = "/opt/xmlrules"
-	ShimOutputPath         = "/opt/shimoutput"
-	CustomRulePath         = "/opt/input/rules"
-)
-
-// supported providers
-const (
-	javaProvider            = "java"
-	goProvider              = "go"
-	pythonProvider          = "python"
-	nodeJSProvider          = "nodejs"
-	dotnetProvider          = "dotnet"
-	dotnetFrameworkProvider = "dotnetframework"
-)
-
-// valid java file extensions
-const (
-	JavaArchive       = ".jar"
-	WebArchive        = ".war"
-	EnterpriseArchive = ".ear"
-	ClassFile         = ".class"
 )
 
 // TODO add network and volume w/ interface
@@ -141,11 +77,10 @@ type analyzeCommand struct {
 }
 
 // analyzeCmd represents the analyze command
-func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
+func NewAnalyzeCmd() *cobra.Command {
 	analyzeCmd := &analyzeCommand{
 		cleanup: true,
 	}
-	analyzeCmd.log = log
 
 	analyzeCommand := &cobra.Command{
 		Use:   "analyze",
@@ -164,13 +99,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.runLocal {
 				err := analyzeCmd.setKantraDir()
 				if err != nil {
-					analyzeCmd.log.Error(err, "unable to get analyze reqs")
+					analysisLogger.Error(err, "unable to get analyze reqs")
 					return err
 				}
 			}
 			err := analyzeCmd.Validate(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed to validate flags")
+				analysisLogger.Error(err, "failed to validate flags")
 				return err
 			}
 			return nil
@@ -193,11 +128,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// ***** RUN CONTAINERLESS MODE *****
 
 			if analyzeCmd.runLocal {
-				log.Info("\n --run-local set. running analysis in containerless mode")
+				analysisLogger.Info("\n --run-local set. running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.listLabelsContainerless(ctx)
 					if err != nil {
-						analyzeCmd.log.Error(err, "failed to list rule labels")
+						analysisLogger.Error(err, "failed to list rule labels")
 						return err
 					}
 					return nil
@@ -209,14 +144,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				return nil
 			}
-			log.Info("--run-local set to false. Running analysis in container mode")
+			analysisLogger.Info("--run-local set to false. Running analysis in container mode")
 
 			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.ListLabels(cmd.Context())
 					if err != nil {
-						log.Error(err, "failed to list rule labels")
+						analysisLogger.Error(err, "failed to list rule labels")
 						return err
 					}
 					return nil
@@ -226,7 +161,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				languages, err := recognizer.Analyze(analyzeCmd.input)
 				if err != nil {
-					log.Error(err, "Failed to determine languages for input")
+					analysisLogger.Error(err, "Failed to determine languages for input")
 					return err
 				}
 				foundProviders := []string{}
@@ -236,7 +171,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				} else {
 					foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
 					if err != nil {
-						log.Error(err, "failed to set provider info")
+						analysisLogger.Error(err, "failed to set provider info")
 						return err
 					}
 					err = analyzeCmd.validateProviders(foundProviders)
@@ -256,7 +191,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				xmlOutputDir, err := analyzeCmd.ConvertXML(ctx)
 				if err != nil {
-					log.Error(err, "failed to convert xml rules")
+					analysisLogger.Error(err, "failed to convert xml rules")
 					return err
 				}
 				// alizer does not detect certain files such as xml
@@ -277,7 +212,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				err = analyzeCmd.setProviderInitInfo(foundProviders)
 				if err != nil {
-					log.Error(err, "failed to set provider init info")
+					analysisLogger.Error(err, "failed to set provider init info")
 					return err
 				}
 				// defer cleaning created resources here instead of PostRun
@@ -285,47 +220,47 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				defer func() {
 					// start other context here to cleanup in case of program interrupt
 					if err := analyzeCmd.CleanAnalysisResources(context.TODO()); err != nil {
-						log.Error(err, "failed to clean temporary directories")
+						analysisLogger.Error(err, "failed to clean temporary directories")
 					}
 				}()
 				containerNetworkName, err := analyzeCmd.createContainerNetwork()
 				if err != nil {
-					log.Error(err, "failed to create container network")
+					analysisLogger.Error(err, "failed to create container network")
 					return err
 				}
 				// share source app with provider and engine containers
 				containerVolName, err := analyzeCmd.createContainerVolume(analyzeCmd.input)
 				if err != nil {
-					log.Error(err, "failed to create container volume")
+					analysisLogger.Error(err, "failed to create container volume")
 					return err
 				}
 				// allow for 5 retries of running provider in the case of port in use
 				err = analyzeCmd.RunProviders(ctx, containerNetworkName, containerVolName, 5)
 				if err != nil {
-					log.Error(err, "failed to run provider")
+					analysisLogger.Error(err, "failed to run provider")
 					return err
 				}
 				err = analyzeCmd.RunAnalysis(ctx, xmlOutputDir, containerVolName)
 				if err != nil {
-					log.Error(err, "failed to run analysis")
+					analysisLogger.Error(err, "failed to run analysis")
 					return err
 				}
 			} else {
 				err := analyzeCmd.RunAnalysisOverrideProviderSettings(ctx)
 				if err != nil {
-					log.Error(err, "failed to run analysis")
+					analysisLogger.Error(err, "failed to run analysis")
 					return err
 				}
 			}
 			err := analyzeCmd.CreateJSONOutput()
 			if err != nil {
-				log.Error(err, "failed to create json output file")
+				analysisLogger.Error(err, "failed to create json output file")
 				return err
 			}
 
 			err = analyzeCmd.GenerateStaticReport(ctx)
 			if err != nil {
-				log.Error(err, "failed to generate static report")
+				analysisLogger.Error(err, "failed to generate static report")
 				return err
 			}
 
@@ -447,7 +382,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 			fileExt := filepath.Ext(a.input)
 			switch fileExt {
 			case JavaArchive, WebArchive, EnterpriseArchive, ClassFile:
-				a.log.V(5).Info("valid java file found")
+				analysisLogger.V(5).Info("valid java file found")
 			default:
 				return fmt.Errorf("invalid file type %v", fileExt)
 			}
@@ -596,7 +531,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		if listSources {
 			sourceSlice, err := a.readRuleFilesForLabels(sourceLabel)
 			if err != nil {
-				a.log.Error(err, "failed to read rule labels")
+				analysisLogger.Error(err, "failed to read rule labels")
 				return err
 			}
 			listOptionsFromLabels(sourceSlice, sourceLabel, out)
@@ -605,7 +540,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		if listTargets {
 			targetsSlice, err := a.readRuleFilesForLabels(targetLabel)
 			if err != nil {
-				a.log.Error(err, "failed to read rule labels")
+				analysisLogger.Error(err, "failed to read rule labels")
 				return err
 			}
 			listOptionsFromLabels(targetsSlice, targetLabel, out)
@@ -614,7 +549,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 	} else {
 		volumes, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.Error(err, "failed getting rules volumes")
+			analysisLogger.Error(err, "failed getting rules volumes")
 			return err
 		}
 		args := []string{"analyze", "--run-local=false"}
@@ -626,7 +561,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		err = container.NewContainer().Run(
 			ctx,
 			container.WithImage(Settings.RunnerImage),
-			container.WithLog(a.log.V(1)),
+			container.WithLog(analysisLogger.V(1)),
 			container.WithEnv(runMode, runModeContainer),
 			container.WithVolumes(volumes),
 			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
@@ -636,7 +571,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			container.WithCleanup(a.cleanup),
 		)
 		if err != nil {
-			a.log.Error(err, "failed listing labels")
+			analysisLogger.Error(err, "failed listing labels")
 			return err
 		}
 	}
@@ -670,10 +605,10 @@ func (a *analyzeCommand) getDepsFolders() (map[string]string, []string) {
 func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+		analysisLogger.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 		return nil, err
 	}
-	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
+	analysisLogger.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
 	var provConfig []provider.Config
@@ -692,7 +627,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		for _, provInfo := range a.providersMap {
 			var volConfig, err = provInfo.provider.GetConfigVolume(a, tempDir)
 			if err != nil {
-				a.log.V(1).Error(err, "failed creating volume configs")
+				analysisLogger.V(1).Error(err, "failed creating volume configs")
 				return nil, err
 			}
 			provConfig = append(provConfig, volConfig)
@@ -714,7 +649,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 			err = a.getProviderOptions(tempDir, provConfig, prov)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
-					a.log.V(5).Info("provider options config not found, using default options")
+					analysisLogger.V(5).Info("provider options config not found, using default options")
 					err := a.writeProvConfig(tempDir, provConfig)
 					if err != nil {
 						return nil, err
@@ -736,10 +671,10 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	if runtime.GOOS == "linux" {
 		m2Dir, err := os.MkdirTemp("", "m2-repo-")
 		if err != nil {
-			a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
+			analysisLogger.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
 		} else {
 			settingsVols[m2Dir] = M2Dir
-			a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
+			analysisLogger.V(1).Info("created directory for maven repo", "dir", m2Dir)
 			a.tempDirs = append(a.tempDirs, m2Dir)
 		}
 	}
@@ -754,15 +689,15 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	rulesVolumes := make(map[string]string)
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
+		analysisLogger.V(1).Error(err, "failed to create temp dir", "path", tempDir)
 		return nil, err
 	}
-	a.log.V(1).Info("created directory for rules", "dir", tempDir)
+	analysisLogger.V(1).Info("created directory for rules", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 	for i, r := range a.rules {
 		stat, err := os.Stat(r)
 		if err != nil {
-			a.log.V(1).Error(err, "failed to stat rules", "path", r)
+			analysisLogger.V(1).Error(err, "failed to stat rules", "path", r)
 			return nil, err
 		}
 		// move rules files passed into dir to mount
@@ -774,16 +709,16 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := CopyFileContents(r, destFile)
 			if err != nil {
-				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
+				analysisLogger.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
 			}
-			a.log.V(5).Info("copied file to rule dir", "added file", r, "destFile", destFile)
+			analysisLogger.V(5).Info("copied file to rule dir", "added file", r, "destFile", destFile)
 			err = a.createTempRuleSet(tempDir, "custom-ruleset")
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			a.log.V(5).Info("coping dir", "directory", r)
+			analysisLogger.V(5).Info("coping dir", "directory", r)
 			err = filepath.WalkDir(r, func(path string, d fs.DirEntry, err error) error {
 				if path == r {
 					return nil
@@ -795,7 +730,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 					// If we are unable to get the file attributes, probably safe to assume this is not a
 					// valid rule or ruleset and lets skip it for now.
 					if isHidden, err := hiddenfile.IsHidden(d.Name()); isHidden || err != nil {
-						a.log.V(5).Info("skipping hidden file", "path", path, "error", err)
+						analysisLogger.V(5).Info("skipping hidden file", "path", path, "error", err)
 						return nil
 					}
 					relpath, err := filepath.Rel(r, path)
@@ -803,17 +738,17 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 						return err
 					}
 					destFile := filepath.Join(tempDir, relpath)
-					a.log.V(5).Info("copying file main", "source", path, "dest", destFile)
+					analysisLogger.V(5).Info("copying file main", "source", path, "dest", destFile)
 					err = CopyFileContents(path, destFile)
 					if err != nil {
-						a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
+						analysisLogger.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 						return err
 					}
 				}
 				return nil
 			})
 			if err != nil {
-				a.log.V(1).Error(err, "failed to move rules file", "src", r)
+				analysisLogger.V(1).Error(err, "failed to move rules file", "src", r)
 				return nil, err
 			}
 		}
@@ -844,7 +779,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 	if a.mavenSettingsFile != "" {
 		configVols, err := a.getConfigVolumes()
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get config volumes for analysis")
+			analysisLogger.V(1).Error(err, "failed to get config volumes for analysis")
 			return err
 		}
 		maps.Copy(volumes, configVols)
@@ -863,12 +798,12 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		// we have to start the fist provider separately to create the shared
 		// container network to then add other providers to the network
 		if !firstProvRun {
-			a.log.Info("starting first provider", "provider", prov)
+			analysisLogger.Info("starting first provider", "provider", prov)
 			con := container.NewContainer()
 			err := con.Run(
 				ctx,
 				container.WithImage(init.image),
-				container.WithLog(a.log.V(1)),
+				container.WithLog(analysisLogger.V(1)),
 				container.WithVolumes(volumes),
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
@@ -888,12 +823,12 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 		}
 		// start additional providers
 		if firstProvRun && len(a.providersMap) > 1 {
-			a.log.Info("starting provider", "provider", prov)
+			analysisLogger.Info("starting provider", "provider", prov)
 			con := container.NewContainer()
 			err := con.Run(
 				ctx,
 				container.WithImage(init.image),
-				container.WithLog(a.log.V(1)),
+				container.WithLog(analysisLogger.V(1)),
 				container.WithVolumes(volumes),
 				container.WithContainerToolBin(Settings.ContainerBinary),
 				container.WithEntrypointArgs(args...),
@@ -927,7 +862,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	if len(a.rules) > 0 {
 		ruleVols, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
+			analysisLogger.V(1).Error(err, "failed to get rule volumes for analysis")
 			return err
 		}
 		maps.Copy(volumes, ruleVols)
@@ -971,7 +906,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
 	}
 	if a.mode == string(provider.FullAnalysisMode) {
-		a.log.Info("running dependency retrieval during analysis")
+		analysisLogger.Info("running dependency retrieval during analysis")
 		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
 	}
 
@@ -983,16 +918,16 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	}
 	defer analysisLog.Close()
 
-	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+	analysisLogger.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
+	analysisLogger.Info("generating analysis log in file", "file", analysisLogFilePath)
 	// TODO (pgaikwad): run analysis & deps in parallel
 
 	c := container.NewContainer()
 	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithVolumes(volumes),
 		container.WithStdout(analysisLog),
 		container.WithStderr(analysisLog),
@@ -1008,7 +943,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	}
 	err = a.getProviderLogs(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to get provider container logs")
+		analysisLogger.Error(err, "failed to get provider container logs")
 	}
 
 	return nil
@@ -1034,7 +969,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 	configVols, err := a.getConfigVolumes()
 	if err != nil {
-		a.log.V(1).Error(err, "failed to get config volumes for analysis")
+		analysisLogger.V(1).Error(err, "failed to get config volumes for analysis")
 		return err
 	}
 	maps.Copy(volumes, configVols)
@@ -1042,7 +977,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	if len(a.rules) > 0 {
 		ruleVols, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
+			analysisLogger.V(1).Error(err, "failed to get rule volumes for analysis")
 			return err
 		}
 		maps.Copy(volumes, ruleVols)
@@ -1087,7 +1022,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 			args = append(args,
 				fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
 		}
-		a.log.Info("running dependency retrieval during analysis")
+		analysisLogger.Info("running dependency retrieval during analysis")
 		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
 	}
 
@@ -1099,9 +1034,9 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 	defer analysisLog.Close()
 
-	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+	analysisLogger.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
+	analysisLogger.Info("generating analysis log in file", "file", analysisLogFilePath)
 
 	var networkName string
 	if !a.needsBuiltin {
@@ -1115,7 +1050,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithVolumes(volumes),
 		container.WithStdout(analysisLog),
 		container.WithStderr(analysisLog),
@@ -1131,7 +1066,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 	err = a.getProviderLogs(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to get provider container logs")
+		analysisLogger.Error(err, "failed to get provider container logs")
 	}
 
 	return nil
@@ -1141,7 +1076,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	if !a.jsonOutput {
 		return nil
 	}
-	a.log.Info("writing analysis results as json output", "output", a.output)
+	analysisLogger.Info("writing analysis results as json output", "output", a.output)
 	outputPath := filepath.Join(a.output, "output.yaml")
 	depPath := filepath.Join(a.output, "dependencies.yaml")
 
@@ -1152,25 +1087,25 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	ruleOutput := &[]outputv1.RuleSet{}
 	err = yaml.Unmarshal(data, ruleOutput)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to unmarshal output yaml")
+		analysisLogger.V(1).Error(err, "failed to unmarshal output yaml")
 		return err
 	}
 
 	jsonData, err := json.MarshalIndent(ruleOutput, "", "	")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal output file to json")
+		analysisLogger.V(1).Error(err, "failed to marshal output file to json")
 		return err
 	}
 	err = os.WriteFile(filepath.Join(a.output, "output.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to write json output", "dir", a.output, "file", "output.json")
+		analysisLogger.V(1).Error(err, "failed to write json output", "dir", a.output, "file", "output.json")
 		return err
 	}
 
 	// in case of no dep output
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) || a.mode == string(provider.SourceOnlyAnalysisMode) {
-		a.log.Info("skipping dependency output for json output")
+		analysisLogger.Info("skipping dependency output for json output")
 		return nil
 	}
 	depData, err := os.ReadFile(depPath)
@@ -1180,18 +1115,18 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	depOutput := &[]outputv1.DepsFlatItem{}
 	err = yaml.Unmarshal(depData, depOutput)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to unmarshal dependencies yaml")
+		analysisLogger.V(1).Error(err, "failed to unmarshal dependencies yaml")
 		return err
 	}
 
 	jsonDataDep, err := json.MarshalIndent(depOutput, "", "	")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal dependencies file to json")
+		analysisLogger.V(1).Error(err, "failed to marshal dependencies file to json")
 		return err
 	}
 	err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
+		analysisLogger.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
 		return err
 	}
 
@@ -1206,7 +1141,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	// in this case we still want to generate a static report for successful source analysis
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) {
-		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+		analysisLogger.Info("unable to get dependency output in static report. generating static report from source analysis only")
 	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
 		return noDepFileErr
 	}
@@ -1281,12 +1216,12 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	staticReportCmd := []string{joinedArgs}
 
 	c := container.NewContainer()
-	a.log.Info("generating static report",
+	analysisLogger.Info("generating static report",
 		"output", a.output, "args", strings.Join(staticReportCmd, " "))
 	err := c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithEntrypointBin("/bin/sh"),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointArgs(staticReportCmd...),
@@ -1298,7 +1233,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		return err
 	}
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
+	analysisLogger.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
@@ -1391,7 +1326,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 	for _, r := range a.rules {
 		stat, err := os.Stat(r)
 		if err != nil {
-			a.log.V(1).Error(err, "failed to stat rules")
+			analysisLogger.V(1).Error(err, "failed to stat rules")
 			return nil, err
 		}
 		// move xml rule files from user into dir to mount
@@ -1404,7 +1339,7 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
 			err := CopyFileContents(r, destFile)
 			if err != nil {
-				a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+				analysisLogger.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
@@ -1423,16 +1358,16 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	}
 	tempDir, err := os.MkdirTemp("", "transform-rules-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp dir for rules")
+		analysisLogger.V(1).Error(err, "failed to create temp dir for rules")
 		return "", err
 	}
-	a.log.V(1).Info("created directory for XML rules", "dir", tempDir)
+	analysisLogger.V(1).Info("created directory for XML rules", "dir", tempDir)
 	tempOutputDir, err := os.MkdirTemp("", "transform-output-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp dir for rules")
+		analysisLogger.V(1).Error(err, "failed to create temp dir for rules")
 		return "", err
 	}
-	a.log.V(1).Info("created directory for converted XML rules", "dir", tempOutputDir)
+	analysisLogger.V(1).Info("created directory for converted XML rules", "dir", tempOutputDir)
 	if a.cleanup {
 		defer os.RemoveAll(tempDir)
 	}
@@ -1442,7 +1377,7 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 
 	ruleVols, err := a.getXMLRulesVolumes(tempDir)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to get XML rule volumes for analysis")
+		analysisLogger.V(1).Error(err, "failed to get XML rule volumes for analysis")
 		return "", err
 	}
 	maps.Copy(volumes, ruleVols)
@@ -1458,13 +1393,13 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
 		XMLRulePath,
 	}
-	a.log.Info("running windup shim",
+	analysisLogger.Info("running windup shim",
 		"output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating shim log in file", "file", shimLogPath)
+	analysisLogger.Info("generating shim log in file", "file", shimLogPath)
 	err = container.NewContainer().Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithStdout(shimLog),
 		container.WithStderr(shimLog),
 		container.WithVolumes(volumes),
@@ -1483,12 +1418,12 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 func (a *analyzeCommand) writeProvConfig(tempDir string, config []provider.Config) error {
 	jsonData, err := json.MarshalIndent(&config, "", "	")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
+		analysisLogger.V(1).Error(err, "failed to marshal provider config")
 		return err
 	}
 	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err,
+		analysisLogger.V(1).Error(err,
 			"failed to write provider config", "dir", tempDir, "file", "settings.json")
 		return err
 	}
@@ -1518,7 +1453,7 @@ func (a *analyzeCommand) getProviderOptions(tempDir string, provConfig []provide
 	optionsConfig := &[]provider.Config{}
 	err = yaml.Unmarshal(data, optionsConfig)
 	if err != nil {
-		a.log.V(1).Error(err, "failed to unmarshal provider options file")
+		analysisLogger.V(1).Error(err, "failed to unmarshal provider options file")
 		return err
 	}
 	mergedConfig, err := a.mergeProviderConfig(provConfig, *optionsConfig, tempDir)
@@ -1589,7 +1524,7 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 			// copy file to mount path
 			err := CopyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
 			if err != nil {
-				a.log.V(1).Error(err, "failed copying maven settings file", "path", v)
+				analysisLogger.V(1).Error(err, "failed copying maven settings file", "path", v)
 				return nil, err
 			}
 			seenConf[k] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
@@ -1614,7 +1549,7 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 	}
 	defer providerLog.Close()
 	for i := range a.providerContainerNames {
-		a.log.V(1).Info("getting provider container logs",
+		analysisLogger.V(1).Info("getting provider container logs",
 			"container", a.providerContainerNames[i])
 
 		cmd := exec.CommandContext(
@@ -1634,18 +1569,18 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	if runtime.GOOS != "windows" {
 		err := fmt.Errorf("Unsupported OS")
-		a.log.Error(err, "Analysis of .NET Framework projects is only supported on Windows")
+		analysisLogger.Error(err, "Analysis of .NET Framework projects is only supported on Windows")
 		return err
 	}
 
 	if a.bulk {
 		err := fmt.Errorf("Unsupported option")
-		a.log.Error(err, "Bulk analysis not supported for .NET Framework projects")
+		analysisLogger.Error(err, "Bulk analysis not supported for .NET Framework projects")
 		return err
 	}
 
 	if a.mode == string(provider.FullAnalysisMode) {
-		a.log.V(1).Info("Only source mode analysis is supported")
+		analysisLogger.V(1).Info("Only source mode analysis is supported")
 		a.mode = string(provider.SourceOnlyAnalysisMode)
 	}
 
@@ -1665,10 +1600,10 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	if err = json.Unmarshal(out, &systemInfo); err != nil {
 		return err
 	}
-	a.log.V(5).Info("container network plugins", "plugins", systemInfo)
+	analysisLogger.V(5).Info("container network plugins", "plugins", systemInfo)
 	if !slices.Contains(systemInfo.Plugins.Network, "nat") {
 		err := fmt.Errorf("Unsupported container client configuration")
-		a.log.Error(err, ".NET Framework projects must be analyzed using docker configured to run Windows containers")
+		analysisLogger.Error(err, ".NET Framework projects must be analyzed using docker configured to run Windows containers")
 		return err
 	}
 
@@ -1681,7 +1616,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.log.V(1).Info("created container network", "network", networkName)
+	analysisLogger.V(1).Info("created container network", "network", networkName)
 	a.networkName = networkName
 	// end create network
 
@@ -1689,7 +1624,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	// opts aren't supported on Windows
 	// containerVolName, err := a.createContainerVolume()
 	// if err != nil {
-	// 	a.log.Error(err, "failed to create container volume")
+	// 	analysisLogger.Error(err, "failed to create container volume")
 	// 	return err
 	// }
 
@@ -1697,7 +1632,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	//foundProviders := []string{dotnetFrameworkProvider}
 	//providerPorts, err := a.RunProviders(ctx, networkName, containerVolName, foundProviders, 5)
 	//if err != nil {
-	//	a.log.Error(err, "failed to run provider")
+	//	analysisLogger.Error(err, "failed to run provider")
 	//	return err
 	//}
 	input, err := filepath.Abs(a.input)
@@ -1708,12 +1643,12 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.log.V(1).Info("Starting dotnet-external-provider")
+	analysisLogger.V(1).Info("Starting dotnet-external-provider")
 	providerContainer := container.NewContainer()
 	err = providerContainer.Run(
 		ctx,
 		container.WithImage(Settings.DotnetProviderImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithVolumes(map[string]string{
 			input: "C:" + filepath.FromSlash(SourceMountPath),
 		}),
@@ -1728,21 +1663,21 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		return err
 	}
 	a.providerContainerNames = append(a.providerContainerNames, providerContainer.Name)
-	a.log.V(1).Info("Provider started")
+	analysisLogger.V(1).Info("Provider started")
 	// end run provider
 
 	// Run analysis
 	// err = a.RunAnalysis(ctx, "", containerVolName, foundProviders, providerPorts)
 	// if err != nil {
-	// 	a.log.Error(err, "failed to run analysis")
+	// 	analysisLogger.Error(err, "failed to run analysis")
 	// 	return err
 	// }
 	tempDir, err := os.MkdirTemp("", "analyze-config-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+		analysisLogger.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 		return err
 	}
-	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
+	analysisLogger.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
 	// Set the IP!!!
@@ -1773,12 +1708,12 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 
 	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
 	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
+		analysisLogger.V(1).Error(err, "failed to marshal provider config")
 		return err
 	}
 	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
 	if err != nil {
-		a.log.V(1).Error(err,
+		analysisLogger.V(1).Error(err,
 			"failed to write provider config", "dir", tempDir, "file", "settings.json")
 		return err
 	}
@@ -1802,7 +1737,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	if len(a.rules) > 0 {
 		ruleVols, err := a.getRulesVolumes()
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
+			analysisLogger.V(1).Error(err, "failed to get rule volumes for analysis")
 			return err
 		}
 		for key, value := range ruleVols {
@@ -1834,15 +1769,15 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 	defer analysisLog.Close()
 
-	a.log.Info("running source code analysis", "log", analysisLogFilePath,
+	analysisLogger.Info("running source code analysis", "log", analysisLogFilePath,
 		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
+	analysisLogger.Info("generating analysis log in file", "file", analysisLogFilePath)
 
 	c := container.NewContainer()
 	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithVolumes(volumes),
 		container.WithName(fmt.Sprintf("analyzer-%v", container.RandomName())),
 		container.WithStdout(analysisLog),
@@ -1858,14 +1793,14 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 	err = a.getProviderLogs(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to get provider container logs")
+		analysisLogger.Error(err, "failed to get provider container logs")
 	}
 	// end run analysis
 
 	// Create json output
 	err = a.CreateJSONOutput()
 	if err != nil {
-		a.log.Error(err, "failed to create json output file")
+		analysisLogger.Error(err, "failed to create json output file")
 		return err
 	}
 
@@ -1877,7 +1812,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	err = container.NewContainer().Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointBin("powershell"),
 		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(OutputPath)),
@@ -1895,11 +1830,11 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	//staticReportContainer := container.NewContainer()
-	a.log.Info("generating static report", "output", a.output, "args", staticReportArgs)
+	analysisLogger.Info("generating static report", "output", a.output, "args", staticReportArgs)
 	err = container.NewContainer().Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointBin(`C:\app\js-bundle-generator`),
 		container.WithEntrypointArgs(staticReportArgs...),
@@ -1911,13 +1846,13 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
+	analysisLogger.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
 
 func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
-	a.log.V(7).Info("language files not found. Using fallback")
+	analysisLogger.V(7).Info("language files not found. Using fallback")
 	pomPath := filepath.Join(a.input, "pom.xml")
 	_, err := os.Stat(pomPath)
 	// some other error
@@ -1936,7 +1871,7 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 
 		// java project not found
 	} else if err != nil && errors.Is(err, os.ErrNotExist) {
-		a.log.V(7).Info("language files not found. Only starting builtin provider")
+		analysisLogger.V(7).Info("language files not found. Only starting builtin provider")
 		return false, nil
 
 	} else if err == nil {

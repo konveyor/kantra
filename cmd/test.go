@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/testing"
 	"github.com/spf13/cobra"
 )
@@ -13,7 +12,7 @@ type testCommand struct {
 	baseProviderSettings string
 }
 
-func NewTestCommand(log logr.Logger) *cobra.Command {
+func NewTestCommand() *cobra.Command {
 	testCmd := &testCommand{}
 
 	testCobraCommand := &cobra.Command{
@@ -26,11 +25,11 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 			}
 			tests, err := testing.Parse(args, testFilter)
 			if err != nil {
-				log.Error(err, "failed parsing rulesets")
+				analysisLogger.Error(err, "failed parsing rulesets")
 				return err
 			}
 			if len(tests) == 0 {
-				log.Info("no tests found")
+				analysisLogger.Info("no tests found")
 				return nil
 			}
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
@@ -38,11 +37,11 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				ContainerImage:   Settings.RunnerImage,
 				ContainerToolBin: Settings.ContainerBinary,
 				ProgressPrinter:  testing.PrintProgress,
-				Log:              log.V(3),
+				Log:              analysisLogger.V(3),
 			})
 			testing.PrintSummary(os.Stdout, results)
 			if err != nil {
-				log.Error(err, "failed running tests")
+				analysisLogger.Error(err, "failed running tests")
 				return err
 			}
 			return nil

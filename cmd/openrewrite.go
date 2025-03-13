@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 )
@@ -24,15 +23,13 @@ type openRewriteCommand struct {
 	target            string
 	goal              string
 	miscOpts          string
-	log               logr.Logger
 	cleanup           bool
 	mavenSettingsFile string
 	mavenDebugLog     bool
 }
 
-func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
+func NewOpenRewriteCommand() *cobra.Command {
 	openRewriteCmd := &openRewriteCommand{
-		log:     log,
 		cleanup: true,
 	}
 
@@ -52,12 +49,12 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 			}
 			err := openRewriteCmd.Validate()
 			if err != nil {
-				log.Error(err, "failed validating input args")
+				analysisLogger.Error(err, "failed validating input args")
 				return err
 			}
 			err = openRewriteCmd.Run(cmd.Context())
 			if err != nil {
-				log.Error(err, "failed executing openrewrite recipe")
+				analysisLogger.Error(err, "failed executing openrewrite recipe")
 				return err
 			}
 			return nil
@@ -152,36 +149,36 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		fmt.Sprintf("-Drewrite.activeRecipes=%s",
 			strings.Join(recipes[o.target].names, ",")),
 	}
-	o.log.Info("executing openrewrite recipe",
+	analysisLogger.Info("executing openrewrite recipe",
 		"recipe", o.target, "input", o.input, "args", strings.Join(args, " "))
 
 	if o.mavenSettingsFile != "" {
 		tempDir, err := os.MkdirTemp("", "openrewrite-settings-")
 		if err != nil {
-			o.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
+			analysisLogger.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
 			return err
 		}
-		o.log.V(1).Info("created directory for maven settings file", "dir", tempDir)
+		analysisLogger.V(1).Info("created directory for maven settings file", "dir", tempDir)
 		defer os.RemoveAll(tempDir)
 
 		err = CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
-			o.log.V(1).Error(err, "failed copying maven settings file", "path", o.mavenSettingsFile)
+			analysisLogger.V(1).Error(err, "failed copying maven settings file", "path", o.mavenSettingsFile)
 			return err
 		}
 		volumes[tempDir] = settingsFileMountPath
-		o.log.Info("using custom maven settings file", "path", o.mavenSettingsFile)
+		analysisLogger.Info("using custom maven settings file", "path", o.mavenSettingsFile)
 		args = append(args, "-s", path.Join(settingsFileMountPath, "settings.xml"))
 	}
 	if o.mavenDebugLog {
-		o.log.Info("Setting Maven log to debug")
+		analysisLogger.Info("Setting Maven log to debug")
 		args = append(args, "-X")
 	}
 
 	err := container.NewContainer().Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
-		container.WithLog(o.log.V(1)),
+		container.WithLog(analysisLogger.V(1)),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
 		container.WithContainerToolBin(Settings.ContainerBinary),
@@ -190,7 +187,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		container.WithCleanup(o.cleanup),
 	)
 	if err != nil {
-		o.log.V(1).Error(err, "error running openrewrite")
+		analysisLogger.V(1).Error(err, "error running openrewrite")
 		return err
 	}
 	return nil

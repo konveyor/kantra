@@ -11,25 +11,25 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 	if !a.cleanup || a.needsBuiltin {
 		return nil
 	}
-	a.log.V(1).Info("removing temp dirs")
+	analysisLogger.V(1).Info("removing temp dirs")
 	for _, path := range a.tempDirs {
 		err := os.RemoveAll(path)
 		if err != nil {
-			a.log.V(1).Error(err, "failed to delete temporary dir", "dir", path)
+			analysisLogger.V(1).Error(err, "failed to delete temporary dir", "dir", path)
 			continue
 		}
 	}
 	err := a.RmProviderContainers(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to remove provider container")
+		analysisLogger.Error(err, "failed to remove provider container")
 	}
 	err = a.RmNetwork(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to remove network", "network", a.networkName)
+		analysisLogger.Error(err, "failed to remove network", "network", a.networkName)
 	}
 	err = a.RmVolumes(ctx)
 	if err != nil {
-		a.log.Error(err, "failed to remove volume", "volume", a.volumeName)
+		analysisLogger.Error(err, "failed to remove volume", "volume", a.volumeName)
 	}
 	return nil
 }
@@ -43,7 +43,7 @@ func (c *AnalyzeCommandContext) RmNetwork(ctx context.Context) error {
 		Settings.ContainerBinary,
 		"network",
 		"rm", c.networkName)
-	c.log.V(1).Info("removing container network",
+	analysisLogger.V(1).Info("removing container network",
 		"network", c.networkName)
 	return cmd.Run()
 }
@@ -57,7 +57,7 @@ func (c *AnalyzeCommandContext) RmVolumes(ctx context.Context) error {
 		Settings.ContainerBinary,
 		"volume",
 		"rm", c.volumeName)
-	c.log.V(1).Info("removing created volume",
+	analysisLogger.V(1).Info("removing created volume",
 		"volume", c.volumeName)
 	return cmd.Run()
 }
@@ -72,10 +72,10 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 			ctx,
 			Settings.ContainerBinary,
 			"stop", con)
-		c.log.V(1).Info("stopping provider container", "container", con)
+		analysisLogger.V(1).Info("stopping provider container", "container", con)
 		err := cmd.Run()
 		if err != nil {
-			c.log.V(1).Error(err, "failed to stop container",
+			analysisLogger.V(1).Error(err, "failed to stop container",
 				"container", con)
 			continue
 		}
@@ -83,10 +83,10 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 			ctx,
 			Settings.ContainerBinary,
 			"rm", con)
-		c.log.V(1).Info("removing provider container", "container", con)
+		analysisLogger.V(1).Info("removing provider container", "container", con)
 		err = cmd.Run()
 		if err != nil {
-			c.log.V(1).Error(err, "failed to remove container",
+			analysisLogger.V(1).Error(err, "failed to remove container",
 				"container", con)
 			continue
 		}
@@ -100,7 +100,7 @@ func (a *analyzeCommand) cleanlsDirs() error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}
-	a.log.V(7).Info("removing language server dirs")
+	analysisLogger.V(7).Info("removing language server dirs")
 	// this assumes dirs created in wd
 	lsDirs := []string{
 		"org.eclipse.core.runtime",
@@ -111,7 +111,7 @@ func (a *analyzeCommand) cleanlsDirs() error {
 	for _, path := range lsDirs {
 		err := os.RemoveAll(path)
 		if err != nil {
-			a.log.Error(err, "failed to delete temporary dir", "dir", path)
+			analysisLogger.Error(err, "failed to delete temporary dir", "dir", path)
 			continue
 		}
 	}

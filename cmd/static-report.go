@@ -6,7 +6,6 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/go-logr/logr"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"gopkg.in/yaml.v2"
 )
@@ -23,7 +22,7 @@ type Application struct {
 	depsPath     string `yaml:"-" json:"-"`
 }
 
-func validateFlags(analysisOutputPaths []string, appNames []string, depsOutputs []string, log logr.Logger) ([]*Application, error) {
+func validateFlags(analysisOutputPaths []string, appNames []string, depsOutputs []string) ([]*Application, error) {
 	var applications []*Application
 	if len(analysisOutputPaths) == 0 {
 		return nil, fmt.Errorf("analysis output paths required")
@@ -32,7 +31,7 @@ func validateFlags(analysisOutputPaths []string, appNames []string, depsOutputs 
 		return nil, fmt.Errorf("application names required")
 	}
 	if len(depsOutputs) == 0 {
-		log.Info("dependency output path not provided, only parsing analysis output")
+		analysisLogger.Info("dependency output path not provided, only parsing analysis output")
 	}
 	for idx, analysisPath := range analysisOutputPaths {
 		currApp := &Application{
@@ -98,10 +97,10 @@ func loadApplications(apps []*Application) error {
 	return nil
 }
 
-func generateJSBundle(apps []*Application, outputPath string, log logr.Logger) error {
+func generateJSBundle(apps []*Application, outputPath string) error {
 	output, err := json.Marshal(apps)
 	if err != nil {
-		log.Error(err, "failed to marshal applications")
+		analysisLogger.Error(err, "failed to marshal applications")
 	}
 
 	tmpl := template.Must(template.New("").Parse(`
@@ -109,7 +108,7 @@ window["apps"] = {{.Apps}}
 `))
 	file, err := os.Create(outputPath)
 	if err != nil {
-		log.Error(err, "failed to create JS output bundle")
+		analysisLogger.Error(err, "failed to create JS output bundle")
 	}
 	defer file.Close()
 	err = tmpl.Execute(file, struct {
