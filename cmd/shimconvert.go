@@ -187,36 +187,111 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	return nil
 }
 
-func (a *analyzeCommand) ConvertXMLContainerless() (string, error) {
+func (a *analyzeCommand) ConvertXMLContainerless() (string, []string, error) {
 	shimLogFilePath := filepath.Join(a.output, "shim.log")
 	shimLog, err := os.Create(shimLogFilePath)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer shimLog.Close()
 	os.Stdout = shimLog
 
-	tempDir, err := os.MkdirTemp("", "analyze-rules-")
+	tempDirConverted, err := os.MkdirTemp("", "converted-rules-")
 	if err != nil {
-		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
-		return "", err
+		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDirConverted)
+		return "", nil, err
 	}
-	a.log.V(7).Info("created temp directory for xml rules", "dir", tempDir)
+	a.log.V(7).Info("created temp directory for xml rules", "dir", tempDirConverted)
 
-	for _, location := range a.rules {
+	ruleInDir, tempFileDirs, err := a.convertXmlRules(tempDirConverted)
+	if err != nil {
+		return "", nil, err
+	}
+
+	isDirEmpty, err := IsXMLDirEmpty(tempDirConverted)
+	if err != nil {
+		return "", nil, err
+	}
+	// if only xml rule dirs were passed in
+	if !isDirEmpty && !ruleInDir {
+		a.rules = append(a.rules, tempDirConverted)
+	}
+
+	return tempDirConverted, tempFileDirs, nil
+}
+
+func (a *analyzeCommand) convertXmlRules(tempDirConverted string) (bool, []string, error) {
+	convertedDirInRules := false
+	tempXmlFileDirs := []string{}
+	for i, r := range a.rules {
 		rulesets := []windup.Ruleset{}
 		ruletests := []windup.Ruletest{}
-		err := filepath.WalkDir(location, walkXML(location, &rulesets, &ruletests))
+		stat, err := os.Stat(r)
 		if err != nil {
-			a.log.V(1).Error(err, "failed to get get xml rule")
+			a.log.V(1).Error(err, "failed to stat rules")
+			return convertedDirInRules, nil, err
 		}
-		_, err = conversion.ConvertWindupRulesetsToAnalyzer(rulesets, location, tempDir, true, false)
-		if err != nil {
-			log.Fatal(err)
+		// move xml rule files from user into dir
+		if !stat.IsDir() {
+			if !isXMLFile(r) {
+				continue
+			}
+			convertedDirInRules, err = a.convertXmlRuleFiles(r, i, tempXmlFileDirs, convertedDirInRules, tempDirConverted)
+			if err != nil {
+				a.log.V(1).Error(err, "failed to stat rules")
+				return convertedDirInRules, nil, err
+			}
+			// if xml rule passes in a dir, convert from that dir
+		} else {
+			err = filepath.WalkDir(r, walkXML(r, &rulesets, &ruletests))
+			if err != nil {
+				a.log.V(1).Error(err, "failed to get get xml rule")
+			}
+			_, err = conversion.ConvertWindupRulesetsToAnalyzer(rulesets, r, tempDirConverted, true, false)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
+	return convertedDirInRules, tempXmlFileDirs, nil
+}
 
-	return tempDir, nil
+func (a *analyzeCommand) convertXmlRuleFiles(r string, i int, tempXmlFileDir []string, convertedDirInRules bool, tempDirConverted string) (bool, error) {
+	rulesets := []windup.Ruleset{}
+	ruletests := []windup.Ruletest{}
+	tempDirXml, err := os.MkdirTemp("", "xml-rules-")
+	if err != nil {
+		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDirXml)
+		return false, err
+	}
+	a.log.V(7).Info("created temp directory for xml rules", "dir", tempDirXml)
+	// for cleanup
+	tempXmlFileDir = append(tempXmlFileDir, tempDirXml)
+	xmlFileName := filepath.Base(r)
+	destFile := filepath.Join(tempDirXml, xmlFileName)
+	err = CopyFileContents(r, destFile)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
+		return false, err
+	}
+	if !convertedDirInRules {
+		a.rules[i] = tempDirConverted
+		convertedDirInRules = true
+		// remove xml files from a.rules
+	} else {
+		a.rules = append(a.rules[:i], a.rules[i+1:]...)
+	}
+
+	err = filepath.WalkDir(tempDirXml, walkXML(tempDirXml, &rulesets, &ruletests))
+	if err != nil {
+		return false, err
+	}
+	_, err = conversion.ConvertWindupRulesetsToAnalyzer(rulesets, tempDirXml, tempDirConverted, true, false)
+	if err != nil {
+		return false, err
+	}
+
+	return convertedDirInRules, nil
 }
 
 func walkXML(root string, rulesets *[]windup.Ruleset, rulestest *[]windup.Ruletest) fs.WalkDirFunc {
