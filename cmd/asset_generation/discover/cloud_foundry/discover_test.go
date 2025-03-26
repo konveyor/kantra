@@ -14,10 +14,13 @@ import (
 
 var _ = Describe("Discover Manifest", func() {
 	var (
-		out          bytes.Buffer
-		writer       *bufio.Writer = bufio.NewWriter(&out)
-		tempDir      string
-		manifestPath string
+		outContent bytes.Buffer
+		outSecrets bytes.Buffer
+
+		contentWriter *bufio.Writer = bufio.NewWriter(&outContent)
+		secretsWriter *bufio.Writer = bufio.NewWriter(&outSecrets)
+		tempDir       string
+		manifestPath  string
 		// useLive bool
 	)
 
@@ -25,10 +28,9 @@ var _ = Describe("Discover Manifest", func() {
 		tempDir, err := os.MkdirTemp("", "cloud_foundry_test")
 		Expect(err).NotTo(HaveOccurred())
 		manifestPath = filepath.Join(tempDir, "manifest.yaml")
-		input = manifestPath
-		output = ""
 		// Reset buffers before each test
-		writer.Reset(&out)
+		contentWriter.Reset(&outContent)
+		secretsWriter.Reset(&outSecrets)
 	})
 
 	AfterEach(func() {
@@ -39,11 +41,9 @@ var _ = Describe("Discover Manifest", func() {
 		func(manifestContent string, expectedErrorMessage ...string) {
 			err := helperCreateTestManifest(manifestPath, manifestContent, 0644)
 			Expect(err).ToNot(HaveOccurred(), "Unable to create manifest.yaml")
-			input = manifestPath
-			output = ""
-			err = discoverManifest(writer)
-			writer.Flush()
-
+			err = discoverManifest(contentWriter, secretsWriter)
+			contentWriter.Flush()
+			secretsWriter.Flush()
 			if len(expectedErrorMessage) > 0 {
 				for _, expected := range expectedErrorMessage {
 					if expected == "" {
