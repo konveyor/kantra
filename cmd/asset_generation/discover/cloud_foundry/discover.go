@@ -3,8 +3,9 @@ package cloud_foundry
 import (
 	"fmt"
 	"io"
-	"net/http"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	discover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry"
@@ -66,45 +67,67 @@ func discoverManifest(writer io.Writer) error {
 			return err
 		}
 	} else {
-		// Load kubeconfig
-		config, err := getKubeConfig()
+		korifiClient, err := getKorifiHttpClient()
 		if err != nil {
-			fmt.Printf("Error loading kubeconfig: %v\n", err)
+			fmt.Printf("Error creating client: %v\n", err)
 			return err
 		}
 
-		clientCertificateData, err := getClientCertificate(config)
-		// // Combine certificate data (base64 encoded) like in the curl command
-		// combinedCertData := base64.StdEncoding.EncodeToString(append(dataCert, keyCert...))
-		httpClient := getKorifiHttpClient()
+		cfInfo, err := getInfo(korifiClient)
+		if err != nil {
+			fmt.Printf("Can't get info: %v\n", err)
+			return err
+		}
 
-		// Create request
-		req, err := http.NewRequest("GET", "https://localhost/v3/apps", nil)
+		log.Println(cfInfo)
+		// var cfAppsManifest []*discover.AppManifest
+		name, err := NormalizeForMetadataName(strings.TrimSpace(cfInfo.Name))
+		if err != nil {
+			fmt.Printf("Can't normalize name: %v\n", err)
+			return err
+		}
+
+		log.Println("normalized name: ", name)
+		log.Println("\n--------------------------")
+
+		apps, err := listAllCfApps(korifiClient)
 		if err != nil {
 			fmt.Printf("Error creating request: %v\n", err)
 			return err
 		}
 
-		// Set Authorization header exactly like the curl command
-		req.Header.Set("Authorization", "ClientCert "+clientCertificateData)
+		log.Println("Apps: ", apps)
+		var cfManifest discover.CloudFoundryManifest
+		for _, app := range apps.Resources {
+			fmt.Println(app)
+			fmt.Println(app.GUID)
+			appEnv, err := getEnv(korifiClient, app.GUID)
+			if err != nil {
+				return err
+			}
+			log.Println("*************************************")
+			log.Println(appEnv)
 
-		// Send request
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			fmt.Printf("Error making request: %v\n", err)
-			return err
+			appManifest := discover.AppManifest{}
+			appEnv.ApplicationEnvJSON["custom-gloria"] = "custom-value"
+			appEnv.ApplicationEnvJSON["custom-gloria-array"] = []any{"custom-value1", "custom-value2"}
+			// TODO: other env var?
+			err = setVCAPEnv(&appManifest, *appEnv)
+			if err != nil {
+				return err
+			}
+
+			for key, value := range appManifest.Env {
+				fmt.Printf("%s: %s\n", key, value)
+			}
+			log.Println("++++++++++++++++++++++++++++++++++++++")
+			log.Println(appManifest)
+			log.Println("######################################")
+			cfManifest.Applications = append(cfManifest.Applications, &appManifest)
 		}
-		defer resp.Body.Close()
 
-		// Read and print response
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Printf("Error reading response: %v\n", err)
-			return err
-		}
-
-		fmt.Printf("Response Status: %s\n", resp.Status)
-		fmt.Println(string(body))
+		fmt.Println(cfManifest)
+		writeToYAMLFile(cfManifest, "manifest.yaml")
 		return nil
 	}
 	ma := discover.AppManifest{}
