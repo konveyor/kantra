@@ -140,6 +140,7 @@ type analyzeCommand struct {
 	logLevel                 *uint32
 	cleanup                  bool
 	runLocal                 bool
+	excludedPaths            []string
 	AnalyzeCommandContext
 }
 
@@ -378,6 +379,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers will be started up")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
+	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.excludedPaths, "excluded-paths", []string{}, "path(s) to exclude from analysis")
 
 	return analyzeCommand
 }
