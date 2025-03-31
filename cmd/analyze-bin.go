@@ -114,9 +114,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		os.Exit(1)
 	}
 
+	//scopes := []engine.Scope{}
+	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	if err != nil {
+		// allow for duplicate incidents rather than failing analysis
+		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	}
+
 	// Get the configs
 	a.log.Info("creating provider config")
-	finalConfigs, err := a.createProviderConfigsContainerless()
+	finalConfigs, err := a.createProviderConfigsContainerless(javaTargetPaths)
 	if err != nil {
 		errLog.Error(err, "unable to get Java provider configuration")
 		os.Exit(1)
@@ -159,6 +166,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 			needProviders[k] = v
 		}
 	}
+
 	err = a.startProvidersContainerless(ctx, needProviders)
 	if err != nil {
 		os.Exit(1)
@@ -377,7 +385,7 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 	return nil
 }
 
-func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config, error) {
+func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
 	javaConfig := provider.Config{
 		Name:       javaProvider,
 		BinaryPath: a.reqMap["jdtls"],
@@ -403,20 +411,23 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
 
-	provConfig := []provider.Config{
-		{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     a.input,
-					AnalysisMode: provider.AnalysisMode(a.mode),
-				},
+	builtinConfig := provider.Config{
+		Name: "builtin",
+		InitConfig: []provider.InitConfig{
+			{
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: map[string]interface{}{},
 			},
 		},
 	}
-	provConfig = append(provConfig, javaConfig)
+	if len(excludedTargetPaths) > 0 {
+		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
+	}
 
-	for i := range provConfig {
+	provConfigs := []provider.Config{builtinConfig, javaConfig}
+
+	for i := range provConfigs {
 		// Set proxy to providers
 		if a.httpProxy != "" || a.httpsProxy != "" {
 			proxy := provider.Proxy{
@@ -425,12 +436,12 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 				NoProxy:    a.noProxy,
 			}
 
-			provConfig[i].Proxy = &proxy
+			provConfigs[i].Proxy = &proxy
 		}
-		provConfig[i].ContextLines = a.contextLines
+		provConfigs[i].ContextLines = a.contextLines
 	}
 
-	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
+	jsonData, err := json.MarshalIndent(&provConfigs, "", "	")
 	if err != nil {
 		a.log.V(1).Error(err, "failed to marshal provider config")
 		return nil, err
@@ -441,7 +452,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 			"failed to write provider config", "dir", a.output, "file", "settings.json")
 		return nil, err
 	}
-	configs := a.setConfigsContainerless(provConfig)
+	configs := a.setConfigsContainerless(provConfigs)
 	return configs, nil
 }
 
@@ -455,7 +466,9 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 			finalConfigs = append(finalConfigs, config)
 		}
 		for _, initConf := range config.InitConfig {
-			if _, ok := seenBuiltinConfigs[initConf.Location]; !ok {
+			builtinConf := provider.InitConfig{}
+			_, ok := seenBuiltinConfigs[initConf.Location]
+			if !ok {
 				if initConf.Location != "" {
 					if stat, err := os.Stat(initConf.Location); err == nil && stat.IsDir() {
 						builtinLocation, err := filepath.Abs(initConf.Location)
@@ -463,11 +476,20 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 							builtinLocation = initConf.Location
 						}
 						seenBuiltinConfigs[builtinLocation] = true
-						builtinConf := provider.InitConfig{Location: builtinLocation}
+						builtinConf = provider.InitConfig{Location: builtinLocation}
 						if config.Name == "builtin" {
 							builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
 						}
 						defaultBuiltinConfigs = append(defaultBuiltinConfigs, builtinConf)
+					}
+				}
+			}
+			//builtin config that already has location as other prov configs
+			if config.Name == "builtin" && ok {
+				builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
+				for i, c := range defaultBuiltinConfigs {
+					if initConf.Location == c.Location {
+						defaultBuiltinConfigs[i] = initConf
 					}
 				}
 			}
