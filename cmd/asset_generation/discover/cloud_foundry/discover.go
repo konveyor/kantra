@@ -3,9 +3,7 @@ package cloud_foundry
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"strings"
 
 	"github.com/go-logr/logr"
 	discover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry"
@@ -18,10 +16,11 @@ var (
 	input          string
 	output         string
 	cfURL, cfToken string
+	logger         logr.Logger
 )
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
-
+	logger = log
 	cmd := &cobra.Command{
 		Aliases: []string{"cf"},
 		Use:     "cloud-foundry",
@@ -67,69 +66,17 @@ func discoverManifest(writer io.Writer) error {
 			return err
 		}
 	} else {
-		korifiClient, err := getKorifiHttpClient()
+		ld, err := NewLiveDiscoverer(logger)
 		if err != nil {
-			fmt.Printf("Error creating client: %v\n", err)
 			return err
 		}
-
-		cfInfo, err := getInfo(korifiClient)
+		cfManifest, err := ld.Discover()
 		if err != nil {
-			fmt.Printf("Can't get info: %v\n", err)
 			return err
 		}
-
-		log.Println(cfInfo)
-		// var cfAppsManifest []*discover.AppManifest
-		name, err := NormalizeForMetadataName(strings.TrimSpace(cfInfo.Name))
-		if err != nil {
-			fmt.Printf("Can't normalize name: %v\n", err)
-			return err
-		}
-
-		log.Println("normalized name: ", name)
-		log.Println("\n--------------------------")
-
-		apps, err := listAllCfApps(korifiClient)
-		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			return err
-		}
-
-		log.Println("Apps: ", apps)
-		var cfManifest discover.CloudFoundryManifest
-		for _, app := range apps.Resources {
-			fmt.Println(app)
-			fmt.Println(app.GUID)
-			appEnv, err := getEnv(korifiClient, app.GUID)
-			if err != nil {
-				return err
-			}
-			log.Println("*************************************")
-			log.Println(appEnv)
-
-			appManifest := discover.AppManifest{}
-			appEnv.ApplicationEnvJSON["custom-gloria"] = "custom-value"
-			appEnv.ApplicationEnvJSON["custom-gloria-array"] = []any{"custom-value1", "custom-value2"}
-			// TODO: other env var?
-			err = setVCAPEnv(&appManifest, *appEnv)
-			if err != nil {
-				return err
-			}
-
-			for key, value := range appManifest.Env {
-				fmt.Printf("%s: %s\n", key, value)
-			}
-			log.Println("++++++++++++++++++++++++++++++++++++++")
-			log.Println(appManifest)
-			log.Println("######################################")
-			cfManifest.Applications = append(cfManifest.Applications, &appManifest)
-		}
-
-		fmt.Println(cfManifest)
-		writeToYAMLFile(cfManifest, "manifest.yaml")
-		return nil
+		logger.Info("cfManifest: ", cfManifest)
 	}
+
 	ma := discover.AppManifest{}
 	err = yaml.Unmarshal(b, &ma)
 	if err != nil {

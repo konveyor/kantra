@@ -129,3 +129,90 @@ type VCAPApplicationEnv struct {
 	URIs             string `json:"uris"`
 	ApplicationURIs  string `json:"application_uris"`
 }
+
+type ProcessResponse struct {
+	GUID          string                       `json:"guid"`
+	Type          string                       `json:"type"`
+	Command       string                       `json:"command"`
+	Instances     int32                        `json:"instances"`
+	MemoryMB      int64                        `json:"memory_in_mb"`
+	DiskQuotaMB   int64                        `json:"disk_in_mb"`
+	HealthCheck   ProcessResponseHealthCheck   `json:"health_check"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Metadata      Metadata                     `json:"metadata"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Links         ProcessLinks                 `json:"links"`
+}
+
+type ProcessLinks struct {
+	Self  Link `json:"self"`
+	Scale Link `json:"scale"`
+	App   Link `json:"app"`
+	Space Link `json:"space"`
+	Stats Link `json:"stats"`
+}
+
+type ProcessResponseHealthCheck struct {
+	Type string                         `json:"type"`
+	Data ProcessResponseHealthCheckData `json:"data"`
+}
+
+type ProcessResponseHealthCheckData struct {
+	Type              string `json:"-"`
+	Timeout           int32  `json:"timeout"`
+	InvocationTimeout int32  `json:"invocation_timeout"`
+	HTTPEndpoint      string `json:"endpoint"`
+}
+
+// --------------------------------------
+
+type RouteResponse struct {
+	GUID         string             `json:"guid"`
+	Protocol     string             `json:"protocol"`
+	Port         *int               `json:"port"`
+	Host         string             `json:"host"`
+	Path         string             `json:"path"`
+	URL          string             `json:"url"`
+	Destinations []routeDestination `json:"destinations"`
+
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Metadata      Metadata                     `json:"metadata"`
+	Links         routeLinks                   `json:"links"`
+}
+
+type RouteDestinationsResponse struct {
+	Destinations []routeDestination     `json:"destinations"`
+	Links        routeDestinationsLinks `json:"links"`
+}
+
+type routeDestination struct {
+	GUID     string              `json:"guid"`
+	App      routeDestinationApp `json:"app"`
+	Weight   *int                `json:"weight"`
+	Port     *int32              `json:"port"`
+	Protocol *string             `json:"protocol"`
+}
+
+type routeDestinationApp struct {
+	AppGUID string                     `json:"guid"`
+	Process routeDestinationAppProcess `json:"process"`
+}
+
+type routeDestinationAppProcess struct {
+	Type string `json:"type"`
+}
+
+type routeLinks struct {
+	Self         Link `json:"self"`
+	Space        Link `json:"space"`
+	Domain       Link `json:"domain"`
+	Destinations Link `json:"destinations"`
+}
+
+type routeDestinationsLinks struct {
+	Self  Link `json:"self"`
+	Route Link `json:"route"`
+}

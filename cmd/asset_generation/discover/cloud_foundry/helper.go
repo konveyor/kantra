@@ -1,83 +1,16 @@
 package cloud_foundry
 
 import (
-	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
-	discover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
+	"gopkg.in/yaml.v3"
 )
-
-func getKubeConfig() (*api.Config, error) {
-	home := homedir.HomeDir()
-	kubeconfig := filepath.Join(home, ".kube", "config")
-
-	// Load kubeconfig
-	config, err := clientcmd.LoadFromFile(kubeconfig)
-	if err != nil {
-		fmt.Printf("Error loading kubeconfig: %v\n", err)
-		return nil, err
-	}
-	return config, nil
-}
-
-func getClientCertificate(config *api.Config) (string, error) {
-	// Find the desired user context (in this case, "kind-korifi")
-	var dataCert, keyCert []byte
-	for username, authInfo := range config.AuthInfos {
-		if username == "kind-korifi" {
-			dataCert = authInfo.ClientCertificateData
-			keyCert = authInfo.ClientKeyData
-			break
-		}
-	}
-
-	if len(dataCert) == 0 || len(keyCert) == 0 {
-		return "", fmt.Errorf("could not find certificate data for kind-korifi")
-	}
-
-	return base64.StdEncoding.EncodeToString(append(dataCert, keyCert...)), nil
-}
-
-func getKorifiHttpClient() (*http.Client, error) {
-	config, err := getKubeConfig()
-	if err != nil {
-		return nil, err
-	}
-	certPEM, err := getClientCertificate(config)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a custom transport
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // Use with caution
-		},
-	}
-
-	// Create a custom RoundTripper that adds the Authorization header
-	roundTripper := &authHeaderRoundTripper{
-		certPEM: certPEM,
-		base:    transport,
-	}
-
-	// Create an HTTP client with the custom RoundTripper
-	return &http.Client{
-		Transport: roundTripper,
-	}, nil
-}
 
 // Custom RoundTripper to add Authorization header
 type authHeaderRoundTripper struct {
@@ -90,36 +23,65 @@ func (t *authHeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 
 	// Set the Authorization header
 	reqClone.Header.Set("Authorization", "ClientCert "+t.certPEM)
-
+	reqClone.Header.Set("X-Username", "kubernetes-admin")
 	// Use the base transport to execute the request
 	return t.base.RoundTrip(reqClone)
 }
 
+// func listAllCfApps2(clientset *http.Client) (*ListResponse[AppResponse], error) {
+// 	// Create HTTP client for Korifi API
+// 	client, err := getKorifiHttpClient()
+// 	if err != nil {
+// 		log.Fatalf("Failed to create Korifi HTTP client: %v", err)
+// 	}
+
+// 	// Construct the URL for the Korifi API endpoint
+// 	url := "https://localhost/v3/apps" // Modify this URL if necessary
+
+// 	// Create a GET request to the endpoint
+// 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+// 	if err != nil {
+// 		log.Fatalf("Failed to create request: %v", err)
+// 	}
+
+// 	// Make the request
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		log.Fatalf("Request failed: %v", err)
+// 	}
+// 	defer resp.Body.Close()
+
+// 	// Read and output the response body
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		log.Fatalf("Failed to read response body: %v", err)
+// 	}
+
+// 	// Output the response status and body
+// 	fmt.Printf("Response Status: %s\n", resp.Status)
+// 	fmt.Printf("Response Body: %s\n", string(body))
+
+// 	return nil, nil
+// }
+
 func listAllCfApps(httpClient *http.Client) (*ListResponse[AppResponse], error) {
+	fmt.Printf(":: \\\\\\\\\\\\\\ listApp func ")
+
 	resp, err := httpClient.Get("https://localhost/v3/apps")
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	// Read and print response
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// if resp.StatusCode != 200 {
-	// 	return "", fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
-	// }
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, resp.Status)
+	}
 
 	var i ListResponse[AppResponse]
-	// fmt.Printf("%+v\n", string(body))
-
 	err = json.NewDecoder(resp.Body).Decode(&i)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error unmarshalling info")
 	}
 	return &i, nil
-	// return string(body), nil
 }
 
 func getInfo(httpClient *http.Client) (*InfoV3Response, error) {
@@ -128,12 +90,7 @@ func getInfo(httpClient *http.Client) (*InfoV3Response, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	// Read and print response
-	// body, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	fmt.Println("status code", resp.Status)
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, resp.Status)
 	}
@@ -147,30 +104,6 @@ func getInfo(httpClient *http.Client) (*InfoV3Response, error) {
 	}
 	return &i, nil
 }
-
-// // JsonifyMapValues converts the map values to json
-// func JsonifyMapValues(inputMap map[string]interface{}) map[string]interface{} {
-// 	for key, value := range inputMap {
-// 		if value == nil {
-// 			inputMap[key] = ""
-// 			continue
-// 		}
-// 		if val, ok := value.(string); ok {
-// 			inputMap[key] = val
-// 			continue
-// 		}
-// 		var b bytes.Buffer
-// 		encoder := json.NewEncoder(&b)
-// 		if err := encoder.Encode(value); err != nil {
-// 			fmt.Errorf("Unable to unmarshal data to json while converting map interfaces to string")
-// 			continue
-// 		}
-// 		strValue := b.String()
-// 		strValue = strings.TrimSpace(strValue)
-// 		inputMap[key] = strValue
-// 	}
-// 	return inputMap
-// }
 
 // disallowedDNSCharactersRegex provides pattern for characters not allowed in a DNS Name
 var disallowedDNSCharactersRegex = regexp.MustCompile(`[^a-z0-9\-]`)
@@ -221,8 +154,6 @@ func getEnv(httpClient *http.Client, guid string) (*AppEnvResponse, error) {
 	}
 
 	var i AppEnvResponse
-	// fmt.Printf("%+v\n", string(body))
-
 	err = json.NewDecoder(resp.Body).Decode(&i)
 	if err != nil {
 		return nil, errors.Wrap(err, "Error unmarshalling info")
@@ -230,104 +161,30 @@ func getEnv(httpClient *http.Client, guid string) (*AppEnvResponse, error) {
 	return &i, nil
 }
 
-func VCAPAppToMap(data map[string]any) (map[string]string, error) {
-	result := make(map[string]string)
-
-	for key, value := range data {
-		if arr, ok := value.([]any); ok {
-			// If value is an array, convert it to a comma-separated string
-			var strValues []string
-			for _, item := range arr {
-				strValues = append(strValues, fmt.Sprintf("%v", item))
-			}
-			result[key] = strings.Join(strValues, ",")
-		} else {
-			// Convert non-array values to string
-			result[key] = fmt.Sprintf("%v", value)
-		}
+func getAppName(appEnv AppEnvResponse) (string, error) {
+	vcap, valid := appEnv.ApplicationEnvJSON["VCAP_APPLICATION"]
+	if !valid {
+		return "", fmt.Errorf("can't find ")
+	}
+	vcapMap, valid := vcap.(map[string]any) // Ensure it's a map
+	if !valid {
+		return "", fmt.Errorf("VCAP_APPLICATION is not a valid map: %v", vcap)
 	}
 
-	return result, nil
-}
-
-func extractVCAPApplication(env AppEnvResponse) (map[string]any, error) {
-	vcapApp, ok := env.ApplicationEnvJSON["VCAP_APPLICATION"]
-	if !ok {
-		return nil, fmt.Errorf("VCAP_APPLICATION not found in ApplicationEnvJSON")
+	appName, valid := vcapMap["application_name"]
+	if !valid {
+		return "", fmt.Errorf("can't find application name in VCAP_APPLICATION")
 	}
-	return vcapApp.(map[string]any), nil
-}
 
-func mapToVCAPEnv(data map[string]any) (map[string]string, error) {
-	result := make(map[string]string)
-	for k, v := range data {
-		fmt.Printf("key %s \t value: %s\n", k, v)
-		// TODO OTHER THAN VCAP_APPLICATION?
-		if k == "VCAP_APPLICATION" {
-			// Recursively process the inner map
-			innerMap, err := mapToVCAPEnv(v.(map[string]any))
-			if err != nil {
-				return nil, fmt.Errorf("failed to process inner map for key %s: %v", k, err)
-			}
-
-			// Add the inner map's key-value pairs to the result
-			for innerK, innerV := range innerMap {
-				result[innerK] = innerV
-			}
-		} else {
-
-			switch v := v.(type) {
-			case string:
-				result[k] = v
-			case int, int64, int32:
-				result[k] = fmt.Sprintf("%d", v)
-			case float64, float32:
-				result[k] = fmt.Sprintf("%f", v)
-			case bool:
-				result[k] = fmt.Sprintf("%t", v)
-			case []any:
-				// Preserve arrays by converting to a representation that can be parsed
-				arrayStr := "["
-				for i, elem := range v {
-					if i > 0 {
-						arrayStr += ", "
-					}
-					arrayStr += fmt.Sprintf("%q", fmt.Sprintf("%v", elem))
-				}
-				arrayStr += "]"
-				result[k] = arrayStr
-
-			default: // Fallback for other types
-				result[k] = fmt.Sprintf("%v", v)
-			}
-		}
+	appNameStr, isString := appName.(string)
+	if !isString {
+		return "", fmt.Errorf("application_name is not a string: %v", appName)
 	}
-	return result, nil
+
+	return appNameStr, nil
 }
 
-func VCAPEnvToMap(env VCAPApplicationEnv) map[string]string {
-	return map[string]string{
-		"application_id":    env.ApplicationId,
-		"application_name":  env.ApplicationName,
-		"name":              env.Name,
-		"organization_id":   env.OrganizationId,
-		"organization_name": env.OrganizationName,
-		"space_id":          env.SpaceId,
-		"space_name":        env.SpaceName,
-		"uris":              env.URIs,
-		"application_uris":  env.ApplicationURIs,
-	}
-}
-
-func setVCAPEnv(appManifest *discover.AppManifest, appEnv AppEnvResponse) error {
-
-	VCAPEnvMap, err := mapToVCAPEnv(appEnv.ApplicationEnvJSON)
-	if err != nil {
-		return err
-	}
-	appManifest.Env = VCAPEnvMap
-	return nil
-}
+// ==========================================================
 
 func writeToYAMLFile(data interface{}, filename string) error {
 	// Marshal the data to YAML
@@ -345,23 +202,44 @@ func writeToYAMLFile(data interface{}, filename string) error {
 	return nil
 }
 
-// Custom YAML marshaling function
-func marshalYAMLWithArrays(data map[string]any) (map[string]any, error) {
-	result := make(map[string]any)
+// =========================================================
 
-	for k, v := range data {
-		switch val := v.(type) {
-		case []any:
-			// Keep the array as-is
-			result[k] = val
-		case string, int, int64, float64, bool:
-			// Keep simple types as-is
-			result[k] = val
-		default:
-			// Convert other types to string representation
-			result[k] = fmt.Sprintf("%v", v)
-		}
+func getProcesses(httpClient *http.Client, guid string) (*ListResponse[ProcessResponse], error) {
+	resp, err := httpClient.Get(fmt.Sprintf("https://localhost/v3/apps/%s/processes", guid))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	return result, nil
+	var i ListResponse[ProcessResponse]
+	err = json.NewDecoder(resp.Body).Decode(&i)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshalling info")
+	}
+	return &i, nil
+}
+
+// ========================================================================
+
+func getRoutes(httpClient *http.Client, guid string) (*ListResponse[RouteResponse], error) {
+	resp, err := httpClient.Get(fmt.Sprintf("https://localhost/v3/apps/%s/routes", guid))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	var i ListResponse[RouteResponse]
+	err = json.NewDecoder(resp.Body).Decode(&i)
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshalling info")
+	}
+	return &i, nil
 }
