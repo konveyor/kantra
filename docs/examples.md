@@ -51,7 +51,7 @@ static-report
 `kantra discover --input=<path-to/manifest-yaml>`
 
     For example:  
-    `./kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
+    `/kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
 
 - Print a YAML representation of source platform resources  
 `kantra discover --input=<path-to/manifest-yaml> --output=<path-to/ouput-file>`
