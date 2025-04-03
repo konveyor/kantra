@@ -172,7 +172,6 @@ func (ld *LiveDiscoverer) Discover() (*discover.CloudFoundryManifest, error) {
 				// app.
 			},
 			// Buildpacks
-			// Docker
 
 			// RandomRoute
 			// NoRoute

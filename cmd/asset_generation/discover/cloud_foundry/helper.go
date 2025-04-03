@@ -28,45 +28,7 @@ func (t *authHeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return t.base.RoundTrip(reqClone)
 }
 
-// func listAllCfApps2(clientset *http.Client) (*ListResponse[AppResponse], error) {
-// 	// Create HTTP client for Korifi API
-// 	client, err := getKorifiHttpClient()
-// 	if err != nil {
-// 		log.Fatalf("Failed to create Korifi HTTP client: %v", err)
-// 	}
-
-// 	// Construct the URL for the Korifi API endpoint
-// 	url := "https://localhost/v3/apps" // Modify this URL if necessary
-
-// 	// Create a GET request to the endpoint
-// 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
-// 	if err != nil {
-// 		log.Fatalf("Failed to create request: %v", err)
-// 	}
-
-// 	// Make the request
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		log.Fatalf("Request failed: %v", err)
-// 	}
-// 	defer resp.Body.Close()
-
-// 	// Read and output the response body
-// 	body, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		log.Fatalf("Failed to read response body: %v", err)
-// 	}
-
-// 	// Output the response status and body
-// 	fmt.Printf("Response Status: %s\n", resp.Status)
-// 	fmt.Printf("Response Body: %s\n", string(body))
-
-// 	return nil, nil
-// }
-
 func listAllCfApps(httpClient *http.Client) (*ListResponse[AppResponse], error) {
-	fmt.Printf(":: \\\\\\\\\\\\\\ listApp func ")
-
 	resp, err := httpClient.Get("https://localhost/v3/apps")
 	if err != nil {
 		return nil, err
