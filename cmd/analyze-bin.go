@@ -35,6 +35,27 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type ConsoleHook struct {
+	Level logrus.Level
+	Log   logr.Logger
+}
+
+func (hook *ConsoleHook) Fire(entry *logrus.Entry) error {
+	_, err := entry.String()
+	if err != nil {
+		return nil // Ignore the error
+	}
+
+	if entry.Data["logger"] == "process-rule" {
+		hook.Log.Info("processing rule", "ruleID", entry.Data["ruleID"])
+	}
+	return nil
+}
+
+func (hook *ConsoleHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
 func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	err := a.ValidateContainerless(ctx)
 	if err != nil {
@@ -78,6 +99,11 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	logrusAnalyzerLog.SetOutput(analysisLog)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
 	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
+
+	// add log hook, print the rule processing to the console
+	consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
+	logrusAnalyzerLog.AddHook(consoleHook)
+
 	analyzeLog := logrusr.New(logrusAnalyzerLog)
 
 	// log kantra errs to stderr
