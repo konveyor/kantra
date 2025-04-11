@@ -176,9 +176,25 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 	}
 
+	scopes := []engine.Scope{}
+	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	if err != nil {
+		// allow for duplicate incidents rather than failing analysis
+		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	}
+	if len(javaTargetPaths) > 0 {
+		a.excludedPaths = append(a.excludedPaths, javaTargetPaths...)
+	}
+	// possible to add other excluded dirs
+	if len(a.excludedPaths) > 0 {
+		currScope := engine.ExcludedPathsScope(a.excludedPaths, analyzeLog)
+		scopes = append(scopes, currScope)
+		a.log.Info("excluded paths", "paths", a.excludedPaths)
+	}
+
 	// This will already wait
 	a.log.Info("evaluating rules for violations. see analysis.log for more info")
-	rulesets := eng.RunRules(ctx, ruleSets, selectors...)
+	rulesets := eng.RunRulesScoped(ctx, ruleSets, engine.NewScope(scopes...), selectors...)
 	engineSpan.End()
 	wg.Wait()
 	if depSpan != nil {
