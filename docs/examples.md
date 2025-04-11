@@ -72,3 +72,133 @@ static-report
     
     For example:  
     `kantra generate helm --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml --output-dir=/tmp/generate-dir`
+
+
+### Running as a Tekton Task
+- Create an SCC with required permissions for podman to run within another container
+```
+cat << EOF | oc create -f -
+# Based on https://docs.openshift.com/pipelines/latest/secure/unprivileged-building-of-container-images-using-buildah.html
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+  name: rootless-in-pod
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: false
+allowedCapabilities:
+# Allow usage of the MKNOD capability to create devices otherwise
+# Error: crun: mknod `/dev/full`: Operation not permitted: OCI permission denied
+- MKNOD
+# Allow usage of the SETFCAP capability so that we can unpack newuidmap / newgidmap binaries which have extend attributes
+# otherwise errors out with
+# lsetxattr /usr/bin/newgidmap: operation not permitted exit status 1"
+- SETFCAP
+# Allow usage of the SYS_ADMIN capability to mount `proc` and other filesystems, otherwise crun errors out with
+# Error: crun: mount `proc` to `proc`: Permission denied: OCI permission denied
+- SYS_ADMIN
+apiVersion: security.openshift.io/v1
+defaultAddCapabilities: null
+fsGroup:
+  type: MustRunAs
+groups:
+- system:cluster-admins
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+- KILL
+# Needed to avoid "no subuid ranges found for user \"1001200000\" # in /etc/subuid" error
+# and podman not finding a $HOME directory for storing initial config
+runAsUser:
+  type: MustRunAs
+  uid: 1000
+# Allow Pods to by pass SeLinux Confinement
+# needed to mount `proc` otherwise crun bails out with
+# Error: crun: mount `proc` to `proc`: Permission denied: OCI permission denied
+# See also "Rootless Podman without the privileged flag" in https://www.redhat.com/sysadmin/podman-inside-kubernetes
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users: []
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret
+EOF
+```
+
+```
+oc create -n konveyor-tackle serviceaccount podman
+```
+
+```
+oc adm policy add-scc-to-user -n konveyor-tackle rootless-in-pod -z podman
+```
+
+- Create a Tekton Task
+```
+cat << EOF | oc create -f -
+apiVersion: tekton.dev/v1 # or tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kantra-cli
+  namespace: konveyor-tackle
+spec:
+  steps:
+    - name: kantra-cli
+      image: quay.io/konveyor/kantra:latest
+      command:
+        - bash
+      args:
+        - -c
+        - kantra analyze --input /workspace/code/ --output output/ --run-local=false --overwrite
+      volumeMounts:
+        - name: containersstorage
+          mountPath: /workspace/code
+        - name: var-lib-container
+          mountPath: /var/lib/containers/
+        - name: run-containers
+          mountPath: /run/containers/
+EOF
+```
+
+- Create a Tekton TaskRun to run it
+```
+cat << EOF | oc create -f -
+apiVersion: tekton.dev/v1 # or tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  name: kantra-cli
+  namespace: konveyor-tackle
+spec:
+  serviceAccountName: podman
+  taskRef:
+    name: kantra-cli
+  podTemplate:
+    env:
+    - name: HOME
+      value: /home/mta
+    securityContext:
+      seLinuxOptions:
+          type: spc_t
+    volumes:
+      - name: containersstorage
+        emptyDir:
+          medium: ""
+      - name: var-lib-container
+        emptyDir:
+          medium: ""
+      - name: run-containers
+        emptyDir:
+          medium: ""
+EOF
+```
+
+- To make this more useful replace emptyDir storage with workspaces/PVCs containing code and preserving results and adapt the TaskRun to a PipelineRun if it better suits your workflow.
