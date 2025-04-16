@@ -389,11 +389,10 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
-	if a.rules != nil {
-		for i := range a.rules {
-			if _, err := os.Stat(a.rules[i]); a.rules[i] != "" && err != nil {
-				return fmt.Errorf("%w failed to stat rules at path %s", err, a.rules[i])
-			}
+
+	for _, rulePath := range a.rules {
+		if _, err := os.Stat(rulePath); rulePath != "" && err != nil {
+			return fmt.Errorf("%w failed to stat rules at path %s", err, rulePath)
 		}
 	}
 	// Validate source labels
