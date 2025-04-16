@@ -389,6 +389,12 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
+
+	for _, rulePath := range a.rules {
+		if _, err := os.Stat(rulePath); rulePath != "" && err != nil {
+			return fmt.Errorf("%w failed to stat rules at path %s", err, rulePath)
+		}
+	}
 	// Validate source labels
 	// allow custom sources/targets if custom rules are set
 	if len(a.sources) > 0 {
