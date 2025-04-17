@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -52,4 +56,88 @@ func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provid
 	}
 
 	return p.config, nil
+}
+
+// assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
+func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, error) {
+	var targetPaths []interface{}
+	var err error
+	if a.isFileInput {
+		root, err = a.getJavaBinaryProjectDir(filepath.Dir(root))
+		if err != nil {
+			return nil, err
+		}
+		// for binaries, wait for "target" folder to decompile
+		err = a.waitForTargetDir(root)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && info.Name() == "target" {
+			targetPaths = append(targetPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return targetPaths, nil
+}
+
+func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
+	var foundDir string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
+			foundDir = path
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return foundDir, nil
+}
+
+func (a *analyzeCommand) waitForTargetDir(path string) error {
+	// worst case we timeout
+	// may need to increase
+	timeout := 20 * time.Second
+	timeoutChan := time.After(timeout)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	err = watcher.Add(path)
+	if err != nil {
+		return err
+	}
+	a.log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				info, err := os.Stat(event.Name)
+				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
+					a.log.Info("target sub-folder detected:", "folder", event.Name)
+					return nil
+				}
+			}
+		case err := <-watcher.Errors:
+			return err
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for target folder")
+		}
+	}
 }
