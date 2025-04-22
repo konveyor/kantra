@@ -194,6 +194,7 @@ instances: 1
 				ExpectSuccess: true,
 				ExpectedOut: `name: test-app
 timeout: 60
+memory: 256M
 instances: 1
 `,
 				ExpectedErrMessage: "",
@@ -213,6 +214,7 @@ instances: 1
 				ExpectSuccess: true,
 				ExpectedOut: `name: test-app
 timeout: 60
+memory: 256M
 instances: 1
 `,
 				OutputVerification: true},

@@ -6,7 +6,7 @@ require (
 	github.com/devfile/alizer v1.6.1
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.2
-	github.com/konveyor/asset-generation v0.0.0-20250304161330-0c948a89f715
+	github.com/konveyor/asset-generation v0.0.0-20250409181609-c86a12c8a5c5
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -125,7 +125,7 @@ require (
 	github.com/fabianvf/windup-rulesets-yaml v0.5.3
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.6.0-alpha.2.0.20250115183201-2f9344a41b10
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250212190711-02ecd5363679
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect

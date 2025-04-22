@@ -55,7 +55,8 @@ jobs:
       - name: Run unit tests
         run: |
           RUNNER_IMG=localhost/kantra:latest go test ./...
-      
+          RUNNER_IMG=localhost/kantra:latest go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --randomize-suites --fail-on-pending --keep-going
+
       - name: Fetch sample applications
         run: |
           git clone https://github.com/konveyor/example-applications

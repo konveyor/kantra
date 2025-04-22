@@ -135,10 +135,12 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konveyor/analyzer-lsp v0.6.0-alpha.2.0.20250115183201-2f9344a41b10 h1:0x1Mk5jPommKpN2NKpkQxn5FJLAfohSjLalsRijx19I=
 github.com/konveyor/analyzer-lsp v0.6.0-alpha.2.0.20250115183201-2f9344a41b10/go.mod h1:l9XC3uazLba8yXoAFJWN7uBDju1s/g1Hc8TKBpE3B2U=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250212190711-02ecd5363679 h1:8yU9BJuN80afNjsEgHpD+qSk91GJx6LGWw0UqRIwRV8=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250212190711-02ecd5363679/go.mod h1:9hR5THTSExZSAPz8uDEVgm2gm47F8gqFj8cU9K/d32M=
-github.com/konveyor/asset-generation v0.0.0-20250304161330-0c948a89f715 h1:VSda5NLBR/kz6XuKbFXTCSXPcqmTuAM2qSRcobWLFRc=
-github.com/konveyor/asset-generation v0.0.0-20250304161330-0c948a89f715/go.mod h1:p1yAhn+hWvgRnC7+dhvimT324TV5YW2FLR7bf+S1GH4=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6 h1:558+AuZNPRPCml1yrx0V9oARlEDlBruyZsfhCOrJYx8=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6/go.mod h1:9hR5THTSExZSAPz8uDEVgm2gm47F8gqFj8cU9K/d32M=
+github.com/konveyor/asset-generation v0.0.0-20250409174827-b920b724cb38 h1:5K09JaMSlm/EQMbQaE5ZCcJIWnKq/f7doGLCdvdRakI=
+github.com/konveyor/asset-generation v0.0.0-20250409174827-b920b724cb38/go.mod h1:p1yAhn+hWvgRnC7+dhvimT324TV5YW2FLR7bf+S1GH4=
+github.com/konveyor/asset-generation v0.0.0-20250409181609-c86a12c8a5c5 h1:d2jsrY/JALtlzntgs9ZFrJgWmMilLFHRtd2teHk9SmY=
+github.com/konveyor/asset-generation v0.0.0-20250409181609-c86a12c8a5c5/go.mod h1:p1yAhn+hWvgRnC7+dhvimT324TV5YW2FLR7bf+S1GH4=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
