@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -20,6 +21,7 @@ func (p *NodeJsProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (prov
 					"lspServerName":                 "nodejs",
 					"workspaceFolders":              []string{fmt.Sprintf("file://%s", SourceMountPath)},
 					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
+					"lspServerArgs":                 []string{"--stdio"},
 				},
 			},
 		},
