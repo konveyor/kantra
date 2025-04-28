@@ -324,6 +324,7 @@ Flags:
 - [Example usage scenarios](./docs/examples.md)
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
+- [Setup dev environment instructions](./hack/README#setup-dev-environment-for-asset-generation)
 
 ## Code of Conduct
 
