@@ -112,6 +112,13 @@ check_prerequisite(){
       exit 1
   fi
 
+  # Check if cf CLI v8 is available
+  if cf version 2>/dev/null | grep -qE '^cf version 8\.'; then
+      echo "❌ cf CLI v8 could not be found. Please install it"
+      echo "Official instructions available at https://docs.cloudfoundry.org/cf-cli/install-go-cli.html"
+      exit 1
+  fi
+
   # Check if kind is installed
   if ! command -v kind &> /dev/null; then
       echo "kind could not be found. Trying to installing it now..."

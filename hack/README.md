@@ -53,6 +53,7 @@ If the `kind` command is not available, the script will install it for you autom
 * go >= 1.22.9
 * kubectl
 * Docker (rootless) >= 20.10 or Podman >= 3.0
+* cf CLI v8
 
 ### Usage
 
