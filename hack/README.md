@@ -58,7 +58,7 @@ If the `kind` command is not available, the script will install it for you autom
 
 ```bash
 ./asset-generation-dev-setup.sh --help
-Usage: ./asset-generation-dev-setup.sh [--docker | --podman] [--cleanup] [--help]
+Usage: ./asset-generation-dev-setup.sh [--docker | --podman] [--version] [--cleanup] [--help]
 
 Flags:
   --docker        Use Docker as the container runtime

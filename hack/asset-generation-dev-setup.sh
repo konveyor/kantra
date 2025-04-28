@@ -11,7 +11,7 @@ VERSION="1.0.0"
 
 print_help() {
   cat <<EOF
-Usage: $0 [--docker | --podman] [--cleanup] [--help]
+Usage: $0 [--docker | --podman] [--cleanup] [--version] [--help]
 
 Flags:
   --docker        Use Docker as the container runtime
