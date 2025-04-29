@@ -36,6 +36,7 @@ type TestOptions struct {
 	ContainerToolBin   string
 	ProgressPrinter    ResultPrinter
 	Log                logr.Logger
+	Prune              bool
 }
 
 // TODO (pgaikwad): we need to move the default config to a common place
@@ -205,7 +206,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				}
 			default:
 				if reproducerCmd, err = runInContainer(
-					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams); err != nil {
+					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams, opts.Prune); err != nil {
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
@@ -316,7 +317,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (str
 	return fmt.Sprintf("konveyor-analyzer %s", strings.Join(args, " ")), cmd.Run()
 }
 
-func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams) (string, error) {
+func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams, prune bool) (string, error) {
 	if image == "" {
 		image = "quay.io/konveyor/analyzer-lsp:latest"
 	}
@@ -338,11 +339,14 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 		}...)
 	}
 	reproducerCmd := ""
-	err := container.NewContainer().Run(
-		context.TODO(),
+	ctx := context.TODO()
+	newContainer := container.NewContainer()
+	err := newContainer.Run(
+		ctx,
 		container.WithImage(image),
 		container.WithLog(consoleLogger),
 		container.WithEntrypointBin("konveyor-analyzer"),
+		container.WithCleanup(true),
 		container.WithContainerToolBin(containerBin),
 		container.WithEntrypointArgs(args...),
 		container.WithVolumes(volumes),
@@ -354,6 +358,22 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 	if err != nil {
 		return reproducerCmd, fmt.Errorf("failed running analysis - %w", err)
 	}
+
+	if prune {
+		err = newContainer.RunCommand(ctx, consoleLogger, "system", "prune", "--all")
+		if err != nil {
+			consoleLogger.Error(err, "failed")
+		}
+		err = newContainer.RunCommand(ctx, consoleLogger, "volume", "prune", "-f")
+		if err != nil {
+			consoleLogger.Error(err, "failed")
+		}
+		err = newContainer.RunCommand(ctx, consoleLogger, "info")
+		if err != nil {
+			consoleLogger.Error(err, "failed")
+		}
+	}
+
 	return reproducerCmd, nil
 }
 

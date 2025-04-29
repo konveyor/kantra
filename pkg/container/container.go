@@ -271,3 +271,21 @@ func (c *container) Rm(ctx context.Context) error {
 		"container tool", c.containerToolBin, "name", c.Name)
 	return cmd.Run()
 }
+
+// RunCommand performs whatever is sent to it in the command argument
+func (c *container) RunCommand(ctx context.Context, logger logr.Logger, command ...string) error {
+	cmd := exec.CommandContext(ctx, c.containerToolBin, command...)
+	errBytes := &bytes.Buffer{}
+	logger.Info("executing command", "container tool", c.containerToolBin, "cmd", c.entrypointBin, "args", strings.Join(command, " "))
+	output, err := cmd.CombinedOutput()
+	fmt.Printf("\n%v", cmd.String())
+	fmt.Printf("\n%s", string(output))
+	if err != nil {
+		logger.Error(err, "container run error during cleanup")
+		if _, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf(errBytes.String())
+		}
+		return err
+	}
+	return nil
+}
