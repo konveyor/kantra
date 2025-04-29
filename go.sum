@@ -133,8 +133,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250414173818-69f16ed24d65 h1:YbN65QMFBX88onRsZm7fsrPTCN/Ty0/17rbm9KOCQKo=
-github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250414173818-69f16ed24d65/go.mod h1:nlSmohI+wwPTzvWXAtHI3PXe7B9RRU5NKnqnu222Ia0=
+github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250429145255-ccd24834c1dd h1:bPhZNckRbknEc3vfvG7HLWcQRF4w3Ehqi8X7awszCBs=
+github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250429145255-ccd24834c1dd/go.mod h1:nlSmohI+wwPTzvWXAtHI3PXe7B9RRU5NKnqnu222Ia0=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6 h1:558+AuZNPRPCml1yrx0V9oARlEDlBruyZsfhCOrJYx8=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6/go.mod h1:9hR5THTSExZSAPz8uDEVgm2gm47F8gqFj8cU9K/d32M=
 github.com/konveyor/asset-generation v0.0.0-20250421144442-ed6bee8e1cd2 h1:JfCuD1cJW3O4tXkdtF3TMrd4emTfQmfDHe8grAQl/w8=
