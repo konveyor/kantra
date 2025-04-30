@@ -165,7 +165,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		o.log.V(1).Info("created directory for maven settings file", "dir", tempDir)
 		defer os.RemoveAll(tempDir)
 
-		err = CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
+		err = util.CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
 			o.log.V(1).Error(err, "failed copying maven settings file", "path", o.mavenSettingsFile)
 			return err
