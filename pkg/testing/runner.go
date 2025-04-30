@@ -343,6 +343,7 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 		container.WithImage(image),
 		container.WithLog(consoleLogger),
 		container.WithEntrypointBin("konveyor-analyzer"),
+		container.WithCleanup(true),
 		container.WithContainerToolBin(containerBin),
 		container.WithEntrypointArgs(args...),
 		container.WithVolumes(volumes),

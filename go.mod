@@ -4,9 +4,10 @@ go 1.22.9
 
 require (
 	github.com/devfile/alizer v1.6.1
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.2
-	github.com/konveyor/asset-generation v0.0.0-20250326124457-6de8e38793e9
+	github.com/konveyor/asset-generation v0.0.0-20250421144442-ed6bee8e1cd2
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -35,7 +36,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.3.4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
@@ -99,7 +99,7 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -124,7 +124,7 @@ require (
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/fabianvf/windup-rulesets-yaml v0.5.3
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.6.0-alpha.2.0.20250115183201-2f9344a41b10
+	github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250429145255-ccd24834c1dd
 	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250320131356-972e136758f6
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3

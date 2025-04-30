@@ -172,7 +172,6 @@ instances: 1
 					Expect(out.String()).ToNot(BeEmpty()) // Standard output should not be empty
 					outputContent = out.String()
 				}
-
 				Expect(string(outputContent)).To(Equal(flags.ExpectedOut))
 			} else {
 				Expect(out.String()).To(ContainSubstring(flags.ExpectedOut)) // Check STDOUT for normal output
@@ -195,6 +194,16 @@ instances: 1
 				ExpectedOut: `name: test-app
 timeout: 60
 memory: 256M
+healthCheck:
+  endpoint: /
+  timeout: 1
+  interval: 30
+  type: port
+readinessCheck:
+  endpoint: /
+  timeout: 1
+  interval: 30
+  type: process
 instances: 1
 `,
 				ExpectedErrMessage: "",
@@ -215,6 +224,16 @@ instances: 1
 				ExpectedOut: `name: test-app
 timeout: 60
 memory: 256M
+healthCheck:
+  endpoint: /
+  timeout: 1
+  interval: 30
+  type: port
+readinessCheck:
+  endpoint: /
+  timeout: 1
+  interval: 30
+  type: process
 instances: 1
 `,
 				OutputVerification: true},

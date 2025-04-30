@@ -62,14 +62,11 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 				foundProviders = append(foundProviders, util.DotnetProvider)
 				continue
 			}
-			if l.Name == "JavaScript" {
-				for _, item := range l.Tools {
-					if item == "NodeJs" || item == "Node.js" || item == "nodejs" {
-						foundProviders = append(foundProviders, util.NodeJSProvider)
-						// only need one instance of provider
-						break
-					}
-				}
+
+			// typescript ls supports both TS and JS
+			if l.Name == "JavaScript" || l.Name == "TypeScript" {
+				foundProviders = append(foundProviders, util.NodeJSProvider)
+
 			} else {
 				foundProviders = append(foundProviders, strings.ToLower(l.Name))
 			}

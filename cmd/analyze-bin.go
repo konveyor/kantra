@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io"
 	"log"
@@ -17,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
@@ -35,6 +37,27 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/yaml.v2"
 )
+
+type ConsoleHook struct {
+	Level logrus.Level
+	Log   logr.Logger
+}
+
+func (hook *ConsoleHook) Fire(entry *logrus.Entry) error {
+	_, err := entry.String()
+	if err != nil {
+		return nil // Ignore the error
+	}
+
+	if entry.Data["logger"] == "process-rule" {
+		hook.Log.Info("processing rule", "ruleID", entry.Data["ruleID"])
+	}
+	return nil
+}
+
+func (hook *ConsoleHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
 
 func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	err := a.ValidateContainerless(ctx)
@@ -79,6 +102,11 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	logrusAnalyzerLog.SetOutput(analysisLog)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
 	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
+
+	// add log hook, print the rule processing to the console
+	consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
+	logrusAnalyzerLog.AddHook(consoleHook)
+
 	analyzeLog := logrusr.New(logrusAnalyzerLog)
 
 	// log kantra errs to stderr
@@ -115,9 +143,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		os.Exit(1)
 	}
 
+	//scopes := []engine.Scope{}
+	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	if err != nil {
+		// allow for duplicate incidents rather than failing analysis
+		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	}
+
 	// Get the configs
 	a.log.Info("creating provider config")
-	finalConfigs, err := a.createProviderConfigsContainerless()
+	finalConfigs, err := a.createProviderConfigsContainerless(javaTargetPaths)
 	if err != nil {
 		errLog.Error(err, "unable to get Java provider configuration")
 		os.Exit(1)
@@ -160,6 +195,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 			needProviders[k] = v
 		}
 	}
+
 	err = a.startProvidersContainerless(ctx, needProviders)
 	if err != nil {
 		os.Exit(1)
@@ -378,7 +414,7 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 	return nil
 }
 
-func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config, error) {
+func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
 	javaConfig := provider.Config{
 		Name:       util.JavaProvider,
 		BinaryPath: a.reqMap["jdtls"],
@@ -404,20 +440,23 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
 
-	provConfig := []provider.Config{
-		{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     a.input,
-					AnalysisMode: provider.AnalysisMode(a.mode),
-				},
+	builtinConfig := provider.Config{
+		Name: "builtin",
+		InitConfig: []provider.InitConfig{
+			{
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: map[string]interface{}{},
 			},
 		},
 	}
-	provConfig = append(provConfig, javaConfig)
+	if len(excludedTargetPaths) > 0 {
+		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
+	}
 
-	for i := range provConfig {
+	provConfigs := []provider.Config{builtinConfig, javaConfig}
+
+	for i := range provConfigs {
 		// Set proxy to providers
 		if a.httpProxy != "" || a.httpsProxy != "" {
 			proxy := provider.Proxy{
@@ -426,12 +465,12 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 				NoProxy:    a.noProxy,
 			}
 
-			provConfig[i].Proxy = &proxy
+			provConfigs[i].Proxy = &proxy
 		}
-		provConfig[i].ContextLines = a.contextLines
+		provConfigs[i].ContextLines = a.contextLines
 	}
 
-	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
+	jsonData, err := json.MarshalIndent(&provConfigs, "", "	")
 	if err != nil {
 		a.log.V(1).Error(err, "failed to marshal provider config")
 		return nil, err
@@ -442,7 +481,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config
 			"failed to write provider config", "dir", a.output, "file", "settings.json")
 		return nil, err
 	}
-	configs := a.setConfigsContainerless(provConfig)
+	configs := a.setConfigsContainerless(provConfigs)
 	return configs, nil
 }
 
@@ -456,7 +495,9 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 			finalConfigs = append(finalConfigs, config)
 		}
 		for _, initConf := range config.InitConfig {
-			if _, ok := seenBuiltinConfigs[initConf.Location]; !ok {
+			builtinConf := provider.InitConfig{}
+			_, ok := seenBuiltinConfigs[initConf.Location]
+			if !ok {
 				if initConf.Location != "" {
 					if stat, err := os.Stat(initConf.Location); err == nil && stat.IsDir() {
 						builtinLocation, err := filepath.Abs(initConf.Location)
@@ -464,11 +505,20 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 							builtinLocation = initConf.Location
 						}
 						seenBuiltinConfigs[builtinLocation] = true
-						builtinConf := provider.InitConfig{Location: builtinLocation}
+						builtinConf = provider.InitConfig{Location: builtinLocation}
 						if config.Name == "builtin" {
 							builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
 						}
 						defaultBuiltinConfigs = append(defaultBuiltinConfigs, builtinConf)
+					}
+				}
+			}
+			//builtin config that already has location as other prov configs
+			if config.Name == "builtin" && ok {
+				builtinConf.ProviderSpecificConfig = initConf.ProviderSpecificConfig
+				for i, c := range defaultBuiltinConfigs {
+					if initConf.Location == c.Location {
+						defaultBuiltinConfigs[i] = initConf
 					}
 				}
 			}
@@ -707,4 +757,88 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
+}
+
+// assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
+func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, error) {
+	var targetPaths []interface{}
+	var err error
+	if a.isFileInput {
+		root, err = a.getJavaBinaryProjectDir(filepath.Dir(root))
+		if err != nil {
+			return nil, err
+		}
+		// for binaries, wait for "target" folder to decompile
+		err = a.waitForTargetDir(root)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && info.Name() == "target" {
+			targetPaths = append(targetPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return targetPaths, nil
+}
+
+func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
+	var foundDir string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
+			foundDir = path
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return foundDir, nil
+}
+
+func (a *analyzeCommand) waitForTargetDir(path string) error {
+	// worst case we timeout
+	// may need to increase
+	timeout := 20 * time.Second
+	timeoutChan := time.After(timeout)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	err = watcher.Add(path)
+	if err != nil {
+		return err
+	}
+	a.log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				info, err := os.Stat(event.Name)
+				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
+					a.log.Info("target sub-folder detected:", "folder", event.Name)
+					return nil
+				}
+			}
+		case err := <-watcher.Errors:
+			return err
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for target folder")
+		}
+	}
 }

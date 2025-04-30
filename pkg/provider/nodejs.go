@@ -21,6 +21,7 @@ func (p *NodeJsProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 					"lspServerName":                 "nodejs",
 					"workspaceFolders":              []string{fmt.Sprintf("file://%s", util.SourceMountPath)},
 					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
+					"lspServerArgs":                 []string{"--stdio"},
 				},
 			},
 		},
