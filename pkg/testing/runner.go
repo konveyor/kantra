@@ -36,6 +36,7 @@ type TestOptions struct {
 	ContainerToolBin   string
 	ProgressPrinter    ResultPrinter
 	Log                logr.Logger
+	Prune              bool
 }
 
 // TODO (pgaikwad): we need to move the default config to a common place
@@ -205,10 +206,13 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				}
 			default:
 				if reproducerCmd, err = runInContainer(
-					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams); err != nil {
+					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams, opts.Prune); err != nil {
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
+					if opts.Prune {
+
+					}
 					logFile.Close()
 					continue
 				}
@@ -316,7 +320,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (str
 	return fmt.Sprintf("konveyor-analyzer %s", strings.Join(args, " ")), cmd.Run()
 }
 
-func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams) (string, error) {
+func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams, cleanupVolumes bool) (string, error) {
 	if image == "" {
 		image = "quay.io/konveyor/analyzer-lsp:latest"
 	}
@@ -338,8 +342,10 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 		}...)
 	}
 	reproducerCmd := ""
-	err := container.NewContainer().Run(
-		context.TODO(),
+	ctx := context.TODO()
+	newContainer := container.NewContainer()
+	err := newContainer.Run(
+		ctx,
 		container.WithImage(image),
 		container.WithLog(consoleLogger),
 		container.WithEntrypointBin("konveyor-analyzer"),
@@ -355,6 +361,12 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 	if err != nil {
 		return reproducerCmd, fmt.Errorf("failed running analysis - %w", err)
 	}
+
+	err = newContainer.LogDebug(ctx, consoleLogger)
+	if err != nil {
+		consoleLogger.Error(err, "failed")
+	}
+
 	return reproducerCmd, nil
 }
 

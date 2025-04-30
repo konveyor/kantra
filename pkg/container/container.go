@@ -271,3 +271,24 @@ func (c *container) Rm(ctx context.Context) error {
 		"container tool", c.containerToolBin, "name", c.Name)
 	return cmd.Run()
 }
+
+// LogDebug performs a system prune
+func (c *container) LogDebug(ctx context.Context, logger logr.Logger) error {
+	//args := []string{"system", "prune", "-f"}
+	args := []string{"system", "df"}
+	cmd := exec.CommandContext(ctx, c.containerToolBin, args...)
+	errBytes := &bytes.Buffer{}
+	logger.Info("executing command", "container tool", c.containerToolBin, "cmd", c.entrypointBin, "args", strings.Join(args, " "))
+	//err := cmd.Run()
+	output, err := cmd.CombinedOutput()
+	fmt.Printf("\n%v", cmd.String())
+	fmt.Printf("\n%s", string(output))
+	if err != nil {
+		logger.Error(err, "container run error during cleanup")
+		if _, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf(errBytes.String())
+		}
+		return err
+	}
+	return nil
+}
