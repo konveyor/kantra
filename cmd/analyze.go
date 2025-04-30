@@ -526,6 +526,20 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 	return nil
 }
 
+func (a *analyzeCommand) needDefaultRules() {
+	needDefaultRulesets := false
+	for prov := range a.providersMap {
+		// default rulesets may have been disabled by user
+		if prov == javaProvider && a.enableDefaultRulesets {
+			needDefaultRulesets = true
+			break
+		}
+	}
+	if !needDefaultRulesets {
+		a.enableDefaultRulesets = false
+	}
+}
+
 func (a *analyzeCommand) ListAllProviders() {
 	supportedProvsContainer := []string{
 		"java",
@@ -1016,6 +1030,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		// output directory
 		a.output: util.OutputPath,
 	}
+	a.needDefaultRules()
 	var convertPath string
 	if xmlOutputDir != "" {
 		if !a.enableDefaultRulesets {
