@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,12 +144,12 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	}
 
 	volumes := map[string]string{
-		o.input: InputPath,
+		o.input: util.InputPath,
 	}
 	args := []string{
 		"-U", "org.openrewrite.maven:rewrite-maven-plugin:run",
 		fmt.Sprintf("-Drewrite.configLocation=%s/%s",
-			OpenRewriteRecipesPath, recipes[o.target].path),
+			util.OpenRewriteRecipesPath, recipes[o.target].path),
 		fmt.Sprintf("-Drewrite.activeRecipes=%s",
 			strings.Join(recipes[o.target].names, ",")),
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io/fs"
 	"log"
 	"os"
@@ -119,17 +120,17 @@ func (w *windupShimCommand) getRulesVolumes(tempRuleDir string) (map[string]stri
 			mountTempDir = true
 			xmlFileName := filepath.Base(r)
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
-			err := CopyFileContents(r, destFile)
+			err := util.CopyFileContents(r, destFile)
 			if err != nil {
 				w.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
-			rulesVolumes[r] = path.Join(XMLRulePath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(util.XMLRulePath, filepath.Base(r))
 		}
 	}
 	if mountTempDir {
-		rulesVolumes[tempRuleDir] = XMLRulePath
+		rulesVolumes[tempRuleDir] = util.XMLRulePath
 	}
 	return rulesVolumes, nil
 }
@@ -145,7 +146,7 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 		defer os.RemoveAll(tempDir)
 	}
 	volumes := map[string]string{
-		w.output: ShimOutputPath,
+		w.output: util.ShimOutputPath,
 	}
 	ruleVols, err := w.getRulesVolumes(tempDir)
 	if err != nil {
@@ -162,8 +163,8 @@ func (w *windupShimCommand) Run(ctx context.Context) error {
 	defer shimLog.Close()
 
 	args := []string{"convert",
-		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
-		XMLRulePath,
+		fmt.Sprintf("--outputdir=%v", util.ShimOutputPath),
+		util.XMLRulePath,
 	}
 	w.log.Info("running windup-shim convert command",
 		"args", strings.Join(args, " "), "volumes", volumes, "output", w.output, "inputs", strings.Join(w.input, ","))
@@ -208,7 +209,7 @@ func (a *analyzeCommand) ConvertXMLContainerless() (string, []string, error) {
 		return "", nil, err
 	}
 
-	isDirEmpty, err := IsXMLDirEmpty(tempDirConverted)
+	isDirEmpty, err := util.IsXMLDirEmpty(tempDirConverted)
 	if err != nil {
 		return "", nil, err
 	}
@@ -233,7 +234,7 @@ func (a *analyzeCommand) convertXmlRules(tempDirConverted string) (bool, []strin
 		}
 		// move xml rule files from user into dir
 		if !stat.IsDir() {
-			if !isXMLFile(r) {
+			if !util.IsXMLFile(r) {
 				continue
 			}
 			convertedDirInRules, err = a.convertXmlRuleFiles(r, i, tempXmlFileDirs, convertedDirInRules, tempDirConverted)
@@ -269,7 +270,7 @@ func (a *analyzeCommand) convertXmlRuleFiles(r string, i int, tempXmlFileDir []s
 	tempXmlFileDir = append(tempXmlFileDir, tempDirXml)
 	xmlFileName := filepath.Base(r)
 	destFile := filepath.Join(tempDirXml, xmlFileName)
-	err = CopyFileContents(r, destFile)
+	err = util.CopyFileContents(r, destFile)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 		return false, err

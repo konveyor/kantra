@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,23 +49,23 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 			c.log.V(5).Info("Got language", "component language", l)
 			if l.Name == "C#" {
 				for _, item := range l.Frameworks {
-					supported, ok := DotnetFrameworks[item]
+					supported, ok := util.DotnetFrameworks[item]
 					if ok {
 						if !supported {
 							err := fmt.Errorf("unsupported .NET Framework version")
 							c.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
 							return foundProviders, err
 						}
-						return []string{dotnetFrameworkProvider}, nil
+						return []string{util.DotnetFrameworkProvider}, nil
 					}
 				}
-				foundProviders = append(foundProviders, dotnetProvider)
+				foundProviders = append(foundProviders, util.DotnetProvider)
 				continue
 			}
 			if l.Name == "JavaScript" {
 				for _, item := range l.Tools {
 					if item == "NodeJs" || item == "Node.js" || item == "nodejs" {
-						foundProviders = append(foundProviders, nodeJSProvider)
+						foundProviders = append(foundProviders, util.NodeJSProvider)
 						// only need one instance of provider
 						break
 					}
@@ -82,36 +84,37 @@ func (c *AnalyzeCommandContext) setProviderInitInfo(foundProviders []string) err
 		if err != nil {
 			return err
 		}
+
 		switch prov {
-		case javaProvider:
-			c.providersMap[javaProvider] = ProviderInit{
+		case util.JavaProvider:
+			c.providersMap[util.JavaProvider] = ProviderInit{
 				port:     port,
 				image:    Settings.JavaProviderImage,
-				provider: &JavaProvider{},
+				provider: &provider2.JavaProvider{},
 			}
-		case goProvider:
-			c.providersMap[goProvider] = ProviderInit{
+		case util.GoProvider:
+			c.providersMap[util.GoProvider] = ProviderInit{
 				port:     port,
 				image:    Settings.GenericProviderImage,
-				provider: &GoProvider{},
+				provider: &provider2.GoProvider{},
 			}
-		case pythonProvider:
-			c.providersMap[pythonProvider] = ProviderInit{
+		case util.PythonProvider:
+			c.providersMap[util.PythonProvider] = ProviderInit{
 				port:     port,
 				image:    Settings.GenericProviderImage,
-				provider: &PythonProvider{},
+				provider: &provider2.PythonProvider{},
 			}
-		case nodeJSProvider:
-			c.providersMap[nodeJSProvider] = ProviderInit{
+		case util.NodeJSProvider:
+			c.providersMap[util.NodeJSProvider] = ProviderInit{
 				port:     port,
 				image:    Settings.GenericProviderImage,
-				provider: &NodeJsProvider{},
+				provider: &provider2.NodeJsProvider{},
 			}
-		case dotnetProvider:
-			c.providersMap[dotnetProvider] = ProviderInit{
+		case util.DotnetProvider:
+			c.providersMap[util.DotnetProvider] = ProviderInit{
 				port:     port,
 				image:    Settings.DotnetProviderImage,
-				provider: &DotNetProvider{},
+				provider: &provider2.DotNetProvider{},
 			}
 		}
 	}
@@ -203,7 +206,7 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 		// for cleanup
 		c.tempDirs = append(c.tempDirs, tempDir)
 
-		err = CopyFileContents(input, filepath.Join(tempDir, file))
+		err = util.CopyFileContents(input, filepath.Join(tempDir, file))
 		if err != nil {
 			c.log.V(1).Error(err, "failed copying binary file")
 			return "", err
