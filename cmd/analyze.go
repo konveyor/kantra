@@ -530,7 +530,7 @@ func (a *analyzeCommand) needDefaultRules() {
 	needDefaultRulesets := false
 	for prov := range a.providersMap {
 		// default rulesets may have been disabled by user
-		if prov == javaProvider && a.enableDefaultRulesets {
+		if prov == util.JavaProvider && a.enableDefaultRulesets {
 			needDefaultRulesets = true
 			break
 		}
