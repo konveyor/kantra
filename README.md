@@ -19,7 +19,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 ## Prerequisites
 
-_Podman 4+_ is required to run kantra. By default, it is configured to use the podman executable available on the host. 
+_Podman 4+_ is required to run kantra. By default, it is configured to use the podman executable available on the host.
 
 Although kantra is primarily tested with podman, _Docker Engine 24+_ or _Docker Desktop 4+_ can be used as an alternative. To use docker, set the environment variable `CONTAINER_TOOL` pointing to the docker executable's path:
 
@@ -29,20 +29,20 @@ export CONTAINER_TOOL=/usr/bin/docker
 
 ## Installation
 
-To install kantra, download the executable for your platform and add it to the path.  
+To install kantra, download the executable for your platform and add it to the path.
 
 Note: For Mac you might get a "Apple could not verify" error message. If you do you can run `xattr -d com.apple.quarantine kantra` to have Apple trust the `kantra` binary.
 
 ### Downloading stable release
 
-Go to the [release page](https://github.com/konveyor/kantra/releases) and download the zip file containing a binary for your platform and architecture. Unzip the archive and add the executable in it to the path. 
+Go to the [release page](https://github.com/konveyor/kantra/releases) and download the zip file containing a binary for your platform and architecture. Unzip the archive and add the executable in it to the path.
 
 ### Downloading the latest / particular version
 
 The easiest way to get the latest (or a particular/older) executable is to get it from the respective container image.
 
 Set the shell variable `kantra_version` to a particular version if you want to grab that version,
-e.g., `kantra_version=v0.4.0`. 
+e.g., `kantra_version=v0.4.0`.
 
 #### Linux
 
@@ -54,7 +54,7 @@ ${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-do
 
 #### Mac
 
-When you are not using Docker for Desktop on your Mac (see above), 
+When you are not using Docker for Desktop on your Mac (see above),
 you need to start a podman machine prior to running any podman commands (see [Setup for Mac](#mac-1))
 
 Once a machine is started, run:
@@ -81,9 +81,9 @@ ${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-do
 On Mac and Windows, a podman machine needs to be started prior to running any commands, unless you are using Docker (for Desktop):
 
 ##### Mac
-      
+
 Prior to starting your podman machine, run:
-    
+
 ```sh
 ulimit -n unlimited
 ```
@@ -91,7 +91,7 @@ ulimit -n unlimited
 Init your podman machine :
 
   * _Podman 4_:
-        
+
     Podman 4 requires some host directories to be mounted within the VM:
 
     ```sh
@@ -109,7 +109,7 @@ Init your podman machine :
 > If the input and/or output directories you intend to use with kantra fall outside the tree of $HOME, /private/tmp and /var/folders directories, you should mount those directories in addition to the default.
 
 Increase podman resources (minimum 4G memory is required):
-    
+
 ```sh
 podman machine set <vm_name> --cpus 4 --memory 4096
 ```
@@ -146,7 +146,7 @@ To run analysis on application source code, run:
 kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
 ```
 
-_--input_ must point to a source code directory or a binary file, _--output_ must point to a directory to contain analysis results. 
+_--input_ must point to a source code directory or a binary file, _--output_ must point to a directory to contain analysis results.
 
 All flags:
 
@@ -193,7 +193,7 @@ kantra analyze --bulk --input=<path/to/source/C> --output=<path/to/output/ABC>
 
 Transform has two subcommands:
 
-1. _openrewrite_: This subcommand allows running one or more available OpenRewrite recipes on input source code.  
+1. _openrewrite_: This subcommand allows running one or more available OpenRewrite recipes on input source code.
 
 2. _rules_: This subcommand allows converting Windup XML rules into the analyzer-lsp YAML format.
 
@@ -207,7 +207,7 @@ To transform applications using OpenRewrite, run:
 kantra transform openrewrite --input=<path/to/source/code> --target=<exactly_one_target_from_the_list>
 ```
 
-The value of _--target_ option must be one of the available OpenRewrite recipes. To list all available recipes, run: 
+The value of _--target_ option must be one of the available OpenRewrite recipes. To list all available recipes, run:
 
 ```sh
 kantra transform --list-targets
@@ -248,7 +248,7 @@ Flags:
 
 ### Test
 
-_test_ subcommand allows running tests on YAML rules written for analyzer-lsp. 
+_test_ subcommand allows running tests on YAML rules written for analyzer-lsp.
 
 The input to test runner will be one or more test files and / or directories containing tests written in YAML.
 
@@ -319,12 +319,12 @@ Flags:
       --set stringArray     Set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
 ```
 
-## References 
+## References
 
 - [Example usage scenarios](./docs/examples.md)
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
-- [Setup dev environment instructions](./hack/README#setup-dev-environment-for-asset-generation)
+- [Setup dev environment instructions](./hack/README.md#setup-dev-environment-for-asset-generation)
 
 ## Code of Conduct
 
