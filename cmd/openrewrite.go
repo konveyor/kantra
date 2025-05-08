@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,12 +144,12 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	}
 
 	volumes := map[string]string{
-		o.input: InputPath,
+		o.input: util.InputPath,
 	}
 	args := []string{
 		"-U", "org.openrewrite.maven:rewrite-maven-plugin:run",
 		fmt.Sprintf("-Drewrite.configLocation=%s/%s",
-			OpenRewriteRecipesPath, recipes[o.target].path),
+			util.OpenRewriteRecipesPath, recipes[o.target].path),
 		fmt.Sprintf("-Drewrite.activeRecipes=%s",
 			strings.Join(recipes[o.target].names, ",")),
 	}
@@ -164,7 +165,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 		o.log.V(1).Info("created directory for maven settings file", "dir", tempDir)
 		defer os.RemoveAll(tempDir)
 
-		err = CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
+		err = util.CopyFileContents(o.mavenSettingsFile, filepath.Join(tempDir, "settings.xml"))
 		if err != nil {
 			o.log.V(1).Error(err, "failed copying maven settings file", "path", o.mavenSettingsFile)
 			return err

@@ -1,6 +1,7 @@
-package cmd
+package provider
 
 import (
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -8,13 +9,13 @@ type BuiltinProvider struct {
 	config provider.Config
 }
 
-func (p *BuiltinProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provider.Config, error) {
+func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 	p.config = provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     SourceMountPath,
-				AnalysisMode: provider.AnalysisMode(a.mode),
+				Location:     util.SourceMountPath,
+				AnalysisMode: provider.AnalysisMode(c.Mode),
 			},
 		},
 	}

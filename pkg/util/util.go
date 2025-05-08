@@ -1,4 +1,4 @@
-package cmd
+package util
 
 import (
 	"bufio"
@@ -27,14 +27,14 @@ var (
 
 // provider config options
 const (
-	mavenSettingsFile      = "mavenSettingsFile"
-	lspServerPath          = "lspServerPath"
-	lspServerName          = "lspServerName"
-	workspaceFolders       = "workspaceFolders"
-	dependencyProviderPath = "dependencyProviderPath"
+	MavenSettingsFile      = "mavenSettingsFile"
+	LspServerPath          = "lspServerPath"
+	LspServerName          = "lspServerName"
+	WorkspaceFolders       = "workspaceFolders"
+	DependencyProviderPath = "dependencyProviderPath"
 )
 
-func copyFolderContents(src string, dst string) error {
+func CopyFolderContents(src string, dst string) error {
 	err := os.MkdirAll(dst, os.ModePerm)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func copyFolderContents(src string, dst string) error {
 
 		if item.IsDir() {
 			// Recursively copy subdirectories
-			if err := copyFolderContents(sourcePath, destinationPath); err != nil {
+			if err := CopyFolderContents(sourcePath, destinationPath); err != nil {
 				return err
 			}
 		} else {
@@ -98,11 +98,11 @@ func LoadEnvInsensitive(variableName string) string {
 	}
 }
 
-func isXMLFile(rule string) bool {
+func IsXMLFile(rule string) bool {
 	return path.Ext(rule) == ".xml"
 }
 
-func walkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
+func WalkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
 	return func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			*labelsSlice, err = readRuleFile(path, labelsSlice, label)
@@ -144,7 +144,7 @@ func getSourceOrTargetLabel(text string, label string) string {
 	return ""
 }
 
-func listOptionsFromLabels(sl []string, label string, out io.Writer) {
+func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 	var newSl []string
 	l := label + "="
 

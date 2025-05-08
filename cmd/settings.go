@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"os/exec"
 	"strings"
@@ -98,8 +99,8 @@ func (c *Config) loadRunnerImg() error {
 }
 
 func (c *Config) loadCommandName() error {
-	if RootCommandName != "kantra" {
-		err := os.Setenv("CMD_NAME", RootCommandName)
+	if util.RootCommandName != "kantra" {
+		err := os.Setenv("CMD_NAME", util.RootCommandName)
 		if err != nil {
 			return err
 		}
@@ -110,7 +111,7 @@ func (c *Config) loadCommandName() error {
 func (c *Config) loadProviders() error {
 	// if version tag is given in image
 	if os.Getenv("JAVA_PROVIDER_IMG") == "" {
-		javaImg := strings.TrimSuffix(JavaProviderImage, fmt.Sprintf(":%v", Version))
+		javaImg := strings.TrimSuffix(util.JavaProviderImage, fmt.Sprintf(":%v", Version))
 		updatedJavaImg := fmt.Sprintf("%v:%v", javaImg, Version)
 		err := os.Setenv("JAVA_PROVIDER_IMG", updatedJavaImg)
 		if err != nil {
@@ -120,7 +121,7 @@ func (c *Config) loadProviders() error {
 
 	if os.Getenv("GENERIC_PROVIDER_IMG") == "" {
 		// if version tag is given in image
-		genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
+		genericImg := strings.TrimSuffix(util.GenericProviderImage, fmt.Sprintf(":%v", Version))
 		updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
 		err := os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
 		if err != nil {
@@ -130,7 +131,7 @@ func (c *Config) loadProviders() error {
 
 	if os.Getenv("DOTNET_PROVIDER_IMG") == "" {
 		// if version tag is given in image
-		dotnetImg := strings.TrimSuffix(DotnetProviderImage, fmt.Sprintf(":%v", Version))
+		dotnetImg := strings.TrimSuffix(util.DotnetProviderImage, fmt.Sprintf(":%v", Version))
 		updatedDotnetImg := fmt.Sprintf("%v:%v", dotnetImg, Version)
 		err := os.Setenv("DOTNET_PROVIDER_IMG", updatedDotnetImg)
 		if err != nil {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io"
 	"log"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
@@ -177,7 +180,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	needProviders := map[string]provider.InternalProviderClient{}
 
 	if a.enableDefaultRulesets {
-		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
+		a.rules = append(a.rules, filepath.Join(a.kantraDir, util.RulesetsLocation))
 	}
 
 	for _, f := range a.rules {
@@ -287,8 +290,8 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation),
-		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
+	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, util.RulesetsLocation), filepath.Join(a.kantraDir, util.JavaBundlesLocation),
+		filepath.Join(a.kantraDir, util.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
@@ -314,7 +317,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		listOptionsFromLabels(sourceSlice, sourceLabel, out)
+		util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
 		return nil
 	}
 	if listTargets {
@@ -323,7 +326,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		listOptionsFromLabels(targetsSlice, targetLabel, out)
+		util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
 		return nil
 	}
 
@@ -332,18 +335,18 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 
 func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(a.kantraDir, RulesetsLocation)
+	path := filepath.Join(a.kantraDir, util.RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		a.log.Error(err, "cannot open provided path")
 		return nil, err
 	}
-	err := filepath.WalkDir(path, walkRuleSets(path, label, &labelsSlice))
+	err := filepath.WalkDir(path, util.WalkRuleSets(path, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	if len(a.rules) > 0 {
 		for _, p := range a.rules {
-			err := filepath.WalkDir(p, walkRuleSets(p, label, &labelsSlice))
+			err := filepath.WalkDir(p, util.WalkRuleSets(p, label, &labelsSlice))
 			if err != nil {
 				return nil, err
 			}
@@ -357,7 +360,7 @@ func (a *analyzeCommand) setKantraDir() error {
 	var err error
 	set := true
 	reqs := []string{
-		RulesetsLocation,
+		util.RulesetsLocation,
 		"jdtls",
 		"static-report",
 	}
@@ -396,8 +399,8 @@ func (a *analyzeCommand) setKantraDir() error {
 }
 
 func (a *analyzeCommand) setBinMapContainerless() error {
-	a.reqMap["bundle"] = filepath.Join(a.kantraDir, JavaBundlesLocation)
-	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, JDTLSBinLocation)
+	a.reqMap["bundle"] = filepath.Join(a.kantraDir, util.JavaBundlesLocation)
+	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, util.JDTLSBinLocation)
 	// validate
 	for _, v := range a.reqMap {
 		stat, err := os.Stat(v)
@@ -413,7 +416,7 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 
 func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
 	javaConfig := provider.Config{
-		Name:       javaProvider,
+		Name:       util.JavaProvider,
 		BinaryPath: a.reqMap["jdtls"],
 		InitConfig: []provider.InitConfig{
 			{
@@ -422,7 +425,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 				ProviderSpecificConfig: map[string]interface{}{
 					"cleanExplodedBin":              true,
 					"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
-					"lspServerName":                 javaProvider,
+					"lspServerName":                 util.JavaProvider,
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
@@ -551,7 +554,7 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 		var prov provider.InternalProviderClient
 		var err error
 		// only create java and builtin providers
-		if config.Name == javaProvider {
+		if config.Name == util.JavaProvider {
 			prov = java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
 
 		} else if config.Name == "builtin" {
@@ -707,7 +710,7 @@ func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.Fi
 	outputFolderDestPath := filepath.Join(a.output, "static-report")
 
 	//copy static report files to output folder
-	err := copyFolderContents(outputFolderSrcPath, outputFolderDestPath)
+	err := util.CopyFolderContents(outputFolderSrcPath, outputFolderDestPath)
 	if err != nil {
 		return err
 	}
@@ -754,4 +757,88 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
+}
+
+// assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
+func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, error) {
+	var targetPaths []interface{}
+	var err error
+	if a.isFileInput {
+		root, err = a.getJavaBinaryProjectDir(filepath.Dir(root))
+		if err != nil {
+			return nil, err
+		}
+		// for binaries, wait for "target" folder to decompile
+		err = a.waitForTargetDir(root)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && info.Name() == "target" {
+			targetPaths = append(targetPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return targetPaths, nil
+}
+
+func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
+	var foundDir string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
+			foundDir = path
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return foundDir, nil
+}
+
+func (a *analyzeCommand) waitForTargetDir(path string) error {
+	// worst case we timeout
+	// may need to increase
+	timeout := 20 * time.Second
+	timeoutChan := time.After(timeout)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	err = watcher.Add(path)
+	if err != nil {
+		return err
+	}
+	a.log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				info, err := os.Stat(event.Name)
+				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
+					a.log.Info("target sub-folder detected:", "folder", event.Name)
+					return nil
+				}
+			}
+		case err := <-watcher.Errors:
+			return err
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for target folder")
+		}
+	}
 }
