@@ -262,7 +262,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						return err
 					}
 				}
-				if len(foundProviders) == 1 && foundProviders[0] == dotnetFrameworkProvider {
+
+				if len(foundProviders) > 0 && slices.Contains(foundProviders, dotnetFrameworkProvider) {
+					log.Info(".Net framework provider found, running windows analysis. Otherwise, set --provider")
 					return analyzeCmd.analyzeDotnetFramework(ctx)
 				}
 
