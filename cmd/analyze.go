@@ -839,7 +839,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 				return nil, err
 			}
 		} else {
-			a.log.V(5).Info("coping dir", "directory", r)
+			a.log.V(5).Info("copying dir", "directory", r)
 			err = filepath.WalkDir(r, func(path string, d fs.DirEntry, err error) error {
 				if path == r {
 					return nil
@@ -850,7 +850,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 				} else {
 					// If we are unable to get the file attributes, probably safe to assume this is not a
 					// valid rule or ruleset and lets skip it for now.
-					if isHidden, err := hiddenfile.IsHidden(d.Name()); isHidden || err != nil {
+					if isHidden, err := hiddenfile.IsHidden(path); isHidden || err != nil {
 						a.log.V(5).Info("skipping hidden file", "path", path, "error", err)
 						return nil
 					}
