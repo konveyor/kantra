@@ -3,10 +3,13 @@
 
 package hiddenfile
 
+import "path/filepath"
+
 const dotCharacter = 46
 
-func IsHidden(name string) (bool, error) {
-	if name[0] == dotCharacter {
+func IsHidden(path string) (bool, error) {
+	filename := filepath.Base(path)
+	if filename[0] == dotCharacter {
 		return true, nil
 	}
 
