@@ -1,32 +1,35 @@
 package cloud_foundry
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
-	discover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry"
-	korifiDiscover "github.com/konveyor/asset-generation/pkg/discover/cloud_foundry/korifi/provider"
-
+	pInterfaces "github.com/konveyor/asset-generation/pkg/providers"
+	cfProvider "github.com/konveyor/asset-generation/pkg/providers/cf"
+	kProvider "github.com/konveyor/asset-generation/pkg/providers/korifi"
+	dTypes "github.com/konveyor/asset-generation/pkg/providers/types/discover"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
 var (
-	useLive        bool
-	input          string
-	output         string
-	cfURL          string
-	username       string
-	kubeconfigPath string
-	spaces         []string
-	outputPrefix   string
-	outputFolder   string
-
-	logger logr.Logger
+	useLive           bool
+	inputFolder       string
+	apiURL            string
+	pType             string
+	username          string
+	kubeconfigPath    string
+	spaces            []string
+	outputPrefix      string
+	outputFolder      string
+	cfToken           string
+	skipSslValidation bool
+	cfConfigPath      string
+	logger            logr.Logger
 )
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
@@ -39,102 +42,117 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 			if err := cmd.ParseFlags(args); err != nil {
 				return err
 			}
+			if useLive && len(spaces) == 0 {
+				return fmt.Errorf("at least one space is required")
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return discoverManifest(cmd.OutOrStdout())
 		},
 	}
-	cmd.Flags().StringVar(&input, "input", "", "specify the location of the manifest.yaml to analyze.")
-	cmd.Flags().StringVar(&output, "output", "", "output file (default: standard output).")
+	cmd.Flags().StringVar(&outputFolder, "output-folder", "./output-manifests", "output folder path (default: \"./output-manifests-\"). If doesn't exist, it will be created.")
+	cmd.Flags().StringVar(&inputFolder, "input-folder", "./input-manifests", "input folder path of the manifest to analyze (default: \"./input-manifests-\").")
+
 	// live discovery flags
 	cmd.Flags().BoolVar(&useLive, "use-live-connection", false, "uses live platform connections for real-time discovery")
-	cmd.Flags().StringVar(&cfURL, "cf-url", "", "cf API URL (e.g., http://172.18.0.2).")
-	cmd.Flags().StringVar(&username, "username", "", "Korifi username")
-	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig-path", "~/.kube/config", "kubeconfig-path default: ~/.kube/config")
-	cmd.Flags().StringSliceVar(&spaces, "spaces", []string{}, "list of spaces to check (e.g. --spaces=\"s1,s2\"). If not provided, all spaces will be checked.")
-	cmd.Flags().StringVar(&outputPrefix, "output-prefix", "manifest_", "output prefix filename (default: \"manifest_\").")
-	cmd.Flags().StringVar(&outputFolder, "output-folder", "./manifests", "output folder path (default: \"./manifests-\"). If doesn't exist, it will be created.")
+	cmd.Flags().StringVar(&pType, "platformType", "cf", "Platform type (cf or korifi). Default is cf.")
+	cmd.Flags().StringVar(&apiURL, "api-url", "", "API URL (e.g., http://172.18.0.2).")
+	cmd.Flags().StringVar(&username, "username", "", "Username")
 
-	cmd.MarkFlagFilename("input", "yaml", "yml")
+	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig-path", "~/.kube/config", "kubeconfig path. Default: ~/.kube/config")
+	cmd.Flags().StringVar(&cfConfigPath, "cf-config", "~/.cf/config", "Cloud Foundry config path. Default: ~/.cf/config")
+	cmd.Flags().StringVar(&cfToken, "cf-token", "", "Cloud Foundry token")
+
+	cmd.Flags().StringSliceVar(&spaces, "spaces", []string{}, "list of spaces to check (e.g. --spaces=\"s1,s2\"). At least one space is required.")
+	cmd.Flags().BoolVar(&skipSslValidation, "skip-ssl-validation", false, "Skip SSL validation for the API URL. Deafult: false.")
+
+	// cmd.MarkFlagFilename("input", "yaml", "yml")
 	cmd.MarkFlagFilename("output")
-	cmd.MarkFlagsOneRequired("input", "use-live-connection")
-	cmd.MarkFlagsMutuallyExclusive("input", "use-live-connection")
-	cmd.MarkFlagsMutuallyExclusive("input", "output-prefix")
-	cmd.MarkFlagsMutuallyExclusive("output", "output-prefix")
 
-	cmd.MarkFlagsRequiredTogether("use-live-connection", "username", "cf-url")
+	cmd.MarkFlagsMutuallyExclusive("cf-config", "kubeconfig-path")
+	cmd.MarkFlagsMutuallyExclusive("cf-config", "cf-token")
+
+	cmd.MarkFlagsRequiredTogether("use-live-connection", "api-url", "spaces")
 
 	return "Cloud Foundry V3 (local manifest)", cmd
 }
 
 func discoverManifest(writer io.Writer) error {
 	var err error
-	var b []byte
 	if !useLive {
-		b, err = os.ReadFile(input)
+		files, err := os.ReadDir(inputFolder)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
-		err = writeManifest(writer, b)
+
+		for _, manifestFile := range files {
+			if manifestFile.IsDir() {
+				log.Printf("unsupported nested directory. Skipping: %s\n", manifestFile.Name())
+				continue
+			}
+
+			cfg := cfProvider.Config{
+				ManifestPath: filepath.Join(inputFolder, manifestFile.Name()),
+				OutputFolder: outputFolder,
+			}
+
+			apps, err := pInterfaces.Discover[[]dTypes.Application](&cfg)
+			if err != nil {
+				return err
+			}
+
+			err = OutputAppManifestsYAML(writer, apps)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	} else {
-		korifiConfig := korifiDiscover.KorifiConfig{
-			KubeconfigPath: kubeconfigPath,
-			Username:       username,
-			BaseURL:        cfURL,
-		}
+		var cfg pInterfaces.Config
 
-		korifiProvider := korifiDiscover.NewKorifiProvider(korifiConfig)
-		ld, err := discover.NewLiveDiscoverer(logger, korifiProvider, &spaces)
+		// platformConfig := map[string]any{}
+		if pType == "korifi" {
+			cfg = &kProvider.Config{
+				KubeconfigPath: kubeconfigPath,
+				Username:       username,
+				BaseURL:        apiURL,
+				SpaceNames:     spaces,
+			}
+		} else if pType == "cf" {
+			// platformConfig = map[string]any{}
+			cfg = &cfProvider.Config{
+				CFConfigPath:      cfConfigPath,
+				Username:          username,
+				Token:             cfToken,
+				APIEndpoint:       apiURL,
+				SkipSslValidation: skipSslValidation,
+				SpaceNames:        spaces,
+			}
+		}
+		apps, err := pInterfaces.Discover[[]dTypes.Application](cfg)
 		if err != nil {
 			return err
 		}
-		cfManifests, err := ld.Discover()
+		log.Println(apps)
+		err = OutputAppManifestsYAML(writer, apps)
 		if err != nil {
 			return err
-		}
-		for i, cfManifest := range *cfManifests {
-			b, err := json.Marshal(cfManifest)
-			if err != nil {
-				return err
-			}
-
-			err = os.MkdirAll(outputFolder, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("failed to create output directory: %w", err)
-			}
-			filename := fmt.Sprintf("%s%s.yaml", outputPrefix, cfManifest.Space)
-			fullPath := filepath.Join(outputFolder, filename)
-
-			if err := os.WriteFile(fullPath, b, 0644); err != nil {
-				return err
-			}
-			fmt.Fprintf(writer, "Writing %d of %d manifests: %s\n", i, len(*cfManifests), fullPath)
 		}
 	}
 	return err
 }
 
-func writeManifest(writer io.Writer, b []byte) error {
-	ma := discover.CloudFoundryManifest{}
-	err := yaml.Unmarshal(b, &ma)
-	if err != nil {
-		return err
+func OutputAppManifestsYAML(writer io.Writer, apps []dTypes.Application) error {
+	if apps != nil && outputFolder != "" {
+		for _, appManifest := range apps {
+			b, err := yaml.Marshal(appManifest)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("discovered manifest: %v\n", appManifest)
+			fmt.Fprintf(writer, "%s", b)
+		}
 	}
-	a, err := discover.Discover(ma)
-	if err != nil {
-		return err
-
-	}
-	fmt.Printf("discovered manifest: %v\n", a)
-	b, err = yaml.Marshal(a)
-	if err != nil {
-		return err
-
-	}
-	if output == "" {
-		fmt.Fprintf(writer, "%s", b)
-		return nil
-	}
-	return os.WriteFile(output, b, 0644)
+	return nil
 }
