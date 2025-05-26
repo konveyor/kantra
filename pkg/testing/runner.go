@@ -360,7 +360,7 @@ func runInContainer(consoleLogger logr.Logger, image string, containerBin string
 	}
 
 	if prune {
-		err = newContainer.RunCommand(ctx, consoleLogger, "system", "prune", "--all")
+		err = newContainer.RunCommand(ctx, consoleLogger, "system", "prune", "-f", "--all")
 		if err != nil {
 			consoleLogger.Error(err, "failed")
 		}
