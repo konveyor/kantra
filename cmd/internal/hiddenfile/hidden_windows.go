@@ -11,13 +11,14 @@ import (
 const dotCharacter = 46
 
 // isHidden checks if a file is hidden on Windows.
-func IsHidden(name string) (bool, error) {
+func IsHidden(path string) (bool, error) {
+	filename := filepath.Base(path)
 	// dotfiles also count as hidden (if you want)
-	if name[0] == dotCharacter {
+	if filename[0] == dotCharacter {
 		return true, nil
 	}
 
-	absPath, err := filepath.Abs(name)
+	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return false, err
 	}
