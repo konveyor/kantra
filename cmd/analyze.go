@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"io"
 	"io/fs"
 	"os"
@@ -43,7 +43,7 @@ type ProviderInit struct {
 	// used for failed provider container retry attempts
 	isRunning     bool
 	containerName string
-	provider      provider2.Provider
+	provider      kantraProvider.Provider
 }
 
 // kantra analyze flags
@@ -675,19 +675,19 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 
 	var provConfig []provider.Config
 	_, depsFolders := a.getDepsFolders()
-	configInput := provider2.ConfigInput{
+	configInput := kantraProvider.ConfigInput{
 		IsFileInput:       a.isFileInput,
 		InputPath:         a.input,
 		OutputPath:        a.output,
 		MavenSettingsFile: a.mavenSettingsFile,
 		Log:               a.log,
 		Mode:              a.mode,
-		Port:              -1,
+		Port:              6734,
 		TmpDir:            tempDir,
 		JvmMaxMem:         Settings.JvmMaxMem,
 		DepsFolders:       depsFolders,
 	}
-	var builtinProvider = provider2.BuiltinProvider{}
+	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)
 	provConfig = append(provConfig, config)
 

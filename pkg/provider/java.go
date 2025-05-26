@@ -2,9 +2,14 @@ package provider
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -53,4 +58,88 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 	}
 
 	return p.config, nil
+}
+
+// assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
+func WalkJavaPathForTarget(log logr.Logger, isFileInput bool, root string) ([]interface{}, error) {
+	var targetPaths []interface{}
+	var err error
+	if isFileInput {
+		root, err = GetJavaBinaryProjectDir(filepath.Dir(root))
+		if err != nil {
+			return nil, err
+		}
+		// for binaries, wait for "target" folder to decompile
+		err = WaitForTargetDir(log, root)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && info.Name() == "target" {
+			targetPaths = append(targetPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return targetPaths, nil
+}
+
+func GetJavaBinaryProjectDir(root string) (string, error) {
+	var foundDir string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
+			foundDir = path
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return foundDir, nil
+}
+
+func WaitForTargetDir(log logr.Logger, path string) error {
+	// worst case we timeout
+	// may need to increase
+	timeout := 20 * time.Second
+	timeoutChan := time.After(timeout)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	err = watcher.Add(path)
+	if err != nil {
+		return err
+	}
+	log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				info, err := os.Stat(event.Name)
+				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
+					log.Info("target sub-folder detected:", "folder", event.Name)
+					return nil
+				}
+			}
+		case err := <-watcher.Errors:
+			return err
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for target folder")
+		}
+	}
 }

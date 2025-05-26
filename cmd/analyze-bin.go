@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io"
 	"log"
@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
@@ -144,7 +143,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	//scopes := []engine.Scope{}
-	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
 	if err != nil {
 		// allow for duplicate incidents rather than failing analysis
 		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
@@ -757,88 +756,4 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
-}
-
-// assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
-func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, error) {
-	var targetPaths []interface{}
-	var err error
-	if a.isFileInput {
-		root, err = a.getJavaBinaryProjectDir(filepath.Dir(root))
-		if err != nil {
-			return nil, err
-		}
-		// for binaries, wait for "target" folder to decompile
-		err = a.waitForTargetDir(root)
-		if err != nil {
-			return nil, err
-		}
-	}
-	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() && info.Name() == "target" {
-			targetPaths = append(targetPaths, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return targetPaths, nil
-}
-
-func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
-	var foundDir string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
-			foundDir = path
-			return nil
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return foundDir, nil
-}
-
-func (a *analyzeCommand) waitForTargetDir(path string) error {
-	// worst case we timeout
-	// may need to increase
-	timeout := 20 * time.Second
-	timeoutChan := time.After(timeout)
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-	err = watcher.Add(path)
-	if err != nil {
-		return err
-	}
-	a.log.V(7).Info("waiting for target directory in decompiled Java project")
-
-	for {
-		select {
-		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create {
-				info, err := os.Stat(event.Name)
-				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
-					a.log.Info("target sub-folder detected:", "folder", event.Name)
-					return nil
-				}
-			}
-		case err := <-watcher.Errors:
-			return err
-		case <-timeoutChan:
-			return fmt.Errorf("timeout waiting for target folder")
-		}
-	}
 }
