@@ -183,28 +183,29 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			}
 			// we already know in this group, all tcs have same params, use any
 			analysisParams := tests[0].TestCases[0].AnalysisParams
-			// write provider settings file
-			volumes, err := ensureProviderSettings(
-				tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
-			if err != nil {
-				results = append(results, Result{
-					TestsFilePath: testsFile.Path,
-					Error:         fmt.Errorf("failed writing provider settings - %w", err)})
-				logFile.Close()
-				continue
-			}
-			volumes[tempDir] = "/shared/"
+
 			reproducerCmd := ""
-			switch {
-			case opts.RunLocal:
-				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams); err != nil {
+			content := []byte{}
+			if opts.RunLocal {
+				// Run with kantra on local mode
+				// For the moment lets assume that all the data for a given test is in the same dataPath
+				dataPath := testsFile.Providers[0].DataPath
+				if dataPath == "" {
+					err = fmt.Errorf("the dataPath field cannot be empty")
+				}
+				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(dataPath))
+				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams, dataPath); err != nil {
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
 					logFile.Close()
 					continue
 				}
-			default:
+				content, err = os.ReadFile(filepath.Join(tempDir, "output", "output.yaml"))
+			} else {
+				// write provider settings file
+				volumes, err := ensureProviderSettings(tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
+				volumes[tempDir] = "/shared/"
 				if reproducerCmd, err = runInContainer(
 					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams, opts.Prune); err != nil {
 					results = append(results, Result{
@@ -213,12 +214,20 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 					logFile.Close()
 					continue
 				}
+				if err != nil {
+					results = append(results, Result{
+						TestsFilePath: testsFile.Path,
+						Error:         fmt.Errorf("failed writing provider settings - %w", err)})
+					logFile.Close()
+					continue
+				}
+				content, err = os.ReadFile(filepath.Join(tempDir, "output.yaml"))
 			}
+
 			// write reproducer command to a file
 			os.WriteFile(filepath.Join(tempDir, "reproducer.sh"), []byte(reproducerCmd), 0755)
 			// process output
 			outputRulesets := []konveyor.RuleSet{}
-			content, err := os.ReadFile(filepath.Join(tempDir, "output.yaml"))
 			if err != nil {
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
@@ -293,28 +302,34 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 	return allResults, nil
 }
 
-func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams) (string, error) {
-	// run analysis in a container
+// runLocal runs tests locally by calling kantra binary itself in local mode
+func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams, input string) (string, error) {
+	os.Mkdir(filepath.Join(dir, "output"), 0755)
 	args := []string{
-		"--provider-settings",
-		filepath.Join(dir, "provider_settings.json"),
-		"--output-file",
-		filepath.Join(dir, "output.yaml"),
-		"--rules",
-		filepath.Join(dir, "rules.yaml"),
-		"--verbose",
-		"20",
+		"analyze",
+		"--run-local",
+		"--skip-static-report",
+		"--input", input,
+		"--output", filepath.Join(dir, "output"),
+		"--rules", filepath.Join(dir, "rules.yaml"),
+		"--overwrite",
 	}
 	if analysisParams.DepLabelSelector != "" {
 		args = append(args, []string{
-			"--dep-label-selector",
+			"--label-selector",
 			analysisParams.DepLabelSelector,
 		}...)
 	}
-	cmd := exec.Command("konveyor-analyzer", args...)
+	// Find this executable and call it
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("failed to get executable path: %w", err)
+	}
+	cmd := exec.Command(execPath, args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	return fmt.Sprintf("konveyor-analyzer %s", strings.Join(args, " ")), cmd.Run()
+	err = cmd.Run()
+	return fmt.Sprintf("kantra %s", strings.Join(args, " ")), err
 }
 
 func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams, prune bool) (string, error) {
@@ -420,51 +435,39 @@ func ensureRules(rulesPath string, tempDirPath string, group []Test) error {
 func ensureProviderSettings(tempDirPath string, runLocal bool, testsFile TestsFile, baseProviders []provider.Config, params AnalysisParams) (map[string]string, error) {
 	final := []provider.Config{}
 	volumes := map[string]string{}
-	// we need to get data paths defined in the tests file to populate location fields in provider settings
-	// depending on whether we run locally, or in a container, we will either use local paths or mounted paths
-	switch {
-	case runLocal:
-		for _, override := range testsFile.Providers {
-			// when running locally, we use the paths as-is
-			dataPath := filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(override.DataPath))
-			final = append(final,
-				getMergedProviderConfig(override.Name, baseProviders, params, dataPath, tempDirPath)...)
-		}
-	default:
-		// in containers, we need to make sure we only mount unique path trees
-		// to avoid mounting a directory and its subdirectory to two different paths
-		uniqueTrees := map[string]bool{}
-		toDelete := []string{}
-		for _, prov := range testsFile.Providers {
-			found := false
-			for tree := range uniqueTrees {
-				if tree != prov.DataPath && (strings.Contains(tree, prov.DataPath) || strings.Contains(prov.DataPath, tree)) {
-					found = true
-					if len(tree) > len(prov.DataPath) {
-						toDelete = append(toDelete, tree)
-						uniqueTrees[prov.DataPath] = true
-					} else {
-						toDelete = append(toDelete, prov.DataPath)
-						uniqueTrees[tree] = true
-					}
+	// we need to make sure we only mount unique path trees
+	// to avoid mounting a directory and its subdirectory to two different paths
+	uniqueTrees := map[string]bool{}
+	toDelete := []string{}
+	for _, prov := range testsFile.Providers {
+		found := false
+		for tree := range uniqueTrees {
+			if tree != prov.DataPath && (strings.Contains(tree, prov.DataPath) || strings.Contains(prov.DataPath, tree)) {
+				found = true
+				if len(tree) > len(prov.DataPath) {
+					toDelete = append(toDelete, tree)
+					uniqueTrees[prov.DataPath] = true
+				} else {
+					toDelete = append(toDelete, prov.DataPath)
+					uniqueTrees[tree] = true
 				}
 			}
-			if !found {
-				uniqueTrees[prov.DataPath] = true
-			}
 		}
-		for _, key := range toDelete {
-			delete(uniqueTrees, key)
+		if !found {
+			uniqueTrees[prov.DataPath] = true
 		}
-		for uniquePath := range uniqueTrees {
-			volumes[filepath.Join(filepath.Dir(testsFile.Path), uniquePath)] = path.Join("/data", uniquePath)
-		}
-		for _, override := range testsFile.Providers {
-			// when running in the container, we use the mounted path
-			dataPath := filepath.Join("/data", filepath.Clean(override.DataPath))
-			final = append(final,
-				getMergedProviderConfig(override.Name, baseProviders, params, dataPath, "/shared")...)
-		}
+	}
+	for _, key := range toDelete {
+		delete(uniqueTrees, key)
+	}
+	for uniquePath := range uniqueTrees {
+		volumes[filepath.Join(filepath.Dir(testsFile.Path), uniquePath)] = path.Join("/data", uniquePath)
+	}
+	for _, override := range testsFile.Providers {
+		// when running in the container, we use the mounted path
+		dataPath := filepath.Join("/data", filepath.Clean(override.DataPath))
+		final = append(final,
+			getMergedProviderConfig(override.Name, baseProviders, params, dataPath, "/shared")...)
 	}
 	content, err := json.Marshal(final)
 	if err != nil {
