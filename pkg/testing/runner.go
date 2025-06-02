@@ -190,6 +190,9 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				// Run with kantra on local mode
 				// For the moment lets assume that all the data for a given test is in the same dataPath
 				dataPath := testsFile.Providers[0].DataPath
+				if dataPath == "" {
+					err = fmt.Errorf("the dataPath field cannot be empty")
+				}
 				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(dataPath))
 				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams, dataPath); err != nil {
 					results = append(results, Result{
