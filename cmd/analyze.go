@@ -756,9 +756,15 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
+	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	if err != nil {
+		// allow for duplicate incidents rather than failing analysis
+		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	}
+
 	var provConfig []provider.Config
 	var builtinProvider = BuiltinProvider{}
-	var config, _ = builtinProvider.GetConfigVolume(a, tempDir)
+	var config, _ = builtinProvider.GetConfigVolume(a, tempDir, javaTargetPaths)
 	provConfig = append(provConfig, config)
 
 	settingsVols := map[string]string{
