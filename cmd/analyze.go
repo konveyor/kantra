@@ -141,26 +141,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				analyzeCmd.runLocal = false
 			}
 
-			// ***** RUN CONTAINERLESS MODE *****
-			if analyzeCmd.runLocal {
-				log.Info("\n --run-local set. running analysis in containerless mode")
-				if analyzeCmd.listSources || analyzeCmd.listTargets {
-					err := analyzeCmd.listLabelsContainerless(ctx)
-					if err != nil {
-						analyzeCmd.log.Error(err, "failed to list rule labels")
-						return err
-					}
-					return nil
-				}
-				err := analyzeCmd.RunAnalysisContainerless(cmd.Context())
-				if err != nil {
-					return err
-				}
-
-				return nil
-			}
-
-			// ******* RUN CONTAINERS ******
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.ListLabels(cmd.Context())
@@ -179,13 +159,18 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 				if analyzeCmd.listLanguages {
+					// for binaries, assume Java application
+					if analyzeCmd.isFileInput {
+						fmt.Fprintln(os.Stdout, "found languages for input application:", util.JavaProvider)
+						return nil
+					}
 					err := listLanguages(languages, analyzeCmd.input)
 					if err != nil {
 						return err
 					}
 					return nil
 				}
-				log.Info("--run-local set to false. Running analysis in container mode")
+
 				foundProviders := []string{}
 				// file input means a binary was given which only the java provider can use
 				if analyzeCmd.isFileInput {
@@ -202,6 +187,32 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					}
 				}
 
+				// default to run container mode if no Java provider found
+				if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+					analyzeCmd.runLocal = false
+				}
+
+				// ***** RUN CONTAINERLESS MODE *****
+				if analyzeCmd.runLocal {
+					log.Info("\n --run-local set. running analysis in containerless mode")
+					if analyzeCmd.listSources || analyzeCmd.listTargets {
+						err := analyzeCmd.listLabelsContainerless(ctx)
+						if err != nil {
+							analyzeCmd.log.Error(err, "failed to list rule labels")
+							return err
+						}
+						return nil
+					}
+					err := analyzeCmd.RunAnalysisContainerless(cmd.Context())
+					if err != nil {
+						return err
+					}
+
+					return nil
+				}
+
+				// ******* RUN CONTAINERS ******
+				log.Info("--run-local set to false. Running analysis in container mode")
 				if len(foundProviders) > 0 && slices.Contains(foundProviders, util.DotnetFrameworkProvider) {
 					log.Info(".Net framework provider found, running windows analysis. Otherwise, set --provider")
 
@@ -325,9 +336,21 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 }
 
 func (a *analyzeCommand) Validate(ctx context.Context) error {
-	if a.listSources || a.listTargets || a.listProviders || a.listLanguages {
+	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
+
+	if a.listLanguages {
+		stat, err := os.Stat(a.input)
+		if err != nil {
+			return fmt.Errorf("%w failed to stat input path %s", err, a.input)
+		}
+		if !stat.Mode().IsDir() {
+			a.isFileInput = true
+		}
+		return nil
+	}
+
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
@@ -673,19 +696,26 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
+	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
+	if err != nil {
+		// allow for duplicate incidents rather than failing analysis
+		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	}
+
 	var provConfig []provider.Config
 	_, depsFolders := a.getDepsFolders()
 	configInput := kantraProvider.ConfigInput{
-		IsFileInput:       a.isFileInput,
-		InputPath:         a.input,
-		OutputPath:        a.output,
-		MavenSettingsFile: a.mavenSettingsFile,
-		Log:               a.log,
-		Mode:              a.mode,
-		Port:              6734,
-		TmpDir:            tempDir,
-		JvmMaxMem:         Settings.JvmMaxMem,
-		DepsFolders:       depsFolders,
+		IsFileInput:             a.isFileInput,
+		InputPath:               a.input,
+		OutputPath:              a.output,
+		MavenSettingsFile:       a.mavenSettingsFile,
+		Log:                     a.log,
+		Mode:                    a.mode,
+		Port:                    6734,
+		TmpDir:                  tempDir,
+		JvmMaxMem:               Settings.JvmMaxMem,
+		DepsFolders:             depsFolders,
+		JavaExcludedTargetPaths: javaTargetPaths,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)

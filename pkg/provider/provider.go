@@ -6,17 +6,18 @@ import (
 )
 
 type ConfigInput struct {
-	Name              string
-	IsFileInput       bool
-	InputPath         string
-	OutputPath        string
-	MavenSettingsFile string
-	Log               logr.Logger
-	Mode              string
-	Port              int
-	JvmMaxMem         string
-	TmpDir            string
-	DepsFolders       []string
+	Name                    string
+	IsFileInput             bool
+	InputPath               string
+	OutputPath              string
+	MavenSettingsFile       string
+	Log                     logr.Logger
+	Mode                    string
+	Port                    int
+	JvmMaxMem               string
+	TmpDir                  string
+	DepsFolders             []string
+	JavaExcludedTargetPaths []interface{}
 }
 
 type Provider interface {
