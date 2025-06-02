@@ -185,6 +185,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			analysisParams := tests[0].TestCases[0].AnalysisParams
 
 			reproducerCmd := ""
+			content := []byte{}
 			if opts.RunLocal {
 				// Run with kantra on local mode
 				// For the moment lets assume that all the data for a given test is in the same dataPath
@@ -197,6 +198,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 					logFile.Close()
 					continue
 				}
+				content, err = os.ReadFile(filepath.Join(tempDir, "output", "output.yaml"))
 			} else {
 				// write provider settings file
 				volumes, err := ensureProviderSettings(tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
@@ -216,14 +218,13 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 					logFile.Close()
 					continue
 				}
+				content, err = os.ReadFile(filepath.Join(tempDir, "output.yaml"))
 			}
 
 			// write reproducer command to a file
 			os.WriteFile(filepath.Join(tempDir, "reproducer.sh"), []byte(reproducerCmd), 0755)
 			// process output
 			outputRulesets := []konveyor.RuleSet{}
-			// TODO: gotta fix this
-			content, err := os.ReadFile(filepath.Join(tempDir, "output", "output.yaml"))
 			if err != nil {
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
