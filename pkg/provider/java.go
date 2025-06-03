@@ -1,14 +1,16 @@
-package cmd
+package provider
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -16,26 +18,26 @@ type JavaProvider struct {
 	config provider.Config
 }
 
-func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provider.Config, error) {
+func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 
-	var mountPath = SourceMountPath
+	var mountPath = util.SourceMountPath
 	// when input is a file, it means it's probably a binary
 	// only java provider can work with binaries, all others
 	// continue pointing to the directory instead of file
-	if a.isFileInput {
-		mountPath = path.Join(SourceMountPath, filepath.Base(a.input))
+	if c.IsFileInput {
+		mountPath = path.Join(util.SourceMountPath, filepath.Base(c.InputPath))
 	}
 
 	p.config = provider.Config{
-		Name:    javaProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", a.providersMap[javaProvider].port),
+		Name:    util.JavaProvider,
+		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     mountPath,
-				AnalysisMode: provider.AnalysisMode(a.mode),
+				AnalysisMode: provider.AnalysisMode(c.Mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 javaProvider,
-					"bundles":                       JavaBundlesLocation,
+					"lspServerName":                 util.JavaProvider,
+					"bundles":                       util.JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
 				},
@@ -43,32 +45,32 @@ func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provid
 		},
 	}
 
-	if a.mavenSettingsFile != "" {
-		err := CopyFileContents(a.mavenSettingsFile, filepath.Join(tmpDir, "settings.xml"))
+	if c.MavenSettingsFile != "" {
+		err := util.CopyFileContents(c.MavenSettingsFile, filepath.Join(c.TmpDir, "settings.xml"))
 		if err != nil {
-			a.log.V(1).Error(err, "failed copying maven settings file", "path", a.mavenSettingsFile)
+			c.Log.V(1).Error(err, "failed copying maven settings file", "path", c.MavenSettingsFile)
 			return provider.Config{}, err
 		}
-		p.config.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
+		p.config.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", util.ConfigMountPath, "settings.xml")
 	}
-	if Settings.JvmMaxMem != "" {
-		p.config.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
+	if c.JvmMaxMem != "" {
+		p.config.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = c.JvmMaxMem
 	}
 
 	return p.config, nil
 }
 
 // assume we always want to exclude /target/ in Java projects to avoid duplicate incidents
-func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, error) {
+func WalkJavaPathForTarget(log logr.Logger, isFileInput bool, root string) ([]interface{}, error) {
 	var targetPaths []interface{}
 	var err error
-	if a.isFileInput {
-		root, err = a.getJavaBinaryProjectDir(filepath.Dir(root))
+	if isFileInput {
+		root, err = GetJavaBinaryProjectDir(filepath.Dir(root))
 		if err != nil {
 			return nil, err
 		}
 		// for binaries, wait for "target" folder to decompile
-		err = a.waitForTargetDir(root)
+		err = WaitForTargetDir(log, root)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +91,7 @@ func (a *analyzeCommand) walkJavaPathForTarget(root string) ([]interface{}, erro
 	return targetPaths, nil
 }
 
-func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
+func GetJavaBinaryProjectDir(root string) (string, error) {
 	var foundDir string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -108,7 +110,7 @@ func (a *analyzeCommand) getJavaBinaryProjectDir(root string) (string, error) {
 	return foundDir, nil
 }
 
-func (a *analyzeCommand) waitForTargetDir(path string) error {
+func WaitForTargetDir(log logr.Logger, path string) error {
 	// worst case we timeout
 	// may need to increase
 	timeout := 20 * time.Second
@@ -122,7 +124,7 @@ func (a *analyzeCommand) waitForTargetDir(path string) error {
 	if err != nil {
 		return err
 	}
-	a.log.V(7).Info("waiting for target directory in decompiled Java project")
+	log.V(7).Info("waiting for target directory in decompiled Java project")
 
 	for {
 		select {
@@ -130,7 +132,7 @@ func (a *analyzeCommand) waitForTargetDir(path string) error {
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				info, err := os.Stat(event.Name)
 				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
-					a.log.Info("target sub-folder detected:", "folder", event.Name)
+					log.Info("target sub-folder detected:", "folder", event.Name)
 					return nil
 				}
 			}

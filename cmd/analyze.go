@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"io"
 	"io/fs"
 	"os"
@@ -25,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/phayes/freeport"
@@ -34,69 +36,6 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-var (
-	// TODO (pgaikwad): this assumes that the $USER in container is always root, it may not be the case in future
-	M2Dir = path.Join("/", "root", ".m2")
-	// application source path inside the container
-	SourceMountPath = path.Join(InputPath, "source")
-	// analyzer config files
-	ConfigMountPath = path.Join(InputPath, "config")
-	// user provided rules path
-	RulesMountPath = path.Join(RulesetPath, "input")
-	// paths to files in the container
-	AnalysisOutputMountPath   = path.Join(OutputPath, "output.yaml")
-	DepsOutputMountPath       = path.Join(OutputPath, "dependencies.yaml")
-	ProviderSettingsMountPath = path.Join(ConfigMountPath, "settings.json")
-	DotnetFrameworks          = map[string]bool{
-		"v1.0":   false,
-		"v1.1":   false,
-		"v2.0":   false,
-		"v3.0":   false,
-		"v3.5":   false,
-		"v4":     false,
-		"v4.5":   true,
-		"v4.5.1": true,
-		"v4.5.2": true,
-		"v4.6":   true,
-		"v4.6.1": true,
-		"v4.6.2": true,
-		"v4.7":   true,
-		"v4.7.1": true,
-		"v4.7.2": true,
-		"v4.8":   true,
-		"v4.8.1": true,
-	}
-)
-
-// analyzer container paths
-const (
-	RulesetPath            = "/opt/rulesets"
-	OpenRewriteRecipesPath = "/opt/openrewrite"
-	InputPath              = "/opt/input"
-	OutputPath             = "/opt/output"
-	XMLRulePath            = "/opt/xmlrules"
-	ShimOutputPath         = "/opt/shimoutput"
-	CustomRulePath         = "/opt/input/rules"
-)
-
-// supported providers
-const (
-	javaProvider            = "java"
-	goProvider              = "go"
-	pythonProvider          = "python"
-	nodeJSProvider          = "nodejs"
-	dotnetProvider          = "dotnet"
-	dotnetFrameworkProvider = "dotnetframework"
-)
-
-// valid java file extensions
-const (
-	JavaArchive       = ".jar"
-	WebArchive        = ".war"
-	EnterpriseArchive = ".ear"
-	ClassFile         = ".class"
-)
-
 // TODO add network and volume w/ interface
 type ProviderInit struct {
 	port  int
@@ -104,7 +43,7 @@ type ProviderInit struct {
 	// used for failed provider container retry attempts
 	isRunning     bool
 	containerName string
-	provider      Provider
+	provider      kantraProvider.Provider
 }
 
 // kantra analyze flags
@@ -222,7 +161,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				if analyzeCmd.listLanguages {
 					// for binaries, assume Java application
 					if analyzeCmd.isFileInput {
-						fmt.Fprintln(os.Stdout, "found languages for input application:", javaProvider)
+						fmt.Fprintln(os.Stdout, "found languages for input application:", util.JavaProvider)
 						return nil
 					}
 					err := listLanguages(languages, analyzeCmd.input)
@@ -235,7 +174,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				foundProviders := []string{}
 				// file input means a binary was given which only the java provider can use
 				if analyzeCmd.isFileInput {
-					foundProviders = append(foundProviders, javaProvider)
+					foundProviders = append(foundProviders, util.JavaProvider)
 				} else {
 					foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
 					if err != nil {
@@ -249,7 +188,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 
 				// default to run container mode if no Java provider found
-				if len(foundProviders) > 0 && !slices.Contains(foundProviders, javaProvider) {
+				if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
 					analyzeCmd.runLocal = false
 				}
 
@@ -274,14 +213,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 				// ******* RUN CONTAINERS ******
 				log.Info("--run-local set to false. Running analysis in container mode")
-				if len(foundProviders) > 0 && slices.Contains(foundProviders, dotnetFrameworkProvider) {
+				if len(foundProviders) > 0 && slices.Contains(foundProviders, util.DotnetFrameworkProvider) {
 					log.Info(".Net framework provider found, running windows analysis. Otherwise, set --provider")
+
 					return analyzeCmd.analyzeDotnetFramework(ctx)
 				}
 
 				// default rulesets are only java rules
 				// may want to change this in the future
-				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, javaProvider) {
+				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
 					return fmt.Errorf("No providers found with default rules. Use --rules option")
 				}
 
@@ -299,7 +239,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						return err
 					}
 					if foundJava {
-						foundProviders = append(foundProviders, javaProvider)
+						foundProviders = append(foundProviders, util.JavaProvider)
 					} else {
 						analyzeCmd.needsBuiltin = true
 						return analyzeCmd.RunAnalysis(ctx, xmlOutputDir, analyzeCmd.input)
@@ -382,9 +322,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.jaegerEndpoint, "jaeger-endpoint", "", "jaeger endpoint to collect traces")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.enableDefaultRulesets, "enable-default-rulesets", true, "run default rulesets with analysis")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", LoadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", LoadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", LoadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpProxy, "http-proxy", util.LoadEnvInsensitive("http_proxy"), "HTTP proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.httpsProxy, "https-proxy", util.LoadEnvInsensitive("https_proxy"), "HTTPS proxy string URL")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.noProxy, "no-proxy", util.LoadEnvInsensitive("no_proxy"), "proxy excluded URLs (relevant only with proxy)")
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
@@ -497,7 +437,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 			// validate file types
 			fileExt := filepath.Ext(a.input)
 			switch fileExt {
-			case JavaArchive, WebArchive, EnterpriseArchive, ClassFile:
+			case util.JavaArchive, util.WebArchive, util.EnterpriseArchive, util.ClassFile:
 				a.log.V(5).Info("valid java file found")
 			default:
 				return fmt.Errorf("invalid file type %v", fileExt)
@@ -507,7 +447,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 				return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 			}
 			// make sure we mount a file and not a dir
-			SourceMountPath = path.Join(SourceMountPath, filepath.Base(a.input))
+			util.SourceMountPath = path.Join(util.SourceMountPath, filepath.Base(a.input))
 			a.isFileInput = true
 		}
 	}
@@ -596,12 +536,12 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 
 func (a *analyzeCommand) validateProviders(providers []string) error {
 	validProvs := []string{
-		javaProvider,
-		pythonProvider,
-		goProvider,
-		nodeJSProvider,
-		dotnetProvider,
-		dotnetFrameworkProvider,
+		util.JavaProvider,
+		util.PythonProvider,
+		util.GoProvider,
+		util.NodeJSProvider,
+		util.DotnetProvider,
+		util.DotnetFrameworkProvider,
 	}
 	for _, prov := range providers {
 		//validate other providers
@@ -616,7 +556,7 @@ func (a *analyzeCommand) needDefaultRules() {
 	needDefaultRulesets := false
 	for prov := range a.providersMap {
 		// default rulesets may have been disabled by user
-		if prov == javaProvider && a.enableDefaultRulesets {
+		if prov == util.JavaProvider && a.enableDefaultRulesets {
 			needDefaultRulesets = true
 			break
 		}
@@ -667,7 +607,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			listOptionsFromLabels(sourceSlice, sourceLabel, out)
+			util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
 			return nil
 		}
 		if listTargets {
@@ -676,7 +616,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			listOptionsFromLabels(targetsSlice, targetLabel, out)
+			util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
 			return nil
 		}
 	} else {
@@ -687,7 +627,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		}
 
 		if len(a.rules) > 0 {
-			customRulePath = filepath.Join(CustomRulePath, a.tempRuleDir)
+			customRulePath = filepath.Join(util.CustomRulePath, a.tempRuleDir)
 		}
 		args := []string{"analyze", "--run-local=false"}
 		if listSources {
@@ -718,13 +658,13 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 
 func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
-	err := filepath.WalkDir(RulesetPath, walkRuleSets(RulesetPath, label, &labelsSlice))
+	err := filepath.WalkDir(util.RulesetPath, util.WalkRuleSets(util.RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	rulePath := os.Getenv("RULE_PATH")
 	if rulePath != "" {
-		err := filepath.WalkDir(rulePath, walkRuleSets(rulePath, label, &labelsSlice))
+		err := filepath.WalkDir(rulePath, util.WalkRuleSets(rulePath, label, &labelsSlice))
 		if err != nil {
 			return nil, err
 		}
@@ -737,7 +677,7 @@ func (a *analyzeCommand) getDepsFolders() (map[string]string, []string) {
 	dependencyFolders := []string{}
 	if len(a.depFolders) != 0 {
 		for i := range a.depFolders {
-			newDepPath := path.Join(InputPath, fmt.Sprintf("deps%v", i))
+			newDepPath := path.Join(util.InputPath, fmt.Sprintf("deps%v", i))
 			vols[a.depFolders[i]] = newDepPath
 			dependencyFolders = append(dependencyFolders, newDepPath)
 		}
@@ -756,27 +696,42 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
-	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
 	if err != nil {
 		// allow for duplicate incidents rather than failing analysis
 		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
 	}
 
 	var provConfig []provider.Config
-	var builtinProvider = BuiltinProvider{}
-	var config, _ = builtinProvider.GetConfigVolume(a, tempDir, javaTargetPaths)
+	_, depsFolders := a.getDepsFolders()
+	configInput := kantraProvider.ConfigInput{
+		IsFileInput:             a.isFileInput,
+		InputPath:               a.input,
+		OutputPath:              a.output,
+		MavenSettingsFile:       a.mavenSettingsFile,
+		Log:                     a.log,
+		Mode:                    a.mode,
+		Port:                    6734,
+		TmpDir:                  tempDir,
+		JvmMaxMem:               Settings.JvmMaxMem,
+		DepsFolders:             depsFolders,
+		JavaExcludedTargetPaths: javaTargetPaths,
+	}
+	var builtinProvider = kantraProvider.BuiltinProvider{}
+	var config, _ = builtinProvider.GetConfigVolume(configInput)
 	provConfig = append(provConfig, config)
 
 	settingsVols := map[string]string{
-		tempDir: ConfigMountPath,
+		tempDir: util.ConfigMountPath,
 	}
 	if !a.needsBuiltin {
 		vols, _ := a.getDepsFolders()
 		if len(vols) != 0 {
 			maps.Copy(settingsVols, vols)
 		}
-		for _, provInfo := range a.providersMap {
-			var volConfig, err = provInfo.provider.GetConfigVolume(a, tempDir)
+		for provName, provInfo := range a.providersMap {
+			configInput.Port = a.providersMap[provName].port
+			var volConfig, err = provInfo.provider.GetConfigVolume(configInput)
 			if err != nil {
 				a.log.V(1).Error(err, "failed creating volume configs")
 				return nil, err
@@ -824,7 +779,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		if err != nil {
 			a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
 		} else {
-			settingsVols[m2Dir] = M2Dir
+			settingsVols[m2Dir] = util.M2Dir
 			a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
 			a.tempDirs = append(a.tempDirs, m2Dir)
 		}
@@ -855,11 +810,11 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		// move rules files passed into dir to mount
 		if !stat.IsDir() {
 			// XML rules are handled outside of this func
-			if isXMLFile(r) {
+			if util.IsXMLFile(r) {
 				continue
 			}
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
-			err := CopyFileContents(r, destFile)
+			err := util.CopyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 				return nil, err
@@ -891,7 +846,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 					}
 					destFile := filepath.Join(tempDir, relpath)
 					a.log.V(5).Info("copying file main", "source", path, "dest", destFile)
-					err = CopyFileContents(path, destFile)
+					err = util.CopyFileContents(path, destFile)
 					if err != nil {
 						a.log.V(1).Error(err, "failed to move rules file", "src", r, "dest", destFile)
 						return err
@@ -905,7 +860,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 		}
 	}
-	rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
+	rulesVolumes[tempDir] = path.Join(util.CustomRulePath, filepath.Base(tempDir))
 
 	return rulesVolumes, nil
 }
@@ -926,7 +881,7 @@ func (a *analyzeCommand) retryProviderContainer(ctx context.Context, networkName
 func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, volName string, retry int) error {
 	volumes := map[string]string{
 		// application source code
-		volName: SourceMountPath,
+		volName: util.SourceMountPath,
 	}
 	if a.mavenSettingsFile != "" {
 		configVols, err := a.getConfigVolumes()
@@ -1007,8 +962,8 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 
 	volumes := map[string]string{
 		// output directory
-		a.output:                   OutputPath,
-		a.overrideProviderSettings: ProviderSettingsMountPath,
+		a.output:                   util.OutputPath,
+		a.overrideProviderSettings: util.ProviderSettingsMountPath,
 	}
 
 	if len(a.rules) > 0 {
@@ -1021,14 +976,14 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	}
 
 	args := []string{
-		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
-		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
+		fmt.Sprintf("--provider-settings=%s", util.ProviderSettingsMountPath),
+		fmt.Sprintf("--output-file=%s", util.AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", a.contextLines),
 	}
 
 	if a.enableDefaultRulesets {
 		args = append(args,
-			fmt.Sprintf("--rules=%s/", RulesetPath))
+			fmt.Sprintf("--rules=%s/", util.RulesetPath))
 	}
 
 	if a.incidentSelector != "" {
@@ -1038,7 +993,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 
 	if len(a.rules) > 0 {
 		args = append(args,
-			fmt.Sprintf("--rules=%s/", CustomRulePath))
+			fmt.Sprintf("--rules=%s/", util.CustomRulePath))
 	}
 
 	if a.jaegerEndpoint != "" {
@@ -1059,7 +1014,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	}
 	if a.mode == string(provider.FullAnalysisMode) {
 		a.log.Info("running dependency retrieval during analysis")
-		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
+		args = append(args, fmt.Sprintf("--dep-output-file=%s", util.DepsOutputMountPath))
 	}
 
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
@@ -1104,17 +1059,17 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string) error {
 	volumes := map[string]string{
 		// application source code
-		volName: SourceMountPath,
+		volName: util.SourceMountPath,
 		// output directory
-		a.output: OutputPath,
+		a.output: util.OutputPath,
 	}
 	a.needDefaultRules()
 	var convertPath string
 	if xmlOutputDir != "" {
 		if !a.enableDefaultRulesets {
-			convertPath = path.Join(CustomRulePath, "convert")
+			convertPath = path.Join(util.CustomRulePath, "convert")
 		} else {
-			convertPath = path.Join(RulesetPath, "convert")
+			convertPath = path.Join(util.RulesetPath, "convert")
 		}
 		volumes[xmlOutputDir] = convertPath
 		// for cleanup purposes
@@ -1136,13 +1091,13 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		maps.Copy(volumes, ruleVols)
 	}
 	args := []string{
-		fmt.Sprintf("--provider-settings=%s", ProviderSettingsMountPath),
-		fmt.Sprintf("--output-file=%s", AnalysisOutputMountPath),
+		fmt.Sprintf("--provider-settings=%s", util.ProviderSettingsMountPath),
+		fmt.Sprintf("--output-file=%s", util.AnalysisOutputMountPath),
 		fmt.Sprintf("--context-lines=%d", a.contextLines),
 	}
 	if a.enableDefaultRulesets {
 		args = append(args,
-			fmt.Sprintf("--rules=%s/", RulesetPath))
+			fmt.Sprintf("--rules=%s/", util.RulesetPath))
 	}
 	if a.incidentSelector != "" {
 		args = append(args,
@@ -1150,7 +1105,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 	if len(a.rules) > 0 {
 		args = append(args,
-			fmt.Sprintf("--rules=%s/", CustomRulePath))
+			fmt.Sprintf("--rules=%s/", util.CustomRulePath))
 	}
 	if a.jaegerEndpoint != "" {
 		args = append(args, "--enable-jaeger")
@@ -1166,8 +1121,8 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	}
 
 	// as of now only java & go have dep capability
-	_, hasJava := a.providersMap[javaProvider]
-	_, hasGo := a.providersMap[goProvider]
+	_, hasJava := a.providersMap[util.JavaProvider]
+	_, hasGo := a.providersMap[util.GoProvider]
 	// TODO currently cannot run these dep options with providers
 	// other than java and go
 	if (hasJava || hasGo) && len(a.providersMap) == 1 && a.mode == string(provider.FullAnalysisMode) {
@@ -1176,7 +1131,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 				fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
 		}
 		a.log.Info("running dependency retrieval during analysis")
-		args = append(args, fmt.Sprintf("--dep-output-file=%s", DepsOutputMountPath))
+		args = append(args, fmt.Sprintf("--dep-output-file=%s", util.DepsOutputMountPath))
 	}
 
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
@@ -1300,8 +1255,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	}
 
 	volumes := map[string]string{
-		a.input:  SourceMountPath,
-		a.output: OutputPath,
+		a.input:  util.SourceMountPath,
+		a.output: util.OutputPath,
 	}
 
 	args := []string{}
@@ -1309,8 +1264,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		fmt.Sprintf("--output-path=%s", path.Join("/usr/local/static-report/output.js"))}
 	// Prepare report args list with single input analysis
 	applicationNames := []string{filepath.Base(a.input)}
-	outputAnalyses := []string{AnalysisOutputMountPath}
-	outputDeps := []string{DepsOutputMountPath}
+	outputAnalyses := []string{util.AnalysisOutputMountPath}
+	outputDeps := []string{util.DepsOutputMountPath}
 
 	if a.bulk {
 		a.moveResults()
@@ -1328,8 +1283,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 			outputName := filepath.Base(outputFiles[i])
 			applicationName := strings.SplitN(outputName, "output.yaml.", 2)[1]
 			applicationNames = append(applicationNames, applicationName)
-			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, OutputPath)) // re-map paths to container mounts
-			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", DepsOutputMountPath, applicationName))
+			outputAnalyses = append(outputAnalyses, strings.ReplaceAll(outputFiles[i], a.output, util.OutputPath)) // re-map paths to container mounts
+			outputDeps = append(outputDeps, fmt.Sprintf("%s.%s", util.DepsOutputMountPath, applicationName))
 		}
 
 		if !errors.Is(noDepFileErr, os.ErrNotExist) {
@@ -1351,16 +1306,16 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 
 	// as of now, only java and go providers has dep capability
 	if !a.bulk && !errors.Is(noDepFileErr, os.ErrNotExist) {
-		_, hasJava := a.providersMap[javaProvider]
-		_, hasGo := a.providersMap[goProvider]
+		_, hasJava := a.providersMap[util.JavaProvider]
+		_, hasGo := a.providersMap[util.GoProvider]
 		if (hasJava || hasGo) && a.mode == string(provider.FullAnalysisMode) && len(a.providersMap) == 1 {
 			staticReportArgs = append(staticReportArgs,
-				fmt.Sprintf("--deps-output-list=%s", DepsOutputMountPath))
+				fmt.Sprintf("--deps-output-list=%s", util.DepsOutputMountPath))
 		}
 	}
 
 	cpArgs := []string{"&& cp -r",
-		"/usr/local/static-report", OutputPath}
+		"/usr/local/static-report", util.OutputPath}
 
 	args = append(args, staticReportArgs...)
 	args = append(args, cpArgs...)
@@ -1395,7 +1350,7 @@ func (a *analyzeCommand) moveResults() error {
 	outputPath := filepath.Join(a.output, "output.yaml")
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
 	depsPath := filepath.Join(a.output, "dependencies.yaml")
-	err := CopyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, a.inputShortName()))
+	err := util.CopyFileContents(outputPath, fmt.Sprintf("%s.%s", outputPath, a.inputShortName()))
 	if err != nil {
 		return err
 	}
@@ -1403,7 +1358,7 @@ func (a *analyzeCommand) moveResults() error {
 	if err != nil {
 		return err
 	}
-	err = CopyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
+	err = util.CopyFileContents(analysisLogFilePath, fmt.Sprintf("%s.%s", analysisLogFilePath, a.inputShortName()))
 	if err != nil {
 		return err
 	}
@@ -1417,7 +1372,7 @@ func (a *analyzeCommand) moveResults() error {
 		return noDepFileErr
 	}
 	if noDepFileErr == nil {
-		err = CopyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
+		err = util.CopyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 		if err != nil {
 			return err
 		}
@@ -1492,23 +1447,23 @@ func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]stri
 		}
 		// move xml rule files from user into dir to mount
 		if !stat.IsDir() {
-			if !isXMLFile(r) {
+			if !util.IsXMLFile(r) {
 				continue
 			}
 			mountTempDir = true
 			xmlFileName := filepath.Base(r)
 			destFile := filepath.Join(tempRuleDir, xmlFileName)
-			err := CopyFileContents(r, destFile)
+			err := util.CopyFileContents(r, destFile)
 			if err != nil {
 				a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
 				return nil, err
 			}
 		} else {
-			rulesVolumes[r] = path.Join(XMLRulePath, filepath.Base(r))
+			rulesVolumes[r] = path.Join(util.XMLRulePath, filepath.Base(r))
 		}
 	}
 	if mountTempDir {
-		rulesVolumes[tempRuleDir] = XMLRulePath
+		rulesVolumes[tempRuleDir] = util.XMLRulePath
 	}
 	return rulesVolumes, nil
 }
@@ -1533,7 +1488,7 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 		defer os.RemoveAll(tempDir)
 	}
 	volumes := map[string]string{
-		tempOutputDir: ShimOutputPath,
+		tempOutputDir: util.ShimOutputPath,
 	}
 
 	ruleVols, err := a.getXMLRulesVolumes(tempDir)
@@ -1551,8 +1506,8 @@ func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
 	defer shimLog.Close()
 
 	args := []string{"convert",
-		fmt.Sprintf("--outputdir=%v", ShimOutputPath),
-		XMLRulePath,
+		fmt.Sprintf("--outputdir=%v", util.ShimOutputPath),
+		util.XMLRulePath,
 	}
 	a.log.Info("running windup shim",
 		"output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
@@ -1674,7 +1629,7 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 		case optionsConf[k] == "":
 			continue
 		// special case for maven settings file to mount correctly
-		case k == mavenSettingsFile:
+		case k == util.MavenSettingsFile:
 			// validate maven settings file
 			if _, err := os.Stat(v.(string)); err != nil {
 				return nil, fmt.Errorf("%w failed to stat maven settings file at path %s", err, v)
@@ -1683,16 +1638,16 @@ func (a *analyzeCommand) mergeProviderSpecificConfig(optionsConf, seenConf map[s
 				seenConf[k] = absPath
 			}
 			// copy file to mount path
-			err := CopyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
+			err := util.CopyFileContents(v.(string), filepath.Join(tempDir, "settings.xml"))
 			if err != nil {
 				a.log.V(1).Error(err, "failed copying maven settings file", "path", v)
 				return nil, err
 			}
-			seenConf[k] = fmt.Sprintf("%s/%s", ConfigMountPath, "settings.xml")
+			seenConf[k] = fmt.Sprintf("%s/%s", util.ConfigMountPath, "settings.xml")
 			continue
 		// we don't want users to override these options here
 		// use --overrideProviderSettings to do so
-		case k != lspServerPath && k != lspServerName && k != workspaceFolders && k != dependencyProviderPath:
+		case k != util.LspServerPath && k != util.LspServerName && k != util.WorkspaceFolders && k != util.DependencyProviderPath:
 			seenConf[k] = v
 		}
 	}
@@ -1811,7 +1766,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithImage(Settings.DotnetProviderImage),
 		container.WithLog(a.log.V(1)),
 		container.WithVolumes(map[string]string{
-			input: "C:" + filepath.FromSlash(SourceMountPath),
+			input: "C:" + filepath.FromSlash(util.SourceMountPath),
 		}),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointArgs([]string{fmt.Sprintf("--port=%v", port)}...),
@@ -1847,17 +1802,17 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 			Name: "builtin",
 			InitConfig: []provider.InitConfig{
 				{
-					Location:     "C:" + filepath.FromSlash(SourceMountPath),
+					Location:     "C:" + filepath.FromSlash(util.SourceMountPath),
 					AnalysisMode: provider.AnalysisMode(a.mode),
 				},
 			},
 		},
 		{
-			Name:    dotnetProvider,
+			Name:    util.DotnetProvider,
 			Address: fmt.Sprintf("%v:%v", providerContainer.Name, port),
 			InitConfig: []provider.InitConfig{
 				{
-					Location:     "C:" + filepath.FromSlash(SourceMountPath),
+					Location:     "C:" + filepath.FromSlash(util.SourceMountPath),
 					AnalysisMode: provider.AnalysisMode(a.mode),
 					ProviderSpecificConfig: map[string]interface{}{
 						provider.LspServerPathConfigKey: "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe",
@@ -1880,19 +1835,19 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	volumes := map[string]string{
-		tempDir:  "C:" + filepath.FromSlash(ConfigMountPath),
-		input:    "C:" + filepath.FromSlash(SourceMountPath),
-		a.output: "C:" + filepath.FromSlash(OutputPath),
+		tempDir:  "C:" + filepath.FromSlash(util.ConfigMountPath),
+		input:    "C:" + filepath.FromSlash(util.SourceMountPath),
+		a.output: "C:" + filepath.FromSlash(util.OutputPath),
 	}
 
 	args := []string{
-		fmt.Sprintf("--provider-settings=%s", "C:"+filepath.FromSlash(ProviderSettingsMountPath)),
-		fmt.Sprintf("--output-file=%s", "C:"+filepath.FromSlash(AnalysisOutputMountPath)),
+		fmt.Sprintf("--provider-settings=%s", "C:"+filepath.FromSlash(util.ProviderSettingsMountPath)),
+		fmt.Sprintf("--output-file=%s", "C:"+filepath.FromSlash(util.AnalysisOutputMountPath)),
 		fmt.Sprintf("--context-lines=%d", a.contextLines),
 	}
 
 	if a.enableDefaultRulesets {
-		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(RulesetPath)))
+		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(util.RulesetPath)))
 	}
 
 	if len(a.rules) > 0 {
@@ -1905,7 +1860,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 			volumes[key] = "C:" + filepath.FromSlash(value)
 		}
 
-		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(CustomRulePath)))
+		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(util.CustomRulePath)))
 	}
 
 	if a.jaegerEndpoint != "" {
@@ -1976,7 +1931,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithLog(a.log.V(1)),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithEntrypointBin("powershell"),
-		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(OutputPath)),
+		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(util.OutputPath)),
 		container.WithVolumes(volumes),
 		container.WithCleanup(a.cleanup),
 	)
@@ -1985,8 +1940,8 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 	}
 
 	staticReportArgs := []string{
-		fmt.Sprintf(`-output-path=C:\%s\static-report\output.js`, filepath.FromSlash(OutputPath)),
-		fmt.Sprintf("-analysis-output-list=C:%s", filepath.FromSlash(AnalysisOutputMountPath)),
+		fmt.Sprintf(`-output-path=C:\%s\static-report\output.js`, filepath.FromSlash(util.OutputPath)),
+		fmt.Sprintf("-analysis-output-list=C:%s", filepath.FromSlash(util.AnalysisOutputMountPath)),
 		fmt.Sprintf("-application-name-list=%s", filepath.Base(a.input)),
 	}
 

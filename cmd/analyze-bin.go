@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io"
 	"log"
 	"os"
@@ -141,7 +143,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	//scopes := []engine.Scope{}
-	javaTargetPaths, err := a.walkJavaPathForTarget(a.input)
+	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
 	if err != nil {
 		// allow for duplicate incidents rather than failing analysis
 		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
@@ -177,7 +179,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	needProviders := map[string]provider.InternalProviderClient{}
 
 	if a.enableDefaultRulesets {
-		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
+		a.rules = append(a.rules, filepath.Join(a.kantraDir, util.RulesetsLocation))
 	}
 
 	for _, f := range a.rules {
@@ -287,8 +289,8 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation),
-		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
+	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, util.RulesetsLocation), filepath.Join(a.kantraDir, util.JavaBundlesLocation),
+		filepath.Join(a.kantraDir, util.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
@@ -314,7 +316,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		listOptionsFromLabels(sourceSlice, sourceLabel, out)
+		util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
 		return nil
 	}
 	if listTargets {
@@ -323,7 +325,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		listOptionsFromLabels(targetsSlice, targetLabel, out)
+		util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
 		return nil
 	}
 
@@ -332,18 +334,18 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 
 func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(a.kantraDir, RulesetsLocation)
+	path := filepath.Join(a.kantraDir, util.RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		a.log.Error(err, "cannot open provided path")
 		return nil, err
 	}
-	err := filepath.WalkDir(path, walkRuleSets(path, label, &labelsSlice))
+	err := filepath.WalkDir(path, util.WalkRuleSets(path, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	if len(a.rules) > 0 {
 		for _, p := range a.rules {
-			err := filepath.WalkDir(p, walkRuleSets(p, label, &labelsSlice))
+			err := filepath.WalkDir(p, util.WalkRuleSets(p, label, &labelsSlice))
 			if err != nil {
 				return nil, err
 			}
@@ -357,7 +359,7 @@ func (a *analyzeCommand) setKantraDir() error {
 	var err error
 	set := true
 	reqs := []string{
-		RulesetsLocation,
+		util.RulesetsLocation,
 		"jdtls",
 		"static-report",
 	}
@@ -396,8 +398,8 @@ func (a *analyzeCommand) setKantraDir() error {
 }
 
 func (a *analyzeCommand) setBinMapContainerless() error {
-	a.reqMap["bundle"] = filepath.Join(a.kantraDir, JavaBundlesLocation)
-	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, JDTLSBinLocation)
+	a.reqMap["bundle"] = filepath.Join(a.kantraDir, util.JavaBundlesLocation)
+	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, util.JDTLSBinLocation)
 	// validate
 	for _, v := range a.reqMap {
 		stat, err := os.Stat(v)
@@ -413,7 +415,7 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 
 func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
 	javaConfig := provider.Config{
-		Name:       javaProvider,
+		Name:       util.JavaProvider,
 		BinaryPath: a.reqMap["jdtls"],
 		InitConfig: []provider.InitConfig{
 			{
@@ -422,7 +424,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 				ProviderSpecificConfig: map[string]interface{}{
 					"cleanExplodedBin":              true,
 					"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
-					"lspServerName":                 javaProvider,
+					"lspServerName":                 util.JavaProvider,
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
@@ -551,7 +553,7 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 		var prov provider.InternalProviderClient
 		var err error
 		// only create java and builtin providers
-		if config.Name == javaProvider {
+		if config.Name == util.JavaProvider {
 			prov = java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
 
 		} else if config.Name == "builtin" {
@@ -707,7 +709,7 @@ func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.Fi
 	outputFolderDestPath := filepath.Join(a.output, "static-report")
 
 	//copy static report files to output folder
-	err := copyFolderContents(outputFolderSrcPath, outputFolderDestPath)
+	err := util.CopyFolderContents(outputFolderSrcPath, outputFolderDestPath)
 	if err != nil {
 		return err
 	}
