@@ -152,9 +152,11 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 		for _, tests := range testGroups {
 			tempDir, err := os.MkdirTemp(opts.TempDir, "rules-test-")
 			if err != nil {
+				err = fmt.Errorf("failed creating temp dir - %w", err)
+				opts.Log.Error(err, "failed during execution")
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
-					Error:         fmt.Errorf("failed creating temp dir - %w", err)})
+					Error:         err})
 				continue
 			}
 			opts.Log.Info("created temporary directory", "dir", tempDir, "tests", testsFile.Path)
@@ -162,9 +164,11 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			logFile, err := os.OpenFile(filepath.Join(tempDir, "analysis.log"),
 				os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 			if err != nil {
+				err = fmt.Errorf("failed creating a log file - %w", err)
+				opts.Log.Error(err, "failed during execution")
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
-					Error:         fmt.Errorf("failed creating a log file - %w", err)})
+					Error:         err})
 				logFile.Close()
 				continue
 			}
@@ -175,9 +179,11 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			// write rules
 			err = ensureRules(testsFile.RulesPath, tempDir, tests)
 			if err != nil {
+				err = fmt.Errorf("failed writing rules - %w", err)
+				opts.Log.Error(err, "failed during execution")
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
-					Error:         fmt.Errorf("failed writing rules - %w", err)})
+					Error:         err})
 				logFile.Close()
 				continue
 			}
@@ -192,9 +198,12 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				dataPath := testsFile.Providers[0].DataPath
 				if dataPath == "" {
 					err = fmt.Errorf("the dataPath field cannot be empty")
+					opts.Log.Error(err, "failed during execution")
+					continue
 				}
 				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(dataPath))
 				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams, dataPath); err != nil {
+					opts.Log.Error(err, "failed during execution")
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
