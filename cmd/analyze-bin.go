@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"io"
 	"log"
 	"os"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
@@ -172,6 +173,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	parser := parser.RuleParser{
 		ProviderNameToClient: providers,
 		Log:                  analyzeLog.WithName("parser"),
+		NoDependencyRules:    a.noDepRules,
 		DepLabelSelector:     dependencyLabelSelector,
 	}
 
