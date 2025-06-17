@@ -14,6 +14,8 @@ import (
 	"path"
 	"runtime"
 
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+
 	"gopkg.in/yaml.v2"
 
 	"path/filepath"
@@ -125,6 +127,7 @@ type analyzeCommand struct {
 	input                    string
 	output                   string
 	mode                     string
+	noDepRules               bool
 	rules                    []string
 	tempRuleDir              string
 	jaegerEndpoint           string
@@ -377,6 +380,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' (source + dependencies) or 'source-only'")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.noDepRules, "no-dependency-rules", false, "disable dependency analysis rules")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.overwrite, "overwrite", false, "overwrite output directory")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.bulk, "bulk", false, "running multiple analyze commands in bulk will result to combined static report")
@@ -1163,6 +1167,10 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 	labelSelector := a.getLabelSelector()
 	if labelSelector != "" {
 		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
+	}
+
+	if a.noDepRules {
+		args = append(args, "--no-dependency-rules")
 	}
 
 	// as of now only java & go have dep capability
