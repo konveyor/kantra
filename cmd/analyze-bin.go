@@ -17,6 +17,9 @@ import (
 	"strings"
 	"sync"
 
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
+
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
 	"github.com/konveyor/analyzer-lsp/engine"
@@ -170,6 +173,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	parser := parser.RuleParser{
 		ProviderNameToClient: providers,
 		Log:                  analyzeLog.WithName("parser"),
+		NoDependencyRules:    a.noDepRules,
 		DepLabelSelector:     dependencyLabelSelector,
 	}
 
