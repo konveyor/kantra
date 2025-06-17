@@ -170,6 +170,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	parser := parser.RuleParser{
 		ProviderNameToClient: providers,
 		Log:                  analyzeLog.WithName("parser"),
+		NoDependencyRules:    a.noDepRules,
 		DepLabelSelector:     dependencyLabelSelector,
 	}
 
