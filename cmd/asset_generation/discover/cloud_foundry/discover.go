@@ -162,10 +162,10 @@ func discoverLive(contentWriter, secretWriter io.Writer) error {
 	}
 
 	for space, appList := range appListPerSpace {
-		for _, appName := range appList.([]string) {
-			input := cfProvider.DiscoverInputParam{
+		for _, appName := range appList {
+			input := cfProvider.AppReference{
 				SpaceName: space,
-				AppName:   appName,
+				AppName:   fmt.Sprintf("%s", appName),
 			}
 
 			discoverResult, err := p.Discover(input)
@@ -223,7 +223,7 @@ func processAppList(p providerInterface.Provider, appList interface{}, contentWr
 		if appName != "" && appName != name {
 			continue
 		}
-		input := cfProvider.DiscoverInputParam{
+		input := cfProvider.AppReference{
 			AppName: name.(string),
 		}
 		app, err := p.Discover(input)

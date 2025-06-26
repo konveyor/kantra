@@ -6,21 +6,13 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
-	"k8s.io/helm/pkg/strvals"
+	"gopkg.in/yaml.v2"
+	"helm.sh/helm/v3/pkg/strvals"
 
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
-)
-
-const (
-	konveyorDirectoryName = "files/konveyor"
+	helmProvider "github.com/konveyor/asset-generation/pkg/providers/generators/helm"
 )
 
 var (
@@ -57,10 +49,7 @@ func NewGenerateHelmCommand(log logr.Logger) *cobra.Command {
 }
 
 func helm(out io.Writer) error {
-	chart, err := loadChart()
-	if err != nil {
-		return err
-	}
+
 	values, err := loadDiscoverManifest()
 	if err != nil {
 		return err
@@ -72,20 +61,17 @@ func helm(out io.Writer) error {
 		}
 		maps.Copy(values, v)
 	}
-	chart.Values = values
-	rendered := make(map[string]string)
-	if !nonK8SOnly {
-		rendered, err = generateK8sTemplates(*chart)
-		if err != nil {
-			return err
-		}
+
+	cfg := helmProvider.Config{
+		ChartPath:              chartDir,
+		Values:                 values,
+		SkipRenderK8SManifests: nonK8SOnly,
 	}
-	r, err := generateNonK8sTemplates(*chart)
+	generator := helmProvider.New(cfg)
+	rendered, err := generator.Generate()
 	if err != nil {
 		return err
 	}
-	maps.Copy(rendered, r)
-
 	o := output{out: out}
 	print := o.toStdout
 	if outputDir != "" {
@@ -113,22 +99,6 @@ func (o output) toStdout(filename, contents string) error {
 	return nil
 }
 
-func toFile(filename, contents string) error {
-	fn := filepath.Base(filename)
-	dst := filepath.Join(outputDir, fn)
-	// Add an extra line to make it yaml compliant since helm doesn't seem to do it.
-	contents = fmt.Sprintln(contents)
-	return os.WriteFile(dst, []byte(contents), 0644)
-}
-
-func loadChart() (*chart.Chart, error) {
-	l, err := loader.Loader(chartDir)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load chart: %s", err)
-	}
-	return l.Load()
-}
-
 func loadDiscoverManifest() (map[string]interface{}, error) {
 	d, err := os.ReadFile(input)
 	if err != nil {
@@ -139,45 +109,12 @@ func loadDiscoverManifest() (map[string]interface{}, error) {
 	return m, err
 }
 
-func generateK8sTemplates(chart chart.Chart) (map[string]string, error) {
-	return generateTemplates(chart)
-}
-
-func generateNonK8sTemplates(chart chart.Chart) (map[string]string, error) {
-	chart.Templates = filterTemplatesByPath(konveyorDirectoryName, chart.Files)
-	return generateTemplates(chart)
-}
-
-func generateTemplates(chart chart.Chart) (map[string]string, error) {
-	e := engine.Engine{}
-	options := chartutil.ReleaseOptions{
-		Name:      chart.Name(),
-		Namespace: "",
-		Revision:  1,
-		IsInstall: false,
-		IsUpgrade: false,
-	}
-	valuesToRender, err := chartutil.ToRenderValues(&chart, chart.Values, options, chartutil.DefaultCapabilities.Copy())
-	if err != nil {
-		return nil, fmt.Errorf("failed to render the values for chart %s: %s", chart.Name(), err)
-	}
-	chart.Values = valuesToRender
-	rendered, err := e.Render(&chart, valuesToRender)
-	if err != nil {
-		return nil, fmt.Errorf("failed to render the templates for chart %s: %s", chart.Name(), err)
-	}
-	return rendered, nil
-
-}
-
-func filterTemplatesByPath(pathPrefix string, files []*chart.File) []*chart.File {
-	ret := []*chart.File{}
-	for _, f := range files {
-		if strings.HasPrefix(f.Name, pathPrefix) {
-			ret = append(ret, f)
-		}
-	}
-	return ret
+func toFile(filename, contents string) error {
+	fn := filepath.Base(filename)
+	dst := filepath.Join(outputDir, fn)
+	// Add an extra line to make it yaml compliant since helm doesn't seem to do it.
+	contents = fmt.Sprintln(contents)
+	return os.WriteFile(dst, []byte(contents), 0644)
 }
 
 func parseValues() (map[string]interface{}, error) {
