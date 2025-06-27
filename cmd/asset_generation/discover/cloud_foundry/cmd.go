@@ -38,8 +38,20 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 			if err := cmd.ParseFlags(args); err != nil {
 				return err
 			}
-			if useLive && len(spaces) == 0 {
-				return fmt.Errorf("at least one space is required")
+			if useLive {
+				if len(spaces) == 0 {
+					return fmt.Errorf("at least one space is required")
+				}
+				if len(cfConfigPath) > 0 {
+					_, err := os.Stat(cfConfigPath)
+					if err != nil {
+						return fmt.Errorf("failed to retrieve Cloud Foundry configuration file at %s:%s", cfConfigPath, err)
+					}
+				}
+				return nil
+			}
+			if len(input) == 0 {
+				return fmt.Errorf("input flag is required")
 			}
 			return nil
 		},
@@ -111,7 +123,7 @@ func discoverFromFiles(contentWriter, secretWriter io.Writer) error {
 
 		appListPerSpace, err := p.ListApps()
 		if err != nil {
-			return fmt.Errorf("failed to list apps by space: %w", err)
+			return err
 		}
 
 		for _, appList := range appListPerSpace {
@@ -218,8 +230,8 @@ func createProviderForManifest(manifestPath string) (providerInterface.Provider,
 	return cfProvider.New(&cfg, stdLogger)
 }
 
-func processAppList(p providerInterface.Provider, appList interface{}, contentWriter, secretWriter io.Writer) error {
-	for _, name := range appList.(map[string]any) {
+func processAppList(p providerInterface.Provider, appList []any, contentWriter, secretWriter io.Writer) error {
+	for _, name := range appList {
 		if appName != "" && appName != name {
 			continue
 		}

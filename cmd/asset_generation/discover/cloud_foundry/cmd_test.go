@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -40,6 +41,7 @@ var _ = Describe("Discover Manifest", func() {
 	DescribeTable("Manifest validation",
 		func(manifestContent string, expectedErrorMessage ...string) {
 			err := helperCreateTestManifest(manifestPath, manifestContent, 0644)
+			input = manifestPath
 			Expect(err).ToNot(HaveOccurred(), "Unable to create manifest.yaml")
 			err = discoverManifest(contentWriter, secretsWriter)
 			contentWriter.Flush()
@@ -58,8 +60,8 @@ var _ = Describe("Discover Manifest", func() {
 				Expect(err).ToNot(HaveOccurred(), "Expected no error for invalid manifest, but got one")
 			}
 		},
-		Entry("with an empty manifest", "", "field validation for key 'Application.Metadata' field 'Metadata' failed on the 'required' tag"),
-		Entry("with invalid YAML content", "invalid content", "cannot unmarshal !!str `invalid...` into cloud_foundry.AppManifest"),
+		Entry("with an empty manifest", "", "no app name found in manifest file"),
+		Entry("with invalid YAML content", "invalid content", "failed to unmarshal YAML from"),
 		Entry("with a valid manifest", `name: test-app`, nil),
 	)
 })
@@ -97,7 +99,8 @@ instances: 1
 		manifestPath = filepath.Join(tempDir, "manifest.yaml")
 		Expect(os.WriteFile(manifestPath, manifestContent, 0644)).To(Succeed())
 		Expect(manifestPath).ToNot(BeEmpty())
-		outputPath = filepath.Join(tempDir, "output.yaml")
+		outputPath = tempDir + "/output"
+		Expect(os.Mkdir(outputPath, os.ModePerm)).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -136,7 +139,7 @@ instances: 1
 				}
 			}
 			if flags.Output.setFlag {
-				args = append(args, "--output")
+				args = append(args, "--output-folder")
 				if len(flags.Output.filePath) != 0 {
 					args = append(args, flags.Output.filePath)
 					defer os.Remove(flags.Output.filePath)
@@ -164,7 +167,10 @@ instances: 1
 			if flags.OutputVerification {
 				var outputContent string
 				if flags.Output.setFlag {
-					outputContentByte, err := os.ReadFile(outputPath)
+					dir, err := os.ReadDir(outputPath)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(dir)).To(Equal(1))
+					outputContentByte, err := os.ReadFile(strings.Join([]string{outputPath, dir[0].Name()}, string(os.PathSeparator)))
 					Expect(err).NotTo(HaveOccurred())
 					outputContent = string(outputContentByte)
 					Expect(out.String()).To(BeEmpty()) // Standard output should be empty
@@ -209,14 +215,14 @@ instances: 1
 				ExpectedErrMessage: "",
 				OutputVerification: true},
 		),
-		Entry("writes to output file when --output flag is given",
+		Entry("writes to output file when --output-folder flag is given",
 			flagTest{
 				Input:         flagFile{setFlag: true},
 				Output:        flagFile{setFlag: true},
 				ExpectSuccess: true,
 			},
 		),
-		Entry("writes to output file when --output flag is given and verify output",
+		Entry("writes to output file when --output-folder flag is given and verify output",
 			flagTest{
 				Input:         flagFile{setFlag: true},
 				Output:        flagFile{setFlag: true},
@@ -243,12 +249,11 @@ instances: 1
 				Input:              flagFile{},
 				Output:             flagFile{},
 				ExpectErr:          true,
-				ExpectedErrMessage: "required flag",
+				ExpectedErrMessage: "Error: input flag is required",
 			},
 		),
 
 		Entry("returns an error when input file does not exist",
-
 			flagTest{
 				Input:              flagFile{setFlag: true, filePath: "nonexistent.yaml"},
 				Output:             flagFile{},

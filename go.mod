@@ -8,7 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.2
-	github.com/konveyor/asset-generation v0.0.0-20250421144442-ed6bee8e1cd2
+	github.com/konveyor/asset-generation v0.0.0-20250627145832-083050b19e02
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -138,5 +138,3 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 )
-
-replace github.com/konveyor/asset-generation => github.com/gciavarrini/asset-generation v0.0.0-20250626154158-6ffd148ac81a
