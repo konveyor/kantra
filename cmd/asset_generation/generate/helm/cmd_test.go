@@ -20,7 +20,6 @@ var _ = Describe("Helm command", func() {
 	type cmdFlags struct {
 		input    string
 		chartDir string
-		output   string
 		nonK8s   bool
 		set      []string
 	}
