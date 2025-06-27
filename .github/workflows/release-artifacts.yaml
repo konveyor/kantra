@@ -37,7 +37,7 @@ jobs:
     - name: Extract binaries
       run: |
         image=quay.io/konveyor/kantra:${{ steps.release_info.outputs.tag_name }}
-        podman create --name kantra-download ${image}
+        podman create --arch ${{ matrix.arch }} --name kantra-download ${image}
         podman cp kantra-download:/usr/local/bin/kantra . && zip kantra.linux.${{ matrix.arch }}.zip kantra
         podman cp kantra-download:/usr/local/bin/darwin-kantra . && zip kantra.darwin.${{ matrix.arch }}.zip darwin-kantra
         podman cp kantra-download:/usr/local/bin/windows-kantra windows-kantra.exe && zip kantra.windows.${{ matrix.arch }}.zip windows-kantra.exe
