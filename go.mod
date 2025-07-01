@@ -8,7 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.2
-	github.com/konveyor/asset-generation v0.0.0-20250627145832-083050b19e02
+	github.com/konveyor/asset-generation v0.0.0-20250701142909-599d0d365101
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
