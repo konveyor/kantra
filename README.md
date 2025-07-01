@@ -262,58 +262,87 @@ See different ways to run the test command in the [test runner doc](./docs/testr
 
 ### Asset Generation
 
-Asset generation consist of two subcommands _discover_ and _generate_.
+Asset generation consists of two subcommands: _discover_ and _generate_.
 
 #### Discover
+
 Discover application outputs a YAML representation of source platform resources.
 
 ```sh
 Flags:
   -h, --help             help for discover
-      --list-platforms   List available supported discovery platform.
+      --list-platforms   List available supported discovery platforms
+```
+
+To list all supported platforms:
+
+```sh
+kantra discover --list-platforms
 ```
 
 Select one of the supported platforms:
 
-`kantra discover cloud-foundry -h`
+```sh
+kantra discover cloud-foundry -h
+```
 
-All flags:
+All flags for Cloud Foundry discovery:
 
 ```sh
 Flags:
-  -h, --help                  help for cloud-foundry
-      --input string          specify the location of the manifest.yaml to analyze.
-      --output string         output file (default: standard output).
-      --use-live-connection   uses live platform connections for real-time discovery (not implemented)
+      --app-name string           Name of the Cloud Foundry application to discover
+      --cf-config string          Path to the Cloud Foundry CLI configuration file (default "~/.cf/config")
+  -h, --help                      help for cloud-foundry
+      --input string              input path of the manifest file or folder to analyze
+      --output-folder string      Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically
+      --platformType string       Platform type for discovery. Allowed value is: "cloud-foundry" (default "cloud-foundry")
+      --skip-ssl-validation       Skip SSL certificate validation for API connections (default: false)
+      --spaces strings            Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces="space1,space2"). At least one space is required when using live discovery
+      --use-live-connection       Enable real-time discovery using live platform connections
 ```
 
-To run a discover on Cloud Foundry manifest, run:
+To run discovery on a Cloud Foundry manifest file:
 
-`kantra discover cloud_foundry --input=<path-to/manifest-yaml>`
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-yaml>
+```
+
+To run discovery on a Cloud Foundry manifest file and save to a directory:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-folder=<path-to/output-dir>
+```
+
+To run live discovery from Cloud Foundry platform:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --cf-config=<path-to/.cf/config>
+```
 
 #### Generate
 
 Analyze the source platform and/or application and output discovery manifest.
 
-To generate a discovery manifest, run:
-
-`kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart>`
-
-All flags
-
 ```sh
 Flags:
   -h, --help   help for generate
 ```
-_generate_ subcommand has a _helm_ subcommand that generates the helm template manifest.
 
-All flags:
+The _generate_ subcommand has a _helm_ subcommand that generates Helm template manifests.
+
+To generate Helm templates:
+
+```sh
+kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart>
+```
+
+All flags for Helm generation:
 
 ```sh
 Flags:
-      --chart-dir string    Directory to the Helm chart to use for chart generation.
+      --chart-dir string    Directory to the Helm chart to use for chart generation (required)
   -h, --help                help for helm
-      --input string        Specifies the discover manifest file
+      --input string        Specifies the discover manifest file (required)
       --non-k8s-only        Render only the non-Kubernetes templates located in the files/konveyor directory of the chart
       --output-dir string   Directory to save the generated Helm chart. Defaults to stdout
       --set stringArray     Set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
