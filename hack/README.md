@@ -50,7 +50,7 @@ create a KinD cluster with Korifi.
 If the `kind` command is not available, the script will install it for you automatically.
 
 ### Prerequisite
-* go >= 1.22.9
+* go >= 1.23.9
 * kubectl
 * Docker (rootless) >= 20.10 or Podman >= 3.0
 * cf CLI v8
