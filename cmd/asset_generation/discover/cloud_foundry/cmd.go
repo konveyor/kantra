@@ -86,17 +86,11 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	return "Cloud Foundry V3 (local manifest)", cmd
 }
 
-type CloudFoundryInputParams struct {
-	SpaceName string `json:"spaceName"`
-	AppName   string `json:"appName"`
-}
-
 func discoverManifest(out io.Writer) error {
 	if useLive {
 		return discoverLive(out)
-	} else {
-		return discoverFromFiles(out)
 	}
+	return discoverFromFiles(out)
 }
 
 func discoverFromFiles(out io.Writer) error {
@@ -150,7 +144,6 @@ func discoverLive(out io.Writer) error {
 
 	cfg := &cfProvider.Config{
 		CloudFoundryConfig: cfCfg,
-		ManifestPath:       input,
 		SpaceNames:         spaces,
 	}
 
