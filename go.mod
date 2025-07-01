@@ -1,6 +1,6 @@
 module github.com/konveyor-ecosystem/kantra
 
-go 1.22.9
+go 1.23.9
 
 require (
 	github.com/devfile/alizer v1.6.1
@@ -19,7 +19,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.16.4
 	k8s.io/helm v2.17.0+incompatible
-
 )
 
 require (
