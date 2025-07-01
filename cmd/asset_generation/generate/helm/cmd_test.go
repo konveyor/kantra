@@ -107,7 +107,6 @@ data:
 kind: ConfigMap
 metadata:
   name: sample
-
 `, "Dockerfile": `FROM python:3
 
 RUN echo hello world!

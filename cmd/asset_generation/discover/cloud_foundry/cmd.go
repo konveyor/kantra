@@ -9,6 +9,7 @@ import (
 
 	cfConfig "github.com/cloudfoundry/go-cfclient/v3/config"
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/internal/printers"
 	providerInterface "github.com/konveyor/asset-generation/pkg/providers/discoverers"
 	cfProvider "github.com/konveyor/asset-generation/pkg/providers/discoverers/cloud_foundry"
 	providerTypes "github.com/konveyor/asset-generation/pkg/providers/types/provider"
@@ -26,7 +27,6 @@ var (
 	skipSslValidation bool
 	cfConfigPath      string
 	logger            logr.Logger
-	stdOutWriter      io.Writer
 )
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
@@ -65,8 +65,7 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 				}
 			}
 
-			stdOutWriter = cmd.OutOrStdout()
-			return discoverManifest()
+			return discoverManifest(cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&input, "input", "", "input path of the manifest file or folder to analyze")
@@ -92,15 +91,15 @@ type CloudFoundryInputParams struct {
 	AppName   string `json:"appName"`
 }
 
-func discoverManifest() error {
+func discoverManifest(out io.Writer) error {
 	if useLive {
-		return discoverLive()
+		return discoverLive(out)
 	} else {
-		return discoverFromFiles()
+		return discoverFromFiles(out)
 	}
 }
 
-func discoverFromFiles() error {
+func discoverFromFiles(out io.Writer) error {
 	filesToProcess, err := getFilesToProcess(input)
 	if err != nil {
 		return err
@@ -119,7 +118,7 @@ func discoverFromFiles() error {
 		}
 
 		for _, appList := range appListPerSpace {
-			err = processAppList(p, appList)
+			err = processAppList(p, appList, out)
 			if err != nil {
 				return err
 			}
@@ -128,7 +127,7 @@ func discoverFromFiles() error {
 	return nil
 }
 
-func discoverLive() error {
+func discoverLive(out io.Writer) error {
 	if pType != "cloud-foundry" {
 		return fmt.Errorf("unsupported platform type: %s", pType)
 	}
@@ -175,7 +174,7 @@ func discoverLive() error {
 			if err != nil {
 				return err
 			}
-			err = OutputAppManifestsYAML(discoverResult, appRef.SpaceName, appRef.AppName)
+			err = OutputAppManifestsYAML(out, discoverResult, appRef.SpaceName, appRef.AppName)
 			if err != nil {
 				return err
 			}
@@ -221,7 +220,7 @@ func createProviderForManifest(manifestPath string) (providerInterface.Provider,
 	return cfProvider.New(&cfg, stdLogger)
 }
 
-func processAppList(p providerInterface.Provider, appList []any) error {
+func processAppList(p providerInterface.Provider, appList []any, out io.Writer) error {
 
 	for _, appReferences := range appList {
 		appRef, ok := appReferences.(cfProvider.AppReference)
@@ -236,7 +235,7 @@ func processAppList(p providerInterface.Provider, appList []any) error {
 			return err
 		}
 
-		err = OutputAppManifestsYAML(app, appRef.SpaceName, appRef.AppName)
+		err = OutputAppManifestsYAML(out, app, appRef.SpaceName, appRef.AppName)
 		if err != nil {
 			return err
 		}
@@ -244,11 +243,13 @@ func processAppList(p providerInterface.Provider, appList []any) error {
 	return nil
 }
 
-func OutputAppManifestsYAML(discoverResult *providerTypes.DiscoverResult, spaceName string, appName string) error {
+func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.DiscoverResult, spaceName string, appName string) error {
 	suffix := "_" + appName
 	if spaceName != "" {
 		suffix = "_" + spaceName + suffix
 	}
+	printer := printers.NewOutput(out)
+	printFunc := printer.ToStdout
 	// Marshal content
 	contentBytes, err := yaml.Marshal(discoverResult.Content)
 	if err != nil {
@@ -256,18 +257,15 @@ func OutputAppManifestsYAML(discoverResult *providerTypes.DiscoverResult, spaceN
 	}
 
 	if outputFolder != "" {
-		contentFileName := fmt.Sprintf("discover_manifest%s.yaml", suffix)
-		contentPath := filepath.Join(outputFolder, contentFileName)
-
-		err = os.WriteFile(contentPath, contentBytes, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write content file: %w", err)
+		printFunc = func(filename, contents string) error {
+			return printers.ToFile(outputFolder, filename, contents)
 		}
-		logger.Info("Writing content to file", "path", contentPath)
-
+		contentFileName := fmt.Sprintf("discover_manifest%s.yaml", suffix)
+		logger.Info("Writing content to file", "path", contentFileName)
+		printFunc(contentFileName, string(contentBytes))
 	} else {
 		// Write to stdout
-		fmt.Fprintf(stdOutWriter, "--- Content Section ---\n%s", contentBytes)
+		printer.ToStdoutWithHeader("--- Content Section ---\n", string(contentBytes))
 	}
 
 	if discoverResult.Secret != nil {
@@ -281,16 +279,12 @@ func OutputAppManifestsYAML(discoverResult *providerTypes.DiscoverResult, spaceN
 		if !isEmptyYamlString(secretStr) {
 			if outputFolder != "" {
 				secretFileName := fmt.Sprintf("secrets%s.yaml", suffix)
-				secretPath := filepath.Join(outputFolder, secretFileName)
+				logger.Info("Writing secrets to file", "path", secretFileName)
+				printFunc(secretFileName, string(secretStr))
 
-				err = os.WriteFile(secretPath, secretBytes, 0644)
-				if err != nil {
-					return fmt.Errorf("failed to write secrets file: %w", err)
-				}
-				logger.Info("Writing secrets to file", "path", secretPath)
 			} else {
 				// Write to stdout
-				fmt.Fprintf(stdOutWriter, "\n--- Secrets Section ---\n%s", secretBytes)
+				printer.ToStdoutWithHeader("\n--- Secrets Section ---\n", secretStr)
 			}
 		}
 	}

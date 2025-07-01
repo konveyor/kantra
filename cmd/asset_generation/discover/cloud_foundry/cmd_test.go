@@ -40,8 +40,7 @@ var _ = Describe("Discover Manifest", func() {
 			err := helperCreateTestManifest(manifestPath, manifestContent, 0644)
 			input = manifestPath
 			Expect(err).ToNot(HaveOccurred(), "Unable to create manifest.yaml")
-
-			err = discoverManifest()
+			err = discoverManifest(contentWriter)
 			contentWriter.Flush()
 			if len(expectedErrorMessage) > 0 {
 				for _, expected := range expectedErrorMessage {

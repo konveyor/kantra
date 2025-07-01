@@ -5,13 +5,13 @@ import (
 	"io"
 	"maps"
 	"os"
-	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/strvals"
 
+	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/internal/printers"
 	helmProvider "github.com/konveyor/asset-generation/pkg/providers/generators/helm"
 )
 
@@ -72,30 +72,29 @@ func helm(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	o := output{out: out}
-	print := o.toStdout
+
+	output := printers.NewOutput(out)
+
 	if outputDir != "" {
 		err = os.MkdirAll(outputDir, 0755)
 		if err != nil {
 			return err
 		}
-		print = toFile
-	}
-	for f, c := range rendered {
-		err = print(f, c)
-		if err != nil {
-			return err
+		for filename, contents := range rendered {
+			err = printers.ToFile(outputDir, filename, contents)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		for filename, contents := range rendered {
+			header := fmt.Sprintf("---\n# Source: %s\n", filename)
+			err = output.ToStdoutWithHeader(header, contents)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return nil
-}
-
-type output struct {
-	out io.Writer
-}
-
-func (o output) toStdout(filename, contents string) error {
-	fmt.Fprintf(o.out, "---\n# Source: %s\n%s", filename, contents)
 	return nil
 }
 
@@ -107,14 +106,6 @@ func loadDiscoverManifest() (map[string]interface{}, error) {
 	var m map[string]interface{}
 	err = yaml.Unmarshal(d, &m)
 	return m, err
-}
-
-func toFile(filename, contents string) error {
-	fn := filepath.Base(filename)
-	dst := filepath.Join(outputDir, fn)
-	// Add an extra line to make it yaml compliant since helm doesn't seem to do it.
-	contents = fmt.Sprintln(contents)
-	return os.WriteFile(dst, []byte(contents), 0644)
 }
 
 func parseValues() (map[string]interface{}, error) {
