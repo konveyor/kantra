@@ -1,6 +1,6 @@
 module github.com/konveyor-ecosystem/kantra
 
-go 1.23.6
+go 1.23.9
 
 require (
 	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.12
@@ -19,6 +19,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.3
+
 )
 
 require (
