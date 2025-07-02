@@ -14,13 +14,13 @@ import (
 	cfProvider "github.com/konveyor/asset-generation/pkg/providers/discoverers/cloud_foundry"
 	providerTypes "github.com/konveyor/asset-generation/pkg/providers/types/provider"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (
 	useLive           bool
 	input             string
-	outputFolder      string
+	outputDir         string
 	pType             string
 	spaces            []string
 	appName           string
@@ -58,8 +58,8 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create output directory if needed
-			if outputFolder != "" {
-				err := os.MkdirAll(outputFolder, 0755)
+			if outputDir != "" {
+				err := os.MkdirAll(outputDir, 0755)
 				if err != nil {
 					return fmt.Errorf("failed to create output folder: %w", err)
 				}
@@ -69,8 +69,8 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 		},
 	}
 	cmd.Flags().StringVar(&input, "input", "", "input path of the manifest file or folder to analyze")
-	cmd.Flags().StringVar(&outputFolder, "output-folder", "", "Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.")
-	cmd.MarkFlagDirname("output-folder")
+	cmd.Flags().StringVar(&outputDir, "output-dir", "", "Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.")
+	cmd.MarkFlagDirname("output-dir")
 
 	// Live discovery flags
 	cmd.Flags().BoolVar(&useLive, "use-live-connection", false, "Enable real-time discovery using live platform connections.")
@@ -249,16 +249,21 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 		return err
 	}
 
-	if outputFolder != "" {
+	if outputDir != "" {
 		printFunc = func(filename, contents string) error {
-			return printers.ToFile(outputFolder, filename, contents)
+			return printers.ToFile(outputDir, filename, contents)
 		}
 		contentFileName := fmt.Sprintf("discover_manifest%s.yaml", suffix)
 		logger.Info("Writing content to file", "path", contentFileName)
 		printFunc(contentFileName, string(contentBytes))
 	} else {
+		contentHeader := ""
 		// Write to stdout
-		printer.ToStdoutWithHeader("--- Content Section ---\n", string(contentBytes))
+		if discoverResult.Secret != nil {
+			contentHeader = "--- Content Section ---\n"
+		}
+		printer.ToStdoutWithHeader(contentHeader, string(contentBytes))
+
 	}
 
 	if discoverResult.Secret != nil {
@@ -270,7 +275,7 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 		secretStr := string(secretBytes)
 
 		if !isEmptyYamlString(secretStr) {
-			if outputFolder != "" {
+			if outputDir != "" {
 				secretFileName := fmt.Sprintf("secrets%s.yaml", suffix)
 				logger.Info("Writing secrets to file", "path", secretFileName)
 				printFunc(secretFileName, string(secretStr))

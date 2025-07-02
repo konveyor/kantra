@@ -47,17 +47,36 @@ static-report
 - View supported source platform resources
 `kantra discover --list-platforms`
 
-- Output a YAML representation of source platform resources
+- Print YAML representations of source platform resources
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml>`
 
     For example:
     `/kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
 
-- Print a YAML representation of source platform resources
+- Output YAML representations of source platform resources in the output directory
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output=<path-to/ouput-file>`
 
     For example:
     `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output=/tmp/output.yaml`
+
+- Perform a live discover and print the YAML representation of source platform resources
+`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2`
+
+- Perform a live discover and output the YAML representations of source platform
+  resources in the output directory
+`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --output-dir=<path-to/output-dir>`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --output-dir=/tmp/output-dir`
+
+- Perform a live discover of a specific application and output the YAML representations of source platform resources in the output directory:
+`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --app-name=<app-name> --output-dir=<path-to/output-dir>`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --app-name=my-app --output-dir=/tmp/output-dir`
 
 #### Generate
 
