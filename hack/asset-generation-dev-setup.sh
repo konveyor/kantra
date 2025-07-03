@@ -95,12 +95,12 @@ check_prerequisite(){
   fi
 
   # Check Go version
-  local min_go_version="1.22.9"
+  local min_go_version="1.23.9"
   local current_go_version="$(go env GOVERSION)"
   current_go_version="${current_go_version#go}"
 
-  if [ "$(printf '%s\n' "${min_go_version}" "${current_go_version}" | sort -V | head -n1)" != "1.22.9" ]; then
-      echo "❌ Incorrect Go version. Please install Go version 1.22.9 or higher."
+  if [ "$(printf '%s\n' "${min_go_version}" "${current_go_version}" | sort -V | head -n1)" != "1.23.9" ]; then
+      echo "❌ Incorrect Go version. Please install Go version 1.23.9 or higher."
       echo "Official instructions available at https://go.dev/doc/install"
       exit 1
   fi
