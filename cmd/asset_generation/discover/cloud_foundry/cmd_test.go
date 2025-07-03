@@ -115,12 +115,12 @@ var _ = Describe("Discover command", func() {
 		})
 	})
 
-	Context("when output-folder flag is provided", func() {
+	Context("when output-dir flag is provided", func() {
 		It("should write output to file instead of stdout", func() {
 			_, cmd = NewDiscoverCloudFoundryCommand(log)
 			cmd.SetOut(&out)
 			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--input", manifestPath, "--output-folder", outputPath})
+			cmd.SetArgs([]string{"--input", manifestPath, "--output-dir", outputPath})
 
 			executeErr := cmd.Execute()
 
@@ -167,11 +167,11 @@ var _ = Describe("Discover command", func() {
 			Expect(output).To(ContainSubstring("docker-registry-user"))
 		})
 
-		It("should write secrets to separate file when output-folder is specified", func() {
+		It("should write secrets to separate file when output-dir is specified", func() {
 			_, cmd = NewDiscoverCloudFoundryCommand(log)
 			cmd.SetOut(&out)
 			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--output-folder", outputPath})
+			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--output-dir", outputPath})
 
 			executeErr := cmd.Execute()
 
@@ -210,7 +210,7 @@ var _ = Describe("Discover command", func() {
 			_, cmd = NewDiscoverCloudFoundryCommand(log)
 			cmd.SetOut(&out)
 			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--input", manifestPath, "--output-folder", outputPath})
+			cmd.SetArgs([]string{"--input", manifestPath, "--output-dir", outputPath})
 
 			executeErr := cmd.Execute()
 

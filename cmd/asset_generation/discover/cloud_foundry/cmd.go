@@ -147,7 +147,7 @@ func discoverLive(out io.Writer) error {
 		SpaceNames:         spaces,
 	}
 
-	p, err := cfProvider.New(cfg, log.Default())
+	p, err := cfProvider.New(cfg, &logger)
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,7 @@ func createProviderForManifest(manifestPath string) (providerInterface.Provider,
 	cfg := cfProvider.Config{
 		ManifestPath: manifestPath,
 	}
-	stdLogger := log.New(os.Stdout, "", log.LstdFlags)
-	return cfProvider.New(&cfg, stdLogger)
+	return cfProvider.New(&cfg, &logger)
 }
 
 func processAppList(p providerInterface.Provider, appList []any, out io.Writer) error {
