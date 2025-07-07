@@ -243,7 +243,11 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 	printer := printers.NewOutput(out)
 	printFunc := printer.ToStdout
 	// Marshal content
-	contentBytes, err := yaml.Marshal(discoverResult.Content)
+	d, err := cfProvider.MarshalUnmarshal[cfProvider.Application](discoverResult.Content)
+	if err != nil {
+		return err
+	}
+	contentBytes, err := yaml.Marshal(d)
 	if err != nil {
 		return err
 	}
