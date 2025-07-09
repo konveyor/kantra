@@ -51,13 +51,19 @@ static-report
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml>`
 
     For example:
-    `/kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
 
 - Output YAML representations of source platform resources in the output directory
-`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output=<path-to/ouput-file>`
+`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output=<path-to/output-file>`
 
     For example:
     `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output=/tmp/output.yaml`
+
+- Perform discovery and separate sensitive data (credentials, secrets) into a dedicated file:
+`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
+
+    For example:
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 - Perform a live discover and print the YAML representation of source platform resources
 `kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>`
@@ -77,6 +83,12 @@ static-report
 
     For example:
     `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --app-name=my-app --output-dir=/tmp/output-dir`
+
+- Perform live discovery and separate sensitive data (credentials, secrets) into a dedicated file:
+`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 #### Generate
 

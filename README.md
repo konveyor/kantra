@@ -290,17 +290,16 @@ All flags for Cloud Foundry discovery:
 
 ```sh
 Flags:
-      --app-name string       Name of the Cloud Foundry application to discover.
-      --cf-config string      Path to the Cloud Foundry CLI configuration file (default: ~/.cf/config). (default "~/.cf/config")
-  -h, --help                  help for cloud-foundry
-      --input string          input path of the manifest file or folder to analyze
-      --output-dir string     Directory where output manifests will be saved (default: standard output).
-                              If the directory does not exist, it will be created automatically.
-      --platformType string   Platform type for discovery. Allowed value is: "cloud-foundry" (default). (default "cloud-foundry")
-      --skip-ssl-validation   Skip SSL certificate validation for API connections (default: false).
-      --spaces strings        Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces="space1,space2").
-                              At least one space is required when using live discovery.
-      --use-live-connection   Enable real-time discovery using live platform connections.
+      --app-name string          Name of the Cloud Foundry application to discover.
+      --cf-config string         Path to the Cloud Foundry CLI configuration file (default: ~/.cf/config). (default "~/.cf/config")
+      --conceal-sensitive-data   Extract sensitive information in the discover manifest into a separate file.
+  -h, --help                     help for cloud-foundry
+      --input string             input path of the manifest file or folder to analyze
+      --output-dir string        Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.
+      --platformType string      Platform type for discovery. Allowed value is: "cloud-foundry" (default). (default "cloud-foundry")
+      --skip-ssl-validation      Skip SSL certificate validation for API connections (default: false).
+      --spaces strings           Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces="space1,space2"). At least one space is required when using live discovery.
+      --use-live-connection      Enable real-time discovery using live platform connections.
 
 Global Flags:
       --log-level uint32   log level (default 4)
@@ -324,6 +323,12 @@ To run discovery on Cloud Foundry manifest files in an input directory and save 
 ```sh
 kantra discover cloud-foundry --input=<path-to/manifest-dir> --output-dir=<path-to/output-dir>
 ```
+To run discovery on Cloud Foundry manifest files in an input directory and 
+separate sensitive data (credentials, secrets) into a dedicated file:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-dir>  --conceal-sensitive-data=true --output-dir=<path-to/output-dir>
+```
 
 To run live discovery from Cloud Foundry platform on a subset of spaces:
 
@@ -338,6 +343,13 @@ to a directory:
 kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --output-dir=<path-to/output-dir>
 ```
 
+To run live discovery from Cloud Foundry platform on a subset of spaces and
+separate sensitive data (credentials, secrets) into a dedicated file:
+
+```sh
+kantra discover cloud-foundry --use-live-connection  --conceal-sensitive-data=true --spaces=<space1,space2> --output-dir=<path-to/output-dir>
+```
+
 To run live discovery from Cloud Foundry platform on a subset of spaces and on a
 specific application:
 
@@ -345,7 +357,7 @@ specific application:
 kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --app-name=<app-name>
 ```
 
-To run live discovery from Cloud Foundry platform on a subset of spaces  and on a
+To run live discovery from Cloud Foundry platform on a subset of spaces and on a
 specific application and save to a directory:
 
 ```sh
