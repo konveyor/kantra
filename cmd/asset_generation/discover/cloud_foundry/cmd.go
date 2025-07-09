@@ -163,6 +163,11 @@ func discoverLive(out io.Writer) error {
 			if !ok {
 				return fmt.Errorf("unexpected type for app list: %T", appReferences)
 			}
+			if appName != "" && appRef.AppName != appName {
+				logger.Info("Skipping application: app name does not match target app name", "app name", appRef.AppName, "target app name", appName)
+				continue
+			}
+
 			discoverResult, err := p.Discover(appRef)
 			if err != nil {
 				return err
