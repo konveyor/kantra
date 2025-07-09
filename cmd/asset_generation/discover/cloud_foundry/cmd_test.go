@@ -178,7 +178,7 @@ var _ = Describe("Discover command", func() {
 		})
 	})
 
-	Context("when processing manifests with secrets", func() {
+	Context("when processing manifests with secrets and conceal sensitive data flag is enabled", func() {
 		var manifestWithSecretsPath string
 
 		BeforeEach(func() {
@@ -191,7 +191,7 @@ var _ = Describe("Discover command", func() {
 			_, cmd = NewDiscoverCloudFoundryCommand(log)
 			cmd.SetOut(&out)
 			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--input", manifestWithSecretsPath})
+			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--conceal-sensitive-data"})
 
 			executeErr := cmd.Execute()
 
@@ -200,7 +200,7 @@ var _ = Describe("Discover command", func() {
 
 			// Verify content section is present
 			Expect(output).To(ContainSubstring("--- Content Section ---"))
-			Expect(output).To(ContainSubstring("test-app-with-secrets"))
+			Expect(output).To(ContainSubstring("test-app-with-sensitive-data"))
 
 			// Verify secrets section is present
 			Expect(output).To(ContainSubstring("--- Secrets Section ---"))
@@ -211,7 +211,7 @@ var _ = Describe("Discover command", func() {
 			_, cmd = NewDiscoverCloudFoundryCommand(log)
 			cmd.SetOut(&out)
 			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--output-dir", outputPath})
+			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--output-dir", outputPath, "--conceal-sensitive-data"})
 
 			executeErr := cmd.Execute()
 
@@ -238,12 +238,113 @@ var _ = Describe("Discover command", func() {
 			// Verify manifest content
 			manifestContent := readOutputFile(outputPath, manifestFile)
 			Expect(manifestContent).ToNot(BeEmpty())
-			Expect(manifestContent).To(ContainSubstring("test-app-with-secrets"))
+			Expect(manifestContent).To(ContainSubstring("test-app-with-sensitive-data"))
 
 			// Verify secrets content
 			secretsContent := readOutputFile(outputPath, secretsFile)
 			Expect(secretsContent).ToNot(BeEmpty())
 			Expect(secretsContent).To(ContainSubstring("docker-registry-user"))
+		})
+
+		It("should handle manifests with no secrets gracefully", func() {
+			_, cmd = NewDiscoverCloudFoundryCommand(log)
+			cmd.SetOut(&out)
+			cmd.SetErr(&err)
+			cmd.SetArgs([]string{"--input", manifestPath, "--output-dir", outputPath, "--conceal-sensitive-data"})
+
+			executeErr := cmd.Execute()
+
+			Expect(executeErr).To(Succeed())
+
+			// Verify only manifest file was created (no secrets file)
+			files := getOutputFiles(outputPath)
+			Expect(files).To(HaveLen(1))
+
+			// Verify it's the manifest file
+			fileName := files[0].Name()
+			Expect(fileName).To(ContainSubstring("discover_manifest"))
+			Expect(fileName).NotTo(ContainSubstring("secrets"))
+		})
+
+		It("should not output secrets section to stdout when manifest has no secrets", func() {
+			_, cmd = NewDiscoverCloudFoundryCommand(log)
+			cmd.SetOut(&out)
+			cmd.SetErr(&err)
+			cmd.SetArgs([]string{"--input", manifestPath, "--conceal-sensitive-data"})
+
+			executeErr := cmd.Execute()
+
+			Expect(executeErr).To(Succeed())
+			output := out.String()
+
+			// Verify content section is present
+			Expect(output).To(ContainSubstring("--- Content Section ---"))
+			Expect(output).To(ContainSubstring("test-app"))
+
+			// Verify secrets section is NOT present
+			Expect(output).NotTo(ContainSubstring("--- Secrets Section ---"))
+		})
+	})
+
+	Context("when processing manifests with secrets and conceal sensitive data flag is disabled", func() {
+		var manifestWithSecretsPath string
+
+		BeforeEach(func() {
+			manifestWithSecretsPath = createManifestWithSecrets(tempDir)
+		})
+		AfterEach(func() {
+			os.RemoveAll(outputPath)
+		})
+		It("should not output secrets to stdout along with manifest content", func() {
+			_, cmd = NewDiscoverCloudFoundryCommand(log)
+			cmd.SetOut(&out)
+			cmd.SetErr(&err)
+			cmd.SetArgs([]string{"--input", manifestWithSecretsPath})
+
+			executeErr := cmd.Execute()
+
+			Expect(executeErr).To(Succeed())
+			output := out.String()
+
+			// Verify content section is present
+			Expect(output).To(ContainSubstring("--- Content Section ---"))
+			Expect(output).To(ContainSubstring("test-app-with-sensitive-data"))
+
+			// Verify secrets section is present
+			Expect(output).NotTo(ContainSubstring("--- Secrets Section ---"))
+		})
+
+		It("should not write secrets to separate file when output-dir is specified", func() {
+			_, cmd = NewDiscoverCloudFoundryCommand(log)
+			cmd.SetOut(&out)
+			cmd.SetErr(&err)
+			cmd.SetArgs([]string{"--input", manifestWithSecretsPath, "--output-dir", outputPath})
+
+			executeErr := cmd.Execute()
+
+			Expect(executeErr).To(Succeed())
+			Expect(out.String()).To(BeEmpty()) // No stdout output
+
+			// Verify both files were created
+			files := getOutputFiles(outputPath)
+			Expect(files).To(HaveLen(1))
+
+			// Find manifest and secrets files
+			var manifestFile string
+			for _, file := range files {
+				Expect(file.Name()).NotTo(ContainSubstring("secrets"))
+				if strings.Contains(file.Name(), "discover_manifest") {
+					manifestFile = file.Name()
+				}
+			}
+
+			Expect(manifestFile).NotTo(BeEmpty())
+
+			// Verify manifest content
+			manifestContent := readOutputFile(outputPath, manifestFile)
+			Expect(manifestContent).ToNot(BeEmpty())
+			Expect(manifestContent).To(ContainSubstring("test-app-with-sensitive-data"))
+
 		})
 
 		It("should handle manifests with no secrets gracefully", func() {
@@ -620,7 +721,7 @@ func createValidCfConfig(tempDir string) string {
 
 func createManifestWithSecrets(tempDir string) string {
 	manifestContent := []byte(`---
-name: test-app-with-secrets
+name: test-app-with-sensitive-data
 memory: 512M
 instances: 2
 env:
@@ -654,8 +755,7 @@ func getExpectedYAMLOutput() string {
 	return `name: test-app
 timeout: 60
 memory: 256M
-instances: 1
-`
+instances: 1`
 }
 
 func helperCreateTestManifest(manifestPath string, content string, perm os.FileMode) error {

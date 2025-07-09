@@ -17,15 +17,16 @@ import (
 )
 
 var (
-	useLive           bool
-	input             string
-	outputDir         string
-	pType             string
-	spaces            []string
-	appName           string
-	skipSslValidation bool
-	cfConfigPath      string
-	logger            logr.Logger
+	useLive              bool
+	input                string
+	outputDir            string
+	pType                string
+	spaces               []string
+	appName              string
+	skipSslValidation    bool
+	cfConfigPath         string
+	logger               logr.Logger
+	concealSensitiveData bool
 )
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
@@ -70,7 +71,7 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	cmd.Flags().StringVar(&input, "input", "", "input path of the manifest file or folder to analyze")
 	cmd.Flags().StringVar(&outputDir, "output-dir", "", "Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.")
 	cmd.MarkFlagDirname("output-dir")
-
+	cmd.Flags().BoolVar(&concealSensitiveData, "conceal-sensitive-data", false, "Extract sensitive information in the discover manifest into a separate file.")
 	// Live discovery flags
 	cmd.Flags().BoolVar(&useLive, "use-live-connection", false, "Enable real-time discovery using live platform connections.")
 	cmd.Flags().StringVar(&pType, "platformType", "cloud-foundry", "Platform type for discovery. Allowed value is: \"cloud-foundry\" (default).")
@@ -146,7 +147,7 @@ func discoverLive(out io.Writer) error {
 		SpaceNames:         spaces,
 	}
 
-	p, err := cfProvider.New(cfg, &logger)
+	p, err := cfProvider.New(cfg, &logger, concealSensitiveData)
 	if err != nil {
 		return err
 	}
@@ -208,7 +209,7 @@ func createProviderForManifest(manifestPath string) (providerInterface.Provider,
 	cfg := cfProvider.Config{
 		ManifestPath: manifestPath,
 	}
-	return cfProvider.New(&cfg, &logger)
+	return cfProvider.New(&cfg, &logger, concealSensitiveData)
 }
 
 func processAppList(p providerInterface.Provider, appList []any, out io.Writer) error {
