@@ -292,9 +292,10 @@ All flags for Cloud Foundry discovery:
 Flags:
       --app-name string          Name of the Cloud Foundry application to discover.
       --cf-config string         Path to the Cloud Foundry CLI configuration file (default: ~/.cf/config). (default "~/.cf/config")
-      --conceal-sensitive-data   Extract sensitive information in the discover manifest into a separate file.
+      --conceal-sensitive-data   Extract sensitive information in the discover manifest into a separate file (default: false).
   -h, --help                     help for cloud-foundry
       --input string             input path of the manifest file or folder to analyze
+      --list-apps                List applications available for each space.
       --output-dir string        Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.
       --platformType string      Platform type for discovery. Allowed value is: "cloud-foundry" (default). (default "cloud-foundry")
       --skip-ssl-validation      Skip SSL certificate validation for API connections (default: false).
@@ -323,6 +324,13 @@ To run discovery on Cloud Foundry manifest files in an input directory and save 
 ```sh
 kantra discover cloud-foundry --input=<path-to/manifest-dir> --output-dir=<path-to/output-dir>
 ```
+To run discovery on Cloud Foundry manifest files in an input directory and list
+the available applications:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-dir> --list-apps
+```
+
 To run discovery on Cloud Foundry manifest files in an input directory and 
 separate sensitive data (credentials, secrets) into a dedicated file:
 
@@ -334,6 +342,13 @@ To run live discovery from Cloud Foundry platform on a subset of spaces:
 
 ```sh
 kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces list
+the available applications:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --list-apps
 ```
 
 To run live discovery from Cloud Foundry platform on a subset of spaces and save

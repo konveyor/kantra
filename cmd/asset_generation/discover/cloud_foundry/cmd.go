@@ -27,6 +27,7 @@ var (
 	cfConfigPath         string
 	logger               logr.Logger
 	concealSensitiveData bool
+	listApps             bool
 )
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
@@ -43,7 +44,7 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 				if len(spaces) == 0 {
 					return fmt.Errorf("at least one space is required")
 				}
-				if len(cfConfigPath) > 0 {
+				if cfConfigPath != "" {
 					_, err := os.Stat(cfConfigPath)
 					if err != nil {
 						return fmt.Errorf("failed to retrieve Cloud Foundry configuration file at %s:%s", cfConfigPath, err)
@@ -51,21 +52,26 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 				}
 				return nil
 			}
-			if len(input) == 0 {
+			if input == "" {
 				return fmt.Errorf("input flag is required")
 			}
+
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create output directory if needed
-			if outputDir != "" {
-				err := os.MkdirAll(outputDir, 0755)
-				if err != nil {
-					return fmt.Errorf("failed to create output folder: %w", err)
-				}
+			if err := createOutputDirIfNeeded(); err != nil {
+				return fmt.Errorf("failed to create output folder: %w", err)
 			}
 
-			return discoverManifest(cmd.OutOrStdout())
+			p, err := initProviderIfNeeded()
+			if err != nil {
+				return err
+			}
+
+			if listApps {
+				return runListApps(p, useLive, cmd.OutOrStderr())
+			}
+			return discoverManifest(p, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&input, "input", "", "input path of the manifest file or folder to analyze")
@@ -80,15 +86,85 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	cmd.Flags().StringVar(&appName, "app-name", "", "Name of the Cloud Foundry application to discover.")
 	cmd.Flags().BoolVar(&skipSslValidation, "skip-ssl-validation", false, "Skip SSL certificate validation for API connections (default: false).")
 
+	cmd.Flags().BoolVar(&listApps, "list-apps", false, "List applications available for each space.")
+
 	cmd.MarkFlagsMutuallyExclusive("use-live-connection", "input")
 	cmd.MarkFlagsOneRequired("use-live-connection", "input")
 	cmd.MarkFlagsRequiredTogether("use-live-connection", "spaces")
+	cmd.MarkFlagsMutuallyExclusive("list-apps", "app-name")
+	cmd.MarkFlagsMutuallyExclusive("list-apps", "output-dir")
 	return "Cloud Foundry V3 (local manifest)", cmd
 }
 
-func discoverManifest(out io.Writer) error {
+func createOutputDirIfNeeded() error {
+	if outputDir == "" {
+		return nil
+	}
+	return os.MkdirAll(outputDir, 0755)
+}
+
+func initProviderIfNeeded() (providerInterface.Provider, error) {
+	if !useLive {
+		return nil, nil
+	}
+	return createLiveProvider()
+}
+
+func runListApps(p providerInterface.Provider, useLive bool, out io.Writer) error {
 	if useLive {
-		return discoverLive(out)
+		return listApplicationsLive(p, out)
+	}
+	return listApplicationsLocal(input, out)
+}
+
+func listApplicationsLive(p providerInterface.Provider, out io.Writer) error {
+	appListPerSpace, err := p.ListApps()
+	if err != nil {
+		return fmt.Errorf("failed to list apps by space: %w", err)
+	}
+	printApps(appListPerSpace, out)
+
+	return nil
+}
+func listApplicationsLocal(inputPath string, out io.Writer) error {
+	filesToProcess, err := getFilesToProcess(inputPath)
+	if err != nil {
+		return err
+	}
+	for _, manifestPath := range filesToProcess {
+		p, err := createProviderForManifest(manifestPath)
+		if err != nil {
+			logger.Error(err, "failed to stat input path", "input", input)
+			return err
+		}
+		logger.Info("Analizing manifests file", "Manifest", manifestPath)
+		appListPerSpace, err := p.ListApps()
+		if err != nil {
+			return err
+		}
+		printApps(appListPerSpace, out)
+	}
+	return nil
+}
+
+func printApps(appListPerSpace map[string][]any, out io.Writer) error {
+
+	for space, appsAny := range appListPerSpace {
+		fmt.Fprintf(out, "Space: %s\n", space)
+		for _, appAny := range appsAny {
+			appRef, ok := appAny.(cfProvider.AppReference)
+			if !ok {
+				return fmt.Errorf("unexpected type for app list: %T", appAny)
+			}
+			fmt.Fprintf(out, "  - %s\n", appRef.AppName)
+		}
+	}
+	return nil
+}
+
+func discoverManifest(p providerInterface.Provider, out io.Writer) error {
+	if useLive {
+		return discoverLive(p, out)
 	}
 	return discoverFromFiles(out)
 }
@@ -121,9 +197,9 @@ func discoverFromFiles(out io.Writer) error {
 	return nil
 }
 
-func discoverLive(out io.Writer) error {
+func createLiveProvider() (providerInterface.Provider, error) {
 	if pType != "cloud-foundry" {
-		return fmt.Errorf("unsupported platform type: %s", pType)
+		return nil, fmt.Errorf("unsupported platform type: %s", pType)
 	}
 
 	opts := []cfConfig.Option{}
@@ -139,7 +215,7 @@ func discoverLive(out io.Writer) error {
 		cfCfg, err = cfConfig.NewFromCFHome(opts...)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cfg := &cfProvider.Config{
@@ -149,9 +225,12 @@ func discoverLive(out io.Writer) error {
 
 	p, err := cfProvider.New(cfg, &logger, concealSensitiveData)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return p, nil
+}
 
+func discoverLive(p providerInterface.Provider, out io.Writer) error {
 	appListPerSpace, err := p.ListApps()
 	if err != nil {
 		return fmt.Errorf("failed to list apps by space: %w", err)
