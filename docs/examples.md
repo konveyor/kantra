@@ -54,10 +54,10 @@ static-report
     `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
 
 - Output YAML representations of source platform resources in the output directory
-`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output=<path-to/output-file>`
+`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-dir=<path-to/output-dir>`
 
     For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output=/tmp/output.yaml`
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output-dir=/tmp/output-dir`
 
 - Perform discovery and separate sensitive data (credentials, secrets) into a dedicated file:
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`

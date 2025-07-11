@@ -71,7 +71,7 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	cmd.Flags().StringVar(&input, "input", "", "input path of the manifest file or folder to analyze")
 	cmd.Flags().StringVar(&outputDir, "output-dir", "", "Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.")
 	cmd.MarkFlagDirname("output-dir")
-	cmd.Flags().BoolVar(&concealSensitiveData, "conceal-sensitive-data", false, "Extract sensitive information in the discover manifest into a separate file.")
+	cmd.Flags().BoolVar(&concealSensitiveData, "conceal-sensitive-data", false, "Extract sensitive information in the discover manifest into a separate file (default: false).")
 	// Live discovery flags
 	cmd.Flags().BoolVar(&useLive, "use-live-connection", false, "Enable real-time discovery using live platform connections.")
 	cmd.Flags().StringVar(&pType, "platformType", "cloud-foundry", "Platform type for discovery. Allowed value is: \"cloud-foundry\" (default).")
@@ -102,7 +102,7 @@ func discoverFromFiles(out io.Writer) error {
 	for _, manifestPath := range filesToProcess {
 		p, err := createProviderForManifest(manifestPath)
 		if err != nil {
-			logger.Error(err, "failed to stat input path", "input", input)
+			logger.Error(err, "failed to create provider for manifest", "manifestPath", manifestPath)
 			return err
 		}
 
@@ -263,7 +263,9 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 		}
 		contentFileName := fmt.Sprintf("discover_manifest%s.yaml", suffix)
 		logger.Info("Writing content to file", "path", contentFileName)
-		printFunc(contentFileName, string(contentBytes))
+		if err := printFunc(contentFileName, string(contentBytes)); err != nil {
+			return err
+		}
 	} else {
 		contentHeader := ""
 		// Write to stdout
@@ -286,8 +288,9 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 			if outputDir != "" {
 				secretFileName := fmt.Sprintf("secrets%s.yaml", suffix)
 				logger.Info("Writing secrets to file", "path", secretFileName)
-				printFunc(secretFileName, string(secretStr))
-
+				if err := printFunc(secretFileName, string(secretStr)); err != nil {
+					return err
+				}
 			} else {
 				// Write to stdout
 				printer.ToStdoutWithHeader("\n--- Secrets Section ---\n", secretStr)
