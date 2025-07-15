@@ -51,7 +51,14 @@ static-report
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml>`
 
     For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
+    `kantra discover cloud-foundry
+    --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
+    
+- Print list of available applications of source platform resources
+`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --list-apps`
+
+    For example:
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --list-apps`
 
 - Output YAML representations of source platform resources in the output directory
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-dir=<path-to/output-dir>`
@@ -64,6 +71,13 @@ static-report
 
     For example:
     `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
+
+- Perform a live discover and print the list of the available applications for
+  each space
+`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --list-apps`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --list-apps`
 
 - Perform a live discover and print the YAML representation of source platform resources
 `kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>`
