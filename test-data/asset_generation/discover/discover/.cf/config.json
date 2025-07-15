@@ -1,0 +1,43 @@
+{
+  "AccessToken": "bearer EXAMPLEEXAMPLERwczovL3VhYS5ib3NoLWxpdGUuY29tL3Rva2VuX2tleXMiLCJraWQiOiJrZXktMSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjYWU0YTNhZC0yNDhiLTRmYzctOWFlNS02NDI0YWY4NWMyZjkiLCJ1c2VyX25hbWUiOiJhZG1pbiIsIm9yaWdpbiI6InVhYSIsImlzcyI6Imh0dHBzOi8vdWFhLmJvc2gtbGl0ZS5jb20vb2F1dGgvdG9rZW4iLCJjbGllbnRfaWQiOiJjZiIsImF1ZCI6WyJzY2ltIiwiY2xvdWRfY29udHJvbGxlciIsInBhc3N3b3JkIiwiY2YiLCJjbGllbnRzIiwidWFhIiwib3BlbmlkIiwiZG9wcGxlciIsInJvdXRpbmcucm91dGVyX2dyb3VwcyIsIm5ldHdvcmsiXSwiemlkIjoidWFhIiwiZ3JhbnRfdHlwZSI6InBhc3N3b3JkIiwidXNlcl9pZCI6ImNhZTRhM2FkLTI0OGItNGZjNy05YWU1LTY0MjRhZjg1YzJmOSIsImF6cCI6ImNmIiwic2NvcGUiOlsiY2xpZW50cy5yZWFkIiwib3BlbmlkIiwicm91dGluZy5yb3V0ZXJfZ3JvdXBzLndyaXRlIiwic2NpbS5yZWFkIiwiY2xvdWRfY29udHJvbGxlci5hZG1pbiIsInVhYS51c2VyIiwicm91dGluZy5yb3V0ZXJfZ3JvdXBzLnJlYWQiLCJjbG91ZF9jb250cm9sbGVyLnJlYWQiLCJwYXNzd29yZC53cml0ZSIsImNsb3VkX2NvbnRyb2xsZXIud3JpdGUiLCJuZXR3b3JrLmFkbWluIiwiZG9wcGxlci5maXJlaG9zZSIsInNjaW0ud3JpdGUiXSwiYXV0aF90aW1lIjoxNzQ3MzkwNjAwLCJleHAiOjE3NDczOTE4MDAsImlhdCI6MTc0NzM5MDYwMCwianRpIjoiOTU4NDQwNWJiOTU1NDYyMGE4Yzg5MDNkZWRhNzlkOGMiLCJlbWFpbCI6ImFkbWluIiwicmV2X3NpZyI6IjJmMTU5YmEiLCJjbGllbnRfYXV0aF9tZXRob2QiOiJub25lIiwiY2lkIjoiY2YifQ.bRDsTqEmRX6YEvLVst7HIovjjj9owb9IHNu9CH_kEFUvdg6_KMeg4_GmOAhgF_DQLmuZg1jz565_KK4C9aIZt3RL_V0lyWjWa7brrko380CN1_UVnjsvu3u3eQQEXAMPLEAeNRQ1Xj63pTp6fkYc67I1_Q4_qvMHkbCnmOFF-VtGTjdaON-5TA8JOrNVmCdekkVqDgLLNeX15Pyopjdg_mHB1-s3mKYLSXOafEi8Ah55diDJOzSgYsSujeEZvO9mQT6whuh9mFMZ9TNTmUtXADbUVTY35FIX-TmJDDZx_483OZt06Q5XyhnRD6XmmKk3Y0zWBS1NEXAMPLEEXAMPLE",
+  "APIVersion": "3.193.0",
+  "AsyncTimeout": 0,
+  "AuthorizationEndpoint": "https://login.bosh-lite.com",
+  "CFOnK8s": {
+    "Enabled": false,
+    "AuthInfo": ""
+  },
+  "ColorEnabled": "",
+  "ConfigVersion": 4,
+  "DopplerEndPoint": "wss://doppler.bosh-lite.com:443",
+  "Locale": "",
+  "LogCacheEndPoint": "https://log-cache.bosh-lite.com",
+  "MinCLIVersion": "",
+  "MinRecommendedCLIVersion": "",
+  "NetworkPolicyV1Endpoint": "https://api.bosh-lite.com/networking/v1/external",
+  "OrganizationFields": {
+    "GUID": "a2885814-96d1-40be-9a0a-e7e602e954a2",
+    "Name": "org"
+  },
+  "PluginRepos": [
+    {
+      "Name": "CF-Community",
+      "URL": "https://plugins.cloudfoundry.org"
+    }
+  ],
+  "RefreshToken": "EXAMPLEEXAMPLERwczovL3VhYS5ib3NoLWxpdGUuY29tL3Rva2VuX2tleXMiLCJraWQiOiJrZXktMSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjYWU0YTNhZC0yNDhiLTRmYzctOWFlNS02NDI0YWY4NWMyZjkiLCJ1c2VyX25hbWUiOiJhZG1pbiIsImFtciI6WyJwd2QiXSwib3JpZ2luIjoidWFhIiwiaXNzIjoiaHR0cHM6Ly91YWEuYm9zaC1saXRlLmNvbS9vYXV0aC90b2tlbiIsImNsaWVudF9pZCI6ImNmIiwiYXVkIjpbInNjaW0iLCJjbG91ZF9jb250cm9sbGVyIiwicGFzc3dvcmQiLCJjZiIsImNsaWVudHMiLCJ1YWEiLCJvcGVuaWQiLCJkb3BwbGVyIiwicm91dGluZy5yb3V0ZXJfZ3JvdXBzIiwibmV0d29yayJdLCJ6aWQiOiJ1YWEiLCJncmFudF90eXBlIjoicGFzc3dvcmQiLCJ1c2VyX2lkIjoiY2FlNGEzYWQtMjQ4Yi00ZmM3LTlhZTUtNjQyNGFmODVjMmY5IiwiYXV0aF90aW1lIjoxNzQ3MzkwNjAwLCJncmFudGVkX3Njb3BlcyI6WyJjbGllbnRzLnJlYWQiLCJvcGVuaWQiLCJyb3V0aW5nLnJvdXRlcl9ncm91cHMud3JpdGUiLCJzY2ltLnJlYWQiLCJjbG91ZF9jb250cm9sbGVyLmFkbWluIiwidWFhLnVzZXIiLCJyb3V0aW5nLnJvdXRlcl9ncm91cHMucmVhZCIsImNsb3VkX2NvbnRyb2xsZXIucmVhZCIsInBhc3N3b3JkLndyaXRlIiwiY2xvdWRfY29udHJvbGxlci53cml0ZSIsIm5ldHdvcmsuYWRtaW4iLCJkb3BwbGVyLmZpcmVob3NlIiwic2NpbS53cml0ZSJdLCJleHAiOjE3NDk5ODI2MDAsImlhdCI6MTc0NzM5MDYwMCwianRpIjoiZWEyMDljYTlhMDk1NDRjZDhjZjZhOTFhNTFhMmQ4NzYtciIsInJldl9zaWciOiIyZjE1OWJhIiwiY2lkIjoiY2YiLCJjbGllbnRfYXV0aF9tZXRob2QiOiJub25lIn0.f0D3i2HT_F2FFjUiLnJHaNGMZ3CNrBQ_pTrEWgBcJrsiRhq90B7LJqF5SOl_yodxo6BlzS-xZ0XJIdL1vqbIhyrNBFSPsCX7aCnBqEOSKGpPOUHqopApFtHFUIpV6LEkPjVZjXKHuMlDH3eu54ZGxWfZP6i4OWluAxjR2xgECD89K-RpxMGMa8ut5ZlbpOA7lp_bo4tjVBleuhCNucfINLob8y1woCfE3UZEqGd28wYV-xphdJ6n7Fc_3Aw2_-C_dWQ5eEAddXzEQcSNn1fpZODizVdJ4J6vmCbZDHgIAKFtHOYgkOLx5yoKaDyfiwA-nYGQ4GYTEXAMPLEEXAMPLE",
+  "RoutingAPIEndpoint": "https://api.bosh-lite.com/routing",
+  "SpaceFields": {
+    "GUID": "b327ad67-7a0d-45e3-8cb9-7698217dd553",
+    "Name": "space",
+    "AllowSSH": true
+  },
+  "SSHOAuthClient": "ssh-proxy",
+  "SSLDisabled": true,
+  "Target": "https://api.bosh-lite.com",
+  "Trace": "",
+  "UaaEndpoint": "https://uaa.bosh-lite.com",
+  "UAAGrantType": "",
+  "UAAOAuthClient": "cf",
+  "UAAOAuthClientSecret": ""
+}

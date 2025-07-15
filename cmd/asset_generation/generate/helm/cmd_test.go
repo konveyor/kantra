@@ -20,7 +20,6 @@ var _ = Describe("Helm command", func() {
 	type cmdFlags struct {
 		input    string
 		chartDir string
-		output   string
 		nonK8s   bool
 		set      []string
 	}
@@ -108,7 +107,6 @@ data:
 kind: ConfigMap
 metadata:
   name: sample
-
 `, "Dockerfile": `FROM python:3
 
 RUN echo hello world!
