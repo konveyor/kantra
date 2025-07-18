@@ -106,7 +106,8 @@ jobs:
           podman rm kantra-download
           ./kantra analyze --input $(pwd)/example-applications/example-1/ \
             --output ./output/ --target cloud-readiness \
-            --rules ./test-data/jni-native-code-test.windup.xml
+            --rules ./test-data/jni-native-code-test.windup.xml \
+            --run-local=false
 
       - name: fail if analysis output doesn't match expected
         run: |
