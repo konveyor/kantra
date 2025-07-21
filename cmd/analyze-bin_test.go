@@ -20,13 +20,15 @@ func createMockKantraDir(t *testing.T) (string, func()) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Create required directories
+	// Create required directories with complete nested structure
 	dirs := []string{
 		util.RulesetsLocation,
 		"jdtls",
 		"static-report",
-		filepath.Dir(util.JavaBundlesLocation),
-		filepath.Dir(util.JDTLSBinLocation),
+		"jdtls/bin",
+		"jdtls/java-analyzer-bundle",
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core",
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target",
 	}
 
 	for _, dir := range dirs {
@@ -37,10 +39,10 @@ func createMockKantraDir(t *testing.T) (string, func()) {
 		}
 	}
 
-	// Create mock files
+	// Create mock files with proper paths
 	files := []string{
-		util.JavaBundlesLocation,
-		util.JDTLSBinLocation,
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar", // util.JavaBundlesLocation without leading /
+		"jdtls/bin/jdtls",            // util.JDTLSBinLocation without leading /
 		"maven.default.index",
 		"fernflower.jar",
 		filepath.Join("static-report", "index.html"),
@@ -64,8 +66,8 @@ func createMockKantraDir(t *testing.T) (string, func()) {
 // createMockBinaries creates mock binary files at expected paths
 func createMockBinaries(t *testing.T, kantraDir string) {
 	binaries := map[string]string{
-		"bundle": filepath.Join(kantraDir, util.JavaBundlesLocation),
-		"jdtls":  filepath.Join(kantraDir, util.JDTLSBinLocation),
+		"bundle": filepath.Join(kantraDir, "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"),
+		"jdtls":  filepath.Join(kantraDir, "jdtls/bin/jdtls"),
 	}
 
 	for _, path := range binaries {
@@ -530,10 +532,13 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			// Set JAVA_HOME to kantra directory for testing
 			_ = os.Setenv("JAVA_HOME", cmd.kantraDir)
 			
-			// Set kantra directory first
-			err := cmd.setKantraDir()
-			if err != nil && !tt.expectError {
-				t.Fatalf("Failed to set kantra directory: %v", err)
+			// Set kantra directory first (skip if already set by test setup)
+			var err error
+			if cmd.kantraDir == "" {
+				err = cmd.setKantraDir()
+				if err != nil && !tt.expectError {
+					t.Fatalf("Failed to set kantra directory: %v", err)
+				}
 			}
 			
 			// Set binMap if kantraDir is set
