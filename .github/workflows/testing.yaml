@@ -130,3 +130,9 @@ jobs:
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: konveyor/kantra
