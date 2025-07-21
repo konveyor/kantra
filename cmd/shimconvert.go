@@ -72,6 +72,16 @@ func NewWindupShimCommand(log logr.Logger) *cobra.Command {
 }
 
 func (w *windupShimCommand) Validate() error {
+	for _, input := range w.input {
+		_, err := os.Stat(input)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("input rule file or directory %s does not exist", input)
+			}
+			return fmt.Errorf("failed to stat input rule file or directory %s: %w", input, err)
+		}
+
+	}
 	outputStat, err := os.Stat(w.output)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

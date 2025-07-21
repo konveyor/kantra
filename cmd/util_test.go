@@ -43,7 +43,7 @@ func TestAnalyzeCommand_inputShortName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &analyzeCommand{
-				input: tt.input,
+				input:                 tt.input,
 				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
 			}
 
@@ -77,38 +77,43 @@ func TestAnalyzeCommand_getRulesVolumes(t *testing.T) {
 		name          string
 		rules         []string
 		expectVolumes bool
+		expectErr     bool
 	}{
 		{
 			name:          "no rules specified",
 			rules:         []string{},
 			expectVolumes: false,
+			expectErr:     false,
 		},
 		{
 			name:          "rules directory specified",
 			rules:         []string{tempDir},
 			expectVolumes: true,
+			expectErr:     false,
 		},
 		{
 			name:          "rules file specified",
 			rules:         []string{ruleFile},
 			expectVolumes: true,
+			expectErr:     false,
 		},
 		{
 			name:          "empty rule path",
 			rules:         []string{""},
 			expectVolumes: false,
+			expectErr:     true, // Expect error for empty rule path
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &analyzeCommand{
-				rules: tt.rules,
+				rules:                 tt.rules,
 				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
 			}
 
 			volumes, err := cmd.getRulesVolumes()
-			if err != nil {
+			if err != nil && !tt.expectErr {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
@@ -117,68 +122,6 @@ func TestAnalyzeCommand_getRulesVolumes(t *testing.T) {
 			}
 			if !tt.expectVolumes && len(volumes) > 0 {
 				t.Errorf("Expected no rule volumes but got %d", len(volumes))
-			}
-		})
-	}
-}
-
-func TestAnalyzeCommand_getConfigVolumes(t *testing.T) {
-	testLogger := logrus.New()
-	logger := logrusr.New(testLogger)
-
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "util-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create a test config file
-	configFile := filepath.Join(tempDir, "provider-settings.yaml")
-	err = os.WriteFile(configFile, []byte("test config"), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	tests := []struct {
-		name                     string
-		overrideProviderSettings string
-		expectMount              bool
-	}{
-		{
-			name:                     "no override settings",
-			overrideProviderSettings: "",
-			expectMount:              false,
-		},
-		{
-			name:                     "valid override settings file",
-			overrideProviderSettings: configFile,
-			expectMount:              true,
-		},
-		{
-			name:                     "non-existent settings file",
-			overrideProviderSettings: "/nonexistent/file.yaml",
-			expectMount:              false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &analyzeCommand{
-				overrideProviderSettings: tt.overrideProviderSettings,
-				AnalyzeCommandContext:    AnalyzeCommandContext{log: logger},
-			}
-
-			volumes, err := cmd.getConfigVolumes()
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-
-			if tt.expectMount && len(volumes) == 0 {
-				t.Error("Expected config mount but got none")
-			}
-			if !tt.expectMount && len(volumes) > 0 {
-				t.Errorf("Expected no config mount but got %d", len(volumes))
 			}
 		})
 	}

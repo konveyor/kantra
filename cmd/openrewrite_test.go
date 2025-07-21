@@ -51,7 +51,7 @@ func TestOpenRewriteCommand_Flags(t *testing.T) {
 	expectedFlags := []string{
 		"list-targets",
 		"input",
-		"target", 
+		"target",
 		"goal",
 		"maven-settings",
 	}
@@ -90,7 +90,7 @@ func TestOpenRewriteCommand_PreRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd.SetArgs(tt.args)
-			
+
 			// Parse flags to simulate what cobra does
 			err := cmd.ParseFlags(tt.args)
 			if err != nil {
@@ -100,11 +100,11 @@ func TestOpenRewriteCommand_PreRun(t *testing.T) {
 			// Run PreRun function
 			if cmd.PreRun != nil {
 				cmd.PreRun(cmd, tt.args)
-				
+
 				// Check if required flags are marked correctly
 				inputFlag := cmd.Flags().Lookup("input")
 				targetFlag := cmd.Flags().Lookup("target")
-				
+
 				if tt.name == "list-targets flag set" {
 					// When list-targets is set, input and target should not be required
 					// This is harder to test directly, so we just verify PreRun doesn't panic
@@ -123,8 +123,6 @@ func TestOpenRewriteCommand_RunE(t *testing.T) {
 	testLogger := logrus.New()
 	testLogger.SetOutput(bytes.NewBuffer(nil)) // Silence output
 	logger := logrusr.New(testLogger)
-
-	cmd := NewOpenRewriteCommand(logger)
 
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "openrewrite-test")
@@ -157,6 +155,7 @@ func TestOpenRewriteCommand_RunE(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewOpenRewriteCommand(logger)
 			buf := &bytes.Buffer{}
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
@@ -229,7 +228,7 @@ func TestOpenRewriteCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewOpenRewriteCommand(logger)
-			
+
 			args := []string{"--input", tt.input, "--target", tt.target}
 			if tt.mavenSettingsFile != "" {
 				args = append(args, "--maven-settings", tt.mavenSettingsFile)
@@ -316,7 +315,7 @@ func TestOpenRewriteCommand_WithTransformCommand(t *testing.T) {
 
 	// Test that openrewrite command can be added to transform command
 	transformCmd := NewTransformCommand(logger)
-	
+
 	// Verify openrewrite is a subcommand of transform
 	commands := transformCmd.Commands()
 	found := false
@@ -326,7 +325,7 @@ func TestOpenRewriteCommand_WithTransformCommand(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("OpenRewrite command was not found as subcommand of transform")
 	}
