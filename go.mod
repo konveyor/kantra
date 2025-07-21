@@ -3,12 +3,12 @@ module github.com/konveyor-ecosystem/kantra
 go 1.23.9
 
 require (
-	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.12
+	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.12.0.20250712142925-13a7dc5466ad
 	github.com/devfile/alizer v1.6.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.3
-	github.com/konveyor/asset-generation v0.1.4
+	github.com/konveyor/asset-generation v0.1.6
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -98,7 +98,7 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/oauth2 v0.28.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
