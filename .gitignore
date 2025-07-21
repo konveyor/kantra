@@ -1,6 +1,12 @@
 .vscode/
 .idea/
 
+CLAUDE.md
+
+*.out
+
+.metadata/
+
 env.local
 
 vendor/
