@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
+	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,7 +42,7 @@ func createMockKantraDir(t *testing.T) (string, func()) {
 	// Create mock files with proper paths
 	files := []string{
 		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar", // util.JavaBundlesLocation without leading /
-		"jdtls/bin/jdtls",            // util.JDTLSBinLocation without leading /
+		"jdtls/bin/jdtls", // util.JDTLSBinLocation without leading /
 		"maven.default.index",
 		"fernflower.jar",
 		filepath.Join("static-report", "index.html"),
@@ -184,11 +184,11 @@ func TestAnalyzeCommand_setKantraDir(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp home: %v", err)
 				}
-				
+
 				// Create kantra dir in temp home
 				kantraDir := filepath.Join(tempHome, ".kantra")
 				os.MkdirAll(kantraDir, 0755)
-				
+
 				// Create required subdirectories
 				dirs := []string{
 					util.RulesetsLocation,
@@ -198,13 +198,11 @@ func TestAnalyzeCommand_setKantraDir(t *testing.T) {
 				for _, dir := range dirs {
 					os.MkdirAll(filepath.Join(kantraDir, dir), 0755)
 				}
-				
-				// Set HOME env var
-				oldHome := os.Getenv("HOME")
-				os.Setenv("HOME", tempHome)
-				
+
+				// Set HOME env var using t.Setenv for test isolation
+				t.Setenv("HOME", tempHome)
+
 				return kantraDir, func() {
-					os.Setenv("HOME", oldHome)
 					os.RemoveAll(tempHome)
 				}
 			},
@@ -265,7 +263,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory with binaries
 				tempDir, cleanup := createMockKantraDir(t)
-				
+
 				cmd := &analyzeCommand{
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
@@ -273,7 +271,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 						kantraDir: tempDir,
 					},
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -286,7 +284,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				cmd := &analyzeCommand{
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
@@ -294,11 +292,11 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 						kantraDir: tempDir,
 					},
 				}
-				
+
 				cleanup := func() {
 					os.RemoveAll(tempDir)
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: true,
@@ -308,7 +306,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory with binaries
 				tempDir, cleanup := createMockKantraDir(t)
-				
+
 				cmd := &analyzeCommand{
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
@@ -316,7 +314,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 						kantraDir: tempDir,
 					},
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -347,7 +345,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 				if cmd.reqMap == nil {
 					t.Error("Expected reqMap to be initialized")
 				}
-				
+
 				// Check that bundle and jdtls paths are set
 				if cmd.reqMap["bundle"] == "" {
 					t.Error("Expected bundle path to be set in reqMap")
@@ -355,7 +353,7 @@ func TestAnalyzeCommand_setBinMapContainerless(t *testing.T) {
 				if cmd.reqMap["jdtls"] == "" {
 					t.Error("Expected jdtls path to be set in reqMap")
 				}
-				
+
 				// Verify the paths exist
 				if _, err := os.Stat(cmd.reqMap["bundle"]); os.IsNotExist(err) {
 					t.Errorf("Bundle file does not exist at %s", cmd.reqMap["bundle"])
@@ -387,16 +385,16 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory  
 				kantraDir, cleanup := createMockKantraDir(t)
-				
+
 				cmd := &analyzeCommand{
-					listSources:           true,
+					listSources: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 						reqMap:    make(map[string]string),
 					},
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -407,16 +405,16 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory
 				kantraDir, cleanup := createMockKantraDir(t)
-				
+
 				cmd := &analyzeCommand{
-					listTargets:           true,
+					listTargets: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 						reqMap:    make(map[string]string),
 					},
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -427,16 +425,16 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory
 				kantraDir, cleanup := createMockKantraDir(t)
-				
+
 				cmd := &analyzeCommand{
-					listProviders:         true,
+					listProviders: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 						reqMap:    make(map[string]string),
 					},
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -447,36 +445,36 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory and test input directory
 				kantraDir, kantraCleanup := createMockKantraDir(t)
-				
+
 				// Create temporary directory for input
 				tempDir, err := os.MkdirTemp("", "analyze-input-test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				// Create a test file
 				testFile := filepath.Join(tempDir, "test.txt")
 				err = os.WriteFile(testFile, []byte("test content"), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create test file: %v", err)
 				}
-				
+
 				cmd := &analyzeCommand{
-					input:                 tempDir,
-					output:                tempDir,
-					mode:                  "full",
+					input:  tempDir,
+					output: tempDir,
+					mode:   "full",
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 						reqMap:    make(map[string]string),
 					},
 				}
-				
+
 				cleanup := func() {
 					os.RemoveAll(tempDir)
 					kantraCleanup()
 				}
-				
+
 				return cmd, cleanup
 			},
 			expectError: false,
@@ -487,33 +485,33 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, func()) {
 				// Create mock kantra directory
 				kantraDir, cleanup := createMockKantraDir(t)
-				
+
 				// Create temporary directory for output
 				tempDir, err := os.MkdirTemp("", "analyze-output-test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				cmd := &analyzeCommand{
-					input:                 "/nonexistent/path",
-					output:                tempDir,
-					mode:                  "full",
+					input:  "/nonexistent/path",
+					output: tempDir,
+					mode:   "full",
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 						reqMap:    make(map[string]string),
 					},
 				}
-				
+
 				finalCleanup := func() {
 					os.RemoveAll(tempDir)
 					cleanup()
 				}
-				
+
 				return cmd, finalCleanup
 			},
 			expectError: false, // ValidateContainerless doesn't validate input path
-			skipIfNoMvn: true, // This test validates Java/Maven dependencies
+			skipIfNoMvn: true,  // This test validates Java/Maven dependencies
 		},
 	}
 
@@ -523,15 +521,15 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			if tt.skipIfNoMvn && !mvnAvailable {
 				t.Skip("Skipping test that requires maven - maven not found in PATH")
 			}
-			
+
 			cmd, cleanup := tt.setupFunc()
 			defer cleanup()
-			
+
 			ctx := context.Background()
-			
+
 			// Set JAVA_HOME to kantra directory for testing
 			_ = os.Setenv("JAVA_HOME", cmd.kantraDir)
-			
+
 			// Set kantra directory first (skip if already set by test setup)
 			var err error
 			if cmd.kantraDir == "" {
@@ -540,7 +538,7 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 					t.Fatalf("Failed to set kantra directory: %v", err)
 				}
 			}
-			
+
 			// Set binMap if kantraDir is set
 			if cmd.kantraDir != "" {
 				err = cmd.setBinMapContainerless()
@@ -548,7 +546,7 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 					t.Fatalf("Failed to set bin map: %v", err)
 				}
 			}
-			
+
 			err = cmd.ValidateContainerless(ctx)
 
 			if tt.expectError && err == nil {
@@ -557,7 +555,7 @@ func TestAnalyzeCommand_ValidateContainerless(t *testing.T) {
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			_ = os.Unsetenv("JAVA_HOME")
 		})
 	}
@@ -602,7 +600,7 @@ func TestAnalyzeCommand_walkRuleFilesForLabelsContainerless(t *testing.T) {
 		{
 			name: "find rules with matching label",
 			cmd: &analyzeCommand{
-				rules:                 []string{tempDir},
+				rules: []string{tempDir},
 				AnalyzeCommandContext: AnalyzeCommandContext{
 					log:       logger,
 					kantraDir: kantraDir,
@@ -615,7 +613,7 @@ func TestAnalyzeCommand_walkRuleFilesForLabelsContainerless(t *testing.T) {
 		{
 			name: "no matching rules",
 			cmd: &analyzeCommand{
-				rules:                 []string{tempDir},
+				rules: []string{tempDir},
 				AnalyzeCommandContext: AnalyzeCommandContext{
 					log:       logger,
 					kantraDir: kantraDir,
@@ -628,7 +626,7 @@ func TestAnalyzeCommand_walkRuleFilesForLabelsContainerless(t *testing.T) {
 		{
 			name: "no rules specified",
 			cmd: &analyzeCommand{
-				rules:                 []string{},
+				rules: []string{},
 				AnalyzeCommandContext: AnalyzeCommandContext{
 					log:       logger,
 					kantraDir: kantraDir,
@@ -694,7 +692,7 @@ func TestAnalyzeCommand_setConfigsContainerless(t *testing.T) {
 			t.Errorf("Expected config name '%s', got '%s'", config.Name, result[i].Name)
 		}
 	}
-	
+
 	// Check that the last config is the builtin config
 	if result[len(result)-1].Name != "builtin" {
 		t.Errorf("Expected last config to be 'builtin', got '%s'", result[len(result)-1].Name)
@@ -716,50 +714,50 @@ func TestAnalyzeCommand_buildStaticReportFile(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, string, func()) {
 				// Create mock kantra directory with static-report assets
 				kantraDir, kantraCleanup := createMockKantraDir(t)
-				
+
 				// Create temporary output directory
 				tempDir, err := os.MkdirTemp("", "analyze-output-test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				// Create mock output.yaml file in output directory with valid YAML
 				outputYaml := filepath.Join(tempDir, "output.yaml")
-				yamlContent := `[]`  // Empty array of RuleSets
+				yamlContent := `[]` // Empty array of RuleSets
 				err = os.WriteFile(outputYaml, []byte(yamlContent), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create output.yaml: %v", err)
 				}
-				
+
 				// Create mock dependencies.yaml file
 				depsYaml := filepath.Join(tempDir, "dependencies.yaml")
 				err = os.WriteFile(depsYaml, []byte(yamlContent), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create dependencies.yaml: %v", err)
 				}
-				
+
 				staticReportPath := filepath.Join(tempDir, "static-report")
-				
+
 				// Create the static-report directory
 				err = os.MkdirAll(staticReportPath, 0755)
 				if err != nil {
 					t.Fatalf("Failed to create static-report directory: %v", err)
 				}
-				
+
 				cmd := &analyzeCommand{
-					output:                tempDir,
-					skipStaticReport:      false,
+					output:           tempDir,
+					skipStaticReport: false,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 					},
 				}
-				
+
 				cleanup := func() {
 					os.RemoveAll(tempDir)
 					kantraCleanup()
 				}
-				
+
 				return cmd, staticReportPath, cleanup
 			},
 			depsErr:     false,
@@ -770,29 +768,29 @@ func TestAnalyzeCommand_buildStaticReportFile(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, string, func()) {
 				// Create mock kantra directory
 				kantraDir, kantraCleanup := createMockKantraDir(t)
-				
+
 				// Create temporary output directory
 				tempDir, err := os.MkdirTemp("", "analyze-output-test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				staticReportPath := filepath.Join(tempDir, "static-report")
-				
+
 				cmd := &analyzeCommand{
-					output:                tempDir,
-					skipStaticReport:      true,
+					output:           tempDir,
+					skipStaticReport: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 					},
 				}
-				
+
 				cleanup := func() {
 					os.RemoveAll(tempDir)
 					kantraCleanup()
 				}
-				
+
 				return cmd, staticReportPath, cleanup
 			},
 			depsErr:     false,
@@ -803,50 +801,50 @@ func TestAnalyzeCommand_buildStaticReportFile(t *testing.T) {
 			setupFunc: func() (*analyzeCommand, string, func()) {
 				// Create mock kantra directory with static-report assets
 				kantraDir, kantraCleanup := createMockKantraDir(t)
-				
+
 				// Create temporary output directory
 				tempDir, err := os.MkdirTemp("", "analyze-output-test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				// Create mock output.yaml file in output directory with valid YAML
 				outputYaml := filepath.Join(tempDir, "output.yaml")
-				yamlContent := `[]`  // Empty array of RuleSets
+				yamlContent := `[]` // Empty array of RuleSets
 				err = os.WriteFile(outputYaml, []byte(yamlContent), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create output.yaml: %v", err)
 				}
-				
+
 				// Create mock dependencies.yaml file
 				depsYaml := filepath.Join(tempDir, "dependencies.yaml")
 				err = os.WriteFile(depsYaml, []byte(yamlContent), 0644)
 				if err != nil {
 					t.Fatalf("Failed to create dependencies.yaml: %v", err)
 				}
-				
+
 				staticReportPath := filepath.Join(tempDir, "static-report")
-				
+
 				// Create the static-report directory
 				err = os.MkdirAll(staticReportPath, 0755)
 				if err != nil {
 					t.Fatalf("Failed to create static-report directory: %v", err)
 				}
-				
+
 				cmd := &analyzeCommand{
-					output:                tempDir,
-					skipStaticReport:      false,
+					output:           tempDir,
+					skipStaticReport: false,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						log:       logger,
 						kantraDir: kantraDir,
 					},
 				}
-				
+
 				cleanup := func() {
 					os.RemoveAll(tempDir)
 					kantraCleanup()
 				}
-				
+
 				return cmd, staticReportPath, cleanup
 			},
 			depsErr:     true,
@@ -858,7 +856,7 @@ func TestAnalyzeCommand_buildStaticReportFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, staticReportPath, cleanup := tt.setupFunc()
 			defer cleanup()
-			
+
 			ctx := context.Background()
 			err := cmd.buildStaticReportFile(ctx, staticReportPath, tt.depsErr)
 
