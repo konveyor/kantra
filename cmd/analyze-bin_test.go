@@ -201,8 +201,11 @@ func TestAnalyzeCommand_setKantraDir(t *testing.T) {
 
 				// Set HOME env var using t.Setenv for test isolation
 				t.Setenv("HOME", tempHome)
+				t.Setenv("XDG_CONFIG_HOME", tempHome)
 
 				return kantraDir, func() {
+					os.Unsetenv("XDG_CONFIG_HOME")
+					os.Unsetenv("HOME")
 					os.RemoveAll(tempHome)
 				}
 			},
