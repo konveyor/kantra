@@ -63,6 +63,9 @@ func TestTransformCommand_RunFunction(t *testing.T) {
 	buf := &bytes.Buffer{}
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
+	
+	// Clear any inherited command-line arguments to avoid test flag conflicts
+	cmd.SetArgs([]string{})
 
 	// Execute the command without arguments (should show help)
 	err := cmd.Execute()
@@ -210,6 +213,9 @@ func TestTransformCommand_NoArgs(t *testing.T) {
 	buf := &bytes.Buffer{}
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
+	
+	// Clear any inherited command-line arguments to avoid test flag conflicts
+	cmd.SetArgs([]string{})
 	
 	err := cmd.Execute()
 	if err != nil {

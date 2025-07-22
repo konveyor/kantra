@@ -30,9 +30,17 @@ var rootCmd = &cobra.Command{
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Try to parse flags, but ignore errors that occur during testing
+		// when test flags like --test.v are passed to the command
+		err := cmd.ParseFlags(args)
+		if err != nil {
+			// During testing, Go may pass test-specific flags that our command
+			// doesn't recognize. We'll silently ignore parse errors in this case.
+			// The logLevel will use its default value (4) if parsing fails.
+			return
+		}
 		// TODO (pgaikwad): this is a hack to set log level
-		// this won't work if any subcommand ovverrides this func
-		_ = cmd.ParseFlags(args)
+		// this won't work if any subcommand overrides this func
 		logrusLog.SetLevel(logrus.Level(logLevel))
 	},
 }

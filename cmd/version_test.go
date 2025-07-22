@@ -74,6 +74,9 @@ func TestNewVersionCommand(t *testing.T) {
 			buf := &bytes.Buffer{}
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
+			
+			// Clear any inherited command-line arguments to avoid test flag conflicts
+			cmd.SetArgs([]string{})
 
 			// Execute command
 			err := cmd.Execute()
@@ -159,6 +162,9 @@ func TestVersionCommand_OutputFormat(t *testing.T) {
 	buf := &bytes.Buffer{}
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
+	
+	// Clear any inherited command-line arguments to avoid test flag conflicts
+	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
 	if err != nil {
