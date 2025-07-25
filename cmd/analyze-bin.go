@@ -654,6 +654,9 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 }
 
 func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReportPath string, depsErr bool) error {
+	if a.skipStaticReport {
+		return nil
+	}
 	// Prepare report args list with single input analysis
 	applicationNames := []string{filepath.Base(a.input)}
 	outputAnalyses := []string{filepath.Join(a.output, "output.yaml")}
