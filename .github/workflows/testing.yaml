@@ -70,7 +70,7 @@ jobs:
 
       - name: Run analysis test and copy output
         run: |
-          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/ --rules ./test-data/jni-native-code-test.windup.xml --target cloud-readiness --run-local=false
+          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
       
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
@@ -112,7 +112,6 @@ jobs:
           podman rm kantra-download
           ./kantra analyze --input $(pwd)/example-applications/example-1/ \
             --output ./output/ --target cloud-readiness \
-            --rules ./test-data/jni-native-code-test.windup.xml \
             --run-local=false
 
       - name: fail if analysis output doesn't match expected

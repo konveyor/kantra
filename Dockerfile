@@ -1,5 +1,4 @@
 ARG VERSION=latest
-FROM quay.io/konveyor/windup-shim:${VERSION} as shim
 
 FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
@@ -72,12 +71,11 @@ RUN sed -i "s/^driver.*/driver = \"vfs\"/g" /home/mta/.config/containers/storage
 RUN echo -ne '[containers]\nvolumes = ["/proc:/proc",]\ndefault_sysctls = []' > /home/mta/.config/containers/containers.conf
 RUN chown -R 1000:1000 /home/mta
 
-RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output /opt/xmlrules /opt/shimoutput /tmp/source-app /tmp/source-app/input
+RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
 COPY --from=builder /workspace/windows-kantra /usr/local/bin/windows-kantra
-COPY --from=shim /usr/bin/windup-shim /usr/local/bin
 COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin

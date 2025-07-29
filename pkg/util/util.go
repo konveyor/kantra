@@ -74,8 +74,6 @@ const (
 	OpenRewriteRecipesPath = "/opt/openrewrite"
 	InputPath              = "/opt/input"
 	OutputPath             = "/opt/output"
-	XMLRulePath            = "/opt/xmlrules"
-	ShimOutputPath         = "/opt/shimoutput"
 	CustomRulePath         = "/opt/input/rules"
 )
 
@@ -161,10 +159,6 @@ func LoadEnvInsensitive(variableName string) string {
 	}
 }
 
-func IsXMLFile(rule string) bool {
-	return path.Ext(rule) == ".xml"
-}
-
 func WalkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
 	return func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
@@ -234,19 +228,4 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 	for _, tech := range newSl {
 		fmt.Fprintln(out, tech)
 	}
-}
-
-func IsXMLDirEmpty(dir string) (bool, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdir(1)
-	if err == io.EOF {
-		return true, nil
-	}
-
-	return false, err
 }
