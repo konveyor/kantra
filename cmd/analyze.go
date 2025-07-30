@@ -562,9 +562,6 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 	}
 	if stat.IsDir() {
 		return filepath.WalkDir(rulePath, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
 			if d.IsDir() {
 				return nil
 			}
