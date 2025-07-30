@@ -173,7 +173,7 @@ data:
   chartName: hello world!
 kind: ConfigMap
 metadata:
-  name: sample
+  name: "sample"
 `),
 			Entry("generates the manifests for a K8s chart while overriding the variable in the discover.yaml",
 				cmdFlags{
@@ -187,7 +187,7 @@ data:
   chartName: bar.foo
 kind: ConfigMap
 metadata:
-  name: sample
+  name: "sample"
 `),
 			Entry("generates the manifests for a K8s chart while adding a new variable that is interpreted in the template",
 				cmdFlags{
@@ -202,7 +202,7 @@ data:
   extraValue: Lorem Ipsum
 kind: ConfigMap
 metadata:
-  name: sample
+  name: "sample"
 `),
 			Entry("generates no manifest in a K8s chart when specifying the flag to generate only the non-K8s templates",
 				cmdFlags{
