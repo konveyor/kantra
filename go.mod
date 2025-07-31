@@ -127,7 +127,6 @@ require (
 	github.com/antchfx/xmlquery v1.4.1 // indirect
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
-	github.com/fabianvf/windup-rulesets-yaml v0.5.3
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250430114706-8854fd4af817
 	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250625194402-05dca9b4ac43

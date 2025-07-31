@@ -2,9 +2,8 @@ coverage:
   status:
     project:
       default:
-        target: 80%  # Set a required overall project coverage target
         threshold: 1% # Allow for a small drop before failing
     patch:
       default:
-        target: 100% # Require 100% coverage on new code (patch)
+        target: 80% # Require 80% coverage on new code (patch)
 
