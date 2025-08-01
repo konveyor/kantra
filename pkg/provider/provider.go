@@ -18,6 +18,7 @@ type ConfigInput struct {
 	TmpDir                  string
 	DepsFolders             []string
 	JavaExcludedTargetPaths []interface{}
+	JavaBundleLocation      string
 }
 
 type Provider interface {
