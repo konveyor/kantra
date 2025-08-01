@@ -744,6 +744,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		JvmMaxMem:               Settings.JvmMaxMem,
 		DepsFolders:             depsFolders,
 		JavaExcludedTargetPaths: javaTargetPaths,
+		JavaBundleLocation:      JavaBundlesLocation,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)
