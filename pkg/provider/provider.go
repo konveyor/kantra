@@ -19,6 +19,7 @@ type ConfigInput struct {
 	DepsFolders             []string
 	JavaExcludedTargetPaths []interface{}
 	DisableMavenSearch      bool
+	JavaBundleLocation      string
 }
 
 type Provider interface {

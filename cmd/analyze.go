@@ -746,6 +746,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		DepsFolders:             depsFolders,
 		JavaExcludedTargetPaths: javaTargetPaths,
 		DisableMavenSearch:      a.disableMavenSearch,
+		JavaBundleLocation:      JavaBundlesLocation,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)

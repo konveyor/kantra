@@ -170,7 +170,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	needProviders := map[string]provider.InternalProviderClient{}
 
 	if a.enableDefaultRulesets {
-		a.rules = append(a.rules, filepath.Join(a.kantraDir, util.RulesetsLocation))
+		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
 
 	for _, f := range a.rules {
@@ -280,8 +280,8 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, util.RulesetsLocation), filepath.Join(a.kantraDir, util.JavaBundlesLocation),
-		filepath.Join(a.kantraDir, util.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
+	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation),
+		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
@@ -325,7 +325,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 
 func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(a.kantraDir, util.RulesetsLocation)
+	path := filepath.Join(a.kantraDir, RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		a.log.Error(err, "cannot open provided path")
 		return nil, err
@@ -350,7 +350,7 @@ func (a *analyzeCommand) setKantraDir() error {
 	var err error
 	set := true
 	reqs := []string{
-		util.RulesetsLocation,
+		RulesetsLocation,
 		"jdtls",
 		"static-report",
 	}
@@ -389,8 +389,8 @@ func (a *analyzeCommand) setKantraDir() error {
 }
 
 func (a *analyzeCommand) setBinMapContainerless() error {
-	a.reqMap["bundle"] = filepath.Join(a.kantraDir, util.JavaBundlesLocation)
-	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, util.JDTLSBinLocation)
+	a.reqMap["bundle"] = filepath.Join(a.kantraDir, JavaBundlesLocation)
+	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, JDTLSBinLocation)
 	// validate
 	for _, v := range a.reqMap {
 		stat, err := os.Stat(v)
