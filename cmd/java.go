@@ -38,6 +38,7 @@ func (p *JavaProvider) GetConfigVolume(a *analyzeCommand, tmpDir string) (provid
 					"bundles":                       JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+					"disableMavenSearch":            a.disableMavenSearch,
 				},
 			},
 		},
