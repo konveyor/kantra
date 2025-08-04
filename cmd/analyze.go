@@ -81,6 +81,7 @@ type analyzeCommand struct {
 	logLevel                 *uint32
 	cleanup                  bool
 	runLocal                 bool
+	disableMavenSearch       bool
 	AnalyzeCommandContext
 }
 
@@ -329,7 +330,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers will be started up")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
-
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	return analyzeCommand
 }
 
@@ -744,6 +745,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		JvmMaxMem:               Settings.JvmMaxMem,
 		DepsFolders:             depsFolders,
 		JavaExcludedTargetPaths: javaTargetPaths,
+		DisableMavenSearch:      a.disableMavenSearch,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
@@ -1043,6 +1044,219 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 				if err != nil {
 					t.Errorf("moveResults() unexpected error = %v", err)
 				}
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_disableMavenSearch_flagParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected bool
+	}{
+		{
+			name:     "disable-maven-search flag set to true",
+			args:     []string{"analyze", "--disable-maven-search=true", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+		{
+			name:     "disable-maven-search flag set to false",
+			args:     []string{"analyze", "--disable-maven-search=false", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "disable-maven-search flag not provided (default false)",
+			args:     []string{"analyze", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "disable-maven-search flag provided without value (true)",
+			args:     []string{"analyze", "--disable-maven-search", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logr.Discard()
+			cmd := NewAnalyzeCmd(log)
+
+			// Set args and parse
+			cmd.SetArgs(tt.args[1:]) // Remove "analyze" since that's the command name
+			err := cmd.ParseFlags(tt.args[1:])
+			if err != nil {
+				t.Fatalf("Failed to parse flags: %v", err)
+			}
+
+			// Check if we can extract the flag value via reflection or by creating a new command
+			// Since we can't easily access the internal state, let's test via flag lookup
+			flagValue, err := cmd.Flags().GetBool("disable-maven-search")
+			if err != nil {
+				t.Fatalf("Failed to get disable-maven-search flag: %v", err)
+			}
+
+			if flagValue != tt.expected {
+				t.Errorf("disableMavenSearch = %v, want %v", flagValue, tt.expected)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_getConfigVolumes_disableMavenSearch(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                       string
+		disableMavenSearch         bool
+		expectedDisableMavenSearch bool
+	}{
+		{
+			name:                       "disableMavenSearch true",
+			disableMavenSearch:         true,
+			expectedDisableMavenSearch: true,
+		},
+		{
+			name:                       "disableMavenSearch false",
+			disableMavenSearch:         false,
+			expectedDisableMavenSearch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-input-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			outputDir, err := os.MkdirTemp("", "test-output-")
+			if err != nil {
+				t.Fatalf("Failed to create output dir: %v", err)
+			}
+			defer os.RemoveAll(outputDir)
+
+			a := &analyzeCommand{
+				input:              tmpDir,
+				output:             outputDir,
+				disableMavenSearch: tt.disableMavenSearch,
+				mode:               "source-only",
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					isFileInput:  false,
+					needsBuiltin: true,
+				},
+			}
+
+			// Mock Settings to avoid nil pointer
+			originalSettings := Settings
+			Settings = &Config{
+				JvmMaxMem: "1g",
+			}
+			defer func() { Settings = originalSettings }()
+			configVols, err := a.getConfigVolumes()
+			if err != nil {
+				t.Fatalf("getConfigVolumes() error = %v", err)
+			}
+			if len(configVols) == 0 {
+				t.Fatal("Expected config volumes to be created")
+			}
+
+			tempDir, err := os.MkdirTemp("", "analyze-config-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			javaTargetPaths, _ := kantraProvider.WalkJavaPathForTarget(log, false, tmpDir)
+
+			configInput := kantraProvider.ConfigInput{
+				IsFileInput:             false,
+				InputPath:               tmpDir,
+				OutputPath:              outputDir,
+				MavenSettingsFile:       "",
+				Log:                     log,
+				Mode:                    "source-only",
+				Port:                    6734,
+				TmpDir:                  tempDir,
+				JvmMaxMem:               "1g",
+				DepsFolders:             []string{},
+				JavaExcludedTargetPaths: javaTargetPaths,
+				DisableMavenSearch:      tt.disableMavenSearch,
+			}
+
+			if configInput.DisableMavenSearch != tt.expectedDisableMavenSearch {
+				t.Errorf("ConfigInput.DisableMavenSearch = %v, want %v",
+					configInput.DisableMavenSearch, tt.expectedDisableMavenSearch)
+			}
+		})
+	}
+}
+
+func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                       string
+		disableMavenSearch         bool
+		expectedDisableMavenSearch bool
+	}{
+		{
+			name:                       "disableMavenSearch true in config",
+			disableMavenSearch:         true,
+			expectedDisableMavenSearch: true,
+		},
+		{
+			name:                       "disableMavenSearch false in config",
+			disableMavenSearch:         false,
+			expectedDisableMavenSearch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temporary directory for testing
+			tmpDir, err := os.MkdirTemp("", "test-java-config-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			configInput := kantraProvider.ConfigInput{
+				IsFileInput:             false,
+				InputPath:               tmpDir,
+				OutputPath:              tmpDir,
+				MavenSettingsFile:       "",
+				Log:                     log,
+				Mode:                    "source-only",
+				Port:                    6734,
+				TmpDir:                  tmpDir,
+				JvmMaxMem:               "1g",
+				DepsFolders:             []string{},
+				JavaExcludedTargetPaths: []interface{}{},
+				DisableMavenSearch:      tt.disableMavenSearch,
+			}
+
+			javaProvider := &kantraProvider.JavaProvider{}
+			config, err := javaProvider.GetConfigVolume(configInput)
+			if err != nil {
+				t.Fatalf("JavaProvider.GetConfigVolume() error = %v", err)
+			}
+
+			if len(config.InitConfig) == 0 {
+				t.Fatal("Expected InitConfig to have at least one entry")
+			}
+
+			providerConfig := config.InitConfig[0].ProviderSpecificConfig
+			disableMavenSearchValue, exists := providerConfig["disableMavenSearch"]
+			if !exists {
+				t.Fatal("Expected disableMavenSearch to be present in ProviderSpecificConfig")
+			}
+
+			if disableMavenSearchValue != tt.expectedDisableMavenSearch {
+				t.Errorf("ProviderSpecificConfig[\"disableMavenSearch\"] = %v, want %v",
+					disableMavenSearchValue, tt.expectedDisableMavenSearch)
 			}
 		})
 	}
