@@ -2,14 +2,15 @@ package provider
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -40,6 +41,7 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 					"bundles":                       util.JavaBundlesLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+					"disableMavenSearch":            c.DisableMavenSearch,
 				},
 			},
 		},
