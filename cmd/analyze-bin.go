@@ -427,6 +427,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
+					"disableMavenSearch":            a.disableMavenSearch,
 				},
 			},
 		},
