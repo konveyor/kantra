@@ -64,8 +64,8 @@ var _ = Describe("Discover Manifest", func() {
 				Expect(err).ToNot(HaveOccurred(), "Expected no error for invalid manifest, but got one")
 			}
 		},
-		Entry("with an empty manifest", "", "no app name found in manifest file"),
-		Entry("with invalid YAML content", "invalid content", "failed to unmarshal YAML from"),
+		Entry("with an empty manifest", "", "no applications found in"),
+		Entry("with invalid YAML content", "invalid content", "failed to unmarshal YAML"),
 		Entry("with a valid manifest", `name: test-app`, nil),
 	)
 
