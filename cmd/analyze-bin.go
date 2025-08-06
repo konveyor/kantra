@@ -79,6 +79,17 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	defer analysisLog.Close()
 
+	// try to convert any xml rules
+	xmlTempConverted, xmlTempRulesDirs, err := a.ConvertXMLContainerless()
+	if err != nil {
+		a.log.Error(err, "failed to convert xml rules")
+		return err
+	}
+	defer os.RemoveAll(xmlTempConverted)
+	for _, d := range xmlTempRulesDirs {
+		defer os.RemoveAll(d)
+	}
+
 	// clean jdtls dirs after analysis
 	defer func() {
 		if err := a.cleanlsDirs(); err != nil {
@@ -420,6 +431,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
 					"disableMavenSearch":            a.disableMavenSearch,
+					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 				},
 			},
 		},
