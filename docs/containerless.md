@@ -1,8 +1,12 @@
 # Run Containerless Kantra
 
-Have OpenJDK 17+ and Maven installed
-
-Have $JAVA_HOME set.
+Requirements:
+- Have OpenJDK 17+ and Maven installed.
+- Have $JAVA_HOME set.
+- **For Gradle analysis**:
+  - Have OpenJDK 8 installed.
+  - Have $JAVA8_HOME set and pointing to the OpenJDK 8 home.
+  - The project should have a Gradle wrapper.
 
 ## Download kantra and requirements:
 

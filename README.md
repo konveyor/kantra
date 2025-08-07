@@ -173,6 +173,7 @@ Flags:
   -o, --output string                    path to the directory for analysis output
       --overwrite                        overwrite output directory
       --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
+      --run-local                        run Java analysis in containerless mode (default true)
       --skip-static-report               do not generate static report
   -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
   -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
@@ -391,6 +392,7 @@ Flags:
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
 - [Setup dev environment instructions](./hack/README.md#setup-dev-environment-for-asset-generation)
+- [Containerless mode](./docs/containerless.md)
 
 ## Code of Conduct
 

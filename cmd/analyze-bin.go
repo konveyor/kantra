@@ -420,6 +420,7 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
 					"disableMavenSearch":            a.disableMavenSearch,
+					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 				},
 			},
 		},
