@@ -110,12 +110,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				cmd.MarkFlagRequired("input")
 			}
 			if analyzeCmd.runLocal {
-				err := analyzeCmd.setKantraDir()
+				kantraDir, err := util.GetKantraDir()
 				if err != nil {
 					analyzeCmd.log.Error(err, "unable to get analyze reqs")
 					return err
 				}
+				analyzeCmd.kantraDir = kantraDir
+				analyzeCmd.log.Info("found kantra dir: ", kantraDir)
 			}
+
 			err := analyzeCmd.Validate(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to validate flags")
