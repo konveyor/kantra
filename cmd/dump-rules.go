@@ -14,18 +14,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
+type dumpRulesCommand struct {
 	output    string
 	overwrite bool
-)
+	log       logr.Logger
+}
 
 func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
-	dumpRulesCmd := &cobra.Command{
+	dumpRulesCmd := &dumpRulesCommand{
+		log: log,
+	}
+
+	dumpRulesCommand := &cobra.Command{
 		Use:   "dump-rules",
 		Short: "Dump builtin rulesets",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output = filepath.Join(output, "default-rulesets.zip")
-			err := handleOutputFile(output)
+			dumpRulesCmd.output = filepath.Join(dumpRulesCmd.output, "default-rulesets.zip")
+			err := dumpRulesCmd.handleOutputFile()
 			if err != nil {
 				return err
 			}
@@ -45,7 +50,7 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 			log.Info("rulesets dir found", "dir", rulesPath)
 			log.Info("dumping rules")
 
-			file, err := os.Create(output)
+			file, err := os.Create(dumpRulesCmd.output)
 			if err != nil {
 				log.Error(err, "error while creating output file")
 				return err
@@ -111,30 +116,30 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 			return nil
 		},
 	}
-	dumpRulesCmd.Flags().BoolVar(&overwrite, "overwrite", false, "overwrite output directory")
-	dumpRulesCmd.Flags().StringVarP(&output, "output", "o", "", "path to the directory for rulesets output")
-	err := dumpRulesCmd.MarkFlagRequired("output")
+	dumpRulesCommand.Flags().BoolVar(&dumpRulesCmd.overwrite, "overwrite", false, "overwrite output directory")
+	dumpRulesCommand.Flags().StringVarP(&dumpRulesCmd.output, "output", "o", "", "path to the directory for rulesets output")
+	err := dumpRulesCommand.MarkFlagRequired("output")
 	if err != nil {
 		return nil
 	}
 
-	return dumpRulesCmd
+	return dumpRulesCommand
 }
 
-func handleOutputFile(output string) error {
-	stat, err := os.Stat(output)
+func (d *dumpRulesCommand) handleOutputFile() error {
+	stat, err := os.Stat(d.output)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
 
-	if !overwrite && stat != nil {
-		return fmt.Errorf("output file %v already exists and --overwrite not set", output)
+	if !d.overwrite && stat != nil {
+		return fmt.Errorf("output file %v already exists and --overwrite not set", d.output)
 	}
 
-	if overwrite && stat != nil {
-		err := os.RemoveAll(output)
+	if d.overwrite && stat != nil {
+		err := os.RemoveAll(d.output)
 		if err != nil {
 			return err
 		}

@@ -11,7 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestHandleOutputFile(t *testing.T) {
+// Unit test for dumpRulesCommand.handleOutputFile method
+func TestDumpRulesCommand_HandleOutputFile(t *testing.T) {
 	tests := []struct {
 		name           string
 		setupFunc      func(string) error
@@ -60,13 +61,20 @@ func TestHandleOutputFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// Set global overwrite flag
-			originalOverwrite := overwrite
-			overwrite = tt.overwriteFlag
-			defer func() { overwrite = originalOverwrite }()
+			// Create logger
+			logrusLog := logrus.New()
+			logrusLog.SetOutput(io.Discard)
+			logger := logrusr.New(logrusLog)
 
-			// Test the function
-			err = handleOutputFile(testFile)
+			// Create dumpRulesCommand instance
+			dumpCmd := &dumpRulesCommand{
+				output:    testFile,
+				overwrite: tt.overwriteFlag,
+				log:       logger,
+			}
+
+			// Test the method
+			err = dumpCmd.handleOutputFile()
 
 			// Verify results
 			if tt.expectError {
@@ -211,6 +219,7 @@ func TestDumpRulesCommandFlagValidation(t *testing.T) {
 	}
 }
 
+// Unit test for output path handling logic
 func TestOutputPathHandling(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -236,7 +245,7 @@ func TestOutputPathHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// This simulates the logic from line 26 in dump-rules.go
+			// This simulates the logic from line 32 in dump-rules.go
 			result := filepath.Join(tt.outputDir, "default-rulesets.zip")
 			expectedPath := filepath.Join(tt.outputDir, tt.expectFilename)
 
@@ -253,45 +262,120 @@ func TestOutputPathHandling(t *testing.T) {
 	}
 }
 
-// Unit test for global variable behavior
-func TestGlobalVariables(t *testing.T) {
-	// Store original values
-	originalOutput := output
-	originalOverwrite := overwrite
+// Unit test for dumpRulesCommand struct behavior
+func TestDumpRulesCommandStruct(t *testing.T) {
+	// Set up logger
+	logrusLog := logrus.New()
+	logrusLog.SetOutput(io.Discard)
+	logger := logrusr.New(logrusLog)
 
-	defer func() {
-		// Restore original values
-		output = originalOutput
-		overwrite = originalOverwrite
-	}()
+	t.Run("should initialize struct correctly", func(t *testing.T) {
+		dumpCmd := &dumpRulesCommand{
+			output:    "/test/path",
+			overwrite: true,
+			log:       logger,
+		}
 
-	// Test initial values (they may have been set by other tests)
-	if output == "" && overwrite == false {
-		// This is the expected initial state
-		t.Log("Global variables are in expected initial state")
+		if dumpCmd.output != "/test/path" {
+			t.Errorf("expected output to be '/test/path', got '%s'", dumpCmd.output)
+		}
+
+		if dumpCmd.overwrite != true {
+			t.Errorf("expected overwrite to be true, got %v", dumpCmd.overwrite)
+		}
+
+		if dumpCmd.log != logger {
+			t.Error("expected logger to be set correctly")
+		}
+	})
+
+	t.Run("should handle zero values", func(t *testing.T) {
+		dumpCmd := &dumpRulesCommand{}
+
+		if dumpCmd.output != "" {
+			t.Errorf("expected output to be empty string, got '%s'", dumpCmd.output)
+		}
+
+		if dumpCmd.overwrite != false {
+			t.Errorf("expected overwrite to be false, got %v", dumpCmd.overwrite)
+		}
+	})
+}
+
+// Unit test for handleOutputFile with various file states
+func TestDumpRulesCommand_HandleOutputFileEdgeCases(t *testing.T) {
+	// Set up logger
+	logrusLog := logrus.New()
+	logrusLog.SetOutput(io.Discard)
+	logger := logrusr.New(logrusLog)
+
+	tests := []struct {
+		name        string
+		setupFunc   func() (string, func(), error)
+		overwrite   bool
+		expectError bool
+	}{
+		{
+			name: "should handle directory instead of file",
+			setupFunc: func() (string, func(), error) {
+				tempDir, err := os.MkdirTemp("", "dir-test")
+				if err != nil {
+					return "", nil, err
+				}
+				// Create a directory with the same name as output file
+				dirPath := filepath.Join(tempDir, "output")
+				err = os.MkdirAll(dirPath, 0755)
+				cleanup := func() { os.RemoveAll(tempDir) }
+				return dirPath, cleanup, err
+			},
+			overwrite:   false,
+			expectError: true,
+		},
+		{
+			name: "should remove directory when overwrite is true",
+			setupFunc: func() (string, func(), error) {
+				tempDir, err := os.MkdirTemp("", "dir-test")
+				if err != nil {
+					return "", nil, err
+				}
+				dirPath := filepath.Join(tempDir, "output")
+				err = os.MkdirAll(dirPath, 0755)
+				cleanup := func() { os.RemoveAll(tempDir) }
+				return dirPath, cleanup, err
+			},
+			overwrite:   true,
+			expectError: false,
+		},
 	}
 
-	// Test setting values
-	output = "/test/path"
-	overwrite = true
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputPath, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Skip("Setup failed:", err)
+			}
+			defer cleanup()
 
-	if output != "/test/path" {
-		t.Errorf("expected output to be '/test/path', got '%s'", output)
-	}
+			dumpCmd := &dumpRulesCommand{
+				output:    outputPath,
+				overwrite: tt.overwrite,
+				log:       logger,
+			}
 
-	if overwrite != true {
-		t.Errorf("expected overwrite to be true, got %v", overwrite)
-	}
+			err = dumpCmd.handleOutputFile()
 
-	// Test resetting values
-	output = ""
-	overwrite = false
+			if tt.expectError && err == nil {
+				t.Error("expected error but got none")
+			} else if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
 
-	if output != "" {
-		t.Errorf("expected output to be empty string, got '%s'", output)
-	}
-
-	if overwrite != false {
-		t.Errorf("expected overwrite to be false, got %v", overwrite)
+			// If overwrite is true and no error expected, verify removal
+			if tt.overwrite && !tt.expectError {
+				if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+					t.Error("output should be removed when overwrite is true")
+				}
+			}
+		})
 	}
 }
