@@ -47,7 +47,8 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 
 			file, err := os.Create(output)
 			if err != nil {
-				panic(err)
+				log.Error(err, "error while creating output file")
+				return err
 			}
 			defer func(file *os.File) {
 				err := file.Close()
@@ -103,7 +104,8 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 			}
 			err = filepath.WalkDir(rulesPath, walker)
 			if err != nil {
-				panic(err)
+				log.Error(err, "error while exporting rules")
+				return err
 			}
 
 			return nil

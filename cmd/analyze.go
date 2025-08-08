@@ -117,7 +117,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 				analyzeCmd.kantraDir = kantraDir
-				analyzeCmd.log.Info("found kantra dir: ", kantraDir)
+				analyzeCmd.log.Info("found kantra dir", "dir", kantraDir)
 			}
 
 			err := analyzeCmd.Validate(cmd.Context())
