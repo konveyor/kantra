@@ -3,12 +3,22 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/codingconcepts/env"
+)
+
+// build args
+var (
+	RootCommandName      = "kantra"
+	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation     = "/jdtls/bin/jdtls"
+	RulesetsLocation     = "rulesets"
+	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
+	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
+	DotnetProviderImage  = "quay.io/konveyor/dotnet-external-provider"
 )
 
 var Settings = &Config{}
@@ -99,8 +109,8 @@ func (c *Config) loadRunnerImg() error {
 }
 
 func (c *Config) loadCommandName() error {
-	if util.RootCommandName != "kantra" {
-		err := os.Setenv("CMD_NAME", util.RootCommandName)
+	if RootCommandName != "kantra" {
+		err := os.Setenv("CMD_NAME", RootCommandName)
 		if err != nil {
 			return err
 		}
@@ -111,7 +121,7 @@ func (c *Config) loadCommandName() error {
 func (c *Config) loadProviders() error {
 	// if version tag is given in image
 	if os.Getenv("JAVA_PROVIDER_IMG") == "" {
-		javaImg := strings.TrimSuffix(util.JavaProviderImage, fmt.Sprintf(":%v", Version))
+		javaImg := strings.TrimSuffix(JavaProviderImage, fmt.Sprintf(":%v", Version))
 		updatedJavaImg := fmt.Sprintf("%v:%v", javaImg, Version)
 		err := os.Setenv("JAVA_PROVIDER_IMG", updatedJavaImg)
 		if err != nil {
@@ -121,7 +131,7 @@ func (c *Config) loadProviders() error {
 
 	if os.Getenv("GENERIC_PROVIDER_IMG") == "" {
 		// if version tag is given in image
-		genericImg := strings.TrimSuffix(util.GenericProviderImage, fmt.Sprintf(":%v", Version))
+		genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
 		updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
 		err := os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
 		if err != nil {
@@ -131,7 +141,7 @@ func (c *Config) loadProviders() error {
 
 	if os.Getenv("DOTNET_PROVIDER_IMG") == "" {
 		// if version tag is given in image
-		dotnetImg := strings.TrimSuffix(util.DotnetProviderImage, fmt.Sprintf(":%v", Version))
+		dotnetImg := strings.TrimSuffix(DotnetProviderImage, fmt.Sprintf(":%v", Version))
 		updatedDotnetImg := fmt.Sprintf("%v:%v", dotnetImg, Version)
 		err := os.Setenv("DOTNET_PROVIDER_IMG", updatedDotnetImg)
 		if err != nil {

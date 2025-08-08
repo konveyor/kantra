@@ -11,7 +11,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 - [Setup (For Mac and Windows Only)](#setup-for-mac-and-windows-only)
 - [Usage](#usage)
   - [Analyze an application](#analyze)
-  - [Transform an application or XML rules](#transform)
+  - [Transform an application](#transform)
   - [Test YAML rules](#test)
   - [Asset Generation](#asset-generation)
 - [References](#references)
@@ -128,7 +128,7 @@ Kantra has five subcommands:
 
 1. _analyze_: This subcommand allows running source code analysis on input source code or a binary.
 
-2. _transform_: This subcommand allows either converting XML rules to YAML or running OpenRewrite recipes on source code.
+2. _transform_: This subcommand allows running OpenRewrite recipes on source code.
 
 3. _test_: This subcommand allows testing YAML rules.
 
@@ -191,11 +191,9 @@ kantra analyze --bulk --input=<path/to/source/C> --output=<path/to/output/ABC>
 
 ### Transform
 
-Transform has two subcommands:
+Transform has one subcommand:
 
 1. _openrewrite_: This subcommand allows running one or more available OpenRewrite recipes on input source code.
-
-2. _rules_: This subcommand allows converting Windup XML rules into the analyzer-lsp YAML format.
 
 #### OpenRewrite
 
@@ -225,27 +223,6 @@ Flags:
   -t, --target string           target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.
 ```
 
-#### Rules
-
-_rules_ subcommand allows converting Windup XML rules to analyzer-lsp YAML rules using [windup-shim](https://github.com/konveyor/windup-shim)
-
-To convert Windup XML rules to the analyzer-lsp YAML format, run:
-
-```sh
-kantra transform rules --input=<path/to/xmlrules> --output=<path/to/output/dir>
-```
-
-_--input_ flag should point to a file or a directory containing XML rules, _--output_ should point to an output directory for YAML rules.
-
-All flags:
-
-```sh
-Flags:
-  -h, --help                help for rules
-  -i, --input stringArray   path to XML rule file(s) or directory
-  -o, --output string       path to output directory
-```
-
 ### Test
 
 _test_ subcommand allows running tests on YAML rules written for analyzer-lsp.
@@ -262,58 +239,147 @@ See different ways to run the test command in the [test runner doc](./docs/testr
 
 ### Asset Generation
 
-Asset generation consist of two subcommands _discover_ and _generate_.
+Asset generation consists of two subcommands: _discover_ and _generate_.
 
 #### Discover
+
 Discover application outputs a YAML representation of source platform resources.
 
 ```sh
 Flags:
   -h, --help             help for discover
-      --list-platforms   List available supported discovery platform.
+      --list-platforms   List available supported discovery platforms
+```
+
+To list all supported platforms:
+
+```sh
+kantra discover --list-platforms
 ```
 
 Select one of the supported platforms:
 
-`kantra discover cloud-foundry -h`
+```sh
+kantra discover cloud-foundry -h
+```
 
-All flags:
+All flags for Cloud Foundry discovery:
 
 ```sh
 Flags:
-  -h, --help                  help for cloud-foundry
-      --input string          specify the location of the manifest.yaml to analyze.
-      --output string         output file (default: standard output).
-      --use-live-connection   uses live platform connections for real-time discovery (not implemented)
+      --app-name string          Name of the Cloud Foundry application to discover.
+      --cf-config string         Path to the Cloud Foundry CLI configuration file (default: ~/.cf/config). (default "~/.cf/config")
+      --conceal-sensitive-data   Extract sensitive information in the discover manifest into a separate file (default: false).
+  -h, --help                     help for cloud-foundry
+      --input string             input path of the manifest file or folder to analyze
+      --list-apps                List applications available for each space.
+      --output-dir string        Directory where output manifests will be saved (default: standard output). If the directory does not exist, it will be created automatically.
+      --platformType string      Platform type for discovery. Allowed value is: "cloud-foundry" (default). (default "cloud-foundry")
+      --skip-ssl-validation      Skip SSL certificate validation for API connections (default: false).
+      --spaces strings           Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces="space1,space2"). At least one space is required when using live discovery.
+      --use-live-connection      Enable real-time discovery using live platform connections.
+
+Global Flags:
+      --log-level uint32   log level (default 4)
+      --no-cleanup         do not cleanup temporary resources
 ```
 
-To run a discover on Cloud Foundry manifest, run:
+To run discovery on a Cloud Foundry manifest file:
 
-`kantra discover cloud_foundry --input=<path-to/manifest-yaml>`
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-yaml>
+```
+
+To run discovery on a Cloud Foundry manifest file and save to a directory:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-dir=<path-to/output-dir>
+```
+
+To run discovery on Cloud Foundry manifest files in an input directory and save to a directory:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-dir> --output-dir=<path-to/output-dir>
+```
+To run discovery on Cloud Foundry manifest files in an input directory and list
+the available applications:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-dir> --list-apps
+```
+
+To run discovery on Cloud Foundry manifest files in an input directory and 
+separate sensitive data (credentials, secrets) into a dedicated file:
+
+```sh
+kantra discover cloud-foundry --input=<path-to/manifest-dir>  --conceal-sensitive-data=true --output-dir=<path-to/output-dir>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces list
+the available applications:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --list-apps
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces and save
+to a directory:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --output-dir=<path-to/output-dir>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces and
+separate sensitive data (credentials, secrets) into a dedicated file:
+
+```sh
+kantra discover cloud-foundry --use-live-connection  --conceal-sensitive-data=true --spaces=<space1,space2> --output-dir=<path-to/output-dir>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces and on a
+specific application:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --app-name=<app-name>
+```
+
+To run live discovery from Cloud Foundry platform on a subset of spaces and on a
+specific application and save to a directory:
+
+```sh
+kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --app-name=<app-name> --output-dir=<path-to/output-dir>
+```
 
 #### Generate
 
 Analyze the source platform and/or application and output discovery manifest.
 
-To generate a discovery manifest, run:
-
-`kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart>`
-
-All flags
-
 ```sh
 Flags:
   -h, --help   help for generate
 ```
-_generate_ subcommand has a _helm_ subcommand that generates the helm template manifest.
 
-All flags:
+The _generate_ subcommand has a _helm_ subcommand that generates Helm template manifests.
+
+To generate Helm templates:
+
+```sh
+kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart>
+```
+
+All flags for Helm generation:
 
 ```sh
 Flags:
-      --chart-dir string    Directory to the Helm chart to use for chart generation.
+      --chart-dir string    Directory to the Helm chart to use for chart generation (required)
   -h, --help                help for helm
-      --input string        Specifies the discover manifest file
+      --input string        Specifies the discover manifest file (required)
       --non-k8s-only        Render only the non-Kubernetes templates located in the files/konveyor directory of the chart
       --output-dir string   Directory to save the generated Helm chart. Defaults to stdout
       --set stringArray     Set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)

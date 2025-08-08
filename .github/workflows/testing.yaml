@@ -54,7 +54,7 @@ jobs:
       
       - name: Run unit tests
         run: |
-          RUNNER_IMG=localhost/kantra:latest go test ./...
+          RUNNER_IMG=localhost/kantra:latest go test ./... -coverprofile=coverage.txt
           RUNNER_IMG=localhost/kantra:latest go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --randomize-suites --fail-on-pending --keep-going
 
       - name: Fetch sample applications
@@ -62,9 +62,15 @@ jobs:
           git clone https://github.com/konveyor/example-applications
           git clone https://github.com/ivargrimstad/jakartaee-duke
 
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: konveyor/kantra
+
       - name: Run analysis test and copy output
         run: |
-          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/ --rules ./test-data/jni-native-code-test.windup.xml --target cloud-readiness --run-local=false
+          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
       
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
@@ -106,7 +112,7 @@ jobs:
           podman rm kantra-download
           ./kantra analyze --input $(pwd)/example-applications/example-1/ \
             --output ./output/ --target cloud-readiness \
-            --rules ./test-data/jni-native-code-test.windup.xml
+            --run-local=false
 
       - name: fail if analysis output doesn't match expected
         run: |
