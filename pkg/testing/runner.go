@@ -322,6 +322,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams, inpu
 		"--output", filepath.Join(dir, "output"),
 		"--rules", filepath.Join(dir, "rules.yaml"),
 		"--overwrite",
+		"--enable-default-rulesets=false",
 	}
 	if analysisParams.DepLabelSelector != "" {
 		args = append(args, []string{
