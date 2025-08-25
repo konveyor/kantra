@@ -292,9 +292,9 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			name: "neither sources nor targets must not create label selector",
 		},
 		{
-			name:    "one target specified, return target, catch-all source and default labels",
+			name:    "one target specified, return target and default labels",
 			targets: []string{"test"},
-			want:    "((konveyor.io/target=test) && konveyor.io/source) || (discovery)",
+			want:    "(konveyor.io/target=test) || (discovery)",
 		},
 		{
 			name:    "one source specified, return source and default labels",
@@ -313,9 +313,9 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			want:    "(konveyor.io/source=t1 || konveyor.io/source=t2) || (discovery)",
 		},
 		{
-			name:    "multiple targets specified, OR them all, AND result with catch-all source label, finally OR with default labels",
+			name:    "multiple targets specified, OR them all with default labels",
 			targets: []string{"t1", "t2"},
-			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && konveyor.io/source) || (discovery)",
+			want:    "(konveyor.io/target=t1 || konveyor.io/target=t2) || (discovery)",
 		},
 		{
 			name:    "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",

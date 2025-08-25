@@ -1443,9 +1443,9 @@ func (a *analyzeCommand) getLabelSelector() string {
 				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
 		} else {
 			// when target is specified, but source is not
-			// use a catch-all expression for source
-			return fmt.Sprintf("(%s && %s) || (%s)",
-				targetExpr, outputv1.SourceTechnologyLabel, strings.Join(defaultLabels, " || "))
+			// return target expression OR'd with default labels
+			return fmt.Sprintf("%s || (%s)",
+				targetExpr, strings.Join(defaultLabels, " || "))
 		}
 	}
 	if sourceExpr != "" {
