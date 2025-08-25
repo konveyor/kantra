@@ -7,7 +7,6 @@ import (
 
 // ENV_RUN_LOCAL enables the runner to run analysis locally instead of a container
 // this must be set in CI containers to make sure we are not launching containers
-const ENV_RUN_LOCAL = "RUN_LOCAL"
 const RUNNER_IMG = "RUNNER_IMG"
 
 func Test_defaultRunner_Run(t *testing.T) {
@@ -16,12 +15,21 @@ func Test_defaultRunner_Run(t *testing.T) {
 		testFiles  []string
 		wantErr    bool
 		wantResult []Result
+		runLocal   bool
 	}{
 		{
 			name: "simple test",
 			testFiles: []string{
 				"./examples/ruleset/discovery.test.yaml",
 			},
+			runLocal: false,
+		},
+		{
+			name: "run local test",
+			testFiles: []string{
+				"./examples/ruleset/discovery.test.yaml",
+			},
+			runLocal: true,
 		},
 	}
 	for _, tt := range tests {
@@ -30,10 +38,9 @@ func Test_defaultRunner_Run(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed setting up test")
 			}
-			_, runLocal := os.LookupEnv(ENV_RUN_LOCAL)
 			r := NewRunner()
 			_, err = r.Run(testFiles, TestOptions{
-				RunLocal:       runLocal,
+				RunLocal:       tt.runLocal,
 				ContainerImage: os.Getenv(RUNNER_IMG),
 			})
 			if (err == nil) != tt.wantErr {
