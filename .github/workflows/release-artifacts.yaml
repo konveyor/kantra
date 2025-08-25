@@ -51,6 +51,7 @@ jobs:
         podman cp kantra-download:/opt/rulesets . && zip -r kantra.linux.${{ matrix.arch }}.zip rulesets
         podman cp kantra-download:/usr/local/etc/maven.default.index . && zip -r kantra.linux.${{ matrix.arch }}.zip maven.default.index
         podman cp kantra-download:/usr/local/etc/task.gradle . && zip -r kantra.linux.${{ matrix.arch }}.zip task.gradle
+        podman cp kantra-download:/usr/local/etc/task-v9.gradle . && zip -r kantra.linux.${{ matrix.arch }}.zip task-v9.gradle
               
         podman cp kantra-download:/jdtls . && zip -r kantra.darwin.${{ matrix.arch }}.zip jdtls
         podman cp kantra-download:/bin/fernflower.jar . && zip kantra.darwin.${{ matrix.arch }}.zip fernflower.jar
@@ -58,6 +59,7 @@ jobs:
         podman cp kantra-download:/opt/rulesets . && zip -r kantra.darwin.${{ matrix.arch }}.zip rulesets
         podman cp kantra-download:/usr/local/etc/maven.default.index . && zip -r kantra.darwin.${{ matrix.arch }}.zip maven.default.index
         podman cp kantra-download:/usr/local/etc/task.gradle . && zip -r kantra.darwin.${{ matrix.arch }}.zip task.gradle
+        podman cp kantra-download:/usr/local/etc/task-v9.gradle . && zip -r kantra.darwin.${{ matrix.arch }}.zip task-v9.gradle
 
         podman cp kantra-download:/jdtls . && zip -r kantra.windows.${{ matrix.arch }}.zip jdtls
         podman cp kantra-download:/bin/fernflower.jar . && zip kantra.windows.${{ matrix.arch }}.zip fernflower.jar
@@ -65,6 +67,7 @@ jobs:
         podman cp kantra-download:/opt/rulesets . && zip -r kantra.windows.${{ matrix.arch }}.zip rulesets
         podman cp kantra-download:/usr/local/etc/maven.default.index . && zip -r kantra.windows.${{ matrix.arch }}.zip maven.default.index
         podman cp kantra-download:/usr/local/etc/task.gradle . && zip -r kantra.windows.${{ matrix.arch }}.zip task.gradle
+        podman cp kantra-download:/usr/local/etc/task-v9.gradle . && zip -r kantra.windows.${{ matrix.arch }}.zip task-v9.gradle
 
     - name: Upload linux binary
       uses: actions/upload-release-asset@v1
