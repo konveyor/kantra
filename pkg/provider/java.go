@@ -126,7 +126,12 @@ func WaitForTargetDir(log logr.Logger, path string) error {
 	if err != nil {
 		return err
 	}
-	log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	// target dir already exists
+	if _, err := os.Stat(filepath.Join(path, "target")); err == nil {
+		return nil
+	}
+	log.Info("waiting for target directory in decompiled Java project")
 
 	for {
 		select {
