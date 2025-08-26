@@ -1174,9 +1174,9 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 		networkName = "none"
 	}
 	c := container.NewContainer()
-	// TODO (pgaikwad): run analysis & deps in parallel
-	err = c.Run(
-		ctx,
+
+	// Build container options with proxy environment variables
+	containerOpts := []container.Option{
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
 		container.WithVolumes(volumes),
@@ -1188,7 +1188,18 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
-	)
+	}
+
+	// Pass proxy environment variables from host to container
+	proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"}
+	for _, proxyVar := range proxyVars {
+		if value := os.Getenv(proxyVar); value != "" {
+			containerOpts = append(containerOpts, container.WithEnv(proxyVar, value))
+		}
+	}
+
+	// TODO (pgaikwad): run analysis & deps in parallel
+	err = c.Run(ctx, containerOpts...)
 	if err != nil {
 		return err
 	}
