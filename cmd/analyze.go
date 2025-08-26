@@ -1191,7 +1191,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 	}
 
 	// Pass proxy environment variables from host to container
-	proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"}
+	proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy"}
 	for _, proxyVar := range proxyVars {
 		if value := os.Getenv(proxyVar); value != "" {
 			containerOpts = append(containerOpts, container.WithEnv(proxyVar, value))
