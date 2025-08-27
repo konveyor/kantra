@@ -903,9 +903,21 @@ func readOutputFile(outputPath, filename string) string {
 
 func getExpectedYAMLOutput() string {
 	return `name: test-app
-timeout: 60
-memory: 256M
-instances: 1`
+processes:
+    - type: web
+      memory: 256M
+      healthCheck:
+        endpoint: ""
+        invocationTimeout: 1
+        interval: 30
+        type: port
+        timeout: 60
+      readinessCheck:
+        endpoint: ""
+        invocationTimeout: 0
+        interval: 0
+        type: process
+      instances: 1`
 }
 
 func helperCreateTestManifest(manifestPath string, content string, perm os.FileMode) error {
