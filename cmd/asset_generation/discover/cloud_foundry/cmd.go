@@ -31,6 +31,10 @@ var (
 	listApps             bool
 )
 
+type manifestOutput struct {
+	Manifest cfProvider.Application `yaml:"manifest"`
+}
+
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	logger = log
 	cmd := &cobra.Command{
@@ -327,8 +331,13 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 	}
 	printer := printers.NewOutput(out)
 	printFunc := printer.ToStdout
+
+	output := map[string]any{
+		"manifest": discoverResult.Content,
+	}
+
 	// Marshal content
-	d, err := marshalUnmarshal[cfProvider.Application](discoverResult.Content)
+	d, err := marshalUnmarshal[manifestOutput](output)
 	if err != nil {
 		return err
 	}
