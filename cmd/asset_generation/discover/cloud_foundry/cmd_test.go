@@ -880,8 +880,8 @@ env:
 services:
   - database-service
 docker:
-    image: myregistry/myapp:latest
-    username: docker-registry-user
+  image: myregistry/myapp:latest
+  username: docker-registry-user
 `)
 	manifestPath := filepath.Join(tempDir, "manifest-with-secrets.yml")
 	Expect(os.WriteFile(manifestPath, manifestContent, 0644)).To(Succeed())
@@ -902,22 +902,23 @@ func readOutputFile(outputPath, filename string) string {
 }
 
 func getExpectedYAMLOutput() string {
-	return `name: test-app
-processes:
-    - type: web
-      memory: 256M
-      healthCheck:
-        endpoint: ""
-        invocationTimeout: 1
-        interval: 30
-        type: port
-        timeout: 60
-      readinessCheck:
-        endpoint: ""
-        invocationTimeout: 0
-        interval: 0
-        type: process
-      instances: 1`
+	return `manifest:
+    name: test-app
+    processes:
+        - type: web
+          memory: 256M
+          healthCheck:
+            endpoint: ""
+            invocationTimeout: 1
+            interval: 30
+            type: port
+            timeout: 60
+          readinessCheck:
+            endpoint: ""
+            invocationTimeout: 0
+            interval: 0
+            type: process
+          instances: 1`
 }
 
 func helperCreateTestManifest(manifestPath string, content string, perm os.FileMode) error {
