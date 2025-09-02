@@ -1198,6 +1198,19 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 		}
 	}
 
+	// Pass proxy settings from command line flags to container
+	proxyFlags := map[string]string{
+		"HTTP_PROXY":  a.httpProxy,
+		"HTTPS_PROXY": a.httpsProxy,
+		"NO_PROXY":    a.noProxy,
+	}
+
+	for envVar, value := range proxyFlags {
+		if value != "" {
+			containerOpts = append(containerOpts, container.WithEnv(envVar, value))
+		}
+	}
+
 	// TODO (pgaikwad): run analysis & deps in parallel
 	err = c.Run(ctx, containerOpts...)
 	if err != nil {
