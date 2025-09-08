@@ -3,12 +3,11 @@ package helm
 import (
 	"fmt"
 	"io"
-	"maps"
 	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v3"
 	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/internal/printers"
@@ -55,11 +54,10 @@ func helm(out io.Writer) error {
 		return err
 	}
 	if len(setValues) > 0 {
-		v, err := parseValues()
+		values, err = parseValues(values)
 		if err != nil {
 			return err
 		}
-		maps.Copy(values, v)
 	}
 
 	cfg := helmProvider.Config{
@@ -98,19 +96,18 @@ func helm(out io.Writer) error {
 	return nil
 }
 
-func loadDiscoverManifest() (map[string]interface{}, error) {
+func loadDiscoverManifest() (map[string]any, error) {
 	d, err := os.ReadFile(input)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load discover manifest: %s", err)
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	err = yaml.Unmarshal(d, &m)
 	return m, err
 }
 
-func parseValues() (map[string]interface{}, error) {
+func parseValues(base map[string]any) (map[string]any, error) {
 	// User specified a value via --set
-	base := make(map[string]interface{})
 	for _, value := range setValues {
 		if err := strvals.ParseInto(value, base); err != nil {
 			return nil, fmt.Errorf("failed parsing --set data:%s", err)
