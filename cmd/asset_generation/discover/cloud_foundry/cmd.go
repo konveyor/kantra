@@ -358,7 +358,7 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 	} else {
 		contentHeader := ""
 		// Write to stdout
-		if discoverResult.Secret != nil {
+		if len(discoverResult.Secret) > 0 {
 			contentHeader = "--- Content Section ---\n"
 		}
 		printer.ToStdoutWithHeader(contentHeader, string(contentBytes))

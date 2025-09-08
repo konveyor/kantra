@@ -38,8 +38,9 @@ var _ = Describe("Helm command", func() {
 	)
 
 	const (
-		testDiscoverPath = "../../../../test-data/asset_generation/helm/discover.yaml"
-		chartDir         = "../../../../test-data/asset_generation/helm/"
+		testDiscoverPath    = "../../../../test-data/asset_generation/helm/discover.yaml"
+		chartDir            = "../../../../test-data/asset_generation/helm/"
+		overwriteValuesPath = "../../../../test-data/asset_generation/helm/overwrite_values/discovery_manifest.yaml"
 	)
 
 	var _ = BeforeEach(func() {
@@ -162,6 +163,23 @@ RUN echo hello world!
 				Expect(v).To(BeElementOf(se))
 			}
 		},
+			Entry("generates the manifests for a K8s chart using the discover manifest as input and the set flag that override a subkey in the discovery manifest",
+				cmdFlags{
+					input:    overwriteValuesPath,
+					chartDir: path.Join(chartDir, "overwrite_values"),
+					set:      []string{"manifest.name=app2"},
+				}, `---
+# Source: java-backend/templates/deployment.yaml
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: app2-web
+  labels:
+    space: default-space
+    version: "1.0.0"
+spec:
+`),
 			Entry("generates the manifests for a K8s chart using the discover manifest as input",
 				cmdFlags{
 					input:    testDiscoverPath,

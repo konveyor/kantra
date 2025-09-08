@@ -297,7 +297,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app"))
 
 				// Verify secrets section is NOT present
@@ -326,7 +326,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app-with-sensitive-data"))
 
 				// Verify secrets section is present
@@ -398,7 +398,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app"))
 
 				// Verify secrets section is NOT present
@@ -658,7 +658,7 @@ var _ = Describe("Discover command", func() {
 
 			Expect(executeErr).To(Succeed())
 			expectedOutput := getExpectedYAMLOutput()
-			Expect(strings.TrimSpace(out.String())).To(Equal(strings.TrimSpace("--- Content Section ---\n" + expectedOutput)))
+			Expect(strings.TrimSpace(out.String())).To(Equal(strings.TrimSpace(expectedOutput)))
 		})
 
 		Context("when input file does not exist", func() {
@@ -908,15 +908,11 @@ func getExpectedYAMLOutput() string {
         - type: web
           memory: 256M
           healthCheck:
-            endpoint: ""
             invocationTimeout: 1
             interval: 30
             type: port
             timeout: 60
           readinessCheck:
-            endpoint: ""
-            invocationTimeout: 0
-            interval: 0
             type: process
           instances: 1`
 }
