@@ -676,6 +676,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			container.WithEntrypointArgs(args...),
 			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
+			container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 		)
 		if err != nil {
 			a.log.Error(err, "failed listing labels")
@@ -945,6 +946,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
+				container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 			)
 			if err != nil {
 				err := a.retryProviderContainer(ctx, networkName, volName, retry)
@@ -970,6 +972,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
+				container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 			)
 			if err != nil {
 				err := a.retryProviderContainer(ctx, networkName, volName, retry)
@@ -1071,6 +1074,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 		container.WithNetwork("host"),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
@@ -1174,9 +1178,8 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 		networkName = "none"
 	}
 	c := container.NewContainer()
-
-	// Build container options with proxy environment variables
-	containerOpts := []container.Option{
+	err = c.Run(
+		ctx,
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
 		container.WithVolumes(volumes),
@@ -1188,31 +1191,8 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error 
 		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
-	}
-
-	// Pass proxy environment variables from host to container
-	proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy"}
-	for _, proxyVar := range proxyVars {
-		if value := os.Getenv(proxyVar); value != "" {
-			containerOpts = append(containerOpts, container.WithEnv(proxyVar, value))
-		}
-	}
-
-	// Pass proxy settings from command line flags to container
-	proxyFlags := map[string]string{
-		"HTTP_PROXY":  a.httpProxy,
-		"HTTPS_PROXY": a.httpsProxy,
-		"NO_PROXY":    a.noProxy,
-	}
-
-	for envVar, value := range proxyFlags {
-		if value != "" {
-			containerOpts = append(containerOpts, container.WithEnv(envVar, value))
-		}
-	}
-
-	// TODO (pgaikwad): run analysis & deps in parallel
-	err = c.Run(ctx, containerOpts...)
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
+	)
 	if err != nil {
 		return err
 	}
@@ -1723,6 +1703,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 		container.WithCleanup(a.cleanup),
 		container.WithNetwork(networkName),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
@@ -1852,6 +1833,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
