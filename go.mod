@@ -133,7 +133,7 @@ require (
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konveyor/analyzer-lsp v0.7.0-alpha.2.0.20250625194402-05dca9b4ac43
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20250827181032-bb3c88795056
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251002155814-929f77930cb6
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.7 // indirect
