@@ -206,11 +206,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						}
 						return nil
 					}
-					err := analyzeCmd.RunAnalysisContainerless(cmd.Context())
+					cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
+					err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
 					if err != nil {
+						cancelFunc()
 						return err
 					}
-
+					cancelFunc()
 					return nil
 				}
 
