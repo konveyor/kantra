@@ -146,6 +146,16 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
+					// list sources/targets in containerless mode
+					if analyzeCmd.runLocal {
+						err := analyzeCmd.listLabelsContainerless(ctx)
+						if err != nil {
+							analyzeCmd.log.Error(err, "failed to list rule labels")
+							return err
+						}
+						return nil
+					}
+					// list sources/targets in container mode
 					err := analyzeCmd.ListLabels(cmd.Context())
 					if err != nil {
 						log.Error(err, "failed to list rule labels")
