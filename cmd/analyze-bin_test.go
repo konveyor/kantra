@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -378,4 +380,594 @@ func TestWalkJavaPathForTargetIntegration(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, expectedPaths, relativePaths)
+}
+
+func TestListLabelsContainerless(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		listSources    bool
+		listTargets    bool
+		setupRules     map[string]string
+		expectedOutput []string
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name:        "list targets with valid rule files",
+			listTargets: true,
+			setupRules: map[string]string{
+				"rules/java-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/target=java
+  - konveyor.io/target=jakarta-ee
+  ruleID: java-01
+  description: Test rule
+`,
+				"rules/spring-rules.yaml": `
+- category: optional
+  labels:
+  - konveyor.io/target=spring
+  - konveyor.io/target=spring-boot
+  ruleID: spring-01
+`,
+			},
+			expectedOutput: []string{
+				"available target technologies:",
+				"jakarta-ee",
+				"java",
+				"spring",
+				"spring-boot",
+			},
+			expectError: false,
+		},
+		{
+			name:        "list sources with valid rule files",
+			listSources: true,
+			setupRules: map[string]string{
+				"rules/migration-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/source=jboss-eap
+  - konveyor.io/source=weblogic
+  ruleID: migration-01
+`,
+			},
+			expectedOutput: []string{
+				"available source technologies:",
+				"jboss-eap",
+				"weblogic",
+			},
+			expectError: false,
+		},
+		{
+			name:        "list targets with mixed labels",
+			listTargets: true,
+			setupRules: map[string]string{
+				"rules/mixed-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/target=kubernetes
+  - konveyor.io/source=legacy-app
+  - konveyor.io/target=openshift
+  ruleID: mixed-01
+`,
+			},
+			expectedOutput: []string{
+				"available target technologies:",
+				"kubernetes",
+				"openshift",
+			},
+			expectError: false,
+		},
+		{
+			name:        "list sources with no matching labels",
+			listSources: true,
+			setupRules: map[string]string{
+				"rules/no-source-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/target=java
+  - some.other/label=value
+  ruleID: target-only-01
+`,
+			},
+			expectedOutput: []string{
+				"available source technologies:",
+			},
+			expectError: false,
+		},
+		{
+			name:        "empty rule directory",
+			listTargets: true,
+			setupRules:  map[string]string{},
+			expectedOutput: []string{
+				"available target technologies:",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary kantra directory structure
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Create rulesets directory
+			rulesetsDir := filepath.Join(tmpKantraDir, "rulesets")
+			err = os.MkdirAll(rulesetsDir, 0755)
+			require.NoError(t, err)
+
+			// Setup rule files
+			for filePath, content := range tt.setupRules {
+				fullPath := filepath.Join(rulesetsDir, filePath)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(fullPath, []byte(content), 0644)
+				require.NoError(t, err)
+			}
+
+			// Create analyze command with mocked kantra directory
+			a := &analyzeCommand{
+				listSources: tt.listSources,
+				listTargets: tt.listTargets,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Capture output
+			var output strings.Builder
+			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+
+			// Check output
+			outputLines := strings.Split(strings.TrimSpace(output.String()), "\n")
+			if len(tt.expectedOutput) == 1 && tt.expectedOutput[0] != "" {
+				// Handle case where we expect only the header
+				assert.Equal(t, tt.expectedOutput[0], outputLines[0])
+			} else if len(tt.expectedOutput) > 1 {
+				// Check that we have the expected number of lines
+				assert.Len(t, outputLines, len(tt.expectedOutput))
+				// Check header line
+				assert.Equal(t, tt.expectedOutput[0], outputLines[0])
+				// Check that all expected technologies are present (order may vary due to sorting)
+				actualTechs := outputLines[1:]
+				expectedTechs := tt.expectedOutput[1:]
+				assert.ElementsMatch(t, expectedTechs, actualTechs)
+			}
+		})
+	}
+}
+
+func TestAnalyzeCommandListTargetsContainerless(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		cmdArgs        []string
+		setupRules     map[string]string
+		expectError    bool
+		expectedOutput []string
+	}{
+		{
+			name:    "list targets with run-local flag",
+			cmdArgs: []string{"--list-targets", "--run-local=true"},
+			setupRules: map[string]string{
+				"rulesets/java/rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/target=java
+  - konveyor.io/target=spring-boot
+  ruleID: java-target-01
+`,
+			},
+			expectError: false,
+			expectedOutput: []string{
+				"available target technologies:",
+				"java",
+				"spring-boot",
+			},
+		},
+		{
+			name:    "list targets with run-local true (default)",
+			cmdArgs: []string{"--list-targets"},
+			setupRules: map[string]string{
+				"rulesets/kubernetes/rules.yaml": `
+- category: optional
+  labels:
+  - konveyor.io/target=kubernetes
+  - konveyor.io/target=openshift
+  ruleID: k8s-target-01
+`,
+			},
+			expectError: false,
+			expectedOutput: []string{
+				"available target technologies:",
+				"kubernetes",
+				"openshift",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary kantra directory structure
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-integration-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Setup rule files
+			for filePath, content := range tt.setupRules {
+				fullPath := filepath.Join(tmpKantraDir, filePath)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(fullPath, []byte(content), 0644)
+				require.NoError(t, err)
+			}
+
+			// Create analyze command
+			a := &analyzeCommand{
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Parse flags to set the command options
+			for _, arg := range tt.cmdArgs {
+				switch {
+				case arg == "--list-targets":
+					a.listTargets = true
+				case arg == "--list-sources":
+					a.listSources = true
+				case arg == "--run-local=true":
+					a.runLocal = true
+				case arg == "--run-local=false":
+					a.runLocal = false
+				}
+			}
+
+			// Set default for runLocal if not specified (matches the actual default)
+			if !sliceContains(tt.cmdArgs, "--run-local=false") {
+				a.runLocal = true
+			}
+
+			// Capture output
+			var output strings.Builder
+			err = a.fetchLabelsContainerless(context.Background(), a.listSources, a.listTargets, &output)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			// Check output
+			outputLines := strings.Split(strings.TrimSpace(output.String()), "\n")
+			if len(tt.expectedOutput) > 0 {
+				assert.Equal(t, tt.expectedOutput[0], outputLines[0])
+				if len(tt.expectedOutput) > 1 {
+					actualTechs := outputLines[1:]
+					expectedTechs := tt.expectedOutput[1:]
+					assert.ElementsMatch(t, expectedTechs, actualTechs)
+				}
+			}
+		})
+	}
+}
+
+func TestAnalyzeCommandListSourcesContainerless(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		cmdArgs        []string
+		setupRules     map[string]string
+		expectError    bool
+		expectedOutput []string
+	}{
+		{
+			name:    "list sources with run-local flag",
+			cmdArgs: []string{"--list-sources", "--run-local=true"},
+			setupRules: map[string]string{
+				"rulesets/migration/rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/source=jboss-eap
+  - konveyor.io/source=weblogic
+  ruleID: migration-source-01
+`,
+			},
+			expectError: false,
+			expectedOutput: []string{
+				"available source technologies:",
+				"jboss-eap",
+				"weblogic",
+			},
+		},
+		{
+			name:    "list sources with run-local true (default)",
+			cmdArgs: []string{"--list-sources"},
+			setupRules: map[string]string{
+				"rulesets/legacy/rules.yaml": `
+- category: optional
+  labels:
+  - konveyor.io/source=legacy-app
+  - konveyor.io/source=tomcat
+  ruleID: legacy-source-01
+`,
+			},
+			expectError: false,
+			expectedOutput: []string{
+				"available source technologies:",
+				"legacy-app",
+				"tomcat",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary kantra directory structure
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-integration-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Setup rule files
+			for filePath, content := range tt.setupRules {
+				fullPath := filepath.Join(tmpKantraDir, filePath)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(fullPath, []byte(content), 0644)
+				require.NoError(t, err)
+			}
+
+			// Create analyze command
+			a := &analyzeCommand{
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Parse flags to set the command options
+			for _, arg := range tt.cmdArgs {
+				switch {
+				case arg == "--list-targets":
+					a.listTargets = true
+				case arg == "--list-sources":
+					a.listSources = true
+				case arg == "--run-local=true":
+					a.runLocal = true
+				case arg == "--run-local=false":
+					a.runLocal = false
+				}
+			}
+
+			// Set default for runLocal if not specified (matches the actual default)
+			if !sliceContains(tt.cmdArgs, "--run-local=false") {
+				a.runLocal = true
+			}
+
+			// Capture output
+			var output strings.Builder
+			err = a.fetchLabelsContainerless(context.Background(), a.listSources, a.listTargets, &output)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			// Check output
+			outputLines := strings.Split(strings.TrimSpace(output.String()), "\n")
+			if len(tt.expectedOutput) > 0 {
+				assert.Equal(t, tt.expectedOutput[0], outputLines[0])
+				if len(tt.expectedOutput) > 1 {
+					actualTechs := outputLines[1:]
+					expectedTechs := tt.expectedOutput[1:]
+					assert.ElementsMatch(t, expectedTechs, actualTechs)
+				}
+			}
+		})
+	}
+}
+
+func TestListLabelsContainerlessErrorHandling(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name          string
+		listSources   bool
+		listTargets   bool
+		setupKantra   bool
+		setupRulesets bool
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "missing kantra directory should fail",
+			listTargets:   true,
+			setupKantra:   false,
+			setupRulesets: false,
+			expectError:   true,
+			errorContains: "no such file or directory",
+		},
+		{
+			name:          "missing rulesets directory should fail",
+			listTargets:   true,
+			setupKantra:   true,
+			setupRulesets: false,
+			expectError:   true,
+			errorContains: "no such file or directory",
+		},
+		{
+			name:          "empty rulesets directory should not fail",
+			listTargets:   true,
+			setupKantra:   true,
+			setupRulesets: true,
+			expectError:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var tmpKantraDir string
+			var err error
+
+			if tt.setupKantra {
+				tmpKantraDir, err = os.MkdirTemp("", "test-kantra-error-")
+				require.NoError(t, err)
+				defer os.RemoveAll(tmpKantraDir)
+
+				if tt.setupRulesets {
+					rulesetsDir := filepath.Join(tmpKantraDir, "rulesets")
+					err = os.MkdirAll(rulesetsDir, 0755)
+					require.NoError(t, err)
+				}
+			} else {
+				tmpKantraDir = "/non/existent/kantra/directory"
+			}
+
+			// Create analyze command with potentially missing kantra directory
+			a := &analyzeCommand{
+				listSources: tt.listSources,
+				listTargets: tt.listTargets,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Capture output
+			var output strings.Builder
+			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestListLabelsContainerlessOutputFormat(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		listSources    bool
+		listTargets    bool
+		setupRules     map[string]string
+		expectedHeader string
+		expectedCount  int
+	}{
+		{
+			name:        "targets output format verification",
+			listTargets: true,
+			setupRules: map[string]string{
+				"rulesets/test-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/target=java
+  - konveyor.io/target=spring
+  ruleID: test-01
+`,
+			},
+			expectedHeader: "available target technologies:",
+			expectedCount:  3, // header + 2 technologies
+		},
+		{
+			name:        "sources output format verification",
+			listSources: true,
+			setupRules: map[string]string{
+				"rulesets/test-rules.yaml": `
+- category: mandatory
+  labels:
+  - konveyor.io/source=legacy
+  - konveyor.io/source=monolith
+  ruleID: test-01
+`,
+			},
+			expectedHeader: "available source technologies:",
+			expectedCount:  3, // header + 2 technologies
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary kantra directory structure
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-format-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Setup rule files
+			for filePath, content := range tt.setupRules {
+				fullPath := filepath.Join(tmpKantraDir, filePath)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(fullPath, []byte(content), 0644)
+				require.NoError(t, err)
+			}
+
+			// Create analyze command
+			a := &analyzeCommand{
+				listSources: tt.listSources,
+				listTargets: tt.listTargets,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Capture output
+			var output strings.Builder
+			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+			require.NoError(t, err)
+
+			// Verify output format
+			outputLines := strings.Split(strings.TrimSpace(output.String()), "\n")
+			assert.Len(t, outputLines, tt.expectedCount)
+			assert.Equal(t, tt.expectedHeader, outputLines[0])
+
+			// Verify technologies are sorted (ListOptionsFromLabels sorts them)
+			if len(outputLines) > 1 {
+				techs := outputLines[1:]
+				for i := 1; i < len(techs); i++ {
+					assert.True(t, techs[i-1] <= techs[i], "Technologies should be sorted: %v", techs)
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a slice contains a string
+func sliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
