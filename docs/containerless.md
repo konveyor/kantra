@@ -15,7 +15,7 @@ Download appropriate zip for your OS [here](https://github.com/konveyor/kantra/r
 ## Move kantra binary to your $PATH:
 
 ```sh
-mv $HOME/kantra.<os>.<arch>/<os>-kantra /usr/bin
+mv $HOME/kantra.<os>.<arch>/<os>-kantra /usr/local/bin
 ```
 
 ### Move requirements to kantra known location, or run kantra from the current directory:
