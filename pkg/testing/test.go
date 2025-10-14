@@ -253,10 +253,7 @@ func (t TestCase) Verify(output konveyor.RuleSet) []string {
 
 	compareMessageOrCodeSnip := func(with string, pattern string) bool {
 		if r, err := regexp.Compile(pattern); err == nil &&
-			!r.MatchString(with) {
-			return false
-		}
-		if !strings.Contains(with, pattern) {
+			!r.MatchString(with) && !strings.Contains(with, pattern) {
 			return false
 		}
 		return true
@@ -313,20 +310,75 @@ func (t TestCase) Verify(output konveyor.RuleSet) []string {
 			}
 		}
 		if countBased != nil {
-			if countBased.Exactly != nil && *countBased.Exactly != len(violation.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected exactly %d incidents, got %d",
-						*countBased.Exactly, len(violation.Incidents)))
+			incidentsMatchingMessage := 0
+			if countBased.MessageMatches != nil {
+				for _, incident := range violation.Incidents {
+					if compareMessageOrCodeSnip(incident.Message, *countBased.MessageMatches) {
+						incidentsMatchingMessage++
+					}
+				}
 			}
-			if countBased.AtLeast != nil && *countBased.AtLeast > len(violation.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected at least %d incidents, got %d",
-						*countBased.AtLeast, len(violation.Incidents)))
+			incidentsMatchingCodeSnip := 0
+			if countBased.CodeSnipMatches != nil {
+				for _, incident := range violation.Incidents {
+					if compareMessageOrCodeSnip(incident.CodeSnip, *countBased.CodeSnipMatches) {
+						incidentsMatchingCodeSnip++
+					}
+				}
 			}
-			if countBased.AtMost != nil && *countBased.AtMost < len(violation.Incidents) {
-				return append(failures,
-					fmt.Sprintf("expected at most %d incidents, got %d",
-						*countBased.AtMost, len(violation.Incidents)))
+			if countBased.Exactly != nil {
+				if countBased.MessageMatches == nil && countBased.CodeSnipMatches == nil &&
+					*countBased.Exactly != len(violation.Incidents) {
+					return append(failures,
+						fmt.Sprintf("expected exactly %d incidents, got %d",
+							*countBased.Exactly, len(violation.Incidents)))
+				}
+				if countBased.MessageMatches != nil && *countBased.Exactly != incidentsMatchingMessage {
+					return append(failures,
+						fmt.Sprintf("expected exactly %d incidents with matching message, got %d out of %d total",
+							*countBased.Exactly, incidentsMatchingMessage, len(violation.Incidents)))
+				}
+				if countBased.CodeSnipMatches != nil && *countBased.Exactly != incidentsMatchingCodeSnip {
+					return append(failures,
+						fmt.Sprintf("expected exactly %d incidents with matching code snip, got %d out of %d total",
+							*countBased.Exactly, incidentsMatchingCodeSnip, len(violation.Incidents)))
+				}
+			}
+			if countBased.AtLeast != nil {
+				if countBased.MessageMatches == nil && countBased.CodeSnipMatches == nil &&
+					*countBased.AtLeast > len(violation.Incidents) {
+					return append(failures,
+						fmt.Sprintf("expected at least %d incidents, got %d",
+							*countBased.AtLeast, len(violation.Incidents)))
+				}
+				if countBased.MessageMatches != nil && *countBased.AtLeast > incidentsMatchingMessage {
+					return append(failures,
+						fmt.Sprintf("expected at least %d incidents with matching message, got %d out of %d total",
+							*countBased.AtLeast, incidentsMatchingMessage, len(violation.Incidents)))
+				}
+				if countBased.CodeSnipMatches != nil && *countBased.AtLeast > incidentsMatchingCodeSnip {
+					return append(failures,
+						fmt.Sprintf("expected at least %d incidents with matching code snip, got %d out of %d total",
+							*countBased.AtLeast, incidentsMatchingCodeSnip, len(violation.Incidents)))
+				}
+			}
+			if countBased.AtMost != nil {
+				if countBased.MessageMatches == nil && countBased.CodeSnipMatches == nil &&
+					*countBased.AtMost < len(violation.Incidents) {
+					return append(failures,
+						fmt.Sprintf("expected at most %d incidents, got %d",
+							*countBased.AtMost, len(violation.Incidents)))
+				}
+				if countBased.MessageMatches != nil && *countBased.AtMost < incidentsMatchingMessage {
+					return append(failures,
+						fmt.Sprintf("expected at most %d incidents with matching message, got %d out of %d total",
+							*countBased.AtMost, incidentsMatchingMessage, len(violation.Incidents)))
+				}
+				if countBased.CodeSnipMatches != nil && *countBased.AtMost < incidentsMatchingCodeSnip {
+					return append(failures,
+						fmt.Sprintf("expected at most %d incidents with matching code snip, got %d out of %d total",
+							*countBased.AtMost, incidentsMatchingCodeSnip, len(violation.Incidents)))
+				}
 			}
 		}
 	}
