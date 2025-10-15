@@ -256,6 +256,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
+	// validate input app is not the current dir
+	// .metadata cannot initialize in the app root
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if a.input == currentDir {
+		return fmt.Errorf("input path %s cannot be the current directory", a.input)
+	}
+
 	// validate mvn and openjdk install
 	_, mvnErr := exec.LookPath("mvn")
 	if mvnErr != nil {

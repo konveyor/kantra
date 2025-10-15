@@ -962,7 +962,162 @@ func TestListLabelsContainerlessOutputFormat(t *testing.T) {
 	}
 }
 
-// Helper function to check if a slice contains a string
+func TestValidateContainerlessInput(t *testing.T) {
+	log := logr.Discard()
+
+	currentDir, dirErr := os.Getwd()
+	require.NoError(t, dirErr)
+
+	tempDir, err := os.MkdirTemp("", "test-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	tmpKantraDir, err := os.MkdirTemp("", "test-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpKantraDir)
+
+	requiredDirs := []string{
+		"rulesets",
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target",
+		"jdtls/bin",
+	}
+	for _, dir := range requiredDirs {
+		err = os.MkdirAll(filepath.Join(tmpKantraDir, dir), 0755)
+		require.NoError(t, err)
+	}
+
+	requiredFiles := []string{
+		"fernflower.jar",
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+		"jdtls/bin/jdtls",
+	}
+	for _, file := range requiredFiles {
+		f, err := os.Create(filepath.Join(tmpKantraDir, file))
+		require.NoError(t, err)
+		f.Close()
+	}
+
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		errorMsg    string
+		setupFunc   func() string
+		getwdSetup  func(*testing.T)
+		skipCheck   func() bool
+	}{
+		{
+			name:        "absolute path to current directory should fail",
+			expectError: true,
+			errorMsg:    "cannot be the current directory",
+			setupFunc: func() string {
+				return currentDir
+			},
+		},
+		{
+			name:        "relative path '.' should fail",
+			expectError: true,
+			errorMsg:    "cannot be the current directory",
+			setupFunc: func() string {
+				return "."
+			},
+		},
+		{
+			name:        "relative path './' should fail",
+			expectError: true,
+			errorMsg:    "cannot be the current directory",
+			setupFunc: func() string {
+				return "./"
+			},
+		},
+		{
+			name:        "absolute path to different directory should pass",
+			expectError: false,
+			setupFunc: func() string {
+				return tempDir
+			},
+		},
+		{
+			name:        "relative path to subdirectory should pass",
+			expectError: false,
+			setupFunc: func() string {
+				subDir := "test-subdir"
+				fullPath := filepath.Join(currentDir, subDir)
+				os.MkdirAll(fullPath, 0755)
+				return subDir
+			},
+		},
+		{
+			name:        "test Getwd() error",
+			expectError: true,
+			errorMsg:    "no such file or directory",
+			setupFunc: func() string {
+				return "/some/valid/path"
+			},
+			getwdSetup: func(t *testing.T) {
+				originalDir, err := os.Getwd()
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					os.Chdir(originalDir)
+				})
+				tempTestDir, err := os.MkdirTemp("", "test-getwd-error-")
+				require.NoError(t, err)
+
+				err = os.Chdir(tempTestDir)
+				require.NoError(t, err)
+
+				err = os.Remove(tempTestDir)
+				require.NoError(t, err)
+			},
+			skipCheck: func() bool {
+				_, err := os.Getwd()
+				return err == nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.getwdSetup != nil {
+				tt.getwdSetup(t)
+			}
+			if tt.skipCheck != nil && tt.skipCheck() {
+				t.Skipf("Skipping test %s", tt.name)
+				return
+			}
+
+			inputPath := tt.setupFunc()
+			a := &analyzeCommand{
+				input: inputPath,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			if tt.getwdSetup == nil {
+				if absPath, err := filepath.Abs(a.input); err == nil {
+					a.input = absPath
+				}
+			}
+
+			err := a.ValidateContainerless(context.Background())
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.getwdSetup != nil {
+					assert.Error(t, err)
+				} else {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				if err != nil {
+					assert.NotContains(t, err.Error(), "cannot be the current directory")
+				}
+			}
+		})
+	}
+}
+
 func sliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
