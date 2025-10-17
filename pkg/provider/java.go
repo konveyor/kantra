@@ -39,6 +39,7 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 util.JavaProvider,
 					"bundles":                       c.JavaBundleLocation,
+					"mavenIndexPath":                "/usr/local/etc/",
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
 					"disableMavenSearch":            c.DisableMavenSearch,

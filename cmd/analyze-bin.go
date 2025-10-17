@@ -440,6 +440,7 @@ func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
+					"mavenIndexPath":                filepath.Join(a.kantraDir),
 					"disableMavenSearch":            a.disableMavenSearch,
 					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 				},
