@@ -158,7 +158,7 @@ func TestJavaProvider_GetConfigVolume(t *testing.T) {
 			initConfig := config.InitConfig[0]
 			assert.Equal(t, tt.expectedMode, string(initConfig.AnalysisMode))
 			assert.Equal(t, tt.expectedBundleLocation, initConfig.ProviderSpecificConfig["bundles"])
-			assert.Equal(t, "/usr/local/etc/", initConfig.ProviderSpecificConfig["mavenIndexPath"])
+			assert.Equal(t, "/usr/local/etc", initConfig.ProviderSpecificConfig["mavenIndexPath"])
 			assert.Equal(t, "/usr/local/etc/maven.default.index", initConfig.ProviderSpecificConfig["depOpenSourceLabelsFile"])
 			assert.Equal(t, "/jdtls/bin/jdtls", initConfig.ProviderSpecificConfig["lspServerPath"])
 			assert.Equal(t, tt.configInput.DisableMavenSearch, initConfig.ProviderSpecificConfig["disableMavenSearch"])
@@ -537,7 +537,7 @@ func TestGetConfigVolume_ProviderSpecificConfig(t *testing.T) {
 	// Verify all expected config keys are present
 	assert.Equal(t, "java", initConfig.ProviderSpecificConfig["lspServerName"])
 	assert.Equal(t, "/custom/bundles", initConfig.ProviderSpecificConfig["bundles"])
-	assert.Equal(t, "/usr/local/etc/", initConfig.ProviderSpecificConfig["mavenIndexPath"])
+	assert.Equal(t, "/usr/local/etc", initConfig.ProviderSpecificConfig["mavenIndexPath"])
 	assert.Equal(t, "/usr/local/etc/maven.default.index", initConfig.ProviderSpecificConfig["depOpenSourceLabelsFile"])
 	assert.Equal(t, "/jdtls/bin/jdtls", initConfig.ProviderSpecificConfig["lspServerPath"])
 	assert.Equal(t, true, initConfig.ProviderSpecificConfig["disableMavenSearch"])
