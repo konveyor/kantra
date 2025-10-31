@@ -83,6 +83,7 @@ type analyzeCommand struct {
 	disableMavenSearch       bool
 	noProgress               bool
 	overrideProviderSettings string
+	profile                  string
 	AnalyzeCommandContext
 }
 
@@ -101,7 +102,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
 				!cmd.Flags().Lookup("list-providers").Changed &&
-				!cmd.Flags().Lookup("list-languages").Changed {
+				!cmd.Flags().Lookup("list-languages").Changed &&
+				!cmd.Flags().Lookup("profile").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
@@ -118,7 +120,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			err := analyzeCmd.Validate(cmd.Context())
+			err := analyzeCmd.Validate(cmd.Context(), cmd)
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -143,6 +145,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
+			}
+
+			profile := &Profile{}
+			if analyzeCmd.profile != "" {
+				err := analyzeCmd.getSettingsFromProfile(ctx, profile)
+				if err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
 			}
 
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -275,7 +286,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			// Note: CreateJSONOutput and GenerateStaticReport are already called
 			// within RunAnalysisHybridInProcess, so no need to call them here
-
 			return nil
 		},
 	}
@@ -310,10 +320,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.profile, "profile", "", "path to an analysis profile")
 	return analyzeCommand
 }
 
-func (a *analyzeCommand) Validate(ctx context.Context) error {
+func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command) error {
 	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
@@ -329,6 +340,12 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 		return nil
 	}
 
+	if a.profile != "" {
+		err := a.validateProfile(cmd)
+		if err != nil {
+			return err
+		}
+	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}

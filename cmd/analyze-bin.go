@@ -298,8 +298,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	// Cancel progress context and wait for goroutine to finish
 	if progressMode.IsEnabled() {
-		progressCancel()  // This closes the Events() channel
-		<-progressDone    // Wait for goroutine to finish
+		progressCancel() // This closes the Events() channel
+		<-progressDone   // Wait for goroutine to finish
 	}
 
 	engineSpan.End()
