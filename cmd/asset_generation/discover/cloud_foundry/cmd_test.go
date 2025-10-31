@@ -70,13 +70,16 @@ var _ = Describe("Discover Manifest", func() {
 	)
 
 	DescribeTable("Live discovery manifest validation",
-		func(platformType string, spacesArg []string, cfConfigPathArg string, expectedErrorMessage ...string) {
+		func(platformType string, orgsArg []string, spacesArg []string, cfConfigPathArg string, expectedErrorMessage ...string) {
 			// Create command instance and test through CLI
 			_, cmd := NewDiscoverCloudFoundryCommand(logr.Discard())
 			cmd.SetOut(contentWriter)
 			cmd.SetErr(contentWriter)
 
 			args := []string{"--use-live-connection", "--platformType", platformType}
+			if len(orgsArg) > 0 {
+				args = append(args, "--orgs", strings.Join(orgsArg, ","))
+			}
 			if len(spacesArg) > 0 {
 				args = append(args, "--spaces", strings.Join(spacesArg, ","))
 			}
@@ -102,8 +105,8 @@ var _ = Describe("Discover Manifest", func() {
 				Expect(err).ToNot(HaveOccurred(), "Expected no error, but got one")
 			}
 		},
-		Entry("with unsupported platform type", "unsupported-platform", []string{"test-space"}, "../../../../test-data/asset_generation/discover", "unsupported platform type: unsupported-platform"),
-		Entry("with invalid CF config path", "cloud-foundry", []string{"test-space"}, "/nonexistent/path", "no such file or directory"),
+		Entry("with unsupported platform type", "unsupported-platform", []string{"test-org"}, []string{"test-space"}, "../../../../test-data/asset_generation/discover", "unsupported platform type: unsupported-platform"),
+		Entry("with invalid CF config path", "cloud-foundry", []string{"test-org"}, []string{"test-space"}, "/nonexistent/path", "no such file or directory"),
 	)
 })
 
@@ -125,10 +128,28 @@ var _ = Describe("Discover command", func() {
 		tempDir = createTempDir()
 		manifestPath = createTestManifest(tempDir)
 		outputPath = createOutputDir(tempDir)
+		// Reset global variables to prevent cross-test contamination
+		outputDir = ""
+		appName = ""
+		orgs = []string{}
+		spaces = []string{}
+		input = ""
+		useLive = false
+		listApps = false
+		concealSensitiveData = false
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
+		// Clean up global variables to prevent cross-test contamination
+		outputDir = ""
+		appName = ""
+		orgs = []string{}
+		spaces = []string{}
+		input = ""
+		useLive = false
+		listApps = false
+		concealSensitiveData = false
 	})
 
 	Context("flags validation", func() {
@@ -137,7 +158,7 @@ var _ = Describe("Discover command", func() {
 				_, cmd = NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
-				cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space",
+				cmd.SetArgs([]string{"--use-live-connection", "--orgs", "test-org", "--spaces", "test-space",
 					"--cf-config", "../../../../test-data/asset_generation/discover", "--input", manifestPath})
 
 				executeErr := cmd.Execute()
@@ -159,16 +180,17 @@ var _ = Describe("Discover command", func() {
 				Expect(err.String()).To(ContainSubstring("Error: input flag is required"))
 			})
 
-			It("should return error when use-live-connection is true but no spaces provided", func() {
+			It("should return error when use-live-connection is true for discovery mode but orgs is not provided", func() {
 				_, cmd = NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
-				cmd.SetArgs([]string{"--use-live-connection"})
+				// Without --list-apps, orgs is required for discovery mode
+				cmd.SetArgs([]string{"--use-live-connection", "--cf-config", "../../../../test-data/asset_generation/discover"})
 
 				executeErr := cmd.Execute()
 
 				Expect(executeErr).To(HaveOccurred())
-				Expect(executeErr.Error()).To(ContainSubstring("at least one space is required"))
+				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag is required when using --use-live-connection without --list-apps"))
 			})
 		})
 		Context("when output-dir flag is provided", func() {
@@ -409,19 +431,21 @@ var _ = Describe("Discover command", func() {
 
 	Context("when list-apps flag is provided", func() {
 		Context("when using live discover", func() {
-			It("should list apps in the spaces", func() {
+			It("should list apps in hierarchical org->space->apps format", func() {
 				mockProv := &mockProvider{
 					DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
 						return &pTypes.DiscoverResult{}, nil
 					},
 					ListAppsFunc: func() (map[string][]any, error) {
+						// Live discovery returns map keyed by org name
 						return map[string][]any{
-							"space1": {
-								cfProvider.AppReference{SpaceName: "space1", AppName: "app1"},
-								cfProvider.AppReference{SpaceName: "space1", AppName: "app2"},
+							"org1": {
+								cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+								cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app2"},
+								cfProvider.AppReference{OrgName: "org1", SpaceName: "space2", AppName: "app3"},
 							},
-							"space2": {
-								cfProvider.AppReference{SpaceName: "space2", AppName: "app1"},
+							"org2": {
+								cfProvider.AppReference{OrgName: "org2", SpaceName: "space1", AppName: "app4"},
 							},
 						}, nil
 					},
@@ -436,18 +460,23 @@ var _ = Describe("Discover command", func() {
 				contentWriter.Flush()
 
 				output := out.String()
-				Expect(output).To(ContainSubstring("Space: space1"))
-				Expect(output).To(ContainSubstring("  - app1"))
-				Expect(output).To(ContainSubstring("  - app2"))
-				Expect(output).To(ContainSubstring("Space: space2"))
-				Expect(output).To(ContainSubstring("  - app1"))
+				// Verify hierarchical output format
+				Expect(output).To(ContainSubstring("Organization: org1"))
+				Expect(output).To(ContainSubstring("Organization: org2"))
+				Expect(output).To(ContainSubstring("  Space: space1"))
+				Expect(output).To(ContainSubstring("  Space: space2"))
+				Expect(output).To(ContainSubstring("    - app1"))
+				Expect(output).To(ContainSubstring("    - app2"))
+				Expect(output).To(ContainSubstring("    - app3"))
+				Expect(output).To(ContainSubstring("    - app4"))
 			})
 			It("should handle empty spaces (no apps)", func() {
 				mockProv := &mockProvider{
 					ListAppsFunc: func() (map[string][]any, error) {
+						// Return org-keyed map with empty app lists
 						return map[string][]any{
-							"space1": {},
-							"space2": {},
+							"org1": {},
+							"org2": {},
 						}, nil
 					},
 				}
@@ -461,10 +490,11 @@ var _ = Describe("Discover command", func() {
 				contentWriter.Flush()
 				output := out.String()
 
-				// Should print spaces but no apps under them
-				Expect(output).To(ContainSubstring("Space: space1"))
-				Expect(output).To(ContainSubstring("Space: space2"))
-				Expect(output).NotTo(ContainSubstring("- ")) // No app entries
+				// Should print orgs but no spaces/apps under them since lists are empty
+				Expect(output).To(ContainSubstring("Organization: org1"))
+				Expect(output).To(ContainSubstring("Organization: org2"))
+				Expect(output).NotTo(ContainSubstring("Space:")) // No spaces since app lists are empty
+				Expect(output).NotTo(ContainSubstring("    - ")) // No app entries
 			})
 
 			It("should return error if ListApps returns an error", func() {
@@ -498,7 +528,58 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 				Expect(output).To(BeEmpty())
 			})
+
+			It("should return error when printApps fails", func() {
+				mockProv := &mockProvider{
+					ListAppsFunc: func() (map[string][]any, error) {
+						// Return invalid type to trigger printApps error
+						return map[string][]any{
+							"org1": {
+								"invalid-type", // Not an AppReference
+							},
+						}, nil
+					},
+				}
+
+				var out bytes.Buffer
+				contentWriter := bufio.NewWriter(&out)
+
+				err := listApplicationsLive(mockProv, contentWriter)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unexpected type for app list"))
+			})
 		})
+
+		Context("when using live discover with optional flags", func() {
+			It("should allow --list-apps without --orgs (discovers all orgs)", func() {
+				_, cmd := NewDiscoverCloudFoundryCommand(log)
+				cmd.SetOut(&out)
+				cmd.SetErr(&err)
+				// list-apps without orgs should be valid
+				cmd.SetArgs([]string{"--use-live-connection", "--list-apps", "--cf-config", "../../../../test-data/asset_generation/discover"})
+
+				executeErr := cmd.Execute()
+
+				// Will fail because no real CF environment, but flag validation should pass
+				Expect(executeErr).To(HaveOccurred())
+				Expect(executeErr.Error()).NotTo(ContainSubstring("--orgs flag is required"))
+			})
+
+			It("should allow discovery mode without --spaces (discovers all spaces for orgs)", func() {
+				_, cmd := NewDiscoverCloudFoundryCommand(log)
+				cmd.SetOut(&out)
+				cmd.SetErr(&err)
+				// Discovery mode with orgs but without spaces should be valid
+				cmd.SetArgs([]string{"--use-live-connection", "--orgs", "test-org", "--cf-config", "../../../../test-data/asset_generation/discover"})
+
+				executeErr := cmd.Execute()
+
+				// Will fail because no real CF environment, but flag validation should pass
+				Expect(executeErr).To(HaveOccurred())
+				Expect(executeErr.Error()).NotTo(ContainSubstring("spaces"))
+			})
+		})
+
 		Context("when using local discover", func() {
 			It("lists a single app from a single manifest", func() {
 
@@ -537,99 +618,271 @@ var _ = Describe("Discover command", func() {
 			})
 		})
 
+		Context("printApps function tests", func() {
+			It("should handle apps with empty space names", func() {
+				var out bytes.Buffer
+
+				appListByOrg := map[string][]any{
+					"org1": {
+						cfProvider.AppReference{OrgName: "org1", SpaceName: "", AppName: "app-no-space"},
+					},
+				}
+
+				err := printApps(appListByOrg, &out)
+				Expect(err).To(Succeed())
+				Expect(out.String()).To(ContainSubstring("Organization: org1"))
+				Expect(out.String()).To(ContainSubstring("Space: unknown"))
+				Expect(out.String()).To(ContainSubstring("    - app-no-space"))
+			})
+
+			It("should return error for invalid app type in printApps", func() {
+				var out bytes.Buffer
+
+				appListByOrg := map[string][]any{
+					"org1": {
+						"invalid-type", // Not an AppReference
+					},
+				}
+
+				err := printApps(appListByOrg, &out)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unexpected type for app list"))
+			})
+		})
+
 	})
-	Context("when using live discovery", func() {
-		It("should validate that spaces are provided", func() {
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space"})
+	Context("when testing runListApps function", func() {
+		var mockProv *mockProvider
+		var out bytes.Buffer
 
-			executeErr := cmd.Execute()
-
-			// This will fail because we don't have a real CF environment, but validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			// The error should NOT be about missing spaces, but about CF connection
-			Expect(executeErr.Error()).NotTo(ContainSubstring("at least one space is required"))
+		BeforeEach(func() {
+			out.Reset()
 		})
 
-		It("should validate cf-config path when provided", func() {
-			nonExistentPath := "/nonexistent/cf/config"
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space", "--cf-config", nonExistentPath})
+		It("should call listApplicationsLive when useLive is true", func() {
+			listAppsCalled := false
 
-			executeErr := cmd.Execute()
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					listAppsCalled = true
+					return map[string][]any{
+						"org1": {
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+						},
+					}, nil
+				},
+			}
 
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).To(ContainSubstring("failed to retrieve Cloud Foundry configuration file"))
+			err := runListApps(mockProv, true, &out)
+			Expect(err).To(Succeed())
+			Expect(listAppsCalled).To(BeTrue())
 		})
 
-		It("should accept valid cf-config path", func() {
-			validConfigPath := createValidCfConfig(tempDir)
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space", "--cf-config", validConfigPath})
+		It("should call listApplicationsLocal when useLive is false", func() {
+			input = createTempDir()
+			defer os.RemoveAll(input)
+			createTestManifest(input)
 
-			executeErr := cmd.Execute()
-
-			// This will fail because we don't have a real CF environment, but config path validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).NotTo(ContainSubstring("failed to retrieve Cloud Foundry configuration file"))
+			err := runListApps(nil, false, &out)
+			Expect(err).To(Succeed())
 		})
 
-		It("should support multiple spaces", func() {
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "space1,space2,space3"})
+		It("should return error when listApplicationsLocal fails", func() {
+			input = "/nonexistent/path"
 
-			executeErr := cmd.Execute()
+			err := runListApps(nil, false, &out)
+			Expect(err).To(HaveOccurred())
+		})
+	})
 
-			// This will fail because we don't have a real CF environment, but validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).NotTo(ContainSubstring("at least one space is required"))
+	Context("when testing listApplicationsLocal function", func() {
+		It("should return error when input path does not exist", func() {
+			var out bytes.Buffer
+			contentWriter := bufio.NewWriter(&out)
+
+			err := listApplicationsLocal("/nonexistent/path", contentWriter)
+			Expect(err).To(HaveOccurred())
 		})
 
-		It("should support app-name filter", func() {
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space", "--app-name", "my-app"})
+		It("should return error when createProviderForManifest fails due to unreadable file", func() {
+			var out bytes.Buffer
+			contentWriter := bufio.NewWriter(&out)
+			tempDir := createTempDir()
+			defer os.RemoveAll(tempDir)
 
-			executeErr := cmd.Execute()
+			// Create a file with no read permissions to cause createProviderForManifest to fail
+			unreadableFile := filepath.Join(tempDir, "unreadable.yaml")
+			Expect(os.WriteFile(unreadableFile, []byte("name: test"), 0000)).To(Succeed())
 
-			// This will fail because we don't have a real CF environment, but validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).NotTo(ContainSubstring("at least one space is required"))
+			err := listApplicationsLocal(tempDir, contentWriter)
+			Expect(err).To(HaveOccurred())
 		})
 
-		It("should support skip-ssl-validation flag", func() {
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space", "--skip-ssl-validation"})
+		It("should return error for manifest files without app name", func() {
+			var out bytes.Buffer
+			contentWriter := bufio.NewWriter(&out)
+			tempDir := createTempDir()
+			defer os.RemoveAll(tempDir)
 
-			executeErr := cmd.Execute()
+			// Create a text file that's not a valid manifest
+			nonManifestFile := filepath.Join(tempDir, "test.txt")
+			Expect(os.WriteFile(nonManifestFile, []byte("not a manifest"), 0644)).To(Succeed())
 
-			// This will fail because we don't have a real CF environment, but validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).NotTo(ContainSubstring("at least one space is required"))
+			err := listApplicationsLocal(tempDir, contentWriter)
+			// Will error because the file doesn't have an app name
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no app name found"))
+		})
+	})
+
+	Context("when using discoverLive function", func() {
+		var mockProv *mockProvider
+		var out bytes.Buffer
+
+		BeforeEach(func() {
+			out.Reset()
+			// Reset global variables that discoverLive uses
+			appName = ""
+			orgs = []string{}
+			outputDir = ""
 		})
 
-		It("should support custom platform type", func() {
-			_, cmd = NewDiscoverCloudFoundryCommand(log)
-			cmd.SetOut(&out)
-			cmd.SetErr(&err)
-			cmd.SetArgs([]string{"--use-live-connection", "--spaces", "test-space", "--platformType", "cloud-foundry"})
+		It("should discover apps from multiple orgs", func() {
+			orgs = []string{"org1", "org2"}
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"org1": {
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+						},
+						"org2": {
+							cfProvider.AppReference{OrgName: "org2", SpaceName: "space2", AppName: "app2"},
+						},
+					}, nil
+				},
+				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					return &pTypes.DiscoverResult{}, nil
+				},
+			}
 
-			executeErr := cmd.Execute()
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(Succeed())
+		})
 
-			// This will fail because we don't have a real CF environment, but validation should pass
-			Expect(executeErr).To(HaveOccurred())
-			Expect(executeErr.Error()).NotTo(ContainSubstring("at least one space is required"))
+		It("should skip orgs with no apps", func() {
+			orgs = []string{"org1", "org2", "org3"}
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"org1": {
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+						},
+						"org2": {}, // Empty org
+						// org3 is missing entirely
+					}, nil
+				},
+				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					return &pTypes.DiscoverResult{}, nil
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(Succeed())
+		})
+
+		It("should filter apps by appName when specified", func() {
+			orgs = []string{"org1"}
+			appName = "target-app"
+			discoveredApps := []string{}
+
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"org1": {
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "target-app"},
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "other-app"},
+						},
+					}, nil
+				},
+				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					appRef := raw.(cfProvider.AppReference)
+					discoveredApps = append(discoveredApps, appRef.AppName)
+					return &pTypes.DiscoverResult{}, nil
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(Succeed())
+			Expect(discoveredApps).To(Equal([]string{"target-app"}))
+			Expect(discoveredApps).NotTo(ContainElement("other-app"))
+		})
+
+		It("should return error when ListApps fails", func() {
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return nil, fmt.Errorf("list apps error")
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to list apps by org"))
+		})
+
+		It("should return error when Discover fails", func() {
+			orgs = []string{"org1"}
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"org1": {
+							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+						},
+					}, nil
+				},
+				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					return nil, fmt.Errorf("discover error")
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("discover error"))
+		})
+
+		It("should return error for unexpected app type", func() {
+			orgs = []string{"org1"}
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"org1": {
+							"invalid-type", // Not an AppReference
+						},
+					}, nil
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unexpected type for app list"))
+		})
+
+		It("should handle apps with empty org names", func() {
+			orgs = []string{}
+			mockProv = &mockProvider{
+				ListAppsFunc: func() (map[string][]any, error) {
+					return map[string][]any{
+						"": {
+							cfProvider.AppReference{OrgName: "", SpaceName: "space1", AppName: "app1"},
+						},
+					}, nil
+				},
+				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					return &pTypes.DiscoverResult{}, nil
+				},
+			}
+
+			err := discoverLive(mockProv, &out)
+			Expect(err).To(Succeed())
 		})
 	})
 
@@ -808,6 +1061,114 @@ var _ = Describe("Discover command", func() {
 
 				Expect(executeErr).To(HaveOccurred())
 				Expect(executeErr.Error()).To(ContainSubstring("permission denied"))
+			})
+		})
+
+		Context("when testing OutputAppManifestsYAML function", func() {
+			BeforeEach(func() {
+				// Reset global outputDir to ensure tests write to stdout, not file
+				outputDir = ""
+			})
+
+			It("should include org in suffix when provided", func() {
+				discoverResult := &pTypes.DiscoverResult{}
+
+				err := OutputAppManifestsYAML(&out, discoverResult, "test-org", "test-space", "test-app")
+				Expect(err).To(Succeed())
+			})
+
+			It("should include space in suffix when provided", func() {
+				discoverResult := &pTypes.DiscoverResult{}
+
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "test-space", "test-app")
+				Expect(err).To(Succeed())
+			})
+
+			It("should handle empty org and space names", func() {
+				discoverResult := &pTypes.DiscoverResult{}
+
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "", "test-app")
+				Expect(err).To(Succeed())
+			})
+		})
+
+		Context("when testing processAppList function", func() {
+			var mockProv *mockProvider
+
+			BeforeEach(func() {
+				out.Reset()
+				appName = "" // Reset global var
+				outputDir = ""
+			})
+
+			It("should process all apps in the list", func() {
+				processedApps := []string{}
+				mockProv = &mockProvider{
+					DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+						appRef := raw.(cfProvider.AppReference)
+						processedApps = append(processedApps, appRef.AppName)
+						return &pTypes.DiscoverResult{}, nil
+					},
+				}
+
+				appList := []any{
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app2"},
+				}
+
+				err := processAppList(mockProv, appList, &out)
+				Expect(err).To(Succeed())
+				Expect(processedApps).To(Equal([]string{"app1", "app2"}))
+			})
+
+			It("should filter by appName when specified", func() {
+				appName = "app2"
+				processedApps := []string{}
+				mockProv = &mockProvider{
+					DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+						appRef := raw.(cfProvider.AppReference)
+						processedApps = append(processedApps, appRef.AppName)
+						return &pTypes.DiscoverResult{}, nil
+					},
+				}
+
+				appList := []any{
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app2"},
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app3"},
+				}
+
+				err := processAppList(mockProv, appList, &out)
+				Expect(err).To(Succeed())
+				Expect(processedApps).To(Equal([]string{"app2"}))
+			})
+
+			It("should return error for invalid app type", func() {
+				mockProv = &mockProvider{}
+
+				appList := []any{
+					"invalid-type",
+				}
+
+				err := processAppList(mockProv, appList, &out)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unexpected type for app list"))
+			})
+
+			It("should return error when Discover fails", func() {
+				mockProv = &mockProvider{
+					DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+						return nil, fmt.Errorf("discover failed")
+					},
+				}
+
+				appList := []any{
+					cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+				}
+
+				err := processAppList(mockProv, appList, &out)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("discover failed"))
 			})
 		})
 	})

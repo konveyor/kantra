@@ -47,7 +47,7 @@ static-report
 - View supported source platform resources
 `kantra discover --list-platforms`
 
-- Print YAML representations of source platform resources
+- Print YAML representations of source platform resources (organization name defaults to 'local')
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml>`
 
     For example:
@@ -58,51 +58,67 @@ static-report
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --list-apps`
 
     For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --list-apps`
+    `kantra discover cloud-foundry
+    --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --list-apps`
 
 - Output YAML representations of source platform resources in the output directory
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-dir=<path-to/output-dir>`
 
     For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output-dir=/tmp/output-dir`
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --output-dir=/tmp/output-dir`
 
 - Perform discovery and separate sensitive data (credentials, secrets) into a dedicated file:
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
 
     For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
+    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 - Perform a live discover and print the list of the available applications for
-  each space
-`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --list-apps`
+  each space (--orgs and --spaces are optional; if not provided, discovers all orgs and spaces)
+`kantra discover cloud-foundry --use-live-connection --list-apps [--orgs=<org1,org2>] [--spaces=<space1,space2>]`
 
     For example:
-    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --list-apps`
+    `kantra discover cloud-foundry --use-live-connection --list-apps`
+    
+    Or with filtering:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --list-apps`
 
-- Perform a live discover and print the YAML representation of source platform resources
-`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2>`
+- Perform a live discover and print the YAML representation of source platform resources (--spaces is optional; discovers all spaces if not provided)
+`kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>]`
 
     For example:
-    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2`
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1`
+    
+    Or with space filtering:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2`
 
 - Perform a live discover and output the YAML representations of source platform
-  resources in the output directory
-`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --output-dir=<path-to/output-dir>`
+  resources in the output directory (--spaces is optional; discovers all spaces if not provided)
+`kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --output-dir=<path-to/output-dir>`
 
     For example:
-    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --output-dir=/tmp/output-dir`
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --output-dir=/tmp/output-dir`
+    
+    Or with space filtering:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --output-dir=/tmp/output-dir`
 
-- Perform a live discover of a specific application and output the YAML representations of source platform resources in the output directory:
-`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --app-name=<app-name> --output-dir=<path-to/output-dir>`
-
-    For example:
-    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --app-name=my-app --output-dir=/tmp/output-dir`
-
-- Perform live discovery and separate sensitive data (credentials, secrets) into a dedicated file:
-`kantra discover cloud-foundry --use-live-connection --spaces=<space1,space2> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
+- Perform a live discover of a specific application and output the YAML representations of source platform resources in the output directory (--spaces is optional; discovers all spaces if not provided):
+`kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --app-name=<app-name> --output-dir=<path-to/output-dir>`
 
     For example:
-    `kantra discover cloud-foundry --use-live-connection --spaces=space1,space2 --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --app-name=my-app --output-dir=/tmp/output-dir`
+    
+    Or with space filtering:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --app-name=my-app --output-dir=/tmp/output-dir`
+
+- Perform live discovery and separate sensitive data (credentials, secrets) into a dedicated file (--spaces is optional; discovers all spaces if not provided):
+`kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
+
+    For example:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
+    
+    Or with space filtering:
+    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 #### Generate
 
