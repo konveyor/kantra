@@ -23,6 +23,7 @@ var (
 	outputDir            string
 	pType                string
 	spaces               []string
+	orgs                 []string
 	appName              string
 	skipSslValidation    bool
 	cfConfigPath         string
@@ -45,15 +46,22 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 			if err := cmd.ParseFlags(args); err != nil {
 				return err
 			}
+
+			// Validate that --orgs is only used with --use-live-connection
+			if !useLive && len(orgs) > 0 {
+				return fmt.Errorf("--orgs flag can only be used with --use-live-connection. For local manifest discovery (--input), organization name defaults to 'local'")
+			}
+
 			if useLive {
-				if len(spaces) == 0 {
-					return fmt.Errorf("at least one space is required")
-				}
 				if cfConfigPath != "" {
 					_, err := os.Stat(cfConfigPath)
 					if err != nil {
 						return fmt.Errorf("failed to retrieve Cloud Foundry configuration file at %s:%s", cfConfigPath, err)
 					}
+				}
+				// Orgs are required for discovery (non list-apps mode)
+				if !listApps && len(orgs) == 0 {
+					return fmt.Errorf("--orgs flag is required when using --use-live-connection without --list-apps")
 				}
 				return nil
 			}
@@ -87,7 +95,8 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	cmd.Flags().BoolVar(&useLive, "use-live-connection", false, "Enable real-time discovery using live platform connections.")
 	cmd.Flags().StringVar(&pType, "platformType", "cloud-foundry", "Platform type for discovery. Allowed value is: \"cloud-foundry\" (default).")
 	cmd.Flags().StringVar(&cfConfigPath, "cf-config", "~/.cf/config", "Path to the Cloud Foundry CLI configuration file (default: ~/.cf/config).")
-	cmd.Flags().StringSliceVar(&spaces, "spaces", []string{}, "Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces=\"space1,space2\"). At least one space is required when using live discovery.")
+	cmd.Flags().StringSliceVar(&spaces, "spaces", []string{}, "Comma-separated list of Cloud Foundry spaces to analyze (e.g., --spaces=\"space1,space2\"). If not provided, discovers all spaces in the specified organizations.")
+	cmd.Flags().StringSliceVar(&orgs, "orgs", []string{}, "Comma-separated list of Cloud Foundry organizations (e.g., --orgs=\"org1,org2\"). Required for live discovery.")
 	cmd.Flags().StringVar(&appName, "app-name", "", "Name of the Cloud Foundry application to discover.")
 	cmd.Flags().BoolVar(&skipSslValidation, "skip-ssl-validation", false, "Skip SSL certificate validation for API connections (default: false).")
 
@@ -95,7 +104,6 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 
 	cmd.MarkFlagsMutuallyExclusive("use-live-connection", "input")
 	cmd.MarkFlagsOneRequired("use-live-connection", "input")
-	cmd.MarkFlagsRequiredTogether("use-live-connection", "spaces")
 	cmd.MarkFlagsMutuallyExclusive("list-apps", "app-name")
 	cmd.MarkFlagsMutuallyExclusive("list-apps", "output-dir")
 	return "Cloud Foundry V3 (local manifest)", cmd
@@ -127,7 +135,17 @@ func listApplicationsLive(p providerInterface.Provider, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to list apps by space: %w", err)
 	}
-	printApps(appListPerSpace, out)
+
+	// Log orgs that have no spaces/apps and will be skipped
+	for _, org := range orgs {
+		if appList, exists := appListPerSpace[org]; !exists || len(appList) == 0 {
+			logger.Info("Skipping organization: no spaces matching the filter or no applications found", "org_name", org)
+		}
+	}
+
+	if err := printApps(appListPerSpace, out); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -147,21 +165,51 @@ func listApplicationsLocal(inputPath string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		printApps(appListPerSpace, out)
+		if err := printApps(appListPerSpace, out); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func printApps(appListPerSpace map[string][]any, out io.Writer) error {
+func printApps(appListByOrg map[string][]any, out io.Writer) error {
+	// Group apps by org -> space -> apps for hierarchical display
+	type orgSpaceApps struct {
+		orgName   string
+		spaceName string
+		apps      []string
+	}
 
-	for space, appsAny := range appListPerSpace {
-		fmt.Fprintf(out, "Space: %s\n", space)
+	hierarchy := make(map[string]map[string][]string) // map[org]map[space][]appNames
+
+	for orgName, appsAny := range appListByOrg {
+		if _, exists := hierarchy[orgName]; !exists {
+			hierarchy[orgName] = make(map[string][]string)
+		}
+
 		for _, appAny := range appsAny {
 			appRef, ok := appAny.(cfProvider.AppReference)
 			if !ok {
 				return fmt.Errorf("unexpected type for app list: %T", appAny)
 			}
-			fmt.Fprintf(out, "  - %s\n", appRef.AppName)
+
+			spaceName := appRef.SpaceName
+			if spaceName == "" {
+				spaceName = "unknown"
+			}
+
+			hierarchy[orgName][spaceName] = append(hierarchy[orgName][spaceName], appRef.AppName)
+		}
+	}
+
+	// Print in org -> space -> apps hierarchy
+	for orgName, spaces := range hierarchy {
+		fmt.Fprintf(out, "Organization: %s\n", orgName)
+		for spaceName, apps := range spaces {
+			fmt.Fprintf(out, "  Space: %s\n", spaceName)
+			for _, appName := range apps {
+				fmt.Fprintf(out, "    - %s\n", appName)
+			}
 		}
 	}
 	return nil
@@ -223,9 +271,22 @@ func createLiveProvider() (providerInterface.Provider, error) {
 		return nil, err
 	}
 
+	// Log auto-discovery intentions
+	if len(orgs) == 0 {
+		logger.Info("No organizations specified, will discover all organizations")
+	}
+	if len(spaces) == 0 {
+		if len(orgs) == 0 {
+			logger.Info("No spaces specified, will discover all spaces across all organizations")
+		} else {
+			logger.Info("No spaces specified, will discover all spaces in organizations", "orgs", orgs)
+		}
+	}
+
 	cfg := &cfProvider.Config{
 		CloudFoundryConfig: cfCfg,
-		SpaceNames:         spaces,
+		SpaceNames:         spaces, // Empty means all spaces for the orgs
+		OrgNames:           orgs,
 	}
 
 	p, err := cfProvider.New(cfg, &logger, concealSensitiveData)
@@ -236,31 +297,48 @@ func createLiveProvider() (providerInterface.Provider, error) {
 }
 
 func discoverLive(p providerInterface.Provider, out io.Writer) error {
-	appListPerSpace, err := p.ListApps()
+	appListByOrg, err := p.ListApps()
 	if err != nil {
-		return fmt.Errorf("failed to list apps by space: %w", err)
+		return fmt.Errorf("failed to list apps by org: %w", err)
 	}
 
-	for _, appList := range appListPerSpace {
+	// Log orgs that have no spaces/apps and will be skipped
+	for _, org := range orgs {
+		if appList, exists := appListByOrg[org]; !exists || len(appList) == 0 {
+			logger.Info("Skipping organization: no spaces matching the filter or no applications found", "org_name", org)
+		}
+	}
+
+	// Iterate through orgs -> apps
+	for orgName, appList := range appListByOrg {
+		if len(appList) == 0 {
+			continue
+		}
+
+		logger.Info("Processing organization", "org_name", orgName, "app_count", len(appList))
+
 		for _, appReferences := range appList {
 			appRef, ok := appReferences.(cfProvider.AppReference)
 			if !ok {
 				return fmt.Errorf("unexpected type for app list: %T", appReferences)
 			}
+
 			if appName != "" && appRef.AppName != appName {
-				logger.Info("Skipping application: app name does not match target app name", "app name", appRef.AppName, "target app name", appName)
+				logger.Info("Skipping application: app name does not match target app name",
+					"app_name", appRef.AppName, "target_app_name", appName)
 				continue
 			}
+
+			logger.Info("Processing application", "org_name", appRef.OrgName, "space_name", appRef.SpaceName, "app_name", appRef.AppName)
 
 			discoverResult, err := p.Discover(appRef)
 			if err != nil {
 				return err
 			}
-			err = OutputAppManifestsYAML(out, discoverResult, appRef.SpaceName, appRef.AppName)
+			err = OutputAppManifestsYAML(out, discoverResult, appRef.OrgName, appRef.SpaceName, appRef.AppName)
 			if err != nil {
 				return err
 			}
-
 		}
 	}
 	return nil
@@ -316,7 +394,7 @@ func processAppList(p providerInterface.Provider, appList []any, out io.Writer) 
 			return err
 		}
 
-		err = OutputAppManifestsYAML(out, app, appRef.SpaceName, appRef.AppName)
+		err = OutputAppManifestsYAML(out, app, appRef.OrgName, appRef.SpaceName, appRef.AppName)
 		if err != nil {
 			return err
 		}
@@ -324,10 +402,13 @@ func processAppList(p providerInterface.Provider, appList []any, out io.Writer) 
 	return nil
 }
 
-func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.DiscoverResult, spaceName string, appName string) error {
+func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.DiscoverResult, orgName string, spaceName string, appName string) error {
 	suffix := "_" + appName
 	if spaceName != "" {
 		suffix = "_" + spaceName + suffix
+	}
+	if orgName != "" {
+		suffix = "_" + orgName + suffix
 	}
 	printer := printers.NewOutput(out)
 	printFunc := printer.ToStdout
