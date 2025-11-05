@@ -192,6 +192,19 @@ var _ = Describe("Discover command", func() {
 				Expect(executeErr).To(HaveOccurred())
 				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag is required when using --use-live-connection without --list-apps"))
 			})
+
+			It("should return error when --orgs is used without --use-live-connection", func() {
+				_, cmd = NewDiscoverCloudFoundryCommand(log)
+				cmd.SetOut(&out)
+				cmd.SetErr(&err)
+				// Using --orgs with --input should fail
+				cmd.SetArgs([]string{"--input", manifestPath, "--orgs", "test-org"})
+
+				executeErr := cmd.Execute()
+
+				Expect(executeErr).To(HaveOccurred())
+				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag can only be used with --use-live-connection"))
+			})
 		})
 		Context("when output-dir flag is provided", func() {
 			It("should write output to file instead of stdout", func() {
@@ -287,7 +300,7 @@ var _ = Describe("Discover command", func() {
 				Expect(secretsContent).To(ContainSubstring("docker-registry-user"))
 			})
 
-			It("should handle manifests with no secrets gracefully", func() {
+			It("should create only manifest file when no secrets exist", func() {
 				_, cmd = NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
@@ -388,7 +401,7 @@ var _ = Describe("Discover command", func() {
 
 			})
 
-			It("should handle manifests with no secrets gracefully", func() {
+			It("should not create secrets file when conceal-sensitive-data is disabled", func() {
 				_, cmd = NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
@@ -431,6 +444,34 @@ var _ = Describe("Discover command", func() {
 
 	Context("when list-apps flag is provided", func() {
 		Context("when using live discover", func() {
+			It("should exclude orgs with no apps from output", func() {
+				orgs = []string{"org1", "org2", "org3"}
+				mockProv := &mockProvider{
+					ListAppsFunc: func() (map[string][]any, error) {
+						return map[string][]any{
+							"org1": {
+								cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
+							},
+							// org2 has no apps (empty list), org3 doesn't exist in map
+						}, nil
+					},
+				}
+
+				var out bytes.Buffer
+				contentWriter := bufio.NewWriter(&out)
+
+				err := listApplicationsLive(mockProv, contentWriter)
+				Expect(err).To(Succeed())
+
+				contentWriter.Flush()
+				// Verify only org1's app is printed, org2 and org3 are excluded
+				output := out.String()
+				Expect(output).To(ContainSubstring("org1"))
+				Expect(output).ToNot(ContainSubstring("org2"))
+				Expect(output).ToNot(ContainSubstring("org3"))
+				Expect(output).To(ContainSubstring("app1"))
+			})
+
 			It("should list apps in hierarchical org->space->apps format", func() {
 				mockProv := &mockProvider{
 					DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
@@ -470,7 +511,7 @@ var _ = Describe("Discover command", func() {
 				Expect(output).To(ContainSubstring("    - app3"))
 				Expect(output).To(ContainSubstring("    - app4"))
 			})
-			It("should handle empty spaces (no apps)", func() {
+			It("should display empty organizations without spaces or apps", func() {
 				mockProv := &mockProvider{
 					ListAppsFunc: func() (map[string][]any, error) {
 						// Return org-keyed map with empty app lists
@@ -490,7 +531,7 @@ var _ = Describe("Discover command", func() {
 				contentWriter.Flush()
 				output := out.String()
 
-				// Should print orgs but no spaces/apps under them since lists are empty
+				// Should print org names but no spaces/apps under them since lists are empty
 				Expect(output).To(ContainSubstring("Organization: org1"))
 				Expect(output).To(ContainSubstring("Organization: org2"))
 				Expect(output).NotTo(ContainSubstring("Space:")) // No spaces since app lists are empty
@@ -565,6 +606,20 @@ var _ = Describe("Discover command", func() {
 				Expect(executeErr.Error()).NotTo(ContainSubstring("--orgs flag is required"))
 			})
 
+			It("should handle --skip-ssl-validation flag", func() {
+				_, cmd := NewDiscoverCloudFoundryCommand(log)
+				cmd.SetOut(&out)
+				cmd.SetErr(&err)
+				// Test with skip-ssl-validation flag
+				cmd.SetArgs([]string{"--use-live-connection", "--list-apps", "--skip-ssl-validation", "--cf-config", "../../../../test-data/asset_generation/discover"})
+
+				executeErr := cmd.Execute()
+
+				// Will fail because no real CF environment, but flag should be accepted
+				Expect(executeErr).To(HaveOccurred())
+				// The error won't mention skip-ssl-validation - it'll be about CF connection
+			})
+
 			It("should allow discovery mode without --spaces (discovers all spaces for orgs)", func() {
 				_, cmd := NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
@@ -581,6 +636,19 @@ var _ = Describe("Discover command", func() {
 		})
 
 		Context("when using local discover", func() {
+			It("should return error when input is not properly set for local listing", func() {
+				var out bytes.Buffer
+				tempDir := createTempDir()
+				defer os.RemoveAll(tempDir)
+
+				createTestManifest(tempDir)
+
+				// runListApps with useLive=false will try to use the global input variable
+				// which is not set to tempDir, so it should fail
+				err := runListApps(nil, false, &out)
+				Expect(err).To(HaveOccurred())
+			})
+
 			It("lists a single app from a single manifest", func() {
 
 				var out bytes.Buffer
@@ -635,6 +703,23 @@ var _ = Describe("Discover command", func() {
 				Expect(out.String()).To(ContainSubstring("    - app-no-space"))
 			})
 
+			It("should handle multiple apps with some having empty space names", func() {
+				var out bytes.Buffer
+
+				appListByOrg := map[string][]any{
+					"org1": {
+						cfProvider.AppReference{OrgName: "org1", SpaceName: "", AppName: "app1"},
+						cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app2"},
+					},
+				}
+
+				err := printApps(appListByOrg, &out)
+				Expect(err).To(Succeed())
+				output := out.String()
+				Expect(output).To(ContainSubstring("Space: unknown"))
+				Expect(output).To(ContainSubstring("Space: space1"))
+			})
+
 			It("should return error for invalid app type in printApps", func() {
 				var out bytes.Buffer
 
@@ -678,13 +763,18 @@ var _ = Describe("Discover command", func() {
 			Expect(listAppsCalled).To(BeTrue())
 		})
 
-		It("should call listApplicationsLocal when useLive is false", func() {
+		It("should call listApplicationsLocal when useLive is false and output apps", func() {
 			input = createTempDir()
 			defer os.RemoveAll(input)
 			createTestManifest(input)
 
 			err := runListApps(nil, false, &out)
 			Expect(err).To(Succeed())
+
+			// Verify that the app was actually listed
+			output := out.String()
+			Expect(output).To(ContainSubstring("test-app"))
+			Expect(output).To(ContainSubstring("Organization:"))
 		})
 
 		It("should return error when listApplicationsLocal fails", func() {
@@ -749,6 +839,7 @@ var _ = Describe("Discover command", func() {
 
 		It("should discover apps from multiple orgs", func() {
 			orgs = []string{"org1", "org2"}
+			discoveredCount := 0
 			mockProv = &mockProvider{
 				ListAppsFunc: func() (map[string][]any, error) {
 					return map[string][]any{
@@ -761,33 +852,38 @@ var _ = Describe("Discover command", func() {
 					}, nil
 				},
 				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					discoveredCount++
 					return &pTypes.DiscoverResult{}, nil
 				},
 			}
 
 			err := discoverLive(mockProv, &out)
 			Expect(err).To(Succeed())
+			Expect(discoveredCount).To(Equal(2)) // Should discover 2 apps
 		})
 
-		It("should skip orgs with no apps", func() {
+		It("should skip orgs with no apps and process only orgs with apps", func() {
 			orgs = []string{"org1", "org2", "org3"}
+			discoveredCount := 0
 			mockProv = &mockProvider{
 				ListAppsFunc: func() (map[string][]any, error) {
 					return map[string][]any{
 						"org1": {
 							cfProvider.AppReference{OrgName: "org1", SpaceName: "space1", AppName: "app1"},
 						},
-						"org2": {}, // Empty org
-						// org3 is missing entirely
+						"org2": {}, // Empty org - should be skipped in iteration
+						// org3 is missing entirely - should be logged as skipped
 					}, nil
 				},
 				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					discoveredCount++
 					return &pTypes.DiscoverResult{}, nil
 				},
 			}
 
 			err := discoverLive(mockProv, &out)
 			Expect(err).To(Succeed())
+			Expect(discoveredCount).To(Equal(1)) // Only org1 has apps
 		})
 
 		It("should filter apps by appName when specified", func() {
@@ -867,7 +963,8 @@ var _ = Describe("Discover command", func() {
 		})
 
 		It("should handle apps with empty org names", func() {
-			orgs = []string{}
+			orgs = []string{""} // Empty org name in the list
+			discoveredCount := 0
 			mockProv = &mockProvider{
 				ListAppsFunc: func() (map[string][]any, error) {
 					return map[string][]any{
@@ -877,12 +974,14 @@ var _ = Describe("Discover command", func() {
 					}, nil
 				},
 				DiscoverFunc: func(raw any) (*pTypes.DiscoverResult, error) {
+					discoveredCount++
 					return &pTypes.DiscoverResult{}, nil
 				},
 			}
 
 			err := discoverLive(mockProv, &out)
 			Expect(err).To(Succeed())
+			Expect(discoveredCount).To(Equal(1))
 		})
 	})
 
@@ -1068,27 +1167,101 @@ var _ = Describe("Discover command", func() {
 			BeforeEach(func() {
 				// Reset global outputDir to ensure tests write to stdout, not file
 				outputDir = ""
+				out.Reset()
 			})
 
-			It("should include org in suffix when provided", func() {
-				discoverResult := &pTypes.DiscoverResult{}
+			It("should output manifest with org, space, and app in the content", func() {
+				discoverResult := &pTypes.DiscoverResult{
+					Content: map[string]any{
+						"name": "test-app",
+					},
+				}
 
 				err := OutputAppManifestsYAML(&out, discoverResult, "test-org", "test-space", "test-app")
 				Expect(err).To(Succeed())
+
+				output := out.String()
+				// Verify manifest structure is output
+				Expect(output).To(ContainSubstring("manifest:"))
+				Expect(output).To(ContainSubstring("name: test-app"))
+				// Output should be YAML formatted
+				Expect(output).To(MatchRegexp(`manifest:\s+name:`))
 			})
 
-			It("should include space in suffix when provided", func() {
-				discoverResult := &pTypes.DiscoverResult{}
+			It("should output manifest without org but with space", func() {
+				discoverResult := &pTypes.DiscoverResult{
+					Content: map[string]any{
+						"name": "space-app",
+					},
+				}
 
-				err := OutputAppManifestsYAML(&out, discoverResult, "", "test-space", "test-app")
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "test-space", "space-app")
 				Expect(err).To(Succeed())
+
+				output := out.String()
+				Expect(output).To(ContainSubstring("manifest:"))
+				Expect(output).To(ContainSubstring("name: space-app"))
+				// Verify YAML structure
+				Expect(output).NotTo(BeEmpty())
 			})
 
-			It("should handle empty org and space names", func() {
-				discoverResult := &pTypes.DiscoverResult{}
+			It("should handle empty org and space names and output basic manifest", func() {
+				discoverResult := &pTypes.DiscoverResult{
+					Content: map[string]any{
+						"name": "basic-app",
+					},
+				}
 
-				err := OutputAppManifestsYAML(&out, discoverResult, "", "", "test-app")
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "", "basic-app")
 				Expect(err).To(Succeed())
+
+				output := out.String()
+				Expect(output).To(ContainSubstring("manifest:"))
+				Expect(output).To(ContainSubstring("name: basic-app"))
+			})
+
+			It("should output secrets section when secrets are present", func() {
+				discoverResult := &pTypes.DiscoverResult{
+					Content: map[string]any{
+						"name": "app-with-secrets",
+					},
+					Secret: map[string]any{
+						"api_key":  "secret-value",
+						"password": "secret-pass",
+					},
+				}
+
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "", "app-with-secrets")
+				Expect(err).To(Succeed())
+
+				output := out.String()
+				// Verify content section header is present when secrets exist
+				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).To(ContainSubstring("manifest:"))
+				Expect(output).To(ContainSubstring("name: app-with-secrets"))
+
+				// Verify secrets section
+				Expect(output).To(ContainSubstring("--- Secrets Section ---"))
+				Expect(output).To(ContainSubstring("api_key: secret-value"))
+				Expect(output).To(ContainSubstring("password: secret-pass"))
+			})
+
+			It("should not output secrets section when secrets are empty", func() {
+				discoverResult := &pTypes.DiscoverResult{
+					Content: map[string]any{
+						"name": "app-no-secrets",
+					},
+					Secret: map[string]any{},
+				}
+
+				err := OutputAppManifestsYAML(&out, discoverResult, "", "", "app-no-secrets")
+				Expect(err).To(Succeed())
+
+				output := out.String()
+				// Should not have section headers when no secrets
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Secrets Section ---"))
+				Expect(output).To(ContainSubstring("manifest:"))
 			})
 		})
 
