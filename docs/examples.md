@@ -47,7 +47,7 @@ static-report
 - View supported source platform resources
 `kantra discover --list-platforms`
 
-- Print YAML representations of source platform resources (organization name defaults to 'local')
+- Print YAML representations of source platform resources
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml>`
 
     For example:
@@ -55,23 +55,23 @@ static-report
     --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
 
 - Print list of available applications of source platform resources
-`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --list-apps`
+`kantra discover cloud-foundry --input=<path-to/manifest-yaml> --list-apps --orgs=<org1>`
 
     For example:
-    `kantra discover cloud-foundry
-    --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --list-apps`
+   `kantra discover cloud-foundry
+   --input=./test-data/asset_generation/discover/cf-sample-app.yaml --list-apps --orgs=org1`
 
 - Output YAML representations of source platform resources in the output directory
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --output-dir=<path-to/output-dir>`
 
-    For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --output-dir=/tmp/output-dir`
+   For example:
+   `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --output-dir=/tmp/output-dir`
 
 - Perform discovery and separate sensitive data (credentials, secrets) into a dedicated file:
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
 
-    For example:
-    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
+   For example:
+   `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 - Perform a live discover and print the list of the available applications for
   each space (--orgs and --spaces are optional; if not provided, discovers all orgs and spaces)
