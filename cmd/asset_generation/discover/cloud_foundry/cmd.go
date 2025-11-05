@@ -59,9 +59,9 @@ func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 						return fmt.Errorf("failed to retrieve Cloud Foundry configuration file at %s:%s", cfConfigPath, err)
 					}
 				}
-				// Orgs are required for discovery (non list-apps mode)
-				if !listApps && len(orgs) == 0 {
-					return fmt.Errorf("--orgs flag is required when using --use-live-connection without --list-apps")
+				// Orgs are required for all live discovery operations
+				if len(orgs) == 0 {
+					return fmt.Errorf("--orgs flag is required when using --use-live-connection")
 				}
 				return nil
 			}
