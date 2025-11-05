@@ -41,8 +41,8 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 	if len(providers) > 0 {
 		for _, p := range providers {
 			foundProviders = append(foundProviders, p)
-			return foundProviders, nil
 		}
+		return foundProviders, nil
 	}
 	for _, l := range languages {
 		if l.CanBeComponent {
