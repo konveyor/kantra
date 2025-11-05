@@ -74,16 +74,16 @@ static-report
    `kantra discover cloud-foundry --input=./test-data/asset_generation/discover/cf-sample-app.yaml --conceal-sensitive-data=true --output-dir=/tmp/output-dir`
 
 - Perform a live discover and print the list of the available applications for
-  each space (--orgs and --spaces are optional; if not provided, discovers all orgs and spaces)
-`kantra discover cloud-foundry --use-live-connection --list-apps [--orgs=<org1,org2>] [--spaces=<space1,space2>]`
+  each space (**--orgs is required** for all live discovery; --spaces is optional and discovers all spaces if not provided)
+`kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> --list-apps [--spaces=<space1,space2>]`
 
-    For example:
-    `kantra discover cloud-foundry --use-live-connection --list-apps`
-    
-    Or with filtering:
-    `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --list-apps`
+   For example:
+   `kantra discover cloud-foundry --use-live-connection --orgs=org1 --list-apps`
+   
+   Or with space filtering:
+   `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --list-apps`
 
-- Perform a live discover and print the YAML representation of source platform resources (--spaces is optional; discovers all spaces if not provided)
+- Perform a live discover and print the YAML representation of source platform resources (**--orgs is required** for manifest discovery; --spaces is optional and discovers all spaces if not provided)
 `kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>]`
 
     For example:
@@ -93,7 +93,7 @@ static-report
     `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2`
 
 - Perform a live discover and output the YAML representations of source platform
-  resources in the output directory (--spaces is optional; discovers all spaces if not provided)
+  resources in the output directory (**--orgs is required**; --spaces is optional and discovers all spaces if not provided)
 `kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --output-dir=<path-to/output-dir>`
 
     For example:
@@ -102,7 +102,7 @@ static-report
     Or with space filtering:
     `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --output-dir=/tmp/output-dir`
 
-- Perform a live discover of a specific application and output the YAML representations of source platform resources in the output directory (--spaces is optional; discovers all spaces if not provided):
+- Perform a live discover of a specific application and output the YAML representations of source platform resources in the output directory (**--orgs is required**; --spaces is optional and discovers all spaces if not provided):
 `kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --app-name=<app-name> --output-dir=<path-to/output-dir>`
 
     For example:
@@ -111,7 +111,7 @@ static-report
     Or with space filtering:
     `kantra discover cloud-foundry --use-live-connection --orgs=org1 --spaces=space1,space2 --app-name=my-app --output-dir=/tmp/output-dir`
 
-- Perform live discovery and separate sensitive data (credentials, secrets) into a dedicated file (--spaces is optional; discovers all spaces if not provided):
+- Perform live discovery and separate sensitive data (credentials, secrets) into a dedicated file (**--orgs is required**; --spaces is optional and discovers all spaces if not provided):
 `kantra discover cloud-foundry --use-live-connection --orgs=<org1,org2> [--spaces=<space1,space2>] --conceal-sensitive-data=true --output-dir=<path-to/output-dir>`
 
     For example:

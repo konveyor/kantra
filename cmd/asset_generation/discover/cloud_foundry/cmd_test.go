@@ -184,13 +184,13 @@ var _ = Describe("Discover command", func() {
 				_, cmd = NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
-				// Without --list-apps, orgs is required for discovery mode
+				// Orgs is required for all live discovery operations
 				cmd.SetArgs([]string{"--use-live-connection", "--cf-config", "../../../../test-data/asset_generation/discover"})
 
 				executeErr := cmd.Execute()
 
 				Expect(executeErr).To(HaveOccurred())
-				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag is required when using --use-live-connection without --list-apps"))
+				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag is required when using --use-live-connection"))
 			})
 
 			It("should return error when --orgs is used without --use-live-connection", func() {
@@ -592,26 +592,26 @@ var _ = Describe("Discover command", func() {
 		})
 
 		Context("when using live discover with optional flags", func() {
-			It("should allow --list-apps without --orgs (discovers all orgs)", func() {
+			It("should require --orgs even with --list-apps", func() {
 				_, cmd := NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
-				// list-apps without orgs should be valid
+				// list-apps without orgs should now fail validation
 				cmd.SetArgs([]string{"--use-live-connection", "--list-apps", "--cf-config", "../../../../test-data/asset_generation/discover"})
 
 				executeErr := cmd.Execute()
 
-				// Will fail because no real CF environment, but flag validation should pass
+				// Should fail with validation error about missing --orgs
 				Expect(executeErr).To(HaveOccurred())
-				Expect(executeErr.Error()).NotTo(ContainSubstring("--orgs flag is required"))
+				Expect(executeErr.Error()).To(ContainSubstring("--orgs flag is required"))
 			})
 
 			It("should handle --skip-ssl-validation flag", func() {
 				_, cmd := NewDiscoverCloudFoundryCommand(log)
 				cmd.SetOut(&out)
 				cmd.SetErr(&err)
-				// Test with skip-ssl-validation flag
-				cmd.SetArgs([]string{"--use-live-connection", "--list-apps", "--skip-ssl-validation", "--cf-config", "../../../../test-data/asset_generation/discover"})
+				// Test with skip-ssl-validation flag (now includes --orgs)
+				cmd.SetArgs([]string{"--use-live-connection", "--orgs=test-org", "--list-apps", "--skip-ssl-validation", "--cf-config", "../../../../test-data/asset_generation/discover"})
 
 				executeErr := cmd.Execute()
 
