@@ -8,12 +8,12 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.3
-	github.com/konveyor/asset-generation v0.1.12
+	github.com/konveyor/asset-generation v0.2.1
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	go.lsp.dev/uri v0.3.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
