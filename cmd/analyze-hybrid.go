@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/engine/labels"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/parser"
+	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
@@ -319,8 +321,42 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 //   - Provider isolation and consistency from containers
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
-	a.log.Info("[TIMING] Hybrid analysis starting")
-	a.log.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
+
+	// Create a conditional logger that only outputs in --no-progress mode
+	// In progress mode, operational messages are suppressed to avoid interfering with the progress bar
+	var operationalLog logr.Logger
+	if a.noProgress {
+		operationalLog = a.log
+	} else {
+		operationalLog = logr.Discard()
+	}
+
+	operationalLog.Info("[TIMING] Hybrid analysis starting")
+	operationalLog.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
+
+	// Hide cursor at the very start if progress is enabled
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "\033[?25l")
+		// Ensure cursor is shown at the end
+		defer fmt.Fprintf(os.Stderr, "\033[?25h")
+	}
+
+	// Show simplified message in progress mode
+	if !a.noProgress {
+		// Detect if this is binary analysis based on file extension
+		isBinaryAnalysis := false
+		if a.isFileInput {
+			ext := filepath.Ext(a.input)
+			isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+				ext == util.EnterpriseArchive || ext == util.ClassFile)
+		}
+
+		if isBinaryAnalysis {
+			fmt.Fprintf(os.Stderr, "Running binary analysis...\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Running source analysis...\n")
+		}
+	}
 
 	// Create analysis log file
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
@@ -337,8 +373,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
 
 	// Add console hook for rule processing messages
-	consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
-	logrusAnalyzerLog.AddHook(consoleHook)
+	// but only if progress is disabled (to avoid interfering with progress bar)
+	if a.noProgress {
+		consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
+		logrusAnalyzerLog.AddHook(consoleHook)
+	}
 
 	analyzeLog := logrusr.New(logrusAnalyzerLog)
 
@@ -348,7 +387,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	errLog := logrusr.New(logrusErrLog)
 
 	// Setup label selectors
-	a.log.Info("running source analysis")
+	operationalLog.Info("running source analysis")
 	labelSelectors := a.getLabelSelector()
 
 	selectors := []engine.RuleSelector{}
@@ -374,7 +413,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
-		a.log.Info("[TIMING] Starting provider container setup")
+		operationalLog.Info("[TIMING] Starting provider container setup")
 
 		// Validate configuration before starting containers
 		if err := a.validateProviderConfig(); err != nil {
@@ -399,7 +438,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 
 		// Start providers with port publishing
-		err = a.RunProvidersHostNetwork(ctx, volName, 5)
+		err = a.RunProvidersHostNetwork(ctx, volName, 5, operationalLog)
 
 		// Restore original mount path for provider configuration
 		if a.isFileInput {
@@ -412,14 +451,14 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 
 		// Wait for providers to become ready with health checks
-		a.log.Info("waiting for providers to become ready...")
+		operationalLog.Info("waiting for providers to become ready...")
 		for provName, provInit := range a.providersMap {
-			if err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log); err != nil {
+			if err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, operationalLog); err != nil {
 				return fmt.Errorf("provider health check failed: %w", err)
 			}
 		}
-		a.log.Info("all providers are ready")
-		a.log.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
+		operationalLog.Info("all providers are ready")
+		operationalLog.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
 
 	// Setup provider clients
@@ -444,7 +483,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Setup network-based provider clients for all configured providers
 	for provName := range a.providersMap {
-		a.log.Info("setting up network provider", "provider", provName)
+		operationalLog.Info("setting up network provider", "provider", provName)
 		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
@@ -477,6 +516,17 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providers["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
 
+	// Show provider initialization completion in progress mode
+	if !a.noProgress {
+		// Build provider names dynamically from the providers map
+		providerNames := make([]string, 0, len(providers))
+		for name := range providers {
+			providerNames = append(providerNames, name)
+		}
+		sort.Strings(providerNames) // Sort for consistent output
+		fmt.Fprintf(os.Stderr, "  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+	}
+
 	// Create rule engine
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 	eng := engine.CreateRuleEngine(engineCtx,
@@ -501,7 +551,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Extract default rulesets from container if enabled
 	if a.enableDefaultRulesets {
-		rulesetsDir, err := a.extractDefaultRulesets(ctx)
+		rulesetsDir, err := a.extractDefaultRulesets(ctx, operationalLog)
 		if err != nil {
 			return fmt.Errorf("failed to extract default rulesets: %w", err)
 		}
@@ -511,9 +561,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	startRuleLoading := time.Now()
-	a.log.Info("[TIMING] Starting rule loading")
+	operationalLog.Info("[TIMING] Starting rule loading")
 	for _, f := range a.rules {
-		a.log.Info("parsing rules for analysis", "rules", f)
+		operationalLog.Info("parsing rules for analysis", "rules", f)
 
 		internRuleSet, internNeedProviders, err := ruleParser.LoadRules(f)
 		if err != nil {
@@ -524,7 +574,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			needProviders[k] = v
 		}
 	}
-	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+	operationalLog.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
@@ -536,16 +586,102 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
 			wg.Add(1)
 
-			a.log.Info("running dependency analysis")
+			operationalLog.Info("running dependency analysis")
 			go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 		}
 	}
 
-	// Run rules
+	// Run rules with progress reporting
 	startRuleExecution := time.Now()
-	a.log.Info("[TIMING] Starting rule execution")
-	a.log.Info("evaluating rules for violations. see analysis.log for more info")
-	rulesets := eng.RunRules(ctx, ruleSets, selectors...)
+	operationalLog.Info("[TIMING] Starting rule execution")
+	operationalLog.Info("evaluating rules for violations. see analysis.log for more info")
+
+	// Create progress reporter (or noop if disabled)
+	var reporter progress.ProgressReporter
+	var progressDone chan struct{}
+	var progressCancel context.CancelFunc
+
+	if !a.noProgress {
+		// Create channel-based progress reporter
+		var progressCtx context.Context
+		progressCtx, progressCancel = context.WithCancel(ctx)
+		defer progressCancel()
+		channelReporter := progress.NewChannelReporter(progressCtx)
+		reporter = channelReporter
+
+		// Start goroutine to consume progress events and render progress bar
+		progressDone = make(chan struct{})
+		go func() {
+			defer close(progressDone)
+
+			// Track cumulative progress across all rulesets
+			var cumulativeTotal int
+			var completedFromPreviousRulesets int
+			var lastRulesetTotal int
+			var justPrintedLoadedRules bool
+
+			for event := range channelReporter.Events() {
+				switch event.Stage {
+				case progress.StageProviderInit:
+					// Skip provider init messages - we show them earlier
+				case progress.StageRuleParsing:
+					if event.Total > 0 {
+						cumulativeTotal += event.Total
+						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+						justPrintedLoadedRules = true
+					}
+				case progress.StageRuleExecution:
+					if event.Total > 0 {
+						// Initialize cumulativeTotal from first event if not set by rule parsing
+						if cumulativeTotal == 0 {
+							cumulativeTotal = event.Total
+							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+							justPrintedLoadedRules = true
+						}
+
+						// Skip first progress bar render right after printing "Loaded rules"
+						if justPrintedLoadedRules {
+							justPrintedLoadedRules = false
+							continue
+						}
+
+						// Detect if we've moved to a new ruleset
+						// This happens when event.Total changes
+						if lastRulesetTotal > 0 && event.Total != lastRulesetTotal {
+							// We've moved to a new ruleset
+							completedFromPreviousRulesets += lastRulesetTotal
+						}
+						lastRulesetTotal = event.Total
+
+						// Calculate overall progress
+						totalCompleted := completedFromPreviousRulesets + event.Current
+
+						overallPercent := (totalCompleted * 100) / cumulativeTotal
+						renderProgressBar(overallPercent, totalCompleted, cumulativeTotal, event.Message)
+					}
+				case progress.StageComplete:
+					// Move to next line and print completion
+					fmt.Fprintf(os.Stderr, "\n\n") // Move past progress bar, blank line
+					fmt.Fprintf(os.Stderr, "Analysis complete!\n") // Single line after
+				}
+			}
+		}()
+	} else {
+		// Use noop reporter when progress is disabled
+		reporter = progress.NewNoopReporter()
+	}
+
+	// Run analysis with progress reporter
+	rulesets := eng.RunRulesWithOptions(ctx, ruleSets, []engine.RunOption{
+		engine.WithProgressReporter(reporter),
+	}, selectors...)
+
+	// Cancel progress context and wait for goroutine to finish
+	if !a.noProgress {
+		progressCancel()  // This closes the Events() channel
+		<-progressDone    // Wait for goroutine to finish
+	}
+
 	engineSpan.End()
 	wg.Wait()
 	if depSpan != nil {
@@ -557,7 +693,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	for _, provider := range needProviders {
 		provider.Stop()
 	}
-	a.log.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
+	operationalLog.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
 
 	// Sort rulesets
 	sort.SliceStable(rulesets, func(i, j int) bool {
@@ -566,8 +702,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Write results
 	startWriting := time.Now()
-	a.log.Info("[TIMING] Starting output writing")
-	a.log.Info("writing analysis results to output", "output", a.output)
+	operationalLog.Info("[TIMING] Starting output writing")
+	operationalLog.Info("writing analysis results to output", "output", a.output)
 	b, err := yaml.Marshal(rulesets)
 	if err != nil {
 		return err
@@ -584,22 +720,31 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
-	a.log.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
+	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report
 	analysisLog.Close()
 
 	// Generate static report
 	startStaticReport := time.Now()
-	a.log.Info("[TIMING] Starting static report generation")
-	err = a.GenerateStaticReport(ctx)
+	operationalLog.Info("[TIMING] Starting static report generation")
+	err = a.GenerateStaticReport(ctx, operationalLog)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
 	}
-	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
+	operationalLog.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
-	a.log.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
-	a.log.Info("hybrid analysis completed successfully")
+	// Print results summary (only in progress mode, not in --no-progress mode)
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "\nResults:\n")
+		reportPath := filepath.Join(a.output, "static-report", "index.html")
+		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
+		analysisLogPath := filepath.Join(a.output, "analysis.log")
+		fmt.Fprintf(os.Stderr, "  Logs:   %s\n", analysisLogPath)
+	}
+
+	operationalLog.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
+	operationalLog.Info("hybrid analysis completed successfully")
 	return nil
 }

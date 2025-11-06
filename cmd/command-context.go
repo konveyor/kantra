@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
@@ -171,8 +172,9 @@ func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 	}
 
 	cmd := exec.Command(Settings.ContainerBinary, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Discard output to keep console clean
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	err := cmd.Run()
 	if err != nil {
 		return "", err
@@ -237,8 +239,9 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 		volName,
 	}
 	cmd := exec.Command(Settings.ContainerBinary, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Discard output to keep console clean
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
 	err = cmd.Run()
 	if err != nil {
 		return "", err

@@ -224,7 +224,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 
 			// ******* RUN HYBRID MODE ******
-			log.Info("--run-local set to false. Running analysis in hybrid mode")
+			if analyzeCmd.noProgress {
+				log.Info("--run-local set to false. Running analysis in hybrid mode")
+			}
 
 			// default rulesets are only java rules
 			// may want to change this in the future
@@ -274,7 +276,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return err
 			}
 
-			err = analyzeCmd.GenerateStaticReport(ctx)
+			// Create conditional logger for static report generation
+		var operationalLog logr.Logger
+		if analyzeCmd.noProgress {
+			operationalLog = log
+		} else {
+			operationalLog = logr.Discard()
+		}
+		err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
 			if err != nil {
 				log.Error(err, "failed to generate static report")
 				return err
@@ -876,7 +885,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 // Returns:
 //   - string: Path to the extracted rulesets directory, or empty string if disabled
 //   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, error) {
+func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operationalLog logr.Logger) (string, error) {
 	if !a.enableDefaultRulesets {
 		return "", nil
 	}
@@ -885,7 +894,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		a.log.Info("extracting default rulesets from container to host", "dir", rulesetsDir)
+		operationalLog.Info("extracting default rulesets from container to host", "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
@@ -912,7 +921,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		a.log.Info("extracted default rulesets to host", "dir", rulesetsDir)
+		operationalLog.Info("extracted default rulesets to host", "dir", rulesetsDir)
 	} else {
 		a.log.V(1).Info("using cached default rulesets", "dir", rulesetsDir)
 	}
@@ -943,7 +952,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 //
 // Returns:
 //   - error: Any error encountered starting provider containers
-func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int) error {
+func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, operationalLog logr.Logger) error {
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
@@ -968,7 +977,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)
 
-		a.log.Info("starting provider with port publishing", "provider", prov, "port", init.port)
+		operationalLog.Info("starting provider with port publishing", "provider", prov, "port", init.port)
 		con := container.NewContainer()
 		err := con.Run(
 			ctx,
@@ -982,6 +991,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 			container.WithCleanup(false),
 			container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 			container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
+			container.WithStdout(io.Discard),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to start provider %s: %w", prov, err)
@@ -1086,7 +1096,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
 	if a.skipStaticReport {
 		return nil
 	}
@@ -1094,7 +1104,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	// in this case we still want to generate a static report for successful source analysis
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) {
-		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+		operationalLog.Info("unable to get dependency output in static report. generating static report from source analysis only")
 	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
 		return noDepFileErr
 	}
@@ -1169,7 +1179,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	staticReportCmd := []string{joinedArgs}
 
 	c := container.NewContainer()
-	a.log.Info("generating static report",
+	operationalLog.Info("generating static report",
 		"output", a.output, "args", strings.Join(staticReportCmd, " "))
 	err := c.Run(
 		ctx,
@@ -1186,7 +1196,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		return err
 	}
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
+	operationalLog.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
