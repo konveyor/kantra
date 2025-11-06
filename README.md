@@ -148,6 +148,30 @@ kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
 
 _--input_ must point to a source code directory or a binary file, _--output_ must point to a directory to contain analysis results.
 
+#### Analysis Modes
+
+Kantra supports three analysis modes:
+
+| Mode | Description | When to Use | Performance |
+|------|-------------|-------------|-------------|
+| **Hybrid** (default) | Analyzer runs on host, providers in containers | Production use, macOS, multi-language apps | Fast |
+| **Containerless** | Everything runs on host | Development, debugging | Slower on macOS |
+| **Container** | Everything runs in containers | Legacy fallback | Slowest |
+
+**Hybrid Mode** (recommended):
+```sh
+# Default - just run analyze
+kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
+```
+
+**Containerless Mode**:
+```sh
+# Use --run-local=true for containerless
+kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir> --run-local=true
+```
+
+For detailed information about hybrid mode, see [HYBRID_MODE.md](./HYBRID_MODE.md) or [HYBRID_MODE_QUICKSTART.md](./HYBRID_MODE_QUICKSTART.md).
+
 All flags:
 
 ```
@@ -173,7 +197,7 @@ Flags:
   -o, --output string                    path to the directory for analysis output
       --overwrite                        overwrite output directory
       --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
-      --run-local                        run Java analysis in containerless mode (default true)
+      --run-local                        run analysis in containerless mode. When false (default), uses hybrid mode with providers in containers (default true)
       --skip-static-report               do not generate static report
   -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
   -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
