@@ -180,13 +180,12 @@ _--input_ must point to a source code directory or a binary file, _--output_ mus
 
 #### Analysis Modes
 
-Kantra supports three analysis modes:
+Kantra supports two analysis modes:
 
 | Mode | Description | When to Use | Performance |
 |------|-------------|-------------|-------------|
 | **Hybrid** (default) | Analyzer runs on host, providers in containers | Production use, macOS, multi-language apps | Fast |
 | **Containerless** | Everything runs on host | Development, debugging | Slower on macOS |
-| **Container** | Everything runs in containers | Legacy fallback | Slowest |
 
 **Hybrid Mode** (recommended):
 ```sh

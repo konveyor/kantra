@@ -30,7 +30,6 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
-	"github.com/phayes/freeport"
 	"go.lsp.dev/uri"
 
 	"github.com/spf13/cobra"
@@ -49,39 +48,38 @@ type ProviderInit struct {
 
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources              bool
-	listTargets              bool
-	listProviders            bool
-	listLanguages            bool
-	skipStaticReport         bool
-	analyzeKnownLibraries    bool
-	jsonOutput               bool
-	overwrite                bool
-	bulk                     bool
-	mavenSettingsFile        string
-	sources                  []string
-	targets                  []string
-	labelSelector            string
-	input                    string
-	output                   string
-	mode                     string
-	noDepRules               bool
-	rules                    []string
-	tempRuleDir              string
-	jaegerEndpoint           string
-	enableDefaultRulesets    bool
-	httpProxy                string
-	httpsProxy               string
-	noProxy                  string
-	contextLines             int
-	incidentSelector         string
-	depFolders               []string
-	overrideProviderSettings string
-	provider                 []string
-	logLevel                 *uint32
-	cleanup                  bool
-	runLocal                 bool
-	disableMavenSearch       bool
+	listSources           bool
+	listTargets           bool
+	listProviders         bool
+	listLanguages         bool
+	skipStaticReport      bool
+	analyzeKnownLibraries bool
+	jsonOutput            bool
+	overwrite             bool
+	bulk                  bool
+	mavenSettingsFile     string
+	sources               []string
+	targets               []string
+	labelSelector         string
+	input                 string
+	output                string
+	mode                  string
+	noDepRules            bool
+	rules                 []string
+	tempRuleDir           string
+	jaegerEndpoint        string
+	enableDefaultRulesets bool
+	httpProxy             string
+	httpsProxy            string
+	noProxy               string
+	contextLines          int
+	incidentSelector      string
+	depFolders            []string
+	provider              []string
+	logLevel              *uint32
+	cleanup               bool
+	runLocal              bool
+	disableMavenSearch    bool
 	AnalyzeCommandContext
 }
 
@@ -144,145 +142,132 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				analyzeCmd.runLocal = false
 			}
 
-			if analyzeCmd.overrideProviderSettings == "" {
-				if analyzeCmd.listSources || analyzeCmd.listTargets {
-					// list sources/targets in containerless mode
-					if analyzeCmd.runLocal {
-						err := analyzeCmd.listLabelsContainerless(ctx)
-						if err != nil {
-							analyzeCmd.log.Error(err, "failed to list rule labels")
-							return err
-						}
-						return nil
-					}
-					// list sources/targets in container mode
-					err := analyzeCmd.ListLabels(cmd.Context())
-					if err != nil {
-						log.Error(err, "failed to list rule labels")
-						return err
-					}
-					return nil
-				}
-				if analyzeCmd.providersMap == nil {
-					analyzeCmd.providersMap = make(map[string]ProviderInit)
-				}
-				languages, err := recognizer.Analyze(analyzeCmd.input)
-				if err != nil {
-					log.Error(err, "Failed to determine languages for input")
-					return err
-				}
-				if analyzeCmd.listLanguages {
-					// for binaries, assume Java application
-					if analyzeCmd.isFileInput {
-						fmt.Fprintln(os.Stdout, "found languages for input application:", util.JavaProvider)
-						return nil
-					}
-					err := listLanguages(languages, analyzeCmd.input)
-					if err != nil {
-						return err
-					}
-					return nil
-				}
-
-				foundProviders := []string{}
-				// file input means a binary was given which only the java provider can use
-				if analyzeCmd.isFileInput {
-					foundProviders = append(foundProviders, util.JavaProvider)
-				} else {
-					foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
-					if err != nil {
-						log.Error(err, "failed to set provider info")
-						return err
-					}
-					err = analyzeCmd.validateProviders(foundProviders)
-					if err != nil {
-						return err
-					}
-				}
-
-				// default to run container mode if no Java provider found
-				if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-					analyzeCmd.runLocal = false
-				}
-
-				// ***** RUN CONTAINERLESS MODE *****
+			if analyzeCmd.listSources || analyzeCmd.listTargets {
+				// list sources/targets in containerless mode
 				if analyzeCmd.runLocal {
-					log.Info("\n --run-local set. running analysis in containerless mode")
-					if analyzeCmd.listSources || analyzeCmd.listTargets {
-						err := analyzeCmd.listLabelsContainerless(ctx)
-						if err != nil {
-							analyzeCmd.log.Error(err, "failed to list rule labels")
-							return err
-						}
-						return nil
-					}
-					cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
-					err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
-					defer cancelFunc()
+					err := analyzeCmd.listLabelsContainerless(ctx)
 					if err != nil {
+						analyzeCmd.log.Error(err, "failed to list rule labels")
 						return err
 					}
 					return nil
 				}
-
-				// ******* RUN HYBRID MODE ******
-				log.Info("--run-local set to false. Running analysis in hybrid mode")
-				if len(foundProviders) > 0 && slices.Contains(foundProviders, util.DotnetFrameworkProvider) {
-					log.Info(".Net framework provider found, running windows analysis. Otherwise, set --provider")
-
-					return analyzeCmd.analyzeDotnetFramework(ctx)
-				}
-
-				// default rulesets are only java rules
-				// may want to change this in the future
-				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-					return fmt.Errorf("No providers found with default rules. Use --rules option")
-				}
-
-				// alizer does not detect certain files such as xml
-				// in this case, we can first check for a java project
-				// if not found, only start builtin provider in hybrid mode
-				if len(foundProviders) == 0 {
-					foundJava, err := analyzeCmd.detectJavaProviderFallback()
-					if err != nil {
-						return err
-					}
-					if foundJava {
-						foundProviders = append(foundProviders, util.JavaProvider)
-					}
-					// If no providers found, we'll run builtin-only in hybrid mode
-					// (providersMap will be empty, hybrid mode handles this)
-				}
-
-				err = analyzeCmd.setProviderInitInfo(foundProviders)
+				// list sources/targets in container mode
+				err := analyzeCmd.ListLabels(cmd.Context())
 				if err != nil {
-					log.Error(err, "failed to set provider init info")
+					log.Error(err, "failed to list rule labels")
 					return err
 				}
-				// defer cleaning created resources here instead of PostRun
-				// if Run returns an error, PostRun does not run
-				defer func() {
-					// start other context here to cleanup in case of program interrupt
-					if err := analyzeCmd.CleanAnalysisResources(context.TODO()); err != nil {
-						log.Error(err, "failed to clean temporary directories")
-					}
-				}()
-				// Run hybrid mode analysis (analyzer in-process, providers in containers)
-				cmdCtx, cancelFunc := context.WithCancel(ctx)
-				err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx)
-				defer cancelFunc()
+				return nil
+			}
+			if analyzeCmd.providersMap == nil {
+				analyzeCmd.providersMap = make(map[string]ProviderInit)
+			}
+			languages, err := recognizer.Analyze(analyzeCmd.input)
+			if err != nil {
+				log.Error(err, "Failed to determine languages for input")
+				return err
+			}
+			if analyzeCmd.listLanguages {
+				// for binaries, assume Java application
+				if analyzeCmd.isFileInput {
+					fmt.Fprintln(os.Stdout, "found languages for input application:", util.JavaProvider)
+					return nil
+				}
+				err := listLanguages(languages, analyzeCmd.input)
 				if err != nil {
-					log.Error(err, "failed to run hybrid analysis")
 					return err
 				}
+				return nil
+			}
+
+			foundProviders := []string{}
+			// file input means a binary was given which only the java provider can use
+			if analyzeCmd.isFileInput {
+				foundProviders = append(foundProviders, util.JavaProvider)
 			} else {
-				err := analyzeCmd.RunAnalysisOverrideProviderSettings(ctx)
+				foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
 				if err != nil {
-					log.Error(err, "failed to run analysis")
+					log.Error(err, "failed to set provider info")
+					return err
+				}
+				err = analyzeCmd.validateProviders(foundProviders)
+				if err != nil {
 					return err
 				}
 			}
-			err := analyzeCmd.CreateJSONOutput()
+
+			// default to run container mode if no Java provider found
+			if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+				analyzeCmd.runLocal = false
+			}
+
+			// ***** RUN CONTAINERLESS MODE *****
+			if analyzeCmd.runLocal {
+				log.Info("\n --run-local set. running analysis in containerless mode")
+				if analyzeCmd.listSources || analyzeCmd.listTargets {
+					err := analyzeCmd.listLabelsContainerless(ctx)
+					if err != nil {
+						analyzeCmd.log.Error(err, "failed to list rule labels")
+						return err
+					}
+					return nil
+				}
+				cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
+				err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
+				defer cancelFunc()
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+
+			// ******* RUN HYBRID MODE ******
+			log.Info("--run-local set to false. Running analysis in hybrid mode")
+
+			// default rulesets are only java rules
+			// may want to change this in the future
+			if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+				return fmt.Errorf("No providers found with default rules. Use --rules option")
+			}
+
+			// alizer does not detect certain files such as xml
+			// in this case, we can first check for a java project
+			// if not found, only start builtin provider in hybrid mode
+			if len(foundProviders) == 0 {
+				foundJava, err := analyzeCmd.detectJavaProviderFallback()
+				if err != nil {
+					return err
+				}
+				if foundJava {
+					foundProviders = append(foundProviders, util.JavaProvider)
+				}
+				// If no providers found, we'll run builtin-only in hybrid mode
+				// (providersMap will be empty, hybrid mode handles this)
+			}
+
+			err = analyzeCmd.setProviderInitInfo(foundProviders)
+			if err != nil {
+				log.Error(err, "failed to set provider init info")
+				return err
+			}
+			// defer cleaning created resources here instead of PostRun
+			// if Run returns an error, PostRun does not run
+			defer func() {
+				// start other context here to cleanup in case of program interrupt
+				if err := analyzeCmd.CleanAnalysisResources(context.TODO()); err != nil {
+					log.Error(err, "failed to clean temporary directories")
+				}
+			}()
+			// Run hybrid mode analysis (analyzer in-process, providers in containers)
+			cmdCtx, cancelFunc := context.WithCancel(ctx)
+			err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx)
+			defer cancelFunc()
+			if err != nil {
+				log.Error(err, "failed to run hybrid analysis")
+				return err
+			}
+			err = analyzeCmd.CreateJSONOutput()
 			if err != nil {
 				log.Error(err, "failed to create json output file")
 				return err
@@ -323,7 +308,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().IntVar(&analyzeCmd.contextLines, "context-lines", 100, "number of lines of source code to include in the output for each incident")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.incidentSelector, "incident-selector", "", "an expression to select incidents based on custom variables. ex: (!package=io.konveyor.demo.config-utils)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.depFolders, "dependency-folders", "d", []string{}, "directory for dependencies")
-	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers will be started up")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
@@ -404,19 +388,7 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 		}
 	}
 
-	if a.overrideProviderSettings != "" {
-		stat, err := os.Stat(a.overrideProviderSettings)
-		if err != nil {
-			return fmt.Errorf("%w failed to stat overriden provider settings %s", err, a.overrideProviderSettings)
-		}
-		if stat.IsDir() {
-			return fmt.Errorf("provider settings must be a file")
-		}
-		a.overrideProviderSettings, err = filepath.Abs(a.overrideProviderSettings)
-		if err != nil {
-			return fmt.Errorf("%w failed to get absolute path for override provider settings %s", err, a.overrideProviderSettings)
-		}
-	} else if a.input != "" {
+	if a.input != "" {
 		// do not allow multiple input applications
 		inputNum := 0
 		for _, arg := range os.Args {
@@ -1050,104 +1022,6 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 //
 // Returns:
 //   - error: Any error encountered during analysis, with context about which step failed
-func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context) error {
-
-	volumes := map[string]string{
-		// output directory
-		a.output:                   util.OutputPath,
-		a.overrideProviderSettings: util.ProviderSettingsMountPath,
-	}
-
-	if len(a.rules) > 0 {
-		ruleVols, err := a.getRulesVolumes()
-		if err != nil {
-			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
-			return err
-		}
-		maps.Copy(volumes, ruleVols)
-	}
-
-	args := []string{
-		fmt.Sprintf("--provider-settings=%s", util.ProviderSettingsMountPath),
-		fmt.Sprintf("--output-file=%s", util.AnalysisOutputMountPath),
-		fmt.Sprintf("--context-lines=%d", a.contextLines),
-	}
-
-	if a.enableDefaultRulesets {
-		args = append(args,
-			fmt.Sprintf("--rules=%s/", util.RulesetPath))
-	}
-
-	if a.incidentSelector != "" {
-		args = append(args,
-			fmt.Sprintf("--incident-selector=%s", a.incidentSelector))
-	}
-
-	if len(a.rules) > 0 {
-		args = append(args,
-			fmt.Sprintf("--rules=%s/", util.CustomRulePath))
-	}
-
-	if a.jaegerEndpoint != "" {
-		args = append(args, "--enable-jaeger")
-		args = append(args, "--jaeger-endpoint")
-		args = append(args, a.jaegerEndpoint)
-	}
-	if !a.analyzeKnownLibraries {
-		args = append(args,
-			fmt.Sprintf("--dep-label-selector=(!%s=open-source)", provider.DepSourceLabel))
-	}
-	if a.logLevel != nil {
-		args = append(args, fmt.Sprintf("--verbose=%d", *a.logLevel))
-	}
-	labelSelector := a.getLabelSelector()
-	if labelSelector != "" {
-		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
-	}
-	if a.mode == string(provider.FullAnalysisMode) {
-		a.log.Info("running dependency retrieval during analysis")
-		args = append(args, fmt.Sprintf("--dep-output-file=%s", util.DepsOutputMountPath))
-	}
-
-	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
-	// create log files
-	analysisLog, err := os.Create(analysisLogFilePath)
-	if err != nil {
-		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
-	}
-	defer analysisLog.Close()
-
-	a.log.Info("running source code analysis", "log", analysisLogFilePath,
-		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
-	// TODO (pgaikwad): run analysis & deps in parallel
-
-	c := container.NewContainer()
-	err = c.Run(
-		ctx,
-		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
-		container.WithVolumes(volumes),
-		container.WithStdout(analysisLog),
-		container.WithStderr(analysisLog),
-		container.WithEntrypointArgs(args...),
-		container.WithName(fmt.Sprintf("analyzer-%v", container.RandomName())),
-		container.WithEntrypointBin("/usr/local/bin/konveyor-analyzer"),
-		container.WithNetwork("host"),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithCleanup(a.cleanup),
-		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
-	)
-	if err != nil {
-		return err
-	}
-	err = a.getProviderLogs(ctx)
-	if err != nil {
-		a.log.Error(err, "failed to get provider container logs")
-	}
-
-	return nil
-}
 
 func (a *analyzeCommand) CreateJSONOutput() error {
 	if !a.jsonOutput {
@@ -1552,293 +1426,6 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 		cmd.Stderr = providerLog
 		return cmd.Run()
 	}
-
-	return nil
-}
-
-func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
-	if runtime.GOOS != "windows" {
-		err := fmt.Errorf("Unsupported OS")
-		a.log.Error(err, "Analysis of .NET Framework projects is only supported on Windows")
-		return err
-	}
-
-	if a.bulk {
-		err := fmt.Errorf("Unsupported option")
-		a.log.Error(err, "Bulk analysis not supported for .NET Framework projects")
-		return err
-	}
-
-	if a.mode == string(provider.FullAnalysisMode) {
-		a.log.V(1).Info("Only source mode analysis is supported")
-		a.mode = string(provider.SourceOnlyAnalysisMode)
-	}
-
-	var err error
-
-	// Check configuration
-	var systemInfo struct {
-		Plugins struct {
-			Network []string `json:"network"`
-		} `json:"plugins"`
-	}
-	cmd := exec.Command(Settings.ContainerBinary, []string{"system", "info", "--format=json"}...)
-	out, err := cmd.Output()
-	if err != nil {
-		return err
-	}
-	if err = json.Unmarshal(out, &systemInfo); err != nil {
-		return err
-	}
-	a.log.V(5).Info("container network plugins", "plugins", systemInfo)
-	if !slices.Contains(systemInfo.Plugins.Network, "nat") {
-		err := fmt.Errorf("Unsupported container client configuration")
-		a.log.Error(err, ".NET Framework projects must be analyzed using docker configured to run Windows containers")
-		return err
-	}
-
-	// Create network
-	networkName := container.RandomName()
-	cmd = exec.Command(Settings.ContainerBinary, []string{"network", "create", "-d", "nat", networkName}...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-	a.log.V(1).Info("created container network", "network", networkName)
-	a.networkName = networkName
-	// end create network
-
-	// Create volume
-	// opts aren't supported on Windows
-	// containerVolName, err := a.createContainerVolume()
-	// if err != nil {
-	// 	a.log.Error(err, "failed to create container volume")
-	// 	return err
-	// }
-
-	// Run provider
-	//foundProviders := []string{dotnetFrameworkProvider}
-	//providerPorts, err := a.RunProviders(ctx, networkName, containerVolName, foundProviders, 5)
-	//if err != nil {
-	//	a.log.Error(err, "failed to run provider")
-	//	return err
-	//}
-	input, err := filepath.Abs(a.input)
-	if err != nil {
-		return err
-	}
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		return err
-	}
-	a.log.V(1).Info("Starting dotnet-external-provider")
-	providerContainer := container.NewContainer()
-	err = providerContainer.Run(
-		ctx,
-		container.WithImage(Settings.DotnetProviderImage),
-		container.WithLog(a.log.V(1)),
-		container.WithVolumes(map[string]string{
-			input: "C:" + filepath.FromSlash(util.SourceMountPath),
-		}),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithEntrypointArgs([]string{fmt.Sprintf("--port=%v", port)}...),
-		container.WithDetachedMode(true),
-		container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
-		container.WithCleanup(a.cleanup),
-		container.WithNetwork(networkName),
-		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
-	)
-	if err != nil {
-		return err
-	}
-	a.providerContainerNames = append(a.providerContainerNames, providerContainer.Name)
-	a.log.V(1).Info("Provider started")
-	// end run provider
-
-	// Run analysis
-	// err = a.RunAnalysis(ctx, "", containerVolName, foundProviders, providerPorts)
-	// if err != nil {
-	// 	a.log.Error(err, "failed to run analysis")
-	// 	return err
-	// }
-	tempDir, err := os.MkdirTemp("", "analyze-config-")
-	if err != nil {
-		a.log.V(1).Error(err, "failed creating temp dir", "dir", tempDir)
-		return err
-	}
-	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
-	a.tempDirs = append(a.tempDirs, tempDir)
-
-	// Set the IP!!!
-	provConfig := []provider.Config{
-		{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     "C:" + filepath.FromSlash(util.SourceMountPath),
-					AnalysisMode: provider.AnalysisMode(a.mode),
-				},
-			},
-		},
-		{
-			Name:    util.DotnetProvider,
-			Address: fmt.Sprintf("%v:%v", providerContainer.Name, port),
-			InitConfig: []provider.InitConfig{
-				{
-					Location:     "C:" + filepath.FromSlash(util.SourceMountPath),
-					AnalysisMode: provider.AnalysisMode(a.mode),
-					ProviderSpecificConfig: map[string]interface{}{
-						provider.LspServerPathConfigKey: "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe",
-					},
-				},
-			},
-		},
-	}
-
-	jsonData, err := json.MarshalIndent(&provConfig, "", "	")
-	if err != nil {
-		a.log.V(1).Error(err, "failed to marshal provider config")
-		return err
-	}
-	err = os.WriteFile(filepath.Join(tempDir, "settings.json"), jsonData, os.ModePerm)
-	if err != nil {
-		a.log.V(1).Error(err,
-			"failed to write provider config", "dir", tempDir, "file", "settings.json")
-		return err
-	}
-
-	volumes := map[string]string{
-		tempDir:  "C:" + filepath.FromSlash(util.ConfigMountPath),
-		input:    "C:" + filepath.FromSlash(util.SourceMountPath),
-		a.output: "C:" + filepath.FromSlash(util.OutputPath),
-	}
-
-	args := []string{
-		fmt.Sprintf("--provider-settings=%s", "C:"+filepath.FromSlash(util.ProviderSettingsMountPath)),
-		fmt.Sprintf("--output-file=%s", "C:"+filepath.FromSlash(util.AnalysisOutputMountPath)),
-		fmt.Sprintf("--context-lines=%d", a.contextLines),
-	}
-
-	if a.enableDefaultRulesets {
-		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(util.RulesetPath)))
-	}
-
-	if len(a.rules) > 0 {
-		ruleVols, err := a.getRulesVolumes()
-		if err != nil {
-			a.log.V(1).Error(err, "failed to get rule volumes for analysis")
-			return err
-		}
-		for key, value := range ruleVols {
-			volumes[key] = "C:" + filepath.FromSlash(value)
-		}
-
-		args = append(args, fmt.Sprintf("--rules=C:%s", filepath.FromSlash(util.CustomRulePath)))
-	}
-
-	if a.jaegerEndpoint != "" {
-		args = append(args, "--enable-jaeger")
-		args = append(args, "--jaeger-endpoint")
-		args = append(args, a.jaegerEndpoint)
-	}
-
-	if a.logLevel != nil {
-		args = append(args, fmt.Sprintf("--verbose=%d", *a.logLevel))
-	}
-	labelSelector := a.getLabelSelector()
-	if labelSelector != "" {
-		args = append(args, fmt.Sprintf("--label-selector=%s", labelSelector))
-	}
-
-	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
-	// create log files
-	analysisLog, err := os.Create(analysisLogFilePath)
-	if err != nil {
-		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
-	}
-	defer analysisLog.Close()
-
-	a.log.Info("running source code analysis", "log", analysisLogFilePath,
-		"input", a.input, "output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating analysis log in file", "file", analysisLogFilePath)
-
-	c := container.NewContainer()
-	err = c.Run(
-		ctx,
-		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
-		container.WithVolumes(volumes),
-		container.WithName(fmt.Sprintf("analyzer-%v", container.RandomName())),
-		container.WithStdout(analysisLog),
-		container.WithStderr(analysisLog),
-		container.WithEntrypointArgs(args...),
-		container.WithEntrypointBin(`C:\app\konveyor-analyzer.exe`),
-		container.WithNetwork(networkName),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithCleanup(a.cleanup),
-		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
-	)
-	if err != nil {
-		return err
-	}
-	err = a.getProviderLogs(ctx)
-	if err != nil {
-		a.log.Error(err, "failed to get provider container logs")
-	}
-	// end run analysis
-
-	// Create json output
-	err = a.CreateJSONOutput()
-	if err != nil {
-		a.log.Error(err, "failed to create json output file")
-		return err
-	}
-
-	// Generate Static Report
-	if a.skipStaticReport {
-		return nil
-	}
-
-	err = container.NewContainer().Run(
-		ctx,
-		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithEntrypointBin("powershell"),
-		container.WithEntrypointArgs("Copy-Item", `C:\app\static-report\`, "-Recurse", filepath.FromSlash(util.OutputPath)),
-		container.WithVolumes(volumes),
-		container.WithCleanup(a.cleanup),
-	)
-	if err != nil {
-		return err
-	}
-
-	staticReportArgs := []string{
-		fmt.Sprintf(`-output-path=C:\%s\static-report\output.js`, filepath.FromSlash(util.OutputPath)),
-		fmt.Sprintf("-analysis-output-list=C:%s", filepath.FromSlash(util.AnalysisOutputMountPath)),
-		fmt.Sprintf("-application-name-list=%s", filepath.Base(a.input)),
-	}
-
-	//staticReportContainer := container.NewContainer()
-	a.log.Info("generating static report", "output", a.output, "args", staticReportArgs)
-	err = container.NewContainer().Run(
-		ctx,
-		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithEntrypointBin(`C:\app\js-bundle-generator`),
-		container.WithEntrypointArgs(staticReportArgs...),
-		container.WithVolumes(volumes),
-		container.WithCleanup(a.cleanup),
-	)
-	if err != nil {
-		return err
-	}
-
-	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
