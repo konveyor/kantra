@@ -268,9 +268,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						log.Error(err, "failed to clean temporary directories")
 					}
 				}()
-				// Run hybrid mode analysis (analyzer on host, providers in containers)
+				// Run hybrid mode analysis (analyzer in-process, providers in containers)
 				cmdCtx, cancelFunc := context.WithCancel(ctx)
-				err = analyzeCmd.RunAnalysisHybrid(cmdCtx)
+				err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx)
 				defer cancelFunc()
 				if err != nil {
 					log.Error(err, "failed to run hybrid analysis")
