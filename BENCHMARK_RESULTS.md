@@ -1,213 +1,126 @@
-# Kantra Mode Benchmark Results
+# Hybrid vs Containerless Mode Benchmark Results
 
-## Summary
-
-Benchmark comparing **Hybrid Mode** (analyzer in-process, providers in containers) vs **Containerless Mode** (everything in-process) on macOS.
-
-**Result: Hybrid mode is 51.71x faster than containerless mode on macOS.**
-
-## Test Environment
-
-- **Platform**: macOS (Darwin arm64)
-- **Date**: November 2024
-- **Kantra Version**: feature/hybrid-containerized-providers branch
-- **Test Application**: `/pkg/testing/examples/ruleset/test-data/java` (small Java project)
-- **Analysis Mode**: source-only (no dependency analysis)
-- **Iterations**: 3 runs per mode
-
-## Raw Results
-
-### Containerless Mode (`--run-local=true`)
-
-| Run | Time (ms) | Time (s) |
-|-----|-----------|----------|
-| 1   | 12,750    | 12.75    |
-| 2   | 12,785    | 12.79    |
-| 3   | 12,944    | 12.94    |
-| **Average** | **12,826** | **12.83** |
-
-### Hybrid Mode (`--run-local=false`)
-
-| Run | Time (ms) | Time (s) |
-|-----|-----------|----------|
-| 1   | 293       | 0.29     |
-| 2   | 229       | 0.23     |
-| 3   | 223       | 0.22     |
-| **Average** | **248** | **0.25** |
+**Date**: November 6, 2025
+**Test Input**: `/Users/tsanders/Workspace/kantra/pkg/testing/examples/ruleset/test-data/java`
+**Test Mode**: source-only analysis
 
 ## Performance Comparison
 
-```
-Containerless: 12,826 ms (12.8 seconds)
-Hybrid:           248 ms ( 0.2 seconds)
-──────────────────────────────────────
-Speedup:       51.71x FASTER
-```
+### Containerless Mode (--run-local=true)
 
-**Time Saved**: Hybrid mode completes in 1.9% of the time containerless mode takes.
+| Phase | Duration |
+|-------|----------|
+| Java Provider Setup | 1,661 ms |
+| Builtin Provider Setup | 0 ms |
+| Rule Loading | 1,019 ms |
+| **Rule Execution** | **10,207 ms** |
+| Output Writing | 10 ms |
+| Static Report Generation | 25 ms |
+| **TOTAL** | **13,024 ms (~13 seconds)** |
 
-## Why Is Hybrid So Much Faster on macOS?
+**Output Size**: 571 KB
 
-### Containerless Mode Bottlenecks (macOS)
+### Hybrid Mode (--run-local=false)
 
-1. **Podman VM I/O Overhead**
-   - Source code mounted from macOS host into Podman VM
-   - Every file read/write crosses VM boundary (9p/virtiofs)
-   - ~10-20ms latency per file operation
+| Phase | Duration |
+|-------|----------|
+| Provider Container Setup | 213 ms |
+| Rule Loading | 1,727 ms |
+| **Rule Execution** | **79,090 ms** |
+| Output Writing | 5 ms |
+| Static Report Generation | Failed (macOS Podman) |
+| **TOTAL (excluding static report)** | **~81,035 ms (~81 seconds)** |
 
-2. **Java Provider in Podman VM**
-   - Java provider runs inside Podman VM
-   - LSP (Language Server Protocol) operations cross VM boundary
-   - Maven dependency resolution crosses VM boundary
+**Output Size**: 279 KB
 
-3. **Excessive File Operations**
-   - LSP servers read source files repeatedly for analysis
-   - Each read crosses the VM boundary
-   - Small Java project = hundreds of file operations
+## Key Findings
 
-### Hybrid Mode Advantages
+### Performance
 
-1. **Direct Host File Access**
-   - Analyzer runs natively on macOS host
-   - Direct file system access (no VM boundary)
-   - Sub-millisecond file operation latency
+**Hybrid mode is ~6.2x slower than containerless mode** for rule execution (79s vs 13s).
 
-2. **Network Communication Only**
-   - Provider runs in container (isolated, consistent)
-   - Communication via localhost network (fast)
-   - Network calls are infrequent compared to file I/O
+**Root Cause**: Network communication overhead
+- Hybrid mode uses gRPC over localhost to communicate with containerized providers
+- Each rule evaluation likely makes multiple gRPC calls to the provider
+- Network latency accumulates significantly over thousands of rule evaluations
+- Localhost TCP has minimal latency (~0.1ms), but it adds up:
+  - If each rule makes 10 gRPC calls with 0.1ms latency each
+  - Over 10,000 rules that's 10,000ms (10 seconds) of pure latency
+  - Actual overhead is 69 seconds (79s - 10s), suggesting more calls or higher latency
 
-3. **Optimized Architecture**
-   - Analyzer processes files in-memory
-   - Provider called only for LSP operations
-   - Minimal cross-boundary communication
+### Breakdown Analysis
 
-## Performance Characteristics
+**Rule Execution Phase** accounts for almost all the difference:
+- Containerless: 10.2 seconds
+- Hybrid: 79.1 seconds
+- **Difference: 68.9 seconds** of network overhead
 
-### Startup Time Breakdown
+**Other phases are similar**:
+- Rule Loading: 1.0s (containerless) vs 1.7s (hybrid) - minimal difference
+- Provider Setup: 1.7s (containerless) vs 0.2s (hybrid) - hybrid is faster!
+  - Containerless starts Java process in-process (JVM startup)
+  - Hybrid reuses already-running containerized provider
 
-**Hybrid Mode (~250ms total):**
-- Container startup: ~100ms
-- Provider health check: ~50ms
-- Provider initialization: ~50ms
-- Analysis execution: ~50ms
+### Output Size Difference
 
-**Containerless Mode (~12,800ms total):**
-- LSP binary initialization: ~2,000ms
-- Source file discovery: ~3,000ms (VM I/O)
-- File parsing: ~5,000ms (VM I/O)
-- Analysis execution: ~2,800ms
+Containerless produces 571KB output vs Hybrid's 279KB:
+- This suggests different analysis results
+- Possible causes:
+  1. Containerless includes more detailed incident data
+  2. Different rule evaluation behavior
+  3. Provider configuration differences
+  4. Need further investigation to determine if results are equivalent
 
-### Scalability
+## Architectural Trade-offs
 
-| Code Size | Containerless | Hybrid | Speedup |
-|-----------|---------------|--------|---------|
-| Small (5 files) | ~12.8s | ~0.25s | 51x |
-| Medium (50 files) | ~120s | ~2s | 60x |
-| Large (500 files) | ~1200s | ~20s | 60x |
+### Containerless Mode
+**Pros:**
+- **6x faster** rule execution
+- Direct in-process communication (no network overhead)
+- Larger output (potentially more detailed)
 
-*Estimated based on observed I/O patterns*
+**Cons:**
+- No provider isolation
+- Providers run in same process as analyzer
+- Potential security/compliance issues for untrusted code
 
-## Comparison with Previous Results
+### Hybrid Mode
+**Pros:**
+- **Provider isolation** - runs in containers
+- Suitable for security-sensitive/compliance scenarios
+- Fast provider startup (reuses running containers)
 
-**Previous Documentation Claim**: 2.84x faster
-
-**This Benchmark**: 51.71x faster
-
-**Difference**: The previous benchmark likely included:
-- Larger application (more file I/O)
-- Full analysis mode (dependency resolution)
-- Older implementation without health check optimizations
-
-**Current Implementation Improvements**:
-- Health check polling (no wasted 4-second sleep)
-- Optimized provider startup
-- Better in-process analyzer integration
-- Reduced logging overhead
+**Cons:**
+- **6x slower** due to network overhead
+- Each gRPC call adds latency
+- Slower for large-scale analysis
 
 ## Recommendations
 
-### When to Use Hybrid Mode ✅
+1. **For Development/Internal Use**: Use containerless mode (--run-local=true)
+   - 6x faster performance
+   - Same safety as any local development tool
+   - Ideal for interactive use and testing
 
-- **macOS users** - 51x speedup is massive
-- **Production use** - Fastest, most reliable
-- **CI/CD pipelines** - Faster builds
-- **Large codebases** - Scalability benefits
-- **Multi-language apps** - Provider isolation
+2. **For Production/Multi-tenant**: Consider trade-offs carefully
+   - Hybrid mode provides isolation but at significant performance cost
+   - For high-volume scenarios, network overhead becomes prohibitive
+   - May need to optimize provider communication or batch gRPC calls
 
-### When to Use Containerless Mode
+3. **Potential Optimizations for Hybrid Mode**:
+   - Batch gRPC calls where possible
+   - Cache provider responses
+   - Use Unix domain sockets instead of TCP localhost
+   - Implement connection pooling and keep-alive
+   - Profile to identify hotspots in provider communication
 
-- **Development/debugging** - Direct provider access
-- **Linux users** - No Podman VM overhead (closer performance)
-- **Custom LSP configurations** - Need local control
+4. **Output Size Investigation**:
+   - Compare output.yaml files to understand the 2x size difference
+   - Ensure hybrid mode is producing complete/equivalent results
+   - May need to adjust provider configuration for parity
 
-### When to Use Container Mode
+## Conclusion
 
-- **Legacy compatibility** - Old workflows
-- **Override provider settings** - Special configurations
+Hybrid mode successfully provides provider isolation but comes with a **6.2x performance penalty** due to network communication overhead. The current implementation is suitable for scenarios where isolation is required and performance is secondary. For high-performance use cases, containerless mode is strongly recommended.
 
-## Reproducing This Benchmark
-
-Run the included benchmark script:
-
-```bash
-# Build kantra
-go build -o kantra
-
-# Run benchmark
-./benchmark-modes.sh
-```
-
-The script:
-1. Runs 3 iterations of containerless mode
-2. Runs 3 iterations of hybrid mode
-3. Calculates averages and speedup
-4. Cleans up all temporary files
-
-## Technical Details
-
-### Benchmark Script
-
-- Location: `benchmark-modes.sh`
-- Uses nanosecond precision timing
-- Suppresses output for accurate timing
-- Cleans up between runs
-- Stops old provider containers
-
-### Test Application
-
-- Path: `pkg/testing/examples/ruleset/test-data/java`
-- Type: Maven Java project
-- Size: Small (~10 Java files)
-- Dependencies: Standard Java EE libraries
-
-### Analysis Configuration
-
-- Mode: `source-only` (no dependency analysis)
-- Rules: Default rulesets (extracted from container)
-- Context Lines: 100 (default)
-- Overwrite: Enabled
-
-## Conclusions
-
-1. **Hybrid mode is dramatically faster on macOS** - 51.71x speedup
-2. **Podman VM I/O is the bottleneck** - Crossing VM boundary is expensive
-3. **In-process analyzer with network providers** - Best of both worlds
-4. **Production ready** - With health checks, this is reliable and fast
-5. **Update documentation** - The 2.84x claim is conservative
-
-## Next Steps
-
-- [x] Create benchmark script
-- [x] Run benchmark on macOS
-- [x] Document results
-- [ ] Update HYBRID_MODE.md with new performance data
-- [ ] Benchmark on Linux (expected: smaller difference due to no VM)
-- [ ] Benchmark with larger application
-- [ ] Benchmark with full analysis mode (dependencies)
-
----
-
-**Generated**: November 2024
-**Platform**: macOS (Darwin arm64)
-**Branch**: feature/hybrid-containerized-providers
+The ~70 second network overhead in rule execution suggests that each rule evaluation involves significant provider communication. Optimizing this communication (batching, caching, better protocols) could dramatically improve hybrid mode performance.
