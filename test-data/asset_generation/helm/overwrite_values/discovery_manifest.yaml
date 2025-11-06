@@ -1,4 +1,0 @@
-manifest:
-    name: original
-    processes:
-        - type: web

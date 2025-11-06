@@ -1,8 +1,0 @@
-name: cf-nodejs
-lifecycle: cnb
-buildpacks:
-  - docker://my-registry-a.corp/nodejs
-  - docker://my-registry-b.corp/dynatrace
-memory: 512M
-instances: 1
-random-route: true
