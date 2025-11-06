@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -26,13 +27,113 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// validateProviderConfig validates configuration before starting provider containers.
+// This catches configuration errors early and provides helpful error messages.
+func (a *analyzeCommand) validateProviderConfig() error {
+	// Validate Maven settings file if specified
+	if a.mavenSettingsFile != "" {
+		if _, err := os.Stat(a.mavenSettingsFile); err != nil {
+			return fmt.Errorf(
+				"Maven settings file not found: %s\n"+
+					"Specified with --maven-settings flag but file does not exist",
+				a.mavenSettingsFile)
+		}
+		a.log.V(1).Info("Maven settings file validated", "path", a.mavenSettingsFile)
+	}
+
+	// Validate input path exists
+	if a.input != "" {
+		if _, err := os.Stat(a.input); err != nil {
+			return fmt.Errorf(
+				"Input path not found: %s\n"+
+					"Specified with --input flag but path does not exist",
+				a.input)
+		}
+	}
+
+	// Check if any provider ports are already in use
+	for provName, provInit := range a.providersMap {
+		address := fmt.Sprintf("localhost:%d", provInit.port)
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			// Port is already in use
+			return fmt.Errorf(
+				"port %d required for %s provider is already in use\n"+
+					"Troubleshooting:\n"+
+					"  1. Check what's using the port: lsof -i :%d\n"+
+					"  2. Stop old provider containers: podman stop $(podman ps -a | grep provider | awk '{print $1}')\n"+
+					"  3. Kill the process using the port, or restart your system",
+				provInit.port, provName, provInit.port)
+		}
+		listener.Close()
+		a.log.V(2).Info("port is available", "provider", provName, "port", provInit.port)
+	}
+
+	a.log.V(1).Info("provider configuration validated successfully")
+	return nil
+}
+
+// waitForProvider polls a provider's port until it's ready or timeout is reached.
+// This replaces the hardcoded 4-second sleep with proper health checking.
+func waitForProvider(ctx context.Context, providerName string, port int, timeout time.Duration, log logr.Logger) error {
+	deadline := time.Now().Add(timeout)
+	address := fmt.Sprintf("localhost:%d", port)
+	backoff := 100 * time.Millisecond
+	maxBackoff := 2 * time.Second
+
+	log.V(1).Info("waiting for provider to become ready", "provider", providerName, "address", address, "timeout", timeout)
+
+	for time.Now().Before(deadline) {
+		// Check if context was cancelled
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("provider health check cancelled: %w", ctx.Err())
+		default:
+		}
+
+		// Attempt TCP connection to check if port is open
+		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+		if err == nil {
+			conn.Close()
+			log.V(1).Info("provider is ready", "provider", providerName, "address", address)
+			return nil
+		}
+
+		// Port not ready yet, wait with exponential backoff
+		log.V(2).Info("provider not ready yet, retrying", "provider", providerName, "error", err, "backoff", backoff)
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("provider health check cancelled: %w", ctx.Err())
+		case <-time.After(backoff):
+			// Exponential backoff with max cap
+			backoff = backoff * 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+
+	return fmt.Errorf(
+		"provider %s failed to become ready at %s within %v\n"+
+			"Troubleshooting:\n"+
+			"  1. Check container is running: podman ps | grep provider\n"+
+			"  2. Check container logs: podman logs <container-name>\n"+
+			"  3. Check port availability: lsof -i :%d\n"+
+			"  4. Verify provider image: podman images | grep provider",
+		providerName, address, timeout, port)
+}
+
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, Dotnet).
 func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	provInit, ok := a.providersMap[providerName]
 	if !ok {
-		return nil, nil, nil, fmt.Errorf("%s provider not initialized in providersMap", providerName)
+		return nil, nil, nil, fmt.Errorf(
+			"%s provider not found in providersMap\n"+
+				"This indicates a programming error - provider should have been initialized before calling setupNetworkProvider",
+			providerName)
 	}
 
 	// Build provider-specific configuration
@@ -111,7 +212,10 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		var err error
 		providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to create %s provider client: %w", providerName, err)
+			return nil, nil, nil, fmt.Errorf(
+				"failed to create %s provider client: %w\n"+
+					"This usually indicates a configuration error or invalid provider type",
+				providerName, err)
 		}
 	}
 
@@ -120,7 +224,15 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, nil)
 	if err != nil {
 		a.log.Error(err, "unable to init the provider", "provider", providerName)
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf(
+			"failed to initialize %s provider at %s: %w\n"+
+				"Troubleshooting:\n"+
+				"  1. Check provider container is running: podman ps | grep %s\n"+
+				"  2. Check provider logs: podman logs <container-name>\n"+
+				"  3. Verify network connectivity: curl localhost:%d\n"+
+				"  4. Check provider health: podman inspect <container-name>\n"+
+				"  5. Try restarting: podman stop <container-name>",
+			providerName, providerConfig.Address, err, providerName, provInit.port)
 	}
 
 	return providerClient, providerLocations, additionalBuiltinConfs, nil
@@ -247,6 +359,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
+		// Validate configuration before starting containers
+		if err := a.validateProviderConfig(); err != nil {
+			return fmt.Errorf("provider configuration validation failed: %w", err)
+		}
+
 		// Create volume for provider containers
 		volName, err := a.createContainerVolume(a.input)
 		if err != nil {
@@ -259,10 +376,14 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
 
-		// Wait for providers to initialize
-		// TODO: Replace with proper health checks
-		a.log.Info("waiting for providers to initialize...")
-		time.Sleep(4 * time.Second)
+		// Wait for providers to become ready with health checks
+		a.log.Info("waiting for providers to become ready...")
+		for provName, provInit := range a.providersMap {
+			if err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log); err != nil {
+				return fmt.Errorf("provider health check failed: %w", err)
+			}
+		}
+		a.log.Info("all providers are ready")
 	}
 
 	// Setup provider clients
