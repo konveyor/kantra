@@ -34,7 +34,6 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
-	"go.lsp.dev/uri"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/yaml.v2"
@@ -83,7 +82,14 @@ func renderProgressBar(percent int, current, total int, message string) {
 
 func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	startTotal := time.Now()
-	a.log.Info("[TIMING] Containerless analysis starting")
+	a.log.V(1).Info("[TIMING] Containerless analysis starting")
+
+	// Hide cursor at the very start if progress is enabled
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "\033[?25l")
+		// Ensure cursor is shown at the end
+		defer fmt.Fprintf(os.Stderr, "\033[?25h")
+	}
 
 	err := a.ValidateContainerless(ctx)
 	if err != nil {
@@ -131,7 +137,10 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	logrusErrLog.SetOutput(os.Stderr)
 	errLog := logrusr.New(logrusErrLog)
 
-	a.log.Info("running source analysis")
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "Running source analysis...\n")
+	}
+	a.log.V(1).Info("running source analysis")
 	labelSelectors := a.getLabelSelector()
 
 	selectors := []engine.RuleSelector{}
@@ -164,7 +173,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations := []string{}
 
 	startJavaProvider := time.Now()
-	a.log.Info("[TIMING] Starting Java provider setup")
+	a.log.V(1).Info("[TIMING] Starting Java provider setup")
 	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog)
 	if err != nil {
 		errLog.Error(err, "unable to start Java provider")
@@ -172,7 +181,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	providers[util.JavaProvider] = javaProvider
 	providerLocations = append(providerLocations, javaLocations...)
-	a.log.Info("[TIMING] Java provider setup complete", "duration_ms", time.Since(startJavaProvider).Milliseconds())
+	a.log.V(1).Info("[TIMING] Java provider setup complete", "duration_ms", time.Since(startJavaProvider).Milliseconds())
 
 	//scopes := []engine.Scope{}
 	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
@@ -182,7 +191,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	startBuiltinProvider := time.Now()
-	a.log.Info("[TIMING] Starting builtin provider setup")
+	a.log.V(1).Info("[TIMING] Starting builtin provider setup")
 	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, javaTargetPaths, additionalBuiltinConfigs, analyzeLog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
@@ -190,7 +199,17 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	providers["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
-	a.log.Info("[TIMING] Builtin provider setup complete", "duration_ms", time.Since(startBuiltinProvider).Milliseconds())
+	a.log.V(1).Info("[TIMING] Builtin provider setup complete", "duration_ms", time.Since(startBuiltinProvider).Milliseconds())
+
+	if !a.noProgress {
+		// Build provider names dynamically from the providers map
+		providerNames := make([]string, 0, len(providers))
+		for name := range providers {
+			providerNames = append(providerNames, name)
+		}
+		sort.Strings(providerNames) // Sort for consistent output
+		fmt.Fprintf(os.Stderr, "  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+	}
 
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 	//start up the rule eng
@@ -216,10 +235,14 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
 
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "  ✓ Started rules engine\n")
+	}
+
 	startRuleLoading := time.Now()
-	a.log.Info("[TIMING] Starting rule loading")
+	a.log.V(1).Info("[TIMING] Starting rule loading")
 	for _, f := range a.rules {
-		a.log.Info("parsing rules for analysis", "rules", f)
+		a.log.V(1).Info("parsing rules for analysis", "rules", f)
 
 		internRuleSet, internNeedProviders, err := parser.LoadRules(f)
 		if err != nil {
@@ -230,7 +253,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 			needProviders[k] = v
 		}
 	}
-	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+	a.log.V(1).Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// start dependency analysis for full analysis mode only
 	wg := &sync.WaitGroup{}
@@ -240,14 +263,14 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
 		wg.Add(1)
 
-		a.log.Info("running depencency analysis")
+		a.log.V(1).Info("running dependency analysis")
 		go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 	}
 
 	// This will already wait
 	startRuleExecution := time.Now()
-	a.log.Info("[TIMING] Starting rule execution")
-	a.log.Info("evaluating rules for violations. see analysis.log for more info")
+	a.log.V(1).Info("[TIMING] Starting rule execution")
+	a.log.V(1).Info("evaluating rules for violations. see analysis.log for more info")
 
 	// Create progress reporter (or noop if disabled)
 	var reporter progress.ProgressReporter
@@ -271,29 +294,31 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 			var cumulativeTotal int
 			var completedFromPreviousRulesets int
 			var lastRulesetTotal int
-			var cursorHidden bool
+			var justPrintedLoadedRules bool
 
 			for event := range channelReporter.Events() {
 				switch event.Stage {
 				case progress.StageProviderInit:
-					fmt.Fprintf(os.Stderr, "Initializing %s provider...\n", event.Message)
+					// Skip provider init messages - we show them earlier
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
-						fmt.Fprintf(os.Stderr, "Loaded %d rules\n", cumulativeTotal)
+						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+						justPrintedLoadedRules = true
 					}
 				case progress.StageRuleExecution:
 					if event.Total > 0 {
 						// Initialize cumulativeTotal from first event if not set by rule parsing
 						if cumulativeTotal == 0 {
 							cumulativeTotal = event.Total
-							fmt.Fprintf(os.Stderr, "Loaded %d rules\n", cumulativeTotal)
+							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+							justPrintedLoadedRules = true
 						}
 
-						// Hide cursor before first progress bar render
-						if !cursorHidden {
-							fmt.Fprintf(os.Stderr, "\033[?25l") // Hide cursor
-							cursorHidden = true
+						// Skip first progress bar render right after printing "Loaded rules"
+						if justPrintedLoadedRules {
+							justPrintedLoadedRules = false
+							continue
 						}
 
 						// Detect if we've moved to a new ruleset
@@ -311,9 +336,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 						renderProgressBar(overallPercent, totalCompleted, cumulativeTotal, event.Message)
 					}
 				case progress.StageComplete:
-					// Show cursor, move to next line and print completion
-					fmt.Fprintf(os.Stderr, "\033[?25h\n") // Show cursor and newline
-					fmt.Fprintf(os.Stderr, "Analysis complete!\n")
+					// Move to next line and print completion
+					fmt.Fprintf(os.Stderr, "\n\n") // Move past progress bar, blank line
+					fmt.Fprintf(os.Stderr, "Analysis complete!\n") // Single line after
 				}
 			}
 		}()
@@ -343,7 +368,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	for _, provider := range needProviders {
 		provider.Stop()
 	}
-	a.log.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
+	a.log.V(1).Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
 
 	sort.SliceStable(rulesets, func(i, j int) bool {
 		return rulesets[i].Name < rulesets[j].Name
@@ -351,8 +376,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	// Write results out to CLI
 	startWriting := time.Now()
-	a.log.Info("[TIMING] Starting output writing")
-	a.log.Info("writing analysis results to output", "output", a.output)
+	a.log.V(1).Info("[TIMING] Starting output writing")
+	a.log.V(1).Info("writing analysis results to output", "output", a.output)
 	b, err := yaml.Marshal(rulesets)
 	if err != nil {
 		return err
@@ -368,21 +393,30 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
-	a.log.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
+	a.log.V(1).Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Ensure analysis log is closed before creating static-report (needed for bulk on Windows)
 	analysisLog.Close()
 
 	startStaticReport := time.Now()
-	a.log.Info("[TIMING] Starting static report generation")
+	a.log.V(1).Info("[TIMING] Starting static report generation")
 	err = a.GenerateStaticReportContainerless(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
 	}
-	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
+	a.log.V(1).Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
-	a.log.Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
+	// Print results summary
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "\nResults:\n")
+		reportPath := filepath.Join(a.output, "static-report", "index.html")
+		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
+		analysisLogPath := filepath.Join(a.output, "analysis.log")
+		fmt.Fprintf(os.Stderr, "  Logs:   %s\n", analysisLogPath)
+	}
+
+	a.log.V(1).Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	return nil
 }
 
@@ -680,7 +714,7 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 }
 
 func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog logr.Logger) (provider.InternalProviderClient, error) {
-	a.log.Info("setting provider from provider config", "provider", config.Name)
+	a.log.V(1).Info("setting provider from provider config", "provider", config.Name)
 	config.ContextLines = a.contextLines
 
 	// IF analysis mode is set from the CLI, then we will override this for each init config
@@ -703,7 +737,7 @@ func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog 
 }
 
 func (a *analyzeCommand) setJavaProvider(config provider.Config, analysisLog logr.Logger) provider.InternalProviderClient {
-	a.log.Info("setting provider from provider config", "provider", config.Name)
+	a.log.V(1).Info("setting provider from provider config", "provider", config.Name)
 	config.ContextLines = a.contextLines
 
 	// If analysis mode is set from the CLI, then we will override this for each init config
@@ -738,7 +772,7 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 
 	javaProvider := a.setJavaProvider(javaConfig, analysisLog)
 
-	a.log.Info("starting provider", "provider", util.JavaProvider)
+	a.log.V(1).Info("starting provider", "provider", util.JavaProvider)
 	initCtx, initSpan := tracing.StartNewSpan(ctx, "init",
 		attribute.Key("provider").String(util.JavaProvider))
 	additionalBuiltinConfs, err := javaProvider.ProviderInit(initCtx, nil)
@@ -753,7 +787,7 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 }
 
 func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
-	a.log.Info("setting up builtin provider")
+	a.log.V(1).Info("setting up builtin provider")
 	builtinConfig := a.makeBuiltinProviderConfig(excludedTargetPaths)
 
 	// Set proxy if configured
@@ -777,7 +811,7 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, excludedTarge
 		return nil, nil, err
 	}
 
-	a.log.Info("starting provider", "provider", "builtin")
+	a.log.V(1).Info("starting provider", "provider", "builtin")
 	if _, err := builtinProvider.ProviderInit(ctx, additionalConfigs); err != nil {
 		a.log.Error(err, "unable to init the builtin provider")
 		return nil, nil, err
@@ -816,7 +850,7 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 	// Now that we have all the providers, we need to start them.
 	additionalBuiltinConfigs := []provider.InitConfig{}
 	for name, provider := range needProviders {
-		a.log.Info("starting provider", "provider", name)
+		a.log.V(1).Info("starting provider", "provider", name)
 		switch name {
 		// other providers can return additional configs for the builtin provider
 		// therefore, we initiate builtin provider separately at the end
@@ -964,7 +998,7 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	if a.skipStaticReport {
 		return nil
 	}
-	a.log.Info("generating static report")
+	a.log.V(1).Info("generating static report")
 	staticReportLogFilePath := filepath.Join(a.output, "static-report.log")
 	staticReportLog, err := os.Create(staticReportLogFilePath)
 	if err != nil {
@@ -976,7 +1010,7 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	// in this case we still want to generate a static report for successful source analysis
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) {
-		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+		a.log.V(1).Info("unable to get dependency output in static report. generating static report from source analysis only")
 
 		// some other err
 	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
@@ -996,8 +1030,6 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context) 
 	if err != nil {
 		return err
 	}
-	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }

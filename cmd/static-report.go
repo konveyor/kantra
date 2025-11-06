@@ -32,7 +32,7 @@ func validateFlags(analysisOutputPaths []string, appNames []string, depsOutputs 
 		return nil, fmt.Errorf("application names required")
 	}
 	if len(depsOutputs) == 0 {
-		log.Info("dependency output path not provided, only parsing analysis output")
+		log.V(1).Info("dependency output path not provided, only parsing analysis output")
 	}
 	for idx, analysisPath := range analysisOutputPaths {
 		currApp := &Application{
