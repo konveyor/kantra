@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -247,9 +248,17 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
 	// Get Java target paths to exclude from builtin
-	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-	if err != nil {
-		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
+	var javaTargetPaths []interface{}
+	if !a.isFileInput {
+		// Only walk target paths for source code analysis
+		var err error
+		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
+		if err != nil {
+			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+		}
+	} else {
+		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
 	}
 
 	builtinConfig := provider.Config{
@@ -378,8 +387,26 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return fmt.Errorf("failed to create container volume: %w", err)
 		}
 
+		// For binary files, util.SourceMountPath includes the filename (e.g., /opt/input/source/app.war)
+		// But volume mounts need the parent directory. Save and restore it.
+		originalMountPath := util.SourceMountPath
+		if a.isFileInput {
+			// Temporarily set to parent directory for volume mounting
+			util.SourceMountPath = path.Dir(util.SourceMountPath)
+			a.log.V(1).Info("adjusted mount path for binary file",
+				"original", originalMountPath,
+				"adjusted", util.SourceMountPath)
+		}
+
 		// Start providers with port publishing
 		err = a.RunProvidersHostNetwork(ctx, volName, 5)
+
+		// Restore original mount path for provider configuration
+		if a.isFileInput {
+			util.SourceMountPath = originalMountPath
+			a.log.V(1).Info("restored mount path", "path", util.SourceMountPath)
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
@@ -400,9 +427,17 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providerLocations := []string{}
 
 	// Get Java target paths to exclude from builtin
-	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-	if err != nil {
-		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
+	var javaTargetPaths []interface{}
+	if !a.isFileInput {
+		// Only walk target paths for source code analysis
+		var err error
+		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
+		if err != nil {
+			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+		}
+	} else {
+		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
 	}
 
 	var additionalBuiltinConfigs []provider.InitConfig
