@@ -138,9 +138,21 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	errLog := logrusr.New(logrusErrLog)
 
 	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "Running source analysis...\n")
+		// Detect if this is binary analysis based on file extension
+		isBinaryAnalysis := false
+		if a.isFileInput {
+			ext := filepath.Ext(a.input)
+			isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+				ext == util.EnterpriseArchive || ext == util.ClassFile)
+		}
+
+		if isBinaryAnalysis {
+			fmt.Fprintf(os.Stderr, "Running binary analysis...\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Running source analysis...\n")
+		}
 	}
-	a.log.V(1).Info("running source analysis")
+	a.log.V(1).Info("running analysis")
 	labelSelectors := a.getLabelSelector()
 
 	selectors := []engine.RuleSelector{}
@@ -172,6 +184,19 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
+	// Show decompiling message for binary analysis
+	if !a.noProgress {
+		isBinaryAnalysis := false
+		if a.isFileInput {
+			ext := filepath.Ext(a.input)
+			isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+				ext == util.EnterpriseArchive || ext == util.ClassFile)
+		}
+		if isBinaryAnalysis {
+			fmt.Fprintf(os.Stderr, "  Decompiling binary...\n")
+		}
+	}
+
 	startJavaProvider := time.Now()
 	a.log.V(1).Info("[TIMING] Starting Java provider setup")
 	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog)
@@ -183,8 +208,21 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations = append(providerLocations, javaLocations...)
 	a.log.V(1).Info("[TIMING] Java provider setup complete", "duration_ms", time.Since(startJavaProvider).Milliseconds())
 
+	// Show completion checkmark for binary decompilation
+	if !a.noProgress {
+		isBinaryAnalysis := false
+		if a.isFileInput {
+			ext := filepath.Ext(a.input)
+			isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+				ext == util.EnterpriseArchive || ext == util.ClassFile)
+		}
+		if isBinaryAnalysis {
+			fmt.Fprintf(os.Stderr, "  ✓ Decompiling complete\n")
+		}
+	}
+
 	//scopes := []engine.Scope{}
-	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
+	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(analyzeLog, a.isFileInput, a.input)
 	if err != nil {
 		// allow for duplicate incidents rather than failing analysis
 		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
@@ -408,13 +446,11 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	a.log.V(1).Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
 	// Print results summary
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "\nResults:\n")
-		reportPath := filepath.Join(a.output, "static-report", "index.html")
-		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
-		analysisLogPath := filepath.Join(a.output, "analysis.log")
-		fmt.Fprintf(os.Stderr, "  Logs:   %s\n", analysisLogPath)
-	}
+	fmt.Fprintf(os.Stderr, "\nResults:\n")
+	reportPath := filepath.Join(a.output, "static-report", "index.html")
+	fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
+	analysisLogPath := filepath.Join(a.output, "analysis.log")
+	fmt.Fprintf(os.Stderr, "  Logs:   %s\n", analysisLogPath)
 
 	a.log.V(1).Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	return nil
