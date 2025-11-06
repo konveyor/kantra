@@ -16,7 +16,6 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/engine"
 	"github.com/konveyor/analyzer-lsp/engine/labels"
-	java "github.com/konveyor/analyzer-lsp/external-providers/java-external-provider/pkg/java_external_provider"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/parser"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -137,19 +136,24 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	}
 
 	// Build provider-specific configuration
-	providerSpecificConfig := map[string]interface{}{
-		"lspServerName": providerName,
-	}
+	// Based on working hybrid-provider-settings.json example
+	providerSpecificConfig := map[string]interface{}{}
 
 	// Add provider-specific LSP configuration
 	switch providerName {
 	case util.JavaProvider:
-		// Java provider config (minimal for network mode)
+		// Java provider configuration for network mode
+		// Paths are inside the provider container
+		providerSpecificConfig["lspServerName"] = providerName
+		providerSpecificConfig["lspServerPath"] = "/jdtls/bin/jdtls"
+		providerSpecificConfig["bundles"] = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
 		if a.mavenSettingsFile != "" {
 			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
 		}
 
 	case util.GoProvider:
+		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
 		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
@@ -172,27 +176,30 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 
 	// Create network-based provider config
 	// Key difference from containerless: Address is set, BinaryPath is empty
+	// Location must be the path INSIDE the container where source is mounted
+
+	// Create proxy config - must be a pointer, default to empty proxy if none configured
+	proxyConfig := &provider.Proxy{}
+	if a.httpProxy != "" || a.httpsProxy != "" {
+		proxyConfig = &provider.Proxy{
+			HTTPProxy:  a.httpProxy,
+			HTTPSProxy: a.httpsProxy,
+			NoProxy:    a.noProxy,
+		}
+	}
+
 	providerConfig := provider.Config{
 		Name:       providerName,
 		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
 		BinaryPath: "",                                          // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               a.input,
+				Location:               util.SourceMountPath, // Path inside provider container
 				AnalysisMode:           provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: providerSpecificConfig,
+				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
 			},
 		},
-	}
-
-	// Set proxy if configured
-	if a.httpProxy != "" || a.httpsProxy != "" {
-		proxy := provider.Proxy{
-			HTTPProxy:  a.httpProxy,
-			HTTPSProxy: a.httpsProxy,
-			NoProxy:    a.noProxy,
-		}
-		providerConfig.Proxy = &proxy
 	}
 	providerConfig.ContextLines = a.contextLines
 
@@ -202,26 +209,22 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	}
 
 	// Create network-based provider client (connects to localhost:PORT)
+	// Use lib.GetProviderClient for all providers in network mode
+	// This creates a gRPC client that connects to the containerized provider
 	var providerClient provider.InternalProviderClient
-
-	// Java provider uses its own constructor
-	if providerName == util.JavaProvider {
-		providerClient = java.NewJavaProvider(analysisLog, "java", a.contextLines, providerConfig)
-	} else {
-		// All other providers use lib.GetProviderClient
-		var err error
-		providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf(
-				"failed to create %s provider client: %w\n"+
-					"This usually indicates a configuration error or invalid provider type",
-				providerName, err)
-		}
+	var err error
+	providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf(
+			"failed to create %s provider client: %w\n"+
+				"This usually indicates a configuration error or invalid provider type",
+			providerName, err)
 	}
 
 	a.log.V(1).Info("starting network-based provider", "provider", providerName, "address", providerConfig.Address)
 	initCtx, _ := tracing.StartNewSpan(ctx, "init")
-	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, nil)
+	// Pass empty slice instead of nil - gRPC might not handle nil properly
+	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, []provider.InitConfig{})
 	if err != nil {
 		a.log.Error(err, "unable to init the provider", "provider", providerName)
 		return nil, nil, nil, fmt.Errorf(
