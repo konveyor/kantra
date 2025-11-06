@@ -114,6 +114,36 @@ Increase podman resources (minimum 4G memory is required):
 podman machine set <vm_name> --cpus 4 --memory 4096
 ```
 
+###### Known Limitation: Static Report Generation with `/tmp` on macOS
+
+When using hybrid mode (`--run-local=false`, the default), static HTML report generation will fail if the output directory is under `/tmp`. This is a Podman Desktop limitation on macOS where `/tmp` paths cannot be mounted to containers.
+
+**Important Notes:**
+- The analysis itself completes successfully and produces correct `output.yaml` and `dependencies.yaml` files
+- Only the static HTML report generation fails
+- This limitation does NOT affect containerless mode (`--run-local`)
+
+**Workarounds:**
+
+1. **Use output directories outside `/tmp`** (recommended):
+   ```sh
+   # Works - generates static report
+   kantra analyze --input=./myapp --output=./output
+
+   # Fails static report on macOS - but analysis succeeds
+   kantra analyze --input=./myapp --output=/tmp/output
+   ```
+
+2. **Skip static report generation**:
+   ```sh
+   kantra analyze --input=./myapp --output=/tmp/output --skip-static-report
+   ```
+
+3. **Use containerless mode** (no container limitations):
+   ```sh
+   kantra analyze --input=./myapp --output=/tmp/output --run-local
+   ```
+
 ##### Windows
 
 Init the machine:
