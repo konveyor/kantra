@@ -80,6 +80,7 @@ type analyzeCommand struct {
 	cleanup               bool
 	runLocal              bool
 	disableMavenSearch    bool
+	noProgress            bool
 	AnalyzeCommandContext
 }
 
@@ -311,6 +312,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	return analyzeCommand
 }
 
