@@ -26,27 +26,60 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// setupJavaProviderHybrid creates a network-based Java provider client for hybrid mode.
+// setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
-func (a *analyzeCommand) setupJavaProviderHybrid(ctx context.Context, analysisLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
-	provInit, ok := a.providersMap[util.JavaProvider]
+// This function works for all provider types (Java, Go, Python, NodeJS, Dotnet).
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+	provInit, ok := a.providersMap[providerName]
 	if !ok {
-		return nil, nil, nil, fmt.Errorf("java provider not initialized in providersMap")
+		return nil, nil, nil, fmt.Errorf("%s provider not initialized in providersMap", providerName)
+	}
+
+	// Build provider-specific configuration
+	providerSpecificConfig := map[string]interface{}{
+		"lspServerName": providerName,
+	}
+
+	// Add provider-specific LSP configuration
+	switch providerName {
+	case util.JavaProvider:
+		// Java provider config (minimal for network mode)
+		if a.mavenSettingsFile != "" {
+			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
+		}
+
+	case util.GoProvider:
+		providerSpecificConfig["lspServerName"] = "generic"
+		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
+		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
+
+	case util.PythonProvider:
+		providerSpecificConfig["lspServerName"] = "generic"
+		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
+		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+
+	case util.NodeJSProvider:
+		providerSpecificConfig["lspServerName"] = "nodejs"
+		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
+		providerSpecificConfig["lspServerArgs"] = []string{"--stdio"}
+		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+
+	case util.DotnetProvider:
+		providerSpecificConfig[provider.LspServerPathConfigKey] = "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe"
 	}
 
 	// Create network-based provider config
 	// Key difference from containerless: Address is set, BinaryPath is empty
-	javaConfig := provider.Config{
-		Name:       util.JavaProvider,
+	providerConfig := provider.Config{
+		Name:       providerName,
 		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
 		BinaryPath: "",                                          // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     a.input,
-				AnalysisMode: provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName": util.JavaProvider,
-				},
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}
@@ -58,27 +91,39 @@ func (a *analyzeCommand) setupJavaProviderHybrid(ctx context.Context, analysisLo
 			HTTPSProxy: a.httpsProxy,
 			NoProxy:    a.noProxy,
 		}
-		javaConfig.Proxy = &proxy
+		providerConfig.Proxy = &proxy
 	}
-	javaConfig.ContextLines = a.contextLines
+	providerConfig.ContextLines = a.contextLines
 
 	providerLocations := []string{}
-	for _, ind := range javaConfig.InitConfig {
+	for _, ind := range providerConfig.InitConfig {
 		providerLocations = append(providerLocations, ind.Location)
 	}
 
-	// Create network-based Java provider (connects to localhost:PORT)
-	javaProvider := java.NewJavaProvider(analysisLog, "java", a.contextLines, javaConfig)
+	// Create network-based provider client (connects to localhost:PORT)
+	var providerClient provider.InternalProviderClient
 
-	a.log.V(1).Info("starting network-based provider", "provider", util.JavaProvider, "address", javaConfig.Address)
+	// Java provider uses its own constructor
+	if providerName == util.JavaProvider {
+		providerClient = java.NewJavaProvider(analysisLog, "java", a.contextLines, providerConfig)
+	} else {
+		// All other providers use lib.GetProviderClient
+		var err error
+		providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create %s provider client: %w", providerName, err)
+		}
+	}
+
+	a.log.V(1).Info("starting network-based provider", "provider", providerName, "address", providerConfig.Address)
 	initCtx, _ := tracing.StartNewSpan(ctx, "init")
-	additionalBuiltinConfs, err := javaProvider.ProviderInit(initCtx, nil)
+	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, nil)
 	if err != nil {
-		a.log.Error(err, "unable to init the providers", "provider", util.JavaProvider)
+		a.log.Error(err, "unable to init the provider", "provider", providerName)
 		return nil, nil, nil, err
 	}
 
-	return javaProvider, providerLocations, additionalBuiltinConfs, nil
+	return providerClient, providerLocations, additionalBuiltinConfs, nil
 }
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
@@ -232,16 +277,17 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	var additionalBuiltinConfigs []provider.InitConfig
 
-	// Setup Java provider (network-based) if configured
-	if _, hasJava := a.providersMap[util.JavaProvider]; hasJava {
-		javaProvider, javaLocations, javaBuiltinConfigs, err := a.setupJavaProviderHybrid(ctx, analyzeLog)
+	// Setup network-based provider clients for all configured providers
+	for provName := range a.providersMap {
+		a.log.Info("setting up network provider", "provider", provName)
+		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog)
 		if err != nil {
-			errLog.Error(err, "unable to start Java provider")
+			errLog.Error(err, "unable to start provider", "provider", provName)
 			os.Exit(1)
 		}
-		providers[util.JavaProvider] = javaProvider
-		providerLocations = append(providerLocations, javaLocations...)
-		additionalBuiltinConfigs = append(additionalBuiltinConfigs, javaBuiltinConfigs...)
+		providers[provName] = provClient
+		providerLocations = append(providerLocations, locs...)
+		additionalBuiltinConfigs = append(additionalBuiltinConfigs, configs...)
 	}
 
 	// Setup builtin provider (always in-process)
