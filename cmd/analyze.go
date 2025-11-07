@@ -900,8 +900,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
 		createCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"create", "--name", tempName, Settings.RunnerImage)
-		createCmd.Stdout = os.Stdout
-		createCmd.Stderr = os.Stderr
+		// Discard output to keep console clean
+		createCmd.Stdout = io.Discard
+		createCmd.Stderr = io.Discard
 		if err := createCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to create temp container for ruleset extraction: %w", err)
 		}
@@ -915,8 +916,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 		// Copy rulesets from container to host
 		copyCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"cp", fmt.Sprintf("%s:/opt/rulesets", tempName), rulesetsDir)
-		copyCmd.Stdout = os.Stdout
-		copyCmd.Stderr = os.Stderr
+		// Discard output to keep console clean
+		copyCmd.Stdout = io.Discard
+		copyCmd.Stderr = io.Discard
 		if err := copyCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}

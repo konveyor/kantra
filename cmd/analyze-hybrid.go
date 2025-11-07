@@ -80,8 +80,8 @@ func (a *analyzeCommand) validateProviderConfig() error {
 func waitForProvider(ctx context.Context, providerName string, port int, timeout time.Duration, log logr.Logger) error {
 	deadline := time.Now().Add(timeout)
 	address := fmt.Sprintf("localhost:%d", port)
-	backoff := 100 * time.Millisecond
-	maxBackoff := 2 * time.Second
+	backoff := 50 * time.Millisecond
+	maxBackoff := 500 * time.Millisecond
 
 	log.V(1).Info("waiting for provider to become ready", "provider", providerName, "address", address, "timeout", timeout)
 
@@ -94,7 +94,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 		}
 
 		// Attempt TCP connection to check if port is open
-		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			log.V(1).Info("provider is ready", "provider", providerName, "address", address)
@@ -437,6 +437,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				"adjusted", util.SourceMountPath)
 		}
 
+		if !a.noProgress {
+			fmt.Fprintf(os.Stderr, "  ✓ Created volume\n")
+		}
+
 		// Start providers with port publishing
 		err = a.RunProvidersHostNetwork(ctx, volName, 5, operationalLog)
 
@@ -450,13 +454,38 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
 
-		// Wait for providers to become ready with health checks
+		if !a.noProgress {
+			fmt.Fprintf(os.Stderr, "  ✓ Started provider containers\n")
+		}
+
+		// Wait for providers to become ready with health checks (in parallel)
 		operationalLog.Info("waiting for providers to become ready...")
+
+		// Use errgroup for parallel health checks with proper error handling
+		type healthCheckResult struct {
+			providerName string
+			err          error
+		}
+		resultChan := make(chan healthCheckResult, len(a.providersMap))
+
+		// Start health checks in parallel
 		for provName, provInit := range a.providersMap {
-			if err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, operationalLog); err != nil {
-				return fmt.Errorf("provider health check failed: %w", err)
+			provName := provName // capture loop variable
+			provInit := provInit
+			go func() {
+				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, operationalLog)
+				resultChan <- healthCheckResult{providerName: provName, err: err}
+			}()
+		}
+
+		// Collect results
+		for i := 0; i < len(a.providersMap); i++ {
+			result := <-resultChan
+			if result.err != nil {
+				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
 		}
+
 		operationalLog.Info("all providers are ready")
 		operationalLog.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
@@ -543,6 +572,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		Log:                  analyzeLog.WithName("parser"),
 		NoDependencyRules:    a.noDepRules,
 		DepLabelSelector:     dependencyLabelSelector,
+	}
+
+	if !a.noProgress {
+		fmt.Fprintf(os.Stderr, "  ✓ Started rules engine\n")
 	}
 
 	// Load rules
