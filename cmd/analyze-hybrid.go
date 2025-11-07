@@ -415,15 +415,63 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		startProviderSetup := time.Now()
 		operationalLog.Info("[TIMING] Starting provider container setup")
 
-		// Validate configuration before starting containers
-		if err := a.validateProviderConfig(); err != nil {
-			return fmt.Errorf("provider configuration validation failed: %w", err)
+		// Parallelize independent startup tasks for better performance
+		type startupResult struct {
+			name string
+			err  error
 		}
 
-		// Create volume for provider containers
-		volName, err := a.createContainerVolume(a.input)
-		if err != nil {
-			return fmt.Errorf("failed to create container volume: %w", err)
+		var wg sync.WaitGroup
+		var volName string
+		var rulesetsDir string
+		resultChan := make(chan startupResult, 3)
+
+		// Task 1: Validate provider configuration
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := a.validateProviderConfig()
+			resultChan <- startupResult{name: "config validation", err: err}
+		}()
+
+		// Task 2: Create container volume
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			vol, err := a.createContainerVolume(a.input)
+			if err == nil {
+				volName = vol
+			}
+			resultChan <- startupResult{name: "volume creation", err: err}
+		}()
+
+		// Task 3: Extract default rulesets (if enabled)
+		if a.enableDefaultRulesets {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				dir, err := a.extractDefaultRulesets(ctx, operationalLog)
+				if err == nil {
+					rulesetsDir = dir
+				}
+				resultChan <- startupResult{name: "ruleset extraction", err: err}
+			}()
+		}
+
+		// Wait for all startup tasks to complete
+		wg.Wait()
+		close(resultChan)
+
+		// Check for errors from any task
+		for result := range resultChan {
+			if result.err != nil {
+				return fmt.Errorf("%s failed: %w", result.name, result.err)
+			}
+		}
+
+		// Add extracted rulesets to rules list if we got any
+		if rulesetsDir != "" {
+			a.rules = append(a.rules, rulesetsDir)
 		}
 
 		// For binary files, util.SourceMountPath includes the filename (e.g., /opt/input/source/app.war)
@@ -461,12 +509,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		// Wait for providers to become ready with health checks (in parallel)
 		operationalLog.Info("waiting for providers to become ready...")
 
-		// Use errgroup for parallel health checks with proper error handling
-		type healthCheckResult struct {
+		// Parallel health checks with proper error handling
+		type providerHealthResult struct {
 			providerName string
 			err          error
 		}
-		resultChan := make(chan healthCheckResult, len(a.providersMap))
+		healthChan := make(chan providerHealthResult, len(a.providersMap))
 
 		// Start health checks in parallel
 		for provName, provInit := range a.providersMap {
@@ -474,13 +522,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			provInit := provInit
 			go func() {
 				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, operationalLog)
-				resultChan <- healthCheckResult{providerName: provName, err: err}
+				healthChan <- providerHealthResult{providerName: provName, err: err}
 			}()
 		}
 
 		// Collect results
 		for i := 0; i < len(a.providersMap); i++ {
-			result := <-resultChan
+			result := <-healthChan
 			if result.err != nil {
 				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
@@ -578,35 +626,60 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "  ✓ Started rules engine\n")
 	}
 
-	// Load rules
+	// Load rules in parallel for better performance
 	ruleSets := []engine.RuleSet{}
 	needProviders := map[string]provider.InternalProviderClient{}
 
-	// Extract default rulesets from container if enabled
-	if a.enableDefaultRulesets {
-		rulesetsDir, err := a.extractDefaultRulesets(ctx, operationalLog)
-		if err != nil {
-			return fmt.Errorf("failed to extract default rulesets: %w", err)
-		}
-		if rulesetsDir != "" {
-			a.rules = append(a.rules, rulesetsDir)
-		}
-	}
+	// Note: Default rulesets extraction now happens earlier in parallel with
+	// volume creation and config validation for better performance
 
 	startRuleLoading := time.Now()
 	operationalLog.Info("[TIMING] Starting rule loading")
-	for _, f := range a.rules {
-		operationalLog.Info("parsing rules for analysis", "rules", f)
 
-		internRuleSet, internNeedProviders, err := ruleParser.LoadRules(f)
-		if err != nil {
-			a.log.Error(err, "unable to parse all the rules for ruleset", "file", f)
-		}
-		ruleSets = append(ruleSets, internRuleSet...)
-		for k, v := range internNeedProviders {
+	// Parallelize rule loading across multiple rulesets
+	type ruleLoadResult struct {
+		rulePath     string
+		ruleSets     []engine.RuleSet
+		providers    map[string]provider.InternalProviderClient
+		err          error
+	}
+
+	var ruleWg sync.WaitGroup
+	resultChan := make(chan ruleLoadResult, len(a.rules))
+
+	// Load each ruleset in parallel
+	for _, f := range a.rules {
+		ruleWg.Add(1)
+		go func(rulePath string) {
+			defer ruleWg.Done()
+			operationalLog.Info("parsing rules for analysis", "rules", rulePath)
+
+			internRuleSet, internNeedProviders, err := ruleParser.LoadRules(rulePath)
+			if err != nil {
+				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
+			}
+
+			resultChan <- ruleLoadResult{
+				rulePath:  rulePath,
+				ruleSets:  internRuleSet,
+				providers: internNeedProviders,
+				err:       err,
+			}
+		}(f)
+	}
+
+	// Wait for all rule loading to complete
+	ruleWg.Wait()
+	close(resultChan)
+
+	// Collect and merge results
+	for result := range resultChan {
+		ruleSets = append(ruleSets, result.ruleSets...)
+		for k, v := range result.providers {
 			needProviders[k] = v
 		}
 	}
+
 	operationalLog.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// Start dependency analysis for full analysis mode
