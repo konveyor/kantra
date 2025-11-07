@@ -367,11 +367,15 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 						overallPercent := (totalCompleted * 100) / cumulativeTotal
 						renderProgressBar(overallPercent, totalCompleted, cumulativeTotal, event.Message)
+					} else if event.Total == 0 && cumulativeTotal > 0 {
+						// Skip rendering if we get a zero-total event but we've already initialized
+						// This prevents spurious escape sequences from being rendered
+						continue
 					}
 				case progress.StageComplete:
-					// Move to next line and print completion
-					fmt.Fprintf(os.Stderr, "\n\n") // Move past progress bar, blank line
-					fmt.Fprintf(os.Stderr, "Analysis complete!\n") // Single line after
+					// Move to next line, keeping the progress bar visible
+					fmt.Fprintf(os.Stderr, "\n\n")
+					fmt.Fprintf(os.Stderr, "Analysis complete!\n")
 				}
 			}
 		}()
