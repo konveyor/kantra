@@ -184,22 +184,22 @@ Kantra supports two analysis modes:
 
 | Mode | Description | When to Use | Performance |
 |------|-------------|-------------|-------------|
-| **Hybrid** (default) | Analyzer runs on host, providers in containers | Production use, macOS, multi-language apps | Fast |
-| **Containerless** | Everything runs on host | Development, debugging | Slower on macOS |
+| **Containerless** (default) | Everything runs on host | Development, debugging, Linux systems | Fast on Linux |
+| **Hybrid** | Analyzer runs on host, providers in containers | Production use, macOS, multi-language apps | Faster on macOS |
 
-**Hybrid Mode** (recommended):
+**Containerless Mode** (default):
 ```sh
 # Default - just run analyze
 kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
 ```
 
-**Containerless Mode**:
+**Hybrid Mode**:
 ```sh
-# Use --run-local=true for containerless
-kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir> --run-local=true
+# Use --run-local=false for hybrid mode
+kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir> --run-local=false
 ```
 
-For detailed information about hybrid mode, see [HYBRID_MODE.md](./HYBRID_MODE.md) or [HYBRID_MODE_QUICKSTART.md](./HYBRID_MODE_QUICKSTART.md).
+For detailed information about hybrid mode, see [HYBRID_MODE.md](./HYBRID_MODE.md).
 
 All flags:
 
@@ -226,7 +226,7 @@ Flags:
   -o, --output string                    path to the directory for analysis output
       --overwrite                        overwrite output directory
       --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
-      --run-local                        run analysis in containerless mode. When false (default), uses hybrid mode with providers in containers (default true)
+      --run-local                        run analysis in containerless mode. When false, uses hybrid mode with providers in containers (default true)
       --skip-static-report               do not generate static report
   -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
   -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
