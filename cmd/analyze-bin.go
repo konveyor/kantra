@@ -217,10 +217,19 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 
 	//scopes := []engine.Scope{}
-	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(analyzeLog, a.isFileInput, a.input)
-	if err != nil {
-		// allow for duplicate incidents rather than failing analysis
-		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+	// Get Java target paths to exclude from builtin
+	// Note: For binary files, skip this as decompilation happens in provider
+	var javaTargetPaths []interface{}
+	if !a.isFileInput {
+		// Only walk target paths for source code analysis
+		var err error
+		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(analyzeLog, a.isFileInput, a.input)
+		if err != nil {
+			// allow for duplicate incidents rather than failing analysis
+			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+		}
+	} else {
+		operationalLog.V(1).Info("skipping target directory walk for binary input (decompilation happens in provider)")
 	}
 
 	startBuiltinProvider := time.Now()
