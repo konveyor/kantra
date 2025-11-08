@@ -13,7 +13,7 @@ Hybrid mode runs the analyzer in-process while providers run in containers with 
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────┐
 │  Host (kantra binary)               │
 │  ├─ Analyzer (in-process library)   │ ← Direct Go library call
