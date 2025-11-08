@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hybrid mode is Kantra's default analysis mode that runs the analyzer in-process while providers run in containers with network communication.
+Hybrid mode runs the analyzer in-process while providers run in containers with network communication. It is activated with `--run-local=false` (containerless mode is the default).
 
 **Key Benefits:**
 - ✅ 2.84x faster than containerless mode on macOS
@@ -49,8 +49,8 @@ Kantra supports three execution modes:
 
 | Mode | Command | Speed | Isolation | When to Use |
 |------|---------|-------|-----------|-------------|
-| **Hybrid** (default) | `kantra analyze --input ...` | Fast (35s) | Providers | Production, macOS |
-| **Containerless** | `kantra analyze --input ... --run-local=true` | Slower on macOS (99s) | None | Development, debugging |
+| **Containerless** (default) | `kantra analyze --input ...` | Fast on Linux | None | Development, debugging |
+| **Hybrid** | `kantra analyze --input ... --run-local=false` | Fast (35s) | Providers | Production, macOS |
 | **Container** | Use override settings | Slowest (910s macOS) | Full | Legacy only |
 
 ### When to Use Each Mode
@@ -79,17 +79,20 @@ Kantra supports three execution modes:
 ### Basic Usage
 
 ```bash
-# Hybrid mode is default - supports both source and binary analysis
+# Default (containerless mode) - everything runs on host
 kantra analyze --input /path/to/app --output ./output
 
+# Hybrid mode - analyzer on host, providers in containers
+kantra analyze --input /path/to/app --output ./output --run-local=false
+
 # Analyze with specific target
-kantra analyze --input /path/to/app --output ./output --target quarkus
+kantra analyze --input /path/to/app --output ./output --target quarkus --run-local=false
 
 # Full analysis with dependencies
-kantra analyze --input /path/to/app --output ./output --mode full
+kantra analyze --input /path/to/app --output ./output --mode full --run-local=false
 
 # Binary analysis (WAR/JAR/EAR)
-kantra analyze --input /path/to/app.war --output ./output --target quarkus
+kantra analyze --input /path/to/app.war --output ./output --target quarkus --run-local=false
 ```
 
 ### Multi-Language Analysis
