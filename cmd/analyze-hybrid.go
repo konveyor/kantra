@@ -222,7 +222,8 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	}
 
 	a.log.V(1).Info("starting network-based provider", "provider", providerName, "address", providerConfig.Address)
-	initCtx, _ := tracing.StartNewSpan(ctx, "init")
+	initCtx, initSpan := tracing.StartNewSpan(ctx, "init")
+	defer initSpan.End()
 	// Pass empty slice instead of nil - gRPC might not handle nil properly
 	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, []provider.InitConfig{})
 	if err != nil {
