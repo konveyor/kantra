@@ -303,7 +303,7 @@ Hybrid mode provides the best balance of performance and isolation:
 - **Fast**: Matches containerless performance (~35s)
 - **Isolated**: Providers run in containers
 - **Simple**: No local LSP installation required
-- **Recommended**: Default for macOS and production use
+- **Recommended**: Default choice for macOS and production use
 
 ---
 
