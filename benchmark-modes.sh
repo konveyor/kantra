@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-TEST_APP="/Users/tsanders/Workspace/kantra/pkg/testing/examples/ruleset/test-data/java"
+TEST_APP="pkg/testing/examples/ruleset/test-data/java"
 ITERATIONS=3
 KANTRA_BIN="./kantra"
 
