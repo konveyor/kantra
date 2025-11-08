@@ -199,7 +199,7 @@ kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
 kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir> --run-local=false
 ```
 
-For detailed information about hybrid mode, see [HYBRID_MODE.md](./HYBRID_MODE.md).
+For detailed information about hybrid mode, see [docs/hybrid.md](./docs/hybrid.md).
 
 All flags:
 
@@ -445,6 +445,7 @@ Flags:
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
 - [Setup dev environment instructions](./hack/README.md#setup-dev-environment-for-asset-generation)
+- [Hybrid mode](./docs/hybrid.md)
 - [Containerless mode](./docs/containerless.md)
 
 ## Code of Conduct
