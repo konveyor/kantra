@@ -356,7 +356,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		selector, err := labels.NewLabelSelector[*engine.RuleMeta](labelSelectors, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", labelSelectors)
-			os.Exit(1)
+			return fmt.Errorf("failed to create label selector from expression %q: %w", labelSelectors, err)
 		}
 		selectors = append(selectors, selector)
 	}
@@ -367,7 +367,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
-			os.Exit(1)
+			return fmt.Errorf("failed to create label selector from expression %q: %w", depLabel, err)
 		}
 	}
 
@@ -448,7 +448,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
-			os.Exit(1)
+			return fmt.Errorf("unable to start provider %s: %w", provName, err)
 		}
 		providers[provName] = provClient
 		providerLocations = append(providerLocations, locs...)
@@ -472,7 +472,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, javaTargetPaths, transformedConfigs, analyzeLog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
-		os.Exit(1)
+		return fmt.Errorf("unable to start builtin provider: %w", err)
 	}
 	providers["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
