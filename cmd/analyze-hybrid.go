@@ -575,12 +575,26 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
 	// The builtin provider runs on the host and needs host paths (a.input).
 	// We must transform these paths or builtin provider won't find any files!
+	hostRoot := a.input
+	containerRoot := util.SourceMountPath
+	if a.isFileInput {
+		// For binary files, use parent directory as hostRoot
+		hostRoot = filepath.Dir(a.input)
+		containerRoot = path.Dir(util.SourceMountPath)
+	}
+
 	transformedConfigs := make([]provider.InitConfig, len(additionalBuiltinConfigs))
 	for i, conf := range additionalBuiltinConfigs {
 		transformedConfigs[i] = conf
-		// Replace container path with host path
-		if conf.Location == util.SourceMountPath {
-			transformedConfigs[i].Location = a.input
+		// Replace container path prefix with host path
+		if strings.HasPrefix(conf.Location, containerRoot) {
+			rel := strings.TrimPrefix(conf.Location, containerRoot)
+			rel = strings.TrimPrefix(rel, "/")
+			if rel == "" {
+				transformedConfigs[i].Location = hostRoot
+			} else {
+				transformedConfigs[i].Location = filepath.Join(hostRoot, rel)
+			}
 		}
 	}
 
