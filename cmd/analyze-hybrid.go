@@ -155,7 +155,6 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
-		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
 		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
