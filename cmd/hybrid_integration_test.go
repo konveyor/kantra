@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,8 +148,8 @@ func TestHybridProviderValidation(t *testing.T) {
 			}
 
 			if tt.expectError && err != nil && tt.errorContains != "" {
-				if err.Error() == "" {
-					t.Error("expected error message but got empty string")
+				if !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("expected error to contain %q, got: %v", tt.errorContains, err)
 				}
 			}
 		})

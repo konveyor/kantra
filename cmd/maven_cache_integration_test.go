@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -186,7 +187,7 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 		t.Fatalf("failed to inspect volume: %v", err)
 	}
 
-	mountPoint := string(output)
+	mountPoint := strings.TrimSpace(string(output))
 	if mountPoint == "" {
 		t.Error("volume mount point is empty")
 	}
@@ -201,6 +202,65 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 	// The mount point should exist and be accessible
 	if _, err := os.Stat(m2RepoPath); os.IsNotExist(err) {
 		t.Errorf("expected mount point to exist at %s, but it does not", m2RepoPath)
+	}
+
+	// For bind-mounted volumes, verify the volume options contain the correct device path
+	// The Mountpoint field shows podman's internal storage, but we need to check the
+	// bind mount source which is in the Options.Device field
+	inspectCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Options.device}}")
+	deviceOutput, err := inspectCmd.Output()
+	if err != nil {
+		t.Fatalf("failed to inspect volume device: %v", err)
+	}
+
+	devicePath := strings.TrimSpace(string(deviceOutput))
+	if devicePath == "" {
+		t.Error("volume device path is empty")
+	}
+
+	// Verify the device path points to the .m2/repository directory
+	if !strings.Contains(devicePath, ".m2"+string(filepath.Separator)+"repository") &&
+		!strings.HasSuffix(devicePath, ".m2/repository") {
+		t.Errorf("volume device path %q does not point to .m2/repository (expected %s)", devicePath, m2RepoPath)
+	}
+}
+
+// TestMavenCacheVolumeSkipped tests that Maven cache volume creation
+// is skipped when KANTRA_SKIP_MAVEN_CACHE environment variable is set.
+func TestMavenCacheVolumeSkipped(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	// Set environment variable to skip Maven cache
+	os.Setenv("KANTRA_SKIP_MAVEN_CACHE", "true")
+	defer os.Unsetenv("KANTRA_SKIP_MAVEN_CACHE")
+
+	ctx := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Attempt to create Maven cache volume
+	volName, err := ctx.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("createMavenCacheVolume() should not error when skipped: %v", err)
+	}
+
+	// Volume name should be empty when skipped
+	if volName != "" {
+		t.Errorf("expected empty volume name when KANTRA_SKIP_MAVEN_CACHE=true, got '%s'", volName)
+	}
+
+	// mavenCacheVolumeName should not be set
+	if ctx.mavenCacheVolumeName != "" {
+		t.Errorf("expected mavenCacheVolumeName to be empty when cache is skipped, got '%s'", ctx.mavenCacheVolumeName)
 	}
 }
 

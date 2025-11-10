@@ -262,13 +262,23 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 //   - Creates ~/.m2/repository on the host if it doesn't exist
 //   - On Windows, converts paths to Linux-style format for container compatibility
 //   - Volume is NOT removed during cleanup (intentional for caching)
+//   - Can be disabled by setting KANTRA_SKIP_MAVEN_CACHE=true (for CI/testing)
 //
 // Returns:
 //   - Volume name on success ("maven-cache-volume")
+//   - Empty string if caching is disabled via environment variable
 //   - Error if volume creation or directory creation fails
 //
 // The volume can be manually removed with: podman volume rm maven-cache-volume
 func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
+	// Allow skipping Maven cache for CI/testing environments where deterministic
+	// dependency output is required. When disabled, dependencies are downloaded
+	// to a temporary directory that's cleaned up after analysis.
+	if os.Getenv("KANTRA_SKIP_MAVEN_CACHE") == "true" {
+		c.log.V(1).Info("Maven cache disabled via KANTRA_SKIP_MAVEN_CACHE environment variable")
+		return "", nil
+	}
+
 	volName := "maven-cache-volume"
 
 	// Check if volume already exists

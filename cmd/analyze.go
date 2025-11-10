@@ -966,12 +966,13 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 	// Add Maven cache volume for persistent dependency caching
 	// The maven-cache-volume maps to the host's ~/.m2/repository and persists
 	// across analysis runs to avoid re-downloading dependencies. This significantly
-	// improves performance for subsequent analyses. If volume creation fails,
-	// we continue without caching (graceful degradation).
+	// improves performance for subsequent analyses. If volume creation fails or
+	// caching is disabled (KANTRA_SKIP_MAVEN_CACHE=true), we continue without
+	// caching (graceful degradation).
 	mavenCacheVolName, err := a.createMavenCacheVolume()
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
-	} else {
+	} else if mavenCacheVolName != "" {
 		volumes[mavenCacheVolName] = "/root/.m2/repository"
 		a.log.V(1).Info("mounted maven cache volume", "container_path", "/root/.m2/repository")
 	}
