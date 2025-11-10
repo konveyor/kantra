@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -84,6 +85,89 @@ func (a *analyzeCommand) validateProviderConfig() error {
 	return nil
 }
 
+// loadOverrideProviderSettings loads provider configuration overrides from a JSON file.
+// Returns a slice of provider.Config objects that will be merged with default configs.
+func (a *analyzeCommand) loadOverrideProviderSettings() ([]provider.Config, error) {
+	if a.overrideProviderSettings == "" {
+		return nil, nil
+	}
+
+	a.log.V(1).Info("loading override provider settings", "file", a.overrideProviderSettings)
+
+	data, err := os.ReadFile(a.overrideProviderSettings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read override provider settings file: %w", err)
+	}
+
+	var overrideConfigs []provider.Config
+	if err := json.Unmarshal(data, &overrideConfigs); err != nil {
+		return nil, fmt.Errorf("failed to parse override provider settings JSON: %w", err)
+	}
+
+	a.log.V(1).Info("loaded override provider settings", "providers", len(overrideConfigs))
+	return overrideConfigs, nil
+}
+
+// mergeProviderSpecificConfig merges override config into base config.
+// Override values take precedence over base values.
+func mergeProviderSpecificConfig(base, override map[string]interface{}) map[string]interface{} {
+	if override == nil {
+		return base
+	}
+
+	result := make(map[string]interface{})
+	// Copy base config
+	for k, v := range base {
+		result[k] = v
+	}
+	// Apply overrides
+	for k, v := range override {
+		result[k] = v
+	}
+	return result
+}
+
+// applyProviderOverrides applies override settings to a provider config.
+// Returns the modified config with overrides applied.
+func applyProviderOverrides(baseConfig provider.Config, overrideConfigs []provider.Config) provider.Config {
+	if overrideConfigs == nil {
+		return baseConfig
+	}
+
+	// Find matching override config by provider name
+	for _, override := range overrideConfigs {
+		if override.Name != baseConfig.Name {
+			continue
+		}
+
+		// Apply top-level config overrides
+		if override.ContextLines != 0 {
+			baseConfig.ContextLines = override.ContextLines
+		}
+		if override.Proxy != nil {
+			baseConfig.Proxy = override.Proxy
+		}
+
+		// Merge InitConfig settings
+		if len(override.InitConfig) > 0 && len(baseConfig.InitConfig) > 0 {
+			// Merge ProviderSpecificConfig from first InitConfig
+			if override.InitConfig[0].ProviderSpecificConfig != nil {
+				baseConfig.InitConfig[0].ProviderSpecificConfig = mergeProviderSpecificConfig(
+					baseConfig.InitConfig[0].ProviderSpecificConfig,
+					override.InitConfig[0].ProviderSpecificConfig,
+				)
+			}
+			// Apply other InitConfig fields
+			if override.InitConfig[0].AnalysisMode != "" {
+				baseConfig.InitConfig[0].AnalysisMode = override.InitConfig[0].AnalysisMode
+			}
+		}
+		break
+	}
+
+	return baseConfig
+}
+
 // waitForProvider polls a provider's port until it's ready or timeout is reached.
 // This replaces the hardcoded 4-second sleep with proper health checking.
 func waitForProvider(ctx context.Context, providerName string, port int, timeout time.Duration, log logr.Logger) error {
@@ -138,7 +222,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, Dotnet).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	provInit, ok := a.providersMap[providerName]
 	if !ok {
 		return nil, nil, nil, fmt.Errorf(
@@ -213,6 +297,9 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		},
 	}
 	providerConfig.ContextLines = a.contextLines
+
+	// Apply override provider settings if provided
+	providerConfig = applyProviderOverrides(providerConfig, overrideConfigs)
 
 	providerLocations := []string{}
 	for _, ind := range providerConfig.InitConfig {
@@ -382,6 +469,16 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 	}
 
+	// Load override provider settings if specified
+	overrideConfigs, err := a.loadOverrideProviderSettings()
+	if err != nil {
+		errLog.Error(err, "failed to load override provider settings")
+		return fmt.Errorf("failed to load override provider settings: %w", err)
+	}
+	if overrideConfigs != nil {
+		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
+	}
+
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -456,7 +553,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Setup network-based provider clients for all configured providers
 	for provName := range a.providersMap {
 		a.log.Info("setting up network provider", "provider", provName)
-		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog)
+		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
 			return fmt.Errorf("unable to start provider %s: %w", provName, err)
