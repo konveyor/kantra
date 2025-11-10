@@ -116,7 +116,7 @@ podman machine set <vm_name> --cpus 4 --memory 4096
 
 ###### Known Limitation: Static Report Generation with `/tmp` on macOS
 
-When using hybrid mode (`--run-local=false`, the default), static HTML report generation will fail if the output directory is under `/tmp`. This is a Podman Desktop limitation on macOS where `/tmp` paths cannot be mounted to containers.
+When using hybrid mode (`--run-local=false`), static HTML report generation will fail if the output directory is under `/tmp`. This is a Podman Desktop limitation on macOS where `/tmp` paths cannot be mounted to containers.
 
 **Important Notes:**
 - The analysis itself completes successfully and produces correct `output.yaml` and `dependencies.yaml` files
