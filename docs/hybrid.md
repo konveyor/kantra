@@ -99,10 +99,10 @@ kantra analyze --input /path/to/app.war --output ./output --target quarkus --run
 
 ```bash
 # Auto-detect languages (Java, Go, Python, etc.)
-kantra analyze --input /path/to/mixed-app --output /tmp/output
+kantra analyze --input /path/to/mixed-app --output /tmp/output --run-local=false
 
 # Force specific providers
-kantra analyze --input /path/to/app --output /tmp/output --provider java --provider go
+kantra analyze --input /path/to/app --output /tmp/output --provider java --provider go --run-local=false
 ```
 
 ## How It Works
@@ -276,22 +276,22 @@ podman stop $(podman ps | grep provider | awk '{print $1}')
 
 ```bash
 # Basic analysis
-kantra analyze --input /path/to/app --output /tmp/output
+kantra analyze --input /path/to/app --output /tmp/output --run-local=false
 
 # With specific target
-kantra analyze --input /path/to/app --output /tmp/output --target quarkus
+kantra analyze --input /path/to/app --output /tmp/output --target quarkus --run-local=false
 
 # Custom rules
-kantra analyze --input /path/to/app --output /tmp/output --rules /path/to/rules
+kantra analyze --input /path/to/app --output /tmp/output --rules /path/to/rules --run-local=false
 
 # Multi-provider
-kantra analyze --input /path/to/app --output /tmp/output --provider java --provider go
+kantra analyze --input /path/to/app --output /tmp/output --provider java --provider go --run-local=false
 
 # Full analysis mode
-kantra analyze --input /path/to/app --output /tmp/output --mode full
+kantra analyze --input /path/to/app --output /tmp/output --mode full --run-local=false
 
 # Debug mode
-kantra analyze --input /path/to/app --output /tmp/output --verbose=5
+kantra analyze --input /path/to/app --output /tmp/output --verbose=5 --run-local=false
 
 # List detected languages
 kantra analyze --input /path/to/app --list-languages
