@@ -476,7 +476,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		return fmt.Errorf("failed to load override provider settings: %w", err)
 	}
 	if overrideConfigs != nil {
-		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
+		a.log.V(1).Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
 	}
 
 	// Start containerized providers if any
