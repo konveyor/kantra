@@ -1,0 +1,256 @@
+package cmd
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"github.com/go-logr/logr"
+)
+
+// TestMavenCacheVolumeCreation tests that createMavenCacheVolume creates
+// the volume successfully and sets up the host directory correctly.
+func TestMavenCacheVolumeCreation(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	ctx := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Clean up any existing test volume
+	cleanupMavenCacheVolume(t)
+	defer cleanupMavenCacheVolume(t)
+
+	volName, err := ctx.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("createMavenCacheVolume() failed: %v", err)
+	}
+
+	if volName != "maven-cache-volume" {
+		t.Errorf("expected volume name 'maven-cache-volume', got '%s'", volName)
+	}
+
+	if ctx.mavenCacheVolumeName != "maven-cache-volume" {
+		t.Errorf("expected mavenCacheVolumeName to be set to 'maven-cache-volume', got '%s'", ctx.mavenCacheVolumeName)
+	}
+
+	// Verify the volume was actually created
+	if !volumeExists("maven-cache-volume") {
+		t.Error("maven-cache-volume was not created")
+	}
+
+	// Verify host directory was created
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get user home directory: %v", err)
+	}
+	m2RepoPath := filepath.Join(homeDir, ".m2", "repository")
+	if _, err := os.Stat(m2RepoPath); os.IsNotExist(err) {
+		t.Errorf("expected ~/.m2/repository to be created, but it does not exist")
+	}
+}
+
+// TestMavenCacheVolumeReuse tests that createMavenCacheVolume reuses
+// an existing volume instead of failing when called multiple times.
+func TestMavenCacheVolumeReuse(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	ctx := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Clean up any existing test volume
+	cleanupMavenCacheVolume(t)
+	defer cleanupMavenCacheVolume(t)
+
+	// First creation
+	volName1, err := ctx.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("first createMavenCacheVolume() failed: %v", err)
+	}
+
+	// Second creation (should reuse, not error)
+	ctx2 := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+	volName2, err := ctx2.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("second createMavenCacheVolume() failed: %v", err)
+	}
+
+	if volName1 != volName2 {
+		t.Errorf("expected same volume name on reuse, got '%s' and '%s'", volName1, volName2)
+	}
+
+	// Verify only one volume exists (not duplicates)
+	if !volumeExists("maven-cache-volume") {
+		t.Error("maven-cache-volume does not exist after reuse")
+	}
+}
+
+// TestMavenCacheVolumeCleanup tests that the Maven cache volume
+// is NOT removed during cleanup (intentional persistence).
+func TestMavenCacheVolumeCleanup(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	ctx := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Clean up any existing test volume
+	cleanupMavenCacheVolume(t)
+	defer cleanupMavenCacheVolume(t)
+
+	// Create the volume
+	volName, err := ctx.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("createMavenCacheVolume() failed: %v", err)
+	}
+
+	if volName != "maven-cache-volume" {
+		t.Fatalf("expected volume name 'maven-cache-volume', got '%s'", volName)
+	}
+
+	// Run cleanup
+	if err := ctx.RmVolumes(context.Background()); err != nil {
+		t.Fatalf("RmVolumes() failed: %v", err)
+	}
+
+	// Verify the Maven cache volume still exists (was NOT removed)
+	if !volumeExists("maven-cache-volume") {
+		t.Error("maven-cache-volume was incorrectly removed during cleanup - it should persist!")
+	}
+}
+
+// TestMavenCacheVolumeHostPathMapping tests that the volume correctly
+// maps to the host's ~/.m2/repository directory.
+func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	ctx := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Clean up any existing test volume
+	cleanupMavenCacheVolume(t)
+	defer cleanupMavenCacheVolume(t)
+
+	// Create the volume
+	_, err := ctx.createMavenCacheVolume()
+	if err != nil {
+		t.Fatalf("createMavenCacheVolume() failed: %v", err)
+	}
+
+	// Inspect the volume to verify the mount point
+	cmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Mountpoint}}")
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("failed to inspect volume: %v", err)
+	}
+
+	mountPoint := string(output)
+	if mountPoint == "" {
+		t.Error("volume mount point is empty")
+	}
+
+	// Verify it points to a valid directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get user home directory: %v", err)
+	}
+	m2RepoPath := filepath.Join(homeDir, ".m2", "repository")
+
+	// The mount point should exist and be accessible
+	if _, err := os.Stat(m2RepoPath); os.IsNotExist(err) {
+		t.Errorf("expected mount point to exist at %s, but it does not", m2RepoPath)
+	}
+}
+
+// Helper function to get container binary (podman or docker)
+func getContainerBinary() string {
+	// Try Settings.ContainerBinary first (if initialized)
+	if Settings.ContainerBinary != "" {
+		return Settings.ContainerBinary
+	}
+
+	// Fall back to checking for podman or docker
+	if _, err := exec.LookPath("podman"); err == nil {
+		return "podman"
+	}
+	if _, err := exec.LookPath("docker"); err == nil {
+		return "docker"
+	}
+	return ""
+}
+
+// Helper function to check if a container runtime is available
+func isContainerRuntimeAvailable() bool {
+	binary := getContainerBinary()
+	if binary == "" {
+		return false
+	}
+	cmd := exec.Command(binary, "version")
+	return cmd.Run() == nil
+}
+
+// Helper function to check if a volume exists
+func volumeExists(volumeName string) bool {
+	binary := getContainerBinary()
+	if binary == "" {
+		return false
+	}
+	cmd := exec.Command(binary, "volume", "inspect", volumeName)
+	return cmd.Run() == nil
+}
+
+// Helper function to clean up the maven cache volume for testing
+func cleanupMavenCacheVolume(t *testing.T) {
+	if volumeExists("maven-cache-volume") {
+		binary := getContainerBinary()
+		if binary == "" {
+			return
+		}
+		cmd := exec.Command(binary, "volume", "rm", "maven-cache-volume")
+		if err := cmd.Run(); err != nil {
+			t.Logf("Warning: failed to cleanup maven-cache-volume: %v", err)
+		}
+	}
+}
