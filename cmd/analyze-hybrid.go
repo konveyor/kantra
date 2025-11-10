@@ -43,6 +43,17 @@ func (a *analyzeCommand) validateProviderConfig() error {
 		a.log.V(1).Info("Maven settings file validated", "path", a.mavenSettingsFile)
 	}
 
+	// Validate override provider settings file if specified
+	if a.overrideProviderSettings != "" {
+		if _, err := os.Stat(a.overrideProviderSettings); err != nil {
+			return fmt.Errorf(
+				"Override provider settings file not found: %s\n"+
+					"Specified with --override-provider-settings flag but file does not exist",
+				a.overrideProviderSettings)
+		}
+		a.log.V(1).Info("Override provider settings file validated", "path", a.overrideProviderSettings)
+	}
+
 	// Validate input path exists
 	if a.input != "" {
 		if _, err := os.Stat(a.input); err != nil {

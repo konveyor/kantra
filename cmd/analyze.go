@@ -79,8 +79,9 @@ type analyzeCommand struct {
 	logLevel              *uint32
 	cleanup               bool
 	runLocal              bool
-	disableMavenSearch    bool
-	noProgress            bool
+	disableMavenSearch       bool
+	noProgress               bool
+	overrideProviderSettings string
 	AnalyzeCommandContext
 }
 
@@ -322,6 +323,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	return analyzeCommand
 }
 
