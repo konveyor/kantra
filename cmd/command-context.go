@@ -28,8 +28,10 @@ type AnalyzeCommandContext struct {
 	isFileInput  bool
 	needsBuiltin bool
 	// used for cleanup
-	networkName            string
-	volumeName             string
+	networkName  string
+	volumeName   string
+	// mavenCacheVolumeName tracks the persistent Maven cache volume (NOT removed during cleanup)
+	mavenCacheVolumeName   string
 	providerContainerNames []string
 
 	// for containerless cmd
@@ -246,5 +248,85 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 	c.log.V(1).Info("created container volume", "volume", volName)
 	// for cleanup
 	c.volumeName = volName
+	return volName, nil
+}
+
+// createMavenCacheVolume creates or reuses a persistent volume for Maven dependency caching.
+//
+// This function creates a container volume named "maven-cache-volume" that maps to the host's
+// ~/.m2/repository directory. The volume persists across analysis runs to avoid re-downloading
+// Maven dependencies, significantly improving performance for subsequent analyses.
+//
+// Behavior:
+//   - If the volume already exists, it is reused (no error)
+//   - Creates ~/.m2/repository on the host if it doesn't exist
+//   - On Windows, converts paths to Linux-style format for container compatibility
+//   - Volume is NOT removed during cleanup (intentional for caching)
+//
+// Returns:
+//   - Volume name on success ("maven-cache-volume")
+//   - Error if volume creation or directory creation fails
+//
+// The volume can be manually removed with: podman volume rm maven-cache-volume
+func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
+	volName := "maven-cache-volume"
+
+	// Check if volume already exists
+	checkCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", volName)
+	if err := checkCmd.Run(); err == nil {
+		// Volume exists, reuse it
+		c.log.V(1).Info("reusing existing maven cache volume", "volume", volName)
+		c.mavenCacheVolumeName = volName
+		return volName, nil
+	}
+
+	// Volume doesn't exist, create it
+	// Use host's ~/.m2/repository for persistent caching across runs
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	m2RepoPath := filepath.Join(homeDir, ".m2", "repository")
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(m2RepoPath, 0755); err != nil {
+		return "", fmt.Errorf("failed to create maven cache directory: %w", err)
+	}
+
+	// Convert to container-compatible path format (same logic as createContainerVolume)
+	mountPath := m2RepoPath
+	if runtime.GOOS == "windows" {
+		volumeName := filepath.VolumeName(mountPath)
+		remainingPath := mountPath[len(volumeName):]
+		remainingPath = filepath.ToSlash(remainingPath)
+		driveLetter := strings.ToLower(strings.TrimSuffix(volumeName, ":"))
+		mountPath = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
+	}
+
+	args := []string{
+		"volume",
+		"create",
+		"--opt", "type=none",
+		"--opt", fmt.Sprintf("device=%v", mountPath),
+		"--opt", "o=bind",
+		volName,
+	}
+
+	cmd := exec.Command(Settings.ContainerBinary, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to create maven cache volume: %w", err)
+	}
+
+	c.log.V(1).Info("created maven cache volume",
+		"volume", volName,
+		"host_path", m2RepoPath)
+
+	// Track for cleanup (though we won't delete it - see RmVolumes)
+	c.mavenCacheVolumeName = volName
+
 	return volName, nil
 }

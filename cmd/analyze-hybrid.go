@@ -247,6 +247,11 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		if a.mavenSettingsFile != "" {
 			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
 		}
+		// Configure Maven cache directory for persistent dependency caching
+		// This path points to the mounted maven-cache-volume inside the container,
+		// which maps to the host's ~/.m2/repository. See RunProvidersHostNetwork()
+		// for volume mounting and createMavenCacheVolume() for volume creation.
+		providerSpecificConfig["mavenCacheDir"] = "/root/.m2/repository"
 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
