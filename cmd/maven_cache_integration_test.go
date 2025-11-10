@@ -225,6 +225,76 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 	}
 }
 
+// TestMavenCacheVolumeConcurrentCreation tests that concurrent volume creation
+// is handled correctly (idempotent operation).
+func TestMavenCacheVolumeConcurrentCreation(t *testing.T) {
+	// Skip if container binary is not available
+	binary := getContainerBinary()
+	if binary == "" {
+		t.Skip("Container runtime not available, skipping integration test")
+	}
+
+	// Initialize Settings for tests
+	if Settings.ContainerBinary == "" {
+		Settings.ContainerBinary = binary
+	}
+
+	// Clean up any existing test volume
+	cleanupMavenCacheVolume(t)
+	defer cleanupMavenCacheVolume(t)
+
+	// Create two contexts that will try to create the volume concurrently
+	ctx1 := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+	ctx2 := &AnalyzeCommandContext{
+		log: logr.Discard(),
+	}
+
+	// Use a channel to coordinate concurrent execution
+	type result struct {
+		volName string
+		err     error
+	}
+	results := make(chan result, 2)
+
+	// Start both volume creations simultaneously
+	go func() {
+		volName, err := ctx1.createMavenCacheVolume()
+		results <- result{volName, err}
+	}()
+
+	go func() {
+		volName, err := ctx2.createMavenCacheVolume()
+		results <- result{volName, err}
+	}()
+
+	// Collect both results
+	res1 := <-results
+	res2 := <-results
+
+	// Both should succeed (one creates, one detects existing and reuses)
+	if res1.err != nil {
+		t.Errorf("first createMavenCacheVolume() failed: %v", res1.err)
+	}
+	if res2.err != nil {
+		t.Errorf("second createMavenCacheVolume() failed: %v", res2.err)
+	}
+
+	// Both should return the same volume name
+	if res1.volName != "maven-cache-volume" {
+		t.Errorf("first call expected volume name 'maven-cache-volume', got '%s'", res1.volName)
+	}
+	if res2.volName != "maven-cache-volume" {
+		t.Errorf("second call expected volume name 'maven-cache-volume', got '%s'", res2.volName)
+	}
+
+	// Verify only one volume exists (not duplicates)
+	if !volumeExists("maven-cache-volume") {
+		t.Error("maven-cache-volume does not exist after concurrent creation")
+	}
+}
+
 // TestMavenCacheVolumeSkipped tests that Maven cache volume creation
 // is skipped when KANTRA_SKIP_MAVEN_CACHE environment variable is set.
 func TestMavenCacheVolumeSkipped(t *testing.T) {

@@ -281,16 +281,7 @@ func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
 
 	volName := "maven-cache-volume"
 
-	// Check if volume already exists
-	checkCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", volName)
-	if err := checkCmd.Run(); err == nil {
-		// Volume exists, reuse it
-		c.log.V(1).Info("reusing existing maven cache volume", "volume", volName)
-		c.mavenCacheVolumeName = volName
-		return volName, nil
-	}
-
-	// Volume doesn't exist, create it
+	// Prepare volume creation parameters upfront to avoid race conditions
 	// Use host's ~/.m2/repository for persistent caching across runs
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -314,6 +305,8 @@ func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
 		mountPath = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
 	}
 
+	// Try to create the volume (idempotent operation)
+	// This handles race conditions where multiple kantra processes start simultaneously
 	args := []string{
 		"volume",
 		"create",
@@ -324,11 +317,23 @@ func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
 	}
 
 	cmd := exec.Command(Settings.ContainerBinary, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	output, err := cmd.CombinedOutput()
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to create maven cache volume: %w", err)
+	if err != nil {
+		// Check if volume already exists (race condition with concurrent creation)
+		// Both podman and docker return similar error messages for existing volumes
+		errMsg := string(output)
+		if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "volume name") {
+			// Volume exists, verify it and reuse it
+			checkCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", volName)
+			if checkErr := checkCmd.Run(); checkErr == nil {
+				c.log.V(1).Info("reusing existing maven cache volume (created by concurrent process)", "volume", volName)
+				c.mavenCacheVolumeName = volName
+				return volName, nil
+			}
+		}
+		// Different error, fail
+		return "", fmt.Errorf("failed to create maven cache volume: %w\nOutput: %s", err, string(output))
 	}
 
 	c.log.V(1).Info("created maven cache volume",
