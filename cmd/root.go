@@ -58,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))
+	rootCmd.AddCommand(NewConfigCmd(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
