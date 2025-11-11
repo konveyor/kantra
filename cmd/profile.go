@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
+
+const profilePath = ".konveyor/profiles"
 
 type Profile struct {
 	APIVersion string          `yaml:"apiVersion" json:"apiVersion"`
@@ -94,12 +95,11 @@ func (a *analyzeCommand) validateProfile(cmd *cobra.Command) error {
 	return nil
 }
 
-func (a *analyzeCommand) unmarshalProfile() (*Profile, error) {
+func (a *analyzeCommand) unmarshalProfile(path string) (*Profile, error) {
 	if a.profile == "" {
 		return nil, nil
 	}
-	profilePath := filepath.Join(a.profile, "profile.yaml")
-	data, err := os.ReadFile(profilePath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%w failed to read profile file %s", err, profilePath)
 	}
@@ -112,9 +112,8 @@ func (a *analyzeCommand) unmarshalProfile() (*Profile, error) {
 	return &profile, nil
 }
 
-func (a *analyzeCommand) getSettingsFromProfile(ctx context.Context, profile *Profile) error {
-	var err error
-	profile, err = a.unmarshalProfile()
+func (a *analyzeCommand) getSettingsFromProfile(path string) error {
+	profile, err := a.unmarshalProfile(path)
 	if err != nil {
 		a.log.Error(err, "failed to unmarshal profile file")
 		return err

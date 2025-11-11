@@ -147,9 +147,25 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				analyzeCmd.runLocal = false
 			}
 
+			// get profile options for analysis
 			profile := &Profile{}
 			if analyzeCmd.profile != "" {
-				err := analyzeCmd.getSettingsFromProfile(ctx, profile)
+				profilePath := filepath.Join(analyzeCmd.profile, "profile.yaml")
+				err := analyzeCmd.getSettingsFromProfile(profilePath)
+				if err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
+			} else {
+				// check for profile in default path
+				// TODO  profile names
+				profilePath := filepath.Join(profilePath, "profile-.yaml")
+				_, err := os.Stat(profilePath)
+				// do not return err if profile is not found
+				if err != nil {
+					return nil
+				}
+				err = analyzeCmd.getSettingsFromProfile(profilePath)
 				if err != nil {
 					analyzeCmd.log.Error(err, "failed to get settings from profile")
 					return err
