@@ -555,6 +555,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Create rule engine
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
+	defer func() {
+		if engineSpan.IsRecording() {
+			engineSpan.End()
+		}
+	}()
 	eng := engine.CreateRuleEngine(engineCtx,
 		10,
 		analyzeLog,
