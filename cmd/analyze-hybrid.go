@@ -422,7 +422,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 //   - Provider isolation and consistency from containers
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
-	a.log.Info("[TIMING] Hybrid analysis starting")
+	a.log.V(1).Info("[TIMING] Hybrid analysis starting")
 	a.log.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
 
 	// Create analysis log file
@@ -487,7 +487,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
-		a.log.Info("[TIMING] Starting provider container setup")
+		a.log.V(1).Info("[TIMING] Starting provider container setup")
 
 		// Validate configuration before starting containers
 		if err := a.validateProviderConfig(); err != nil {
@@ -532,7 +532,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			}
 		}
 		a.log.Info("all providers are ready")
-		a.log.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
+		a.log.V(1).Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
 
 	// Setup provider clients
@@ -624,7 +624,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	startRuleLoading := time.Now()
-	a.log.Info("[TIMING] Starting rule loading")
+	a.log.V(1).Info("[TIMING] Starting rule loading")
 	for _, f := range a.rules {
 		a.log.Info("parsing rules for analysis", "rules", f)
 
@@ -637,7 +637,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			needProviders[k] = v
 		}
 	}
-	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+	a.log.V(1).Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
@@ -656,7 +656,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Run rules
 	startRuleExecution := time.Now()
-	a.log.Info("[TIMING] Starting rule execution")
+	a.log.V(1).Info("[TIMING] Starting rule execution")
 	a.log.Info("evaluating rules for violations. see analysis.log for more info")
 	rulesets := eng.RunRules(ctx, ruleSets, selectors...)
 	engineSpan.End()
@@ -670,7 +670,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	for _, provider := range needProviders {
 		provider.Stop()
 	}
-	a.log.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
+	a.log.V(1).Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
 
 	// Sort rulesets
 	sort.SliceStable(rulesets, func(i, j int) bool {
@@ -679,7 +679,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Write results
 	startWriting := time.Now()
-	a.log.Info("[TIMING] Starting output writing")
+	a.log.V(1).Info("[TIMING] Starting output writing")
 	a.log.Info("writing analysis results to output", "output", a.output)
 	b, err := yaml.Marshal(rulesets)
 	if err != nil {
@@ -697,22 +697,22 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
-	a.log.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
+	a.log.V(1).Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report
 	analysisLog.Close()
 
 	// Generate static report
 	startStaticReport := time.Now()
-	a.log.Info("[TIMING] Starting static report generation")
+	a.log.V(1).Info("[TIMING] Starting static report generation")
 	err = a.GenerateStaticReport(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
 	}
-	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
+	a.log.V(1).Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
-	a.log.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
+	a.log.V(1).Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	a.log.Info("hybrid analysis completed successfully")
 	return nil
 }
