@@ -437,7 +437,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	if labelSelectors != "" {
 		selector, err := labels.NewLabelSelector[*engine.RuleMeta](labelSelectors, nil)
 		if err != nil {
-			errLog.Error(err, "failed to create label selector from expression", "selector", labelSelectors)
 			return fmt.Errorf("failed to create label selector from expression %q: %w", labelSelectors, err)
 		}
 		selectors = append(selectors, selector)
@@ -448,7 +447,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	if !a.analyzeKnownLibraries {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
-			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
 			return fmt.Errorf("failed to create label selector from expression %q: %w", depLabel, err)
 		}
 	}
@@ -456,7 +454,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Load override provider settings if specified
 	overrideConfigs, err := a.loadOverrideProviderSettings()
 	if err != nil {
-		errLog.Error(err, "failed to load override provider settings")
 		return fmt.Errorf("failed to load override provider settings: %w", err)
 	}
 	if overrideConfigs != nil {
