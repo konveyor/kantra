@@ -28,20 +28,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// validateProviderConfig validates configuration before starting provider containers.
-// This catches configuration errors early and provides helpful error messages.
+// validateProviderConfig validates hybrid-mode-specific configuration before starting provider containers.
+// Note: Maven settings and input path are already validated in the PreRunE Validate() function.
 func (a *analyzeCommand) validateProviderConfig() error {
-	// Validate Maven settings file if specified
-	if a.mavenSettingsFile != "" {
-		if _, err := os.Stat(a.mavenSettingsFile); err != nil {
-			return fmt.Errorf(
-				"Maven settings file not found: %s\n"+
-					"Specified with --maven-settings flag but file does not exist",
-				a.mavenSettingsFile)
-		}
-		a.log.V(1).Info("Maven settings file validated", "path", a.mavenSettingsFile)
-	}
-
 	// Validate override provider settings file if specified
 	if a.overrideProviderSettings != "" {
 		if _, err := os.Stat(a.overrideProviderSettings); err != nil {
@@ -51,16 +40,6 @@ func (a *analyzeCommand) validateProviderConfig() error {
 				a.overrideProviderSettings)
 		}
 		a.log.V(1).Info("Override provider settings file validated", "path", a.overrideProviderSettings)
-	}
-
-	// Validate input path exists
-	if a.input != "" {
-		if _, err := os.Stat(a.input); err != nil {
-			return fmt.Errorf(
-				"Input path not found: %s\n"+
-					"Specified with --input flag but path does not exist",
-				a.input)
-		}
 	}
 
 	// Check if any provider ports are already in use
