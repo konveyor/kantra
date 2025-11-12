@@ -220,8 +220,8 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		// Java provider configuration for network mode
 		// Paths are inside the provider container
 		providerSpecificConfig["lspServerName"] = providerName
-		providerSpecificConfig["lspServerPath"] = "/jdtls/bin/jdtls"
-		providerSpecificConfig["bundles"] = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+		providerSpecificConfig["lspServerPath"] = JDTLSBinLocation
+		providerSpecificConfig["bundles"] = JavaBundlesLocation
 		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
 		if a.mavenSettingsFile != "" {
 			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
