@@ -329,20 +329,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
-	// Get Java target paths to exclude from builtin
-	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
-	var javaTargetPaths []interface{}
-	if !a.isFileInput {
-		// Only walk target paths for source code analysis
-		var err error
-		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-		if err != nil {
-			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
-		}
-	} else {
-		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
-	}
-
+	// Use the excluded target paths passed in by the caller (already calculated in RunAnalysisHybridInProcess)
 	builtinConfig := provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
@@ -350,7 +337,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"excludedDirs": javaTargetPaths,
+					"excludedDirs": excludedTargetPaths,
 				},
 			},
 		},
