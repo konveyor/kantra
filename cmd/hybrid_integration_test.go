@@ -97,34 +97,8 @@ func TestHybridProviderValidation(t *testing.T) {
 			},
 			expectError: false,
 		},
-		{
-			name: "nonexistent maven settings file",
-			setupFunc: func(a *analyzeCommand) {
-				a.mavenSettingsFile = "/nonexistent/path/settings.xml"
-				a.providersMap = map[string]ProviderInit{
-					"java": {
-						port:  65531,
-						image: "test-image",
-					},
-				}
-			},
-			expectError:   true,
-			errorContains: "Maven settings file not found",
-		},
-		{
-			name: "nonexistent input path",
-			setupFunc: func(a *analyzeCommand) {
-				a.input = "/nonexistent/input/path"
-				a.providersMap = map[string]ProviderInit{
-					"java": {
-						port:  65532,
-						image: "test-image",
-					},
-				}
-			},
-			expectError:   true,
-			errorContains: "Input path not found",
-		},
+		// NOTE: Maven settings and input path validation moved to PreRunE Validate() function
+		// These are no longer validated in validateProviderConfig() to avoid duplication
 	}
 
 	for _, tt := range tests {
