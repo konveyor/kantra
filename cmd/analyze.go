@@ -974,8 +974,9 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
 	} else if mavenCacheVolName != "" {
-		volumes[mavenCacheVolName] = "/root/.m2/repository"
-		a.log.V(1).Info("mounted maven cache volume", "container_path", "/root/.m2/repository")
+		mavenCacheDir := path.Join(util.M2Dir, "repository")
+		volumes[mavenCacheVolName] = mavenCacheDir
+		a.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
 	}
 
 	for prov, init := range a.providersMap {
