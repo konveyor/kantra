@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -199,7 +200,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 		t.Fatalf("extractDefaultRulesets() failed: %v", err)
 	}
 
-	expectedDir := filepath.Join(tempDir, ".rulesets")
+	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", Version))
 	if rulesetsDir != expectedDir {
 		t.Errorf("expected rulesets dir %s, got %s", expectedDir, rulesetsDir)
 	}
@@ -260,7 +261,7 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	}
 
 	// Verify no directory was created
-	expectedDir := filepath.Join(tempDir, ".rulesets")
+	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", Version))
 	if _, err := os.Stat(expectedDir); !os.IsNotExist(err) {
 		t.Error("expected .rulesets directory NOT to be created when disabled")
 	}

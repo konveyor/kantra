@@ -868,8 +868,9 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 // This allows hybrid mode to use default rulesets without bundling them separately on the host.
 //
 // The function creates a temporary container from the runner image, copies the /opt/rulesets
-// directory to the host at {output}/.rulesets/, and removes the temporary container.
-// On subsequent runs, the cached rulesets are reused, avoiding the extraction overhead.
+// directory to the host at {output}/.rulesets-{version}/, and removes the temporary container.
+// On subsequent runs with the same version, the cached rulesets are reused, avoiding the extraction overhead.
+// The version suffix ensures cache invalidation when upgrading/downgrading kantra versions.
 //
 // Parameters:
 //   - ctx: Context for container operations and cancellation
@@ -882,11 +883,11 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 		return "", nil
 	}
 
-	rulesetsDir := filepath.Join(a.output, ".rulesets")
+	rulesetsDir := filepath.Join(a.output, fmt.Sprintf(".rulesets-%s", Version))
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		a.log.Info("extracting default rulesets from container to host", "dir", rulesetsDir)
+		a.log.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
@@ -913,9 +914,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		a.log.Info("extracted default rulesets to host", "dir", rulesetsDir)
+		a.log.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
 	} else {
-		a.log.V(1).Info("using cached default rulesets", "dir", rulesetsDir)
+		a.log.V(1).Info("using cached default rulesets", "version", Version, "dir", rulesetsDir)
 	}
 
 	return rulesetsDir, nil
