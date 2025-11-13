@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -574,6 +575,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		// Check for errors from any task
 		for result := range resultChan {
 			if result.err != nil {
+				// Clean up any successfully created resources before returning
+				if volName != "" {
+					cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "rm", volName)
+					if cleanupErr := cmd.Run(); cleanupErr != nil {
+						errLog.Error(cleanupErr, "failed to cleanup volume after startup failure")
+					}
+				}
 				return fmt.Errorf("%s failed: %w", result.name, result.err)
 			}
 		}
