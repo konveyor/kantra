@@ -171,7 +171,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		selector, err := labels.NewLabelSelector[*engine.RuleMeta](labelSelectors, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", labelSelectors)
-			os.Exit(1)
+			return fmt.Errorf("failed to create label selector: %w", err)
 		}
 		selectors = append(selectors, selector)
 	}
@@ -182,14 +182,14 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
 			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
-			os.Exit(1)
+			return fmt.Errorf("failed to create dependency label selector: %w", err)
 		}
 	}
 
 	err = a.setBinMapContainerless()
 	if err != nil {
 		a.log.Error(err, "unable to find kantra dependencies")
-		os.Exit(1)
+		return fmt.Errorf("unable to find kantra dependencies: %w", err)
 	}
 
 	providers := map[string]provider.InternalProviderClient{}
@@ -205,7 +205,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog, operationalLog)
 	if err != nil {
 		errLog.Error(err, "unable to start Java provider")
-		os.Exit(1)
+		return fmt.Errorf("unable to start Java provider: %w", err)
 	}
 	providers[util.JavaProvider] = javaProvider
 	providerLocations = append(providerLocations, javaLocations...)
@@ -236,7 +236,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, javaTargetPaths, additionalBuiltinConfigs, analyzeLog, operationalLog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
-		os.Exit(1)
+		return fmt.Errorf("unable to start builtin provider: %w", err)
 	}
 	providers["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
@@ -430,7 +430,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	err = os.WriteFile(filepath.Join(a.output, "output.yaml"), b, 0644)
 	if err != nil {
-		os.Exit(1) // Treat the error as a fatal error
+		return fmt.Errorf("failed to write output.yaml: %w", err)
 	}
 
 	err = a.CreateJSONOutput()
@@ -866,7 +866,7 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, excludedTarge
 	return builtinProvider, providerLocations, nil
 }
 
-func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, analysisLog logr.Logger) (map[string]provider.InternalProviderClient, []string) {
+func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, analysisLog logr.Logger) (map[string]provider.InternalProviderClient, []string, error) {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
@@ -884,12 +884,12 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 		} else if config.Name == "builtin" {
 			prov, err = a.setBuiltinProvider(config, analysisLog, logr.Discard())
 			if err != nil {
-				os.Exit(1)
+				return nil, nil, fmt.Errorf("failed to set builtin provider: %w", err)
 			}
 		}
 		providers[config.Name] = prov
 	}
-	return providers, providerLocations
+	return providers, providerLocations, nil
 }
 
 func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needProviders map[string]provider.InternalProviderClient) error {
@@ -908,7 +908,8 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 			additionalBuiltinConfs, err := provider.ProviderInit(initCtx, nil)
 			if err != nil {
 				a.log.Error(err, "unable to init the providers", "provider", name)
-				os.Exit(1)
+				initSpan.End()
+				return fmt.Errorf("unable to init provider %s: %w", name, err)
 			}
 			if additionalBuiltinConfs != nil {
 				additionalBuiltinConfigs = append(additionalBuiltinConfigs, additionalBuiltinConfs...)
