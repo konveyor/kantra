@@ -672,6 +672,15 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
+			// Clean up any providers that were started before this failure
+			// to prevent resource leaks (containers left running)
+			for _, prov := range providers {
+				prov.Stop()
+			}
+			// Remove provider containers
+			if cleanupErr := a.RmProviderContainers(ctx); cleanupErr != nil {
+				errLog.Error(cleanupErr, "failed to cleanup providers after setup failure")
+			}
 			return fmt.Errorf("unable to start provider %s: %w", provName, err)
 		}
 		providers[provName] = provClient
