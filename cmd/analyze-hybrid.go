@@ -247,7 +247,8 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["bundles"] = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
 		if a.mavenSettingsFile != "" {
-			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
+			// Use container path where settings.xml is mounted (copied by getConfigVolumes)
+			providerSpecificConfig["mavenSettingsFile"] = path.Join(util.ConfigMountPath, "settings.xml")
 		}
 
 	case util.GoProvider:
