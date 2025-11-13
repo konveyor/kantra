@@ -216,7 +216,7 @@ cat /tmp/output/analysis.log
 
 ### Current Issues
 
-1. **Health Checks** - Uses 4-second sleep instead of proper health checks
+1. **Health Checks** - Currently rely on TCP port polling; add provider-level readiness probes
 
 2. **Error Recovery** - Provider failure kills entire analysis, no retry logic
 
@@ -244,10 +244,10 @@ podman stop $(podman ps | grep provider | awk '{print $1}')
 
 ### Critical TODOs
 
-- [ ] Provider health checks (replace 4-second sleep)
-- [ ] Better error messages with troubleshooting hints
+- [x] Provider health checks with TCP port polling and exponential backoff
+- [x] Better error messages with troubleshooting hints
 - [ ] Integration tests for all provider types
-- [ ] Retry logic with exponential backoff
+- [ ] Retry logic for transient provider failures
 - [ ] Graceful degradation (continue without failed providers)
 
 ### Testing Matrix
