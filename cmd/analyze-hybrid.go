@@ -558,7 +558,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				dir, err := a.extractDefaultRulesets(ctx, operationalLog)
+				dir, err := a.extractDefaultRulesets(ctx)
 				if err == nil {
 					rulesetsDir = dir
 				}
@@ -598,7 +598,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 
 		// Start providers with port publishing
-		err = a.RunProvidersHostNetwork(ctx, volName, 5, operationalLog)
+		err = a.RunProvidersHostNetwork(ctx, volName, 5)
 
 		// Restore original mount path for provider configuration
 		if a.isFileInput {
