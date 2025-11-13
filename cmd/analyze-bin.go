@@ -216,7 +216,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "  ✓ Decompiling complete\n")
 	}
 
-	//scopes := []engine.Scope{}
 	// Get Java target paths to exclude from builtin
 	// Note: For binary files, skip this as decompilation happens in provider
 	var javaTargetPaths []interface{}
@@ -661,6 +660,7 @@ func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
+					"mavenIndexPath":                filepath.Join(a.kantraDir),
 					"disableMavenSearch":            a.disableMavenSearch,
 					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 				},

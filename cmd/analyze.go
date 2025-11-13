@@ -48,37 +48,37 @@ type ProviderInit struct {
 
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources           bool
-	listTargets           bool
-	listProviders         bool
-	listLanguages         bool
-	skipStaticReport      bool
-	analyzeKnownLibraries bool
-	jsonOutput            bool
-	overwrite             bool
-	bulk                  bool
-	mavenSettingsFile     string
-	sources               []string
-	targets               []string
-	labelSelector         string
-	input                 string
-	output                string
-	mode                  string
-	noDepRules            bool
-	rules                 []string
-	tempRuleDir           string
-	jaegerEndpoint        string
-	enableDefaultRulesets bool
-	httpProxy             string
-	httpsProxy            string
-	noProxy               string
-	contextLines          int
-	incidentSelector      string
-	depFolders            []string
-	provider              []string
-	logLevel              *uint32
-	cleanup               bool
-	runLocal              bool
+	listSources              bool
+	listTargets              bool
+	listProviders            bool
+	listLanguages            bool
+	skipStaticReport         bool
+	analyzeKnownLibraries    bool
+	jsonOutput               bool
+	overwrite                bool
+	bulk                     bool
+	mavenSettingsFile        string
+	sources                  []string
+	targets                  []string
+	labelSelector            string
+	input                    string
+	output                   string
+	mode                     string
+	noDepRules               bool
+	rules                    []string
+	tempRuleDir              string
+	jaegerEndpoint           string
+	enableDefaultRulesets    bool
+	httpProxy                string
+	httpsProxy               string
+	noProxy                  string
+	contextLines             int
+	incidentSelector         string
+	depFolders               []string
+	provider                 []string
+	logLevel                 *uint32
+	cleanup                  bool
+	runLocal                 bool
 	disableMavenSearch       bool
 	noProgress               bool
 	overrideProviderSettings string
@@ -233,7 +233,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// default rulesets are only java rules
 			// may want to change this in the future
 			if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-				return fmt.Errorf("No providers found with default rules. Use --rules option")
+				return fmt.Errorf("no providers found with default rules. Use --rules option")
 			}
 
 			// alizer does not detect certain files such as xml
@@ -279,13 +279,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 
 			// Create conditional logger for static report generation
-		var operationalLog logr.Logger
-		if analyzeCmd.noProgress {
-			operationalLog = log
-		} else {
-			operationalLog = logr.Discard()
-		}
-		err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
+			var operationalLog logr.Logger
+			if analyzeCmd.noProgress {
+				operationalLog = log
+			} else {
+				operationalLog = logr.Discard()
+			}
+			err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
 			if err != nil {
 				log.Error(err, "failed to generate static report")
 				return err
@@ -879,8 +879,9 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 // This allows hybrid mode to use default rulesets without bundling them separately on the host.
 //
 // The function creates a temporary container from the runner image, copies the /opt/rulesets
-// directory to the host at {output}/.rulesets/, and removes the temporary container.
-// On subsequent runs, the cached rulesets are reused, avoiding the extraction overhead.
+// directory to the host at {output}/.rulesets-{version}/, and removes the temporary container.
+// On subsequent runs with the same version, the cached rulesets are reused, avoiding the extraction overhead.
+// The version suffix ensures cache invalidation when upgrading/downgrading kantra versions.
 //
 // Parameters:
 //   - ctx: Context for container operations and cancellation
@@ -888,24 +889,23 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 // Returns:
 //   - string: Path to the extracted rulesets directory, or empty string if disabled
 //   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operationalLog logr.Logger) (string, error) {
+func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, error) {
 	if !a.enableDefaultRulesets {
 		return "", nil
 	}
 
-	rulesetsDir := filepath.Join(a.output, ".rulesets")
+	rulesetsDir := filepath.Join(a.output, fmt.Sprintf(".rulesets-%s", Version))
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		operationalLog.Info("extracting default rulesets from container to host", "dir", rulesetsDir)
+		a.log.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
 		createCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"create", "--name", tempName, Settings.RunnerImage)
-		// Discard output to keep console clean
-		createCmd.Stdout = io.Discard
-		createCmd.Stderr = io.Discard
+		createCmd.Stdout = os.Stdout
+		createCmd.Stderr = os.Stderr
 		if err := createCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to create temp container for ruleset extraction: %w", err)
 		}
@@ -919,16 +919,15 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 		// Copy rulesets from container to host
 		copyCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"cp", fmt.Sprintf("%s:/opt/rulesets", tempName), rulesetsDir)
-		// Discard output to keep console clean
-		copyCmd.Stdout = io.Discard
-		copyCmd.Stderr = io.Discard
+		copyCmd.Stdout = os.Stdout
+		copyCmd.Stderr = os.Stderr
 		if err := copyCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		operationalLog.Info("extracted default rulesets to host", "dir", rulesetsDir)
+		a.log.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
 	} else {
-		a.log.V(1).Info("using cached default rulesets", "dir", rulesetsDir)
+		a.log.V(1).Info("using cached default rulesets", "version", Version, "dir", rulesetsDir)
 	}
 
 	return rulesetsDir, nil
@@ -957,7 +956,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 //
 // Returns:
 //   - error: Any error encountered starting provider containers
-func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, operationalLog logr.Logger) error {
+func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int) error {
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
@@ -976,13 +975,28 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 		maps.Copy(volumes, vols)
 	}
 
+	// Add Maven cache volume for persistent dependency caching
+	// The maven-cache-volume maps to the host's ~/.m2/repository and persists
+	// across analysis runs to avoid re-downloading dependencies. This significantly
+	// improves performance for subsequent analyses. If volume creation fails or
+	// caching is disabled (KANTRA_SKIP_MAVEN_CACHE=true), we continue without
+	// caching (graceful degradation).
+	mavenCacheVolName, err := a.createMavenCacheVolume()
+	if err != nil {
+		a.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
+	} else if mavenCacheVolName != "" {
+		mavenCacheDir := path.Join(util.M2Dir, "repository")
+		volumes[mavenCacheVolName] = mavenCacheDir
+		a.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
+	}
+
 	for prov, init := range a.providersMap {
 		args := []string{fmt.Sprintf("--port=%v", init.port)}
 
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)
 
-		operationalLog.Info("starting provider with port publishing", "provider", prov, "port", init.port)
+		a.log.Info("starting provider with port publishing", "provider", prov, "port", init.port)
 		con := container.NewContainer()
 		err := con.Run(
 			ctx,
@@ -996,7 +1010,6 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 			container.WithCleanup(false),
 			container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 			container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
-			container.WithStdout(io.Discard),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to start provider %s: %w", prov, err)

@@ -70,7 +70,7 @@ jobs:
 
       - name: Run analysis test and copy output
         run: |
-          RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
+          KANTRA_SKIP_MAVEN_CACHE=true RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
       
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
