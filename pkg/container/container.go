@@ -32,6 +32,8 @@ type container struct {
 	cleanup bool
 	// map of source -> dest paths to mount
 	volumes          map[string]string
+	// port mappings in format "host:container"
+	ports            []string
 	cFlag            bool
 	detached         bool
 	log              logr.Logger
@@ -144,6 +146,12 @@ func WithReproduceCmd(r *string) Option {
 }
 
 // WithProxy adds proxy environment variables to the container
+func WithPortPublish(ports ...string) Option {
+	return func(c *container) {
+		c.ports = ports
+	}
+}
+
 func WithProxy(httpProxy, httpsProxy, noProxy string) Option {
 	return func(c *container) {
 		// Pass proxy environment variables from host to container
@@ -246,6 +254,10 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 			args = append(args, fmt.Sprintf("%s:%s",
 				filepath.Clean(sourcePath), path.Clean(destPath)))
 		}
+	}
+	for _, portMapping := range c.ports {
+		args = append(args, "-p")
+		args = append(args, portMapping)
 	}
 	for k, v := range c.env {
 		args = append(args, "--env")

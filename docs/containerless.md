@@ -27,7 +27,7 @@ mv $HOME/kantra.<os>.<arch> $HOME/.kantra
 ```
 
 ## Run analysis:
-Kantra will default to running containerless analysis. To run analysis in containers, use the `--run-local=false` option.
+Kantra defaults to containerless mode. To run in hybrid mode (providers in containers), use `--run-local=false`.
 
 ```sh
 kantra analyze  --input <java-app> --output <output-dir> --rules <java-rules>
