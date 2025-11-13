@@ -805,10 +805,30 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	close(resultChan)
 
 	// Collect and merge results
+	var ruleLoadErrors []error
 	for result := range resultChan {
+		if result.err != nil {
+			ruleLoadErrors = append(ruleLoadErrors, fmt.Errorf("failed to load ruleset %s: %w", result.rulePath, result.err))
+			continue
+		}
 		ruleSets = append(ruleSets, result.ruleSets...)
 		for k, v := range result.providers {
 			needProviders[k] = v
+		}
+	}
+
+	// Check if we have at least one ruleset loaded successfully
+	if len(ruleSets) == 0 {
+		if len(ruleLoadErrors) > 0 {
+			return fmt.Errorf("failed to load any rulesets: %v", ruleLoadErrors)
+		}
+		return fmt.Errorf("no rulesets loaded")
+	}
+
+	// Log warnings for any failed rulesets (if we have at least one successful load)
+	if len(ruleLoadErrors) > 0 {
+		for _, err := range ruleLoadErrors {
+			a.log.Error(err, "ruleset load failed but continuing with other rulesets")
 		}
 	}
 
