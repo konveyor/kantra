@@ -323,6 +323,70 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	return providerClient, providerLocations, additionalBuiltinConfs, nil
 }
 
+// runParallelStartupTasks executes independent startup tasks concurrently for better performance.
+// Returns the volume name and rulesets directory on success.
+func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context) (volName string, rulesetsDir string, err error) {
+	type startupResult struct {
+		name string
+		err  error
+	}
+
+	var wg sync.WaitGroup
+	resultChan := make(chan startupResult, 3)
+
+	// Task 1: Validate provider configuration
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := a.validateProviderConfig()
+		resultChan <- startupResult{name: "config validation", err: err}
+	}()
+
+	// Task 2: Create container volume
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		vol, err := a.createContainerVolume(a.input)
+		if err == nil {
+			volName = vol
+		}
+		resultChan <- startupResult{name: "volume creation", err: err}
+	}()
+
+	// Task 3: Extract default rulesets (if enabled)
+	if a.enableDefaultRulesets {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dir, err := a.extractDefaultRulesets(ctx)
+			if err == nil {
+				rulesetsDir = dir
+			}
+			resultChan <- startupResult{name: "ruleset extraction", err: err}
+		}()
+	}
+
+	// Wait for all startup tasks to complete
+	wg.Wait()
+	close(resultChan)
+
+	// Check for errors from any task
+	for result := range resultChan {
+		if result.err != nil {
+			// Clean up any successfully created resources before returning
+			if volName != "" {
+				cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "rm", volName)
+				if cleanupErr := cmd.Run(); cleanupErr != nil {
+					a.log.Error(cleanupErr, "failed to cleanup volume after startup failure")
+				}
+			}
+			return "", "", fmt.Errorf("%s failed: %w", result.name, result.err)
+		}
+	}
+
+	return volName, rulesetsDir, nil
+}
+
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
 func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
@@ -504,65 +568,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		startProviderSetup := time.Now()
 		operationalLog.Info("[TIMING] Starting provider container setup")
 
-		// Parallelize independent startup tasks for better performance
-		type startupResult struct {
-			name string
-			err  error
-		}
-
-		var wg sync.WaitGroup
-		var volName string
-		var rulesetsDir string
-		resultChan := make(chan startupResult, 3)
-
-		// Task 1: Validate provider configuration
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := a.validateProviderConfig()
-			resultChan <- startupResult{name: "config validation", err: err}
-		}()
-
-		// Task 2: Create container volume
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			vol, err := a.createContainerVolume(a.input)
-			if err == nil {
-				volName = vol
-			}
-			resultChan <- startupResult{name: "volume creation", err: err}
-		}()
-
-		// Task 3: Extract default rulesets (if enabled)
-		if a.enableDefaultRulesets {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				dir, err := a.extractDefaultRulesets(ctx)
-				if err == nil {
-					rulesetsDir = dir
-				}
-				resultChan <- startupResult{name: "ruleset extraction", err: err}
-			}()
-		}
-
-		// Wait for all startup tasks to complete
-		wg.Wait()
-		close(resultChan)
-
-		// Check for errors from any task
-		for result := range resultChan {
-			if result.err != nil {
-				// Clean up any successfully created resources before returning
-				if volName != "" {
-					cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "rm", volName)
-					if cleanupErr := cmd.Run(); cleanupErr != nil {
-						errLog.Error(cleanupErr, "failed to cleanup volume after startup failure")
-					}
-				}
-				return fmt.Errorf("%s failed: %w", result.name, result.err)
-			}
+		// Run independent startup tasks in parallel for better performance
+		volName, rulesetsDir, err := a.runParallelStartupTasks(ctx)
+		if err != nil {
+			return err
 		}
 
 		// Add extracted rulesets to rules list if we got any
