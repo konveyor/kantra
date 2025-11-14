@@ -458,7 +458,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		reportPath := filepath.Join(a.output, "static-report", "index.html")
 		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
 		analysisLogPath := filepath.Join(a.output, "analysis.log")
-		fmt.Fprintf(os.Stderr, "  Logs:   %s\n", analysisLogPath)
+		fmt.Fprintf(os.Stderr, "  Analysis logs: %s\n", analysisLogPath)
 	}
 
 	operationalLog.Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
