@@ -539,14 +539,14 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 			}
 			ext := filepath.Ext(path)
 			if ext != ".yaml" && ext != ".yml" {
-				a.log.Error(fmt.Errorf("rule must be a yaml file %s", path), "skipping invalid rule")
+				a.log.V(1).Info("skipping non-YAML file in rules directory", "file", path)
 			}
 			return nil
 		})
 	} else {
 		ext := filepath.Ext(rulePath)
 		if ext != ".yaml" && ext != ".yml" {
-			a.log.Error(fmt.Errorf("rule must be a yaml file %s", rulePath), "skipping invalid rule")
+			return fmt.Errorf("rule file must have .yaml or .yml extension: %s", rulePath)
 		}
 	}
 	return nil
