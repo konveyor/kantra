@@ -29,6 +29,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"go.lsp.dev/uri"
 
@@ -1488,6 +1489,90 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 	}
 
 	return false, nil
+}
+
+// setupProgressReporter creates and starts a progress reporter for analysis.
+// Returns the reporter, done channel, and cancel function.
+// If noProgress is true, returns a noop reporter with nil channel and cancel func.
+func setupProgressReporter(ctx context.Context, noProgress bool) (
+	reporter progress.ProgressReporter,
+	progressDone chan struct{},
+	progressCancel context.CancelFunc,
+) {
+	if !noProgress {
+		// Create channel-based progress reporter
+		var progressCtx context.Context
+		progressCtx, progressCancel = context.WithCancel(ctx)
+		channelReporter := progress.NewChannelReporter(progressCtx)
+		reporter = channelReporter
+
+		// Start goroutine to consume progress events and render progress bar
+		progressDone = make(chan struct{})
+		go func() {
+			defer close(progressDone)
+
+			// Track cumulative progress across all rulesets
+			var cumulativeTotal int
+			var completedFromPreviousRulesets int
+			var lastRulesetTotal int
+			var justPrintedLoadedRules bool
+
+			for event := range channelReporter.Events() {
+				switch event.Stage {
+				case progress.StageProviderInit:
+					// Skip provider init messages - we show them earlier
+				case progress.StageRuleParsing:
+					if event.Total > 0 {
+						cumulativeTotal += event.Total
+						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+						justPrintedLoadedRules = true
+					}
+				case progress.StageRuleExecution:
+					if event.Total > 0 {
+						// Initialize cumulativeTotal from first event if not set by rule parsing
+						if cumulativeTotal == 0 {
+							cumulativeTotal = event.Total
+							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+							justPrintedLoadedRules = true
+						}
+
+						// Skip first progress bar render right after printing "Loaded rules"
+						if justPrintedLoadedRules {
+							justPrintedLoadedRules = false
+							continue
+						}
+
+						// Detect if we've moved to a new ruleset
+						// This happens when event.Total changes
+						if lastRulesetTotal > 0 && event.Total != lastRulesetTotal {
+							// We've moved to a new ruleset
+							completedFromPreviousRulesets += lastRulesetTotal
+						}
+						lastRulesetTotal = event.Total
+
+						// Calculate overall progress
+						totalCompleted := completedFromPreviousRulesets + event.Current
+
+						overallPercent := (totalCompleted * 100) / cumulativeTotal
+						renderProgressBar(overallPercent, totalCompleted, cumulativeTotal, event.Message)
+					} else if event.Total == 0 && cumulativeTotal > 0 {
+						// Skip rendering if we get a zero-total event but we've already initialized
+						// This prevents spurious escape sequences from being rendered
+						continue
+					}
+				case progress.StageComplete:
+					// Move to next line, keeping the progress bar visible
+					fmt.Fprintf(os.Stderr, "\n\n")
+					fmt.Fprintf(os.Stderr, "Analysis complete!\n")
+				}
+			}
+		}()
+	} else {
+		// Use noop reporter when progress is disabled
+		reporter = progress.NewNoopReporter()
+	}
+
+	return reporter, progressDone, progressCancel
 }
 
 func listLanguages(languages []model.Language, input string) error {
