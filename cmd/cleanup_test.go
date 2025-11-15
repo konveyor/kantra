@@ -120,7 +120,7 @@ func TestAnalyzeCommandContext_RmVolumes(t *testing.T) {
 		{
 			name:        "with volume name",
 			volumeName:  "test-volume",
-			expectError: true, // Will fail because we can't actually remove volume in test
+			expectError: false, // RmVolumes logs errors but doesn't return them
 		},
 	}
 
