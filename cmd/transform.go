@@ -8,12 +8,11 @@ import (
 func NewTransformCommand(log logr.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transform",
-		Short: "Transform application source code or windup XML rules",
+		Short: "Transform application source code",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
 	cmd.AddCommand(NewOpenRewriteCommand(log))
-	cmd.AddCommand(NewWindupShimCommand(log))
 	return cmd
 }

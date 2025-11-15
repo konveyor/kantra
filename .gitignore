@@ -14,3 +14,5 @@ vendor/
 **/ginkgo.report
 
 kantra
+
+settings.json

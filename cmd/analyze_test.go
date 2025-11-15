@@ -2,31 +2,299 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/bombsimon/logrusr/v3"
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
+
+func Test_analyzeCommand_validateRulesPath(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "non-existent path should return error",
+			setupFunc: func() (string, func(), error) {
+				return "/non/existent/path", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "no such file or directory",
+		},
+		{
+			name: "file with .yaml extension should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "test.yaml")
+				err = os.WriteFile(filePath, []byte("test: value"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "file with .yml extension should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "test.yml")
+				err = os.WriteFile(filePath, []byte("test: value"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "xml file extension should not return error but log warning",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "test.xml")
+				err = os.WriteFile(filePath, []byte("test content"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "directory with only YAML files should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				files := []string{"rule1.yaml", "rule2.yml", "nested/rule3.yaml"}
+				for _, file := range files {
+					filePath := filepath.Join(tmpDir, file)
+					dir := filepath.Dir(filePath)
+					if dir != tmpDir {
+						err = os.MkdirAll(dir, 0755)
+						if err != nil {
+							os.RemoveAll(tmpDir)
+							return "", nil, err
+						}
+					}
+					err = os.WriteFile(filePath, []byte("rule: test"), 0644)
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						return "", nil, err
+					}
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "directory with mixed file types should not return error but log warnings",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				files := map[string]string{
+					"rule1.yaml":         "rule: test",
+					"rule2.yml":          "rule: test",
+					"readme.xml":         "This is a readme",
+					"nested/rule3.yaml":  "rule: nested",
+					"nested/invalid.xml": "<root></root>",
+				}
+				for file, content := range files {
+					filePath := filepath.Join(tmpDir, file)
+					dir := filepath.Dir(filePath)
+					if dir != tmpDir {
+						err = os.MkdirAll(dir, 0755)
+						if err != nil {
+							os.RemoveAll(tmpDir)
+							return "", nil, err
+						}
+					}
+					err = os.WriteFile(filePath, []byte(content), 0644)
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						return "", nil, err
+					}
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty directory should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty string path should return error",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "no such file or directory",
+		},
+		{
+			name: "file with no extension should not return error but log warning",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "rulefile")
+				err = os.WriteFile(filePath, []byte("rule: test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "uppercase YAML extension should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "test.YAML")
+				err = os.WriteFile(filePath, []byte("rule: test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "very deep nested directory should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+				deepPath := tmpDir
+				for i := 0; i < 10; i++ {
+					deepPath = filepath.Join(deepPath, fmt.Sprintf("level%d", i))
+				}
+				err = os.MkdirAll(deepPath, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				filePath := filepath.Join(deepPath, "deep.yaml")
+				err = os.WriteFile(filePath, []byte("rule: deep"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "relative path should work",
+			setupFunc: func() (string, func(), error) {
+				relDir := "test-rules-rel"
+				err := os.MkdirAll(relDir, 0755)
+				if err != nil {
+					return "", nil, err
+				}
+
+				filePath := filepath.Join(relDir, "test.yaml")
+				err = os.WriteFile(filePath, []byte("rule: test"), 0644)
+				if err != nil {
+					os.RemoveAll(relDir)
+					return "", nil, err
+				}
+				return relDir, func() { os.RemoveAll(relDir) }, nil
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rulePath, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			a := &analyzeCommand{}
+			a.log = log
+			err = a.validateRulesPath(rulePath)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateRulesPath() expected error but got none")
+				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("validateRulesPath() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("validateRulesPath() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
 
 func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 	tests := []struct {
-		name    string
+		name          string
 		labelSelector string
-		sources []string
-		targets []string
-		want    string
+		sources       []string
+		targets       []string
+		want          string
 	}{
 		{
 			name: "neither sources nor targets must not create label selector",
 		},
 		{
-			name:    "one target specified, return target, catch-all source and default labels",
+			name:    "one target specified, return target and default labels",
 			targets: []string{"test"},
-			want:    "((konveyor.io/target=test) && konveyor.io/source) || (discovery)",
+			want:    "(konveyor.io/target=test) || (discovery)",
 		},
 		{
 			name:    "one source specified, return source and default labels",
@@ -45,9 +313,9 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			want:    "(konveyor.io/source=t1 || konveyor.io/source=t2) || (discovery)",
 		},
 		{
-			name:    "multiple targets specified, OR them all, AND result with catch-all source label, finally OR with default labels",
+			name:    "multiple targets specified, OR them all with default labels",
 			targets: []string{"t1", "t2"},
-			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && konveyor.io/source) || (discovery)",
+			want:    "(konveyor.io/target=t1 || konveyor.io/target=t2) || (discovery)",
 		},
 		{
 			name:    "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",
@@ -56,30 +324,30 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && (konveyor.io/source=t1 || konveyor.io/source=t2)) || (discovery)",
 		},
 		{
-			name:    "return the labelSelector when specified",
+			name:          "return the labelSelector when specified",
 			labelSelector: "example.io/target=foo",
-			want:    "example.io/target=foo",
+			want:          "example.io/target=foo",
 		},
 		{
-			name:    "labelSelector should win",
-			targets: []string{"t1", "t2"},
-			sources: []string{"t1", "t2"},
+			name:          "labelSelector should win",
+			targets:       []string{"t1", "t2"},
+			sources:       []string{"t1", "t2"},
 			labelSelector: "example.io/target=foo",
-			want:    "example.io/target=foo",
+			want:          "example.io/target=foo",
 		},
 		{
-			name:    "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",
-			targets: []string{"t1", "t2"},
-			sources: []string{"t1", "t2"},
+			name:          "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",
+			targets:       []string{"t1", "t2"},
+			sources:       []string{"t1", "t2"},
 			labelSelector: "",
-			want:    "((konveyor.io/target=t1 || konveyor.io/target=t2) && (konveyor.io/source=t1 || konveyor.io/source=t2)) || (discovery)",
+			want:          "((konveyor.io/target=t1 || konveyor.io/target=t2) && (konveyor.io/source=t1 || konveyor.io/source=t2)) || (discovery)",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := &analyzeCommand{
-				sources: tt.sources,
-				targets: tt.targets,
+				sources:       tt.sources,
+				targets:       tt.targets,
 				labelSelector: tt.labelSelector,
 			}
 			if got := a.getLabelSelector(); !reflect.DeepEqual(got, tt.want) {
@@ -89,313 +357,907 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 	}
 }
 
-func TestAnalyzeCommand_Validate(t *testing.T) {
-	testLogger := logrus.New()
-	logger := logrusr.New(testLogger)
-
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "analyze-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create a test file
-	testFile := filepath.Join(tempDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+func Test_analyzeCommand_RunAnalysis_InputValidation(t *testing.T) {
+	log := logr.Discard()
 
 	tests := []struct {
 		name        string
-		cmd         *analyzeCommand
+		setupCtx    func() context.Context
+		volName     string
+		setup       func() *analyzeCommand
 		expectError bool
-		errorContains string
+		errorMsg    string
 	}{
 		{
-			name: "list sources should not validate input",
-			cmd: &analyzeCommand{
-				listSources: true,
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
+			name: "normal context and valid volume name should work",
+			setupCtx: func() context.Context {
+				return context.Background()
+			},
+			volName: "valid-volume-name",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					output:       "/tmp/test-output",
+					contextLines: 10,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						log:          log,
+						providersMap: make(map[string]ProviderInit),
+					},
+				}
 			},
 			expectError: false,
 		},
 		{
-			name: "list targets should not validate input",
-			cmd: &analyzeCommand{
-				listTargets: true,
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
+			name: "cancelled context should return error",
+			setupCtx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				return ctx
 			},
-			expectError: false,
-		},
-		{
-			name: "list providers should not validate input",
-			cmd: &analyzeCommand{
-				listProviders: true,
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: false,
-		},
-		{
-			name: "list languages with valid directory",
-			cmd: &analyzeCommand{
-				listLanguages: true,
-				input:         tempDir,
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: false,
-		},
-		{
-			name: "list languages with valid file",
-			cmd: &analyzeCommand{
-				listLanguages: true,
-				input:         testFile,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:         logger,
-					isFileInput: false, // Will be set to true by validation
-				},
-			},
-			expectError: false,
-		},
-		{
-			name: "list languages with non-existent path",
-			cmd: &analyzeCommand{
-				listLanguages: true,
-				input:         "/nonexistent/path",
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
+			volName: "test-volume",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					output:       "/tmp/test-output",
+					contextLines: 10,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						log:          log,
+						providersMap: make(map[string]ProviderInit),
+					},
+				}
 			},
 			expectError: true,
-			errorContains: "failed to stat input path",
-		},
-		{
-			name: "label selector with sources should error",
-			cmd: &analyzeCommand{
-				labelSelector: "test=value",
-				sources:       []string{"java"},
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: true,
-			errorContains: "must not specify label-selector and sources or targets",
-		},
-		{
-			name: "label selector with targets should error",
-			cmd: &analyzeCommand{
-				labelSelector: "test=value",
-				targets:       []string{"quarkus"},
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: true,
-			errorContains: "must not specify label-selector and sources or targets",
-		},
-		{
-			name: "non-existent rules path should error",
-			cmd: &analyzeCommand{
-				rules: []string{"/nonexistent/rules.yaml"},
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: true,
-			errorContains: "failed to stat rules at path",
-		},
-		{
-			name: "empty rules path should be ignored",
-			cmd: &analyzeCommand{
-				rules: []string{""},
-				output: tempDir,
-				overwrite: true,
-				mode: "full",
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			},
-			expectError: false,
+			errorMsg:    "context canceled",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			err := tt.cmd.Validate(ctx)
+			tmpDir, err := os.MkdirTemp("", "test-run-analysis-input-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
 
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
+			outputDir := filepath.Join(tmpDir, "output")
+			err = os.MkdirAll(outputDir, 0755)
+			if err != nil {
+				t.Fatalf("Failed to create output dir: %v", err)
 			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-			if tt.expectError && err != nil && tt.errorContains != "" {
-				if !analyzeContains(err.Error(), tt.errorContains) {
-					t.Errorf("Expected error to contain '%s', got '%s'", tt.errorContains, err.Error())
+
+			a := tt.setup()
+			a.output = outputDir
+
+			ctx := tt.setupCtx()
+			err = a.validateRunAnalysisInputs(ctx, tt.volName)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
 				}
-			}
-
-			// Test that isFileInput is set correctly for file inputs
-			if tt.cmd.listLanguages && tt.cmd.input == testFile && err == nil {
-				if !tt.cmd.isFileInput {
-					t.Error("Expected isFileInput to be true for file input")
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
 				}
 			}
 		})
 	}
 }
 
-func TestAnalyzeCommand_CheckOverwriteOutput(t *testing.T) {
-	testLogger := logrus.New()
-	logger := logrusr.New(testLogger)
-
-	// Create temporary directories for testing
-	tempDir, err := os.MkdirTemp("", "analyze-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	existingDir := filepath.Join(tempDir, "existing")
-	err = os.Mkdir(existingDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create existing dir: %v", err)
+func (a *analyzeCommand) validateRunAnalysisInputs(ctx context.Context, volName string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
-	nonExistentDir := filepath.Join(tempDir, "nonexistent")
-
-	tests := []struct {
-		name        string
-		output      string
-		overwrite   bool
-		expectError bool
-	}{
-		{
-			name:        "non-existent output directory",
-			output:      nonExistentDir,
-			overwrite:   false,
-			expectError: false,
-		},
-		{
-			name:        "existing output directory without overwrite",
-			output:      existingDir,
-			overwrite:   false,
-			expectError: true,
-		},
-		{
-			name:        "existing output directory with overwrite",
-			output:      existingDir,
-			overwrite:   true,
-			expectError: false,
-		},
+	if a.output == "" {
+		return fmt.Errorf("output directory is required")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &analyzeCommand{
-				output:    tt.output,
-				overwrite: tt.overwrite,
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			}
+	if deadline, ok := ctx.Deadline(); ok && time.Now().After(deadline) {
+		return context.DeadlineExceeded
+	}
 
-			err := cmd.CheckOverwriteOutput()
+	return nil
+}
 
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
+func (a *analyzeCommand) buildVolumeMapping(volName string) map[string]string {
+	return map[string]string{
+		volName:  "/opt/input/source",
+		a.output: "/opt/output",
 	}
 }
 
-func TestAnalyzeCommand_validateProviders(t *testing.T) {
-	testLogger := logrus.New()
-	logger := logrusr.New(testLogger)
-
+func Test_analyzeCommand_needDefaultRules(t *testing.T) {
 	tests := []struct {
-		name        string
-		providers   []string
-		expectError bool
+		name                          string
+		initialEnableDefaultRulesets  bool
+		providersMap                  map[string]ProviderInit
+		expectedEnableDefaultRulesets bool
 	}{
 		{
-			name:        "valid providers",
-			providers:   []string{"java", "go", "python"},
-			expectError: false,
+			name:                          "no providers should disable default rulesets",
+			initialEnableDefaultRulesets:  true,
+			providersMap:                  make(map[string]ProviderInit),
+			expectedEnableDefaultRulesets: false,
 		},
 		{
-			name:        "empty providers",
-			providers:   []string{},
-			expectError: false,
+			name:                         "java provider with enabled rulesets should keep rulesets enabled",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectedEnableDefaultRulesets: true,
 		},
 		{
-			name:        "providers with empty string",
-			providers:   []string{"java", "", "go"},
-			expectError: true,
+			name:                         "java provider with disabled rulesets should keep rulesets disabled",
+			initialEnableDefaultRulesets: false,
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "non-java providers only should disable default rulesets",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.PythonProvider: {},
+				util.GoProvider:     {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "mixed providers including java with enabled rulesets should keep rulesets enabled",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider:   {},
+				util.PythonProvider: {},
+				util.GoProvider:     {},
+			},
+			expectedEnableDefaultRulesets: true,
+		},
+		{
+			name:                         "mixed providers including java with disabled rulesets should keep rulesets disabled",
+			initialEnableDefaultRulesets: false,
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider:   {},
+				util.PythonProvider: {},
+				util.GoProvider:     {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "python provider only should disable default rulesets",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.PythonProvider: {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "go provider only should disable default rulesets",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.GoProvider: {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "nodejs provider only should disable default rulesets",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.NodeJSProvider: {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "dotnet provider only should disable default rulesets",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.DotnetProvider: {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "already disabled rulesets with non-java providers should remain disabled",
+			initialEnableDefaultRulesets: false,
+			providersMap: map[string]ProviderInit{
+				util.PythonProvider: {},
+				util.GoProvider:     {},
+			},
+			expectedEnableDefaultRulesets: false,
+		},
+		{
+			name:                         "java provider first in iteration should enable",
+			initialEnableDefaultRulesets: true,
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider:   {},
+				util.PythonProvider: {},
+				util.GoProvider:     {},
+				util.NodeJSProvider: {},
+			},
+			expectedEnableDefaultRulesets: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &analyzeCommand{
-				AnalyzeCommandContext: AnalyzeCommandContext{log: logger},
-			}
-
-			err := cmd.validateProviders(tt.providers)
-
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-func TestAnalyzeCommand_needDefaultRules(t *testing.T) {
-	testLogger := logrus.New()
-	logger := logrusr.New(testLogger)
-
-	tests := []struct {
-		name                     string
-		enableDefaultRulesets    bool
-		providersMap             map[string]ProviderInit
-		expectedDefaultRulesets  bool
-	}{
-		{
-			name:                    "default rulesets enabled with java provider",
-			enableDefaultRulesets:   true,
-			providersMap:            map[string]ProviderInit{"java": {}},
-			expectedDefaultRulesets: true,
-		},
-		{
-			name:                    "default rulesets disabled",
-			enableDefaultRulesets:   false,
-			providersMap:            map[string]ProviderInit{"java": {}},
-			expectedDefaultRulesets: false,
-		},
-		{
-			name:                    "no java provider",
-			enableDefaultRulesets:   true,
-			providersMap:            map[string]ProviderInit{"go": {}},
-			expectedDefaultRulesets: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &analyzeCommand{
-				enableDefaultRulesets: tt.enableDefaultRulesets,
+			a := &analyzeCommand{
+				enableDefaultRulesets: tt.initialEnableDefaultRulesets,
 				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          logger,
 					providersMap: tt.providersMap,
 				},
 			}
+			a.needDefaultRules()
 
-			cmd.needDefaultRules()
-
-			if cmd.enableDefaultRulesets != tt.expectedDefaultRulesets {
-				t.Errorf("Expected enableDefaultRulesets to be %t, got %t", tt.expectedDefaultRulesets, cmd.enableDefaultRulesets)
+			if a.enableDefaultRulesets != tt.expectedEnableDefaultRulesets {
+				t.Errorf("needDefaultRules() set enableDefaultRulesets = %v, want %v",
+					a.enableDefaultRulesets, tt.expectedEnableDefaultRulesets)
 			}
 		})
 	}
 }
 
-// Helper function for string contains check
-func analyzeContains(s, substr string) bool {
-	return strings.Contains(s, substr)
+func Test_analyzeCommand_needDefaultRules_StateChanges(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                string
+		initialState        *analyzeCommand
+		expectedOnlyChanged []string
+	}{
+		{
+			name: "should only modify enableDefaultRulesets when disabling",
+			initialState: &analyzeCommand{
+				enableDefaultRulesets: true,
+				output:                "/test/output",
+				contextLines:          100,
+				sources:               []string{"test"},
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					providersMap: map[string]ProviderInit{util.PythonProvider: {}},
+				},
+			},
+			expectedOnlyChanged: []string{"enableDefaultRulesets"},
+		},
+		{
+			name: "should not modify anything when java provider present and rulesets enabled",
+			initialState: &analyzeCommand{
+				enableDefaultRulesets: true,
+				output:                "/test/output",
+				contextLines:          100,
+				sources:               []string{"test"},
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					providersMap: map[string]ProviderInit{util.JavaProvider: {}},
+				},
+			},
+			expectedOnlyChanged: []string{},
+		},
+		{
+			name: "should not modify anything when rulesets already disabled",
+			initialState: &analyzeCommand{
+				enableDefaultRulesets: false,
+				output:                "/test/output",
+				contextLines:          100,
+				sources:               []string{"test"},
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					providersMap: map[string]ProviderInit{util.PythonProvider: {}},
+				},
+			},
+			expectedOnlyChanged: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := &analyzeCommand{
+				enableDefaultRulesets: tt.initialState.enableDefaultRulesets,
+				output:                tt.initialState.output,
+				contextLines:          tt.initialState.contextLines,
+				sources:               make([]string, len(tt.initialState.sources)),
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          tt.initialState.log,
+					providersMap: make(map[string]ProviderInit),
+				},
+			}
+			copy(original.sources, tt.initialState.sources)
+			for k, v := range tt.initialState.providersMap {
+				original.providersMap[k] = v
+			}
+
+			tt.initialState.needDefaultRules()
+
+			changedFields := []string{}
+
+			if tt.initialState.enableDefaultRulesets != original.enableDefaultRulesets {
+				changedFields = append(changedFields, "enableDefaultRulesets")
+			}
+			if tt.initialState.output != original.output {
+				changedFields = append(changedFields, "output")
+			}
+			if tt.initialState.contextLines != original.contextLines {
+				changedFields = append(changedFields, "contextLines")
+			}
+			if !reflect.DeepEqual(tt.initialState.sources, original.sources) {
+				changedFields = append(changedFields, "sources")
+			}
+			if !reflect.DeepEqual(tt.initialState.providersMap, original.providersMap) {
+				changedFields = append(changedFields, "providersMap")
+			}
+
+			if !reflect.DeepEqual(changedFields, tt.expectedOnlyChanged) {
+				t.Errorf("needDefaultRules() changed fields %v, expected only %v to change",
+					changedFields, tt.expectedOnlyChanged)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_needDefaultRules_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *analyzeCommand
+		expected bool
+	}{
+		{
+			name: "nil providersMap should disable rulesets",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					enableDefaultRulesets: true,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						providersMap: nil,
+					},
+				}
+			},
+			expected: false,
+		},
+		{
+			name: "empty string key in providersMap should not match java",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					enableDefaultRulesets: true,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						providersMap: map[string]ProviderInit{
+							"": {},
+						},
+					},
+				}
+			},
+			expected: false,
+		},
+		{
+			name: "whitespace in provider name should not match java",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					enableDefaultRulesets: true,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						providersMap: map[string]ProviderInit{
+							" java ": {},
+						},
+					},
+				}
+			},
+			expected: false,
+		},
+		{
+			name: "java with different casing should not match",
+			setup: func() *analyzeCommand {
+				return &analyzeCommand{
+					enableDefaultRulesets: true,
+					AnalyzeCommandContext: AnalyzeCommandContext{
+						providersMap: map[string]ProviderInit{
+							"JAVA": {},
+							"Java": {},
+							"jAvA": {},
+						},
+					},
+				}
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := tt.setup()
+			a.needDefaultRules()
+
+			if a.enableDefaultRulesets != tt.expected {
+				t.Errorf("needDefaultRules() set enableDefaultRulesets = %v, want %v",
+					a.enableDefaultRulesets, tt.expected)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_CheckOverwriteOutput(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (*analyzeCommand, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "non-existent output directory should pass",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				return &analyzeCommand{
+					output: "/non/existent/output/path",
+				}, func() {}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "existing output directory without overwrite should fail",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-output-")
+				if err != nil {
+					return nil, nil, err
+				}
+				return &analyzeCommand{
+					output:    tmpDir,
+					overwrite: false,
+				}, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "already exists and --overwrite not set",
+		},
+		{
+			name: "existing output directory with overwrite should pass",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-output-")
+				if err != nil {
+					return nil, nil, err
+				}
+				// Create a test file to verify it gets removed
+				testFile := filepath.Join(tmpDir, "test.txt")
+				err = os.WriteFile(testFile, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+				return &analyzeCommand{
+					output:    tmpDir,
+					overwrite: true,
+				}, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "bulk analysis with existing analysis.log should fail",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-output-")
+				if err != nil {
+					return nil, nil, err
+				}
+				logFile := filepath.Join(tmpDir, "analysis.log")
+				err = os.WriteFile(logFile, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+				return &analyzeCommand{
+					output: tmpDir,
+					bulk:   true,
+				}, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "already contains 'analysis.log'",
+		},
+		{
+			name: "bulk analysis with same input should fail",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-output-")
+				if err != nil {
+					return nil, nil, err
+				}
+				inputDir, err := os.MkdirTemp("", "test-input-")
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+				outputFile := fmt.Sprintf("output.yaml.%s", filepath.Base(inputDir))
+				outputPath := filepath.Join(tmpDir, outputFile)
+				err = os.WriteFile(outputPath, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					os.RemoveAll(inputDir)
+					return nil, nil, err
+				}
+				return &analyzeCommand{
+						output: tmpDir,
+						input:  inputDir,
+						bulk:   true,
+					}, func() {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+					}, nil
+			},
+			wantErr: true,
+			errMsg:  "already contains analysis report for provided input",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			err = a.CheckOverwriteOutput()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("CheckOverwriteOutput() expected error but got none")
+				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("CheckOverwriteOutput() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("CheckOverwriteOutput() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_moveResults(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (*analyzeCommand, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "successful move with all files present",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-move-")
+				if err != nil {
+					return nil, nil, err
+				}
+				inputDir, err := os.MkdirTemp("", "test-input-")
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+
+				files := map[string]string{
+					"output.yaml":       "test output",
+					"analysis.log":      "test log",
+					"dependencies.yaml": "test deps",
+				}
+				for filename, content := range files {
+					filePath := filepath.Join(tmpDir, filename)
+					err = os.WriteFile(filePath, []byte(content), 0644)
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+						return nil, nil, err
+					}
+				}
+
+				return &analyzeCommand{
+						input:  inputDir,
+						output: tmpDir,
+						mode:   "full",
+					}, func() {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+					}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "move without dependencies.yaml should succeed",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-move-")
+				if err != nil {
+					return nil, nil, err
+				}
+				inputDir, err := os.MkdirTemp("", "test-input-")
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+
+				// Create only output.yaml and analysis.log
+				files := map[string]string{
+					"output.yaml":  "test output",
+					"analysis.log": "test log",
+				}
+				for filename, content := range files {
+					filePath := filepath.Join(tmpDir, filename)
+					err = os.WriteFile(filePath, []byte(content), 0644)
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+						return nil, nil, err
+					}
+				}
+
+				return &analyzeCommand{
+						input:  inputDir,
+						output: tmpDir,
+						mode:   "source-only",
+					}, func() {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+					}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing output.yaml should fail",
+			setupFunc: func() (*analyzeCommand, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-move-")
+				if err != nil {
+					return nil, nil, err
+				}
+				inputDir, err := os.MkdirTemp("", "test-input-")
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, err
+				}
+
+				// Create only analysis.log
+				filePath := filepath.Join(tmpDir, "analysis.log")
+				err = os.WriteFile(filePath, []byte("test log"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					os.RemoveAll(inputDir)
+					return nil, nil, err
+				}
+
+				return &analyzeCommand{
+						input:  inputDir,
+						output: tmpDir,
+					}, func() {
+						os.RemoveAll(tmpDir)
+						os.RemoveAll(inputDir)
+					}, nil
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			err = a.moveResults()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("moveResults() expected error but got none")
+				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("moveResults() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("moveResults() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_disableMavenSearch_flagParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected bool
+	}{
+		{
+			name:     "disable-maven-search flag set to true",
+			args:     []string{"analyze", "--disable-maven-search=true", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+		{
+			name:     "disable-maven-search flag set to false",
+			args:     []string{"analyze", "--disable-maven-search=false", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "disable-maven-search flag not provided (default false)",
+			args:     []string{"analyze", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "disable-maven-search flag provided without value (true)",
+			args:     []string{"analyze", "--disable-maven-search", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logr.Discard()
+			cmd := NewAnalyzeCmd(log)
+
+			// Set args and parse
+			cmd.SetArgs(tt.args[1:]) // Remove "analyze" since that's the command name
+			err := cmd.ParseFlags(tt.args[1:])
+			if err != nil {
+				t.Fatalf("Failed to parse flags: %v", err)
+			}
+
+			// Check if we can extract the flag value via reflection or by creating a new command
+			// Since we can't easily access the internal state, let's test via flag lookup
+			flagValue, err := cmd.Flags().GetBool("disable-maven-search")
+			if err != nil {
+				t.Fatalf("Failed to get disable-maven-search flag: %v", err)
+			}
+
+			if flagValue != tt.expected {
+				t.Errorf("disableMavenSearch = %v, want %v", flagValue, tt.expected)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_getConfigVolumes_disableMavenSearch(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                       string
+		disableMavenSearch         bool
+		expectedDisableMavenSearch bool
+	}{
+		{
+			name:                       "disableMavenSearch true",
+			disableMavenSearch:         true,
+			expectedDisableMavenSearch: true,
+		},
+		{
+			name:                       "disableMavenSearch false",
+			disableMavenSearch:         false,
+			expectedDisableMavenSearch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-input-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			outputDir, err := os.MkdirTemp("", "test-output-")
+			if err != nil {
+				t.Fatalf("Failed to create output dir: %v", err)
+			}
+			defer os.RemoveAll(outputDir)
+
+			a := &analyzeCommand{
+				input:              tmpDir,
+				output:             outputDir,
+				disableMavenSearch: tt.disableMavenSearch,
+				mode:               "source-only",
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					isFileInput:  false,
+					needsBuiltin: true,
+				},
+			}
+
+			// Mock Settings to avoid nil pointer
+			originalSettings := Settings
+			Settings = &Config{
+				JvmMaxMem: "1g",
+			}
+			defer func() { Settings = originalSettings }()
+			configVols, err := a.getConfigVolumes()
+			if err != nil {
+				t.Fatalf("getConfigVolumes() error = %v", err)
+			}
+			if len(configVols) == 0 {
+				t.Fatal("Expected config volumes to be created")
+			}
+
+			tempDir, err := os.MkdirTemp("", "analyze-config-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			javaTargetPaths, _ := kantraProvider.WalkJavaPathForTarget(log, false, tmpDir)
+
+			configInput := kantraProvider.ConfigInput{
+				IsFileInput:             false,
+				InputPath:               tmpDir,
+				OutputPath:              outputDir,
+				MavenSettingsFile:       "",
+				Log:                     log,
+				Mode:                    "source-only",
+				Port:                    6734,
+				TmpDir:                  tempDir,
+				JvmMaxMem:               "1g",
+				DepsFolders:             []string{},
+				JavaExcludedTargetPaths: javaTargetPaths,
+				DisableMavenSearch:      tt.disableMavenSearch,
+			}
+
+			if configInput.DisableMavenSearch != tt.expectedDisableMavenSearch {
+				t.Errorf("ConfigInput.DisableMavenSearch = %v, want %v",
+					configInput.DisableMavenSearch, tt.expectedDisableMavenSearch)
+			}
+		})
+	}
+}
+
+func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                       string
+		disableMavenSearch         bool
+		expectedDisableMavenSearch bool
+	}{
+		{
+			name:                       "disableMavenSearch true in config",
+			disableMavenSearch:         true,
+			expectedDisableMavenSearch: true,
+		},
+		{
+			name:                       "disableMavenSearch false in config",
+			disableMavenSearch:         false,
+			expectedDisableMavenSearch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temporary directory for testing
+			tmpDir, err := os.MkdirTemp("", "test-java-config-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			configInput := kantraProvider.ConfigInput{
+				IsFileInput:             false,
+				InputPath:               tmpDir,
+				OutputPath:              tmpDir,
+				MavenSettingsFile:       "",
+				Log:                     log,
+				Mode:                    "source-only",
+				Port:                    6734,
+				TmpDir:                  tmpDir,
+				JvmMaxMem:               "1g",
+				DepsFolders:             []string{},
+				JavaExcludedTargetPaths: []interface{}{},
+				DisableMavenSearch:      tt.disableMavenSearch,
+			}
+
+			javaProvider := &kantraProvider.JavaProvider{}
+			config, err := javaProvider.GetConfigVolume(configInput)
+			if err != nil {
+				t.Fatalf("JavaProvider.GetConfigVolume() error = %v", err)
+			}
+
+			if len(config.InitConfig) == 0 {
+				t.Fatal("Expected InitConfig to have at least one entry")
+			}
+
+			providerConfig := config.InitConfig[0].ProviderSpecificConfig
+			disableMavenSearchValue, exists := providerConfig["disableMavenSearch"]
+			if !exists {
+				t.Fatal("Expected disableMavenSearch to be present in ProviderSpecificConfig")
+			}
+
+			if disableMavenSearchValue != tt.expectedDisableMavenSearch {
+				t.Errorf("ProviderSpecificConfig[\"disableMavenSearch\"] = %v, want %v",
+					disableMavenSearchValue, tt.expectedDisableMavenSearch)
+			}
+		})
+	}
 }

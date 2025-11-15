@@ -11,7 +11,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 - [Setup (For Mac and Windows Only)](#setup-for-mac-and-windows-only)
 - [Usage](#usage)
   - [Analyze an application](#analyze)
-  - [Transform an application or XML rules](#transform)
+  - [Transform an application](#transform)
   - [Test YAML rules](#test)
   - [Asset Generation](#asset-generation)
 - [References](#references)
@@ -128,7 +128,7 @@ Kantra has five subcommands:
 
 1. _analyze_: This subcommand allows running source code analysis on input source code or a binary.
 
-2. _transform_: This subcommand allows either converting XML rules to YAML or running OpenRewrite recipes on source code.
+2. _transform_: This subcommand allows running OpenRewrite recipes on source code.
 
 3. _test_: This subcommand allows testing YAML rules.
 
@@ -173,6 +173,7 @@ Flags:
   -o, --output string                    path to the directory for analysis output
       --overwrite                        overwrite output directory
       --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
+      --run-local                        run Java analysis in containerless mode (default true)
       --skip-static-report               do not generate static report
   -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
   -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
@@ -191,11 +192,9 @@ kantra analyze --bulk --input=<path/to/source/C> --output=<path/to/output/ABC>
 
 ### Transform
 
-Transform has two subcommands:
+Transform has one subcommand:
 
 1. _openrewrite_: This subcommand allows running one or more available OpenRewrite recipes on input source code.
-
-2. _rules_: This subcommand allows converting Windup XML rules into the analyzer-lsp YAML format.
 
 #### OpenRewrite
 
@@ -223,27 +222,6 @@ Flags:
   -l, --list-targets            list all available OpenRewrite recipes
   -s, --maven-settings string   path to a custom maven settings file to use
   -t, --target string           target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.
-```
-
-#### Rules
-
-_rules_ subcommand allows converting Windup XML rules to analyzer-lsp YAML rules using [windup-shim](https://github.com/konveyor/windup-shim)
-
-To convert Windup XML rules to the analyzer-lsp YAML format, run:
-
-```sh
-kantra transform rules --input=<path/to/xmlrules> --output=<path/to/output/dir>
-```
-
-_--input_ flag should point to a file or a directory containing XML rules, _--output_ should point to an output directory for YAML rules.
-
-All flags:
-
-```sh
-Flags:
-  -h, --help                help for rules
-  -i, --input stringArray   path to XML rule file(s) or directory
-  -o, --output string       path to output directory
 ```
 
 ### Test
@@ -414,6 +392,7 @@ Flags:
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
 - [Setup dev environment instructions](./hack/README.md#setup-dev-environment-for-asset-generation)
+- [Containerless mode](./docs/containerless.md)
 
 ## Code of Conduct
 

@@ -56,7 +56,7 @@ ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}
 # Set the working directory inside the container
 WORKDIR C:/app
 
-RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\input\rules\custom C:\opt\output C:\opt\xmlrules C:\opt\shimoutput C:\tmp\source-app C:\tmp\source-app\input
+RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\input\rules\custom C:\opt\output C:\tmp\source-app C:\tmp\source-app\input
 
 # Copy the executable from the builder stage
 COPY --from=builder /workspace/kantra.exe .

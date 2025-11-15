@@ -143,6 +143,32 @@ func WithReproduceCmd(r *string) Option {
 	}
 }
 
+// WithProxy adds proxy environment variables to the container
+func WithProxy(httpProxy, httpsProxy, noProxy string) Option {
+	return func(c *container) {
+		// Pass proxy environment variables from host to container
+		proxyVars := []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy"}
+		for _, proxyVar := range proxyVars {
+			if value := os.Getenv(proxyVar); value != "" {
+				c.env[proxyVar] = value
+			}
+		}
+
+		// Pass proxy settings from command line flags to container
+		proxyFlags := map[string]string{
+			"HTTP_PROXY":  httpProxy,
+			"HTTPS_PROXY": httpsProxy,
+			"NO_PROXY":    noProxy,
+		}
+
+		for envVar, value := range proxyFlags {
+			if value != "" {
+				c.env[envVar] = value
+			}
+		}
+	}
+}
+
 func RandomName() string {
 	rand.Seed(int64(time.Now().Nanosecond()))
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

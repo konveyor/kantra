@@ -81,6 +81,7 @@ type analyzeCommand struct {
 	logLevel                 *uint32
 	cleanup                  bool
 	runLocal                 bool
+	disableMavenSearch       bool
 	AnalyzeCommandContext
 }
 
@@ -145,6 +146,16 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			if analyzeCmd.overrideProviderSettings == "" {
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
+					// list sources/targets in containerless mode
+					if analyzeCmd.runLocal {
+						err := analyzeCmd.listLabelsContainerless(ctx)
+						if err != nil {
+							analyzeCmd.log.Error(err, "failed to list rule labels")
+							return err
+						}
+						return nil
+					}
+					// list sources/targets in container mode
 					err := analyzeCmd.ListLabels(cmd.Context())
 					if err != nil {
 						log.Error(err, "failed to list rule labels")
@@ -205,11 +216,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						}
 						return nil
 					}
-					err := analyzeCmd.RunAnalysisContainerless(cmd.Context())
+					cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
+					err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
+					defer cancelFunc()
 					if err != nil {
 						return err
 					}
-
 					return nil
 				}
 
@@ -227,11 +239,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return fmt.Errorf("No providers found with default rules. Use --rules option")
 				}
 
-				xmlOutputDir, err := analyzeCmd.ConvertXML(ctx)
-				if err != nil {
-					log.Error(err, "failed to convert xml rules")
-					return err
-				}
 				// alizer does not detect certain files such as xml
 				// in this case, we can first check for a java project
 				// if not found, only start builtin provider
@@ -244,7 +251,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 						foundProviders = append(foundProviders, util.JavaProvider)
 					} else {
 						analyzeCmd.needsBuiltin = true
-						return analyzeCmd.RunAnalysis(ctx, xmlOutputDir, analyzeCmd.input)
+						return analyzeCmd.RunAnalysis(ctx, analyzeCmd.input)
 					}
 				}
 
@@ -278,7 +285,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to run provider")
 					return err
 				}
-				err = analyzeCmd.RunAnalysis(ctx, xmlOutputDir, containerVolName)
+				err = analyzeCmd.RunAnalysis(ctx, containerVolName)
 				if err != nil {
 					log.Error(err, "failed to run analysis")
 					return err
@@ -334,7 +341,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override the provider settings, the analysis pod will be run on the host network and no providers will be started up")
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
-
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	return analyzeCommand
 }
 
@@ -361,6 +368,11 @@ func (a *analyzeCommand) Validate(ctx context.Context) error {
 	for _, rulePath := range a.rules {
 		if _, err := os.Stat(rulePath); rulePath != "" && err != nil {
 			return fmt.Errorf("%w failed to stat rules at path %s", err, rulePath)
+		}
+		if rulePath != "" {
+			if err := a.validateRulesPath(rulePath); err != nil {
+				return err
+			}
 		}
 	}
 	// Validate source labels
@@ -555,6 +567,31 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 	return nil
 }
 
+func (a *analyzeCommand) validateRulesPath(rulePath string) error {
+	stat, err := os.Stat(rulePath)
+	if err != nil {
+		return err
+	}
+	if stat.IsDir() {
+		return filepath.WalkDir(rulePath, func(path string, d fs.DirEntry, err error) error {
+			if d.IsDir() {
+				return nil
+			}
+			ext := filepath.Ext(path)
+			if ext != ".yaml" && ext != ".yml" {
+				a.log.Error(fmt.Errorf("rule must be a yaml file %s", path), "skipping invalid rule")
+			}
+			return nil
+		})
+	} else {
+		ext := filepath.Ext(rulePath)
+		if ext != ".yaml" && ext != ".yml" {
+			a.log.Error(fmt.Errorf("rule must be a yaml file %s", rulePath), "skipping invalid rule")
+		}
+	}
+	return nil
+}
+
 func (a *analyzeCommand) needDefaultRules() {
 	needDefaultRulesets := false
 	for prov := range a.providersMap {
@@ -650,6 +687,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			container.WithEntrypointArgs(args...),
 			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
+			container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 		)
 		if err != nil {
 			a.log.Error(err, "failed listing labels")
@@ -719,6 +757,8 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		JvmMaxMem:               Settings.JvmMaxMem,
 		DepsFolders:             depsFolders,
 		JavaExcludedTargetPaths: javaTargetPaths,
+		DisableMavenSearch:      a.disableMavenSearch,
+		JavaBundleLocation:      JavaBundlesLocation,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)
@@ -812,10 +852,6 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 		}
 		// move rules files passed into dir to mount
 		if !stat.IsDir() {
-			// XML rules are handled outside of this func
-			if util.IsXMLFile(r) {
-				continue
-			}
 			destFile := filepath.Join(tempDir, fmt.Sprintf("rules%d.yaml", i))
 			err := util.CopyFileContents(r, destFile)
 			if err != nil {
@@ -921,6 +957,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(networkName),
+				container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 			)
 			if err != nil {
 				err := a.retryProviderContainer(ctx, networkName, volName, retry)
@@ -946,6 +983,7 @@ func (a *analyzeCommand) RunProviders(ctx context.Context, networkName string, v
 				container.WithCleanup(false),
 				container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 				container.WithNetwork(fmt.Sprintf("container:%v", a.providerContainerNames[0])),
+				container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 			)
 			if err != nil {
 				err := a.retryProviderContainer(ctx, networkName, volName, retry)
@@ -1047,6 +1085,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 		container.WithNetwork("host"),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
@@ -1059,7 +1098,7 @@ func (a *analyzeCommand) RunAnalysisOverrideProviderSettings(ctx context.Context
 	return nil
 }
 
-func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, volName string) error {
+func (a *analyzeCommand) RunAnalysis(ctx context.Context, volName string) error {
 	volumes := map[string]string{
 		// application source code
 		volName: util.SourceMountPath,
@@ -1067,17 +1106,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		a.output: util.OutputPath,
 	}
 	a.needDefaultRules()
-	var convertPath string
-	if xmlOutputDir != "" {
-		if !a.enableDefaultRulesets {
-			convertPath = path.Join(util.CustomRulePath, "convert")
-		} else {
-			convertPath = path.Join(util.RulesetPath, "convert")
-		}
-		volumes[xmlOutputDir] = convertPath
-		// for cleanup purposes
-		a.tempDirs = append(a.tempDirs, xmlOutputDir)
-	}
 	configVols, err := a.getConfigVolumes()
 	if err != nil {
 		a.log.V(1).Error(err, "failed to get config volumes for analysis")
@@ -1161,7 +1189,6 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		networkName = "none"
 	}
 	c := container.NewContainer()
-	// TODO (pgaikwad): run analysis & deps in parallel
 	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
@@ -1175,6 +1202,7 @@ func (a *analyzeCommand) RunAnalysis(ctx context.Context, xmlOutputDir string, v
 		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
@@ -1430,9 +1458,9 @@ func (a *analyzeCommand) getLabelSelector() string {
 				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
 		} else {
 			// when target is specified, but source is not
-			// use a catch-all expression for source
-			return fmt.Sprintf("(%s && %s) || (%s)",
-				targetExpr, outputv1.SourceTechnologyLabel, strings.Join(defaultLabels, " || "))
+			// return target expression OR'd with default labels
+			return fmt.Sprintf("%s || (%s)",
+				targetExpr, strings.Join(defaultLabels, " || "))
 		}
 	}
 	if sourceExpr != "" {
@@ -1441,101 +1469,6 @@ func (a *analyzeCommand) getLabelSelector() string {
 			sourceExpr, strings.Join(defaultLabels, " || "))
 	}
 	return ""
-}
-
-func (a *analyzeCommand) getXMLRulesVolumes(tempRuleDir string) (map[string]string, error) {
-	rulesVolumes := make(map[string]string)
-	mountTempDir := false
-	for _, r := range a.rules {
-		stat, err := os.Stat(r)
-		if err != nil {
-			a.log.V(1).Error(err, "failed to stat rules")
-			return nil, err
-		}
-		// move xml rule files from user into dir to mount
-		if !stat.IsDir() {
-			if !util.IsXMLFile(r) {
-				continue
-			}
-			mountTempDir = true
-			xmlFileName := filepath.Base(r)
-			destFile := filepath.Join(tempRuleDir, xmlFileName)
-			err := util.CopyFileContents(r, destFile)
-			if err != nil {
-				a.log.V(1).Error(err, "failed to move rules file from source to destination", "src", r, "dest", destFile)
-				return nil, err
-			}
-		} else {
-			rulesVolumes[r] = path.Join(util.XMLRulePath, filepath.Base(r))
-		}
-	}
-	if mountTempDir {
-		rulesVolumes[tempRuleDir] = util.XMLRulePath
-	}
-	return rulesVolumes, nil
-}
-
-func (a *analyzeCommand) ConvertXML(ctx context.Context) (string, error) {
-	if a.rules == nil || len(a.rules) == 0 {
-		return "", nil
-	}
-	tempDir, err := os.MkdirTemp("", "transform-rules-")
-	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp dir for rules")
-		return "", err
-	}
-	a.log.V(1).Info("created directory for XML rules", "dir", tempDir)
-	tempOutputDir, err := os.MkdirTemp("", "transform-output-")
-	if err != nil {
-		a.log.V(1).Error(err, "failed to create temp dir for rules")
-		return "", err
-	}
-	a.log.V(1).Info("created directory for converted XML rules", "dir", tempOutputDir)
-	if a.cleanup {
-		defer os.RemoveAll(tempDir)
-	}
-	volumes := map[string]string{
-		tempOutputDir: util.ShimOutputPath,
-	}
-
-	ruleVols, err := a.getXMLRulesVolumes(tempDir)
-	if err != nil {
-		a.log.V(1).Error(err, "failed to get XML rule volumes for analysis")
-		return "", err
-	}
-	maps.Copy(volumes, ruleVols)
-
-	shimLogPath := filepath.Join(a.output, "shim.log")
-	shimLog, err := os.Create(shimLogPath)
-	if err != nil {
-		return "", fmt.Errorf("failed creating shim log file %s", shimLogPath)
-	}
-	defer shimLog.Close()
-
-	args := []string{"convert",
-		fmt.Sprintf("--outputdir=%v", util.ShimOutputPath),
-		util.XMLRulePath,
-	}
-	a.log.Info("running windup shim",
-		"output", a.output, "args", strings.Join(args, " "), "volumes", volumes)
-	a.log.Info("generating shim log in file", "file", shimLogPath)
-	err = container.NewContainer().Run(
-		ctx,
-		container.WithImage(Settings.RunnerImage),
-		container.WithLog(a.log.V(1)),
-		container.WithStdout(shimLog),
-		container.WithStderr(shimLog),
-		container.WithVolumes(volumes),
-		container.WithEntrypointArgs(args...),
-		container.WithEntrypointBin("/usr/local/bin/windup-shim"),
-		container.WithContainerToolBin(Settings.ContainerBinary),
-		container.WithCleanup(a.cleanup),
-	)
-	if err != nil {
-		return "", err
-	}
-
-	return tempOutputDir, nil
 }
 
 func (a *analyzeCommand) writeProvConfig(tempDir string, config []provider.Config) error {
@@ -1781,6 +1714,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 		container.WithCleanup(a.cleanup),
 		container.WithNetwork(networkName),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err
@@ -1910,6 +1844,7 @@ func (a *analyzeCommand) analyzeDotnetFramework(ctx context.Context) error {
 		container.WithNetwork(networkName),
 		container.WithContainerToolBin(Settings.ContainerBinary),
 		container.WithCleanup(a.cleanup),
+		container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
 	)
 	if err != nil {
 		return err

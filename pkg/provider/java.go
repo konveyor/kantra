@@ -2,14 +2,15 @@ package provider
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -37,9 +38,10 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 				AnalysisMode: provider.AnalysisMode(c.Mode),
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 util.JavaProvider,
-					"bundles":                       util.JavaBundlesLocation,
+					"bundles":                       c.JavaBundleLocation,
 					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
 					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+					"disableMavenSearch":            c.DisableMavenSearch,
 				},
 			},
 		},
@@ -124,7 +126,12 @@ func WaitForTargetDir(log logr.Logger, path string) error {
 	if err != nil {
 		return err
 	}
-	log.V(7).Info("waiting for target directory in decompiled Java project")
+
+	// target dir already exists
+	if _, err := os.Stat(filepath.Join(path, "target")); err == nil {
+		return nil
+	}
+	log.Info("waiting for target directory in decompiled Java project")
 
 	for {
 		select {

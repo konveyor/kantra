@@ -1,6 +1,7 @@
 package cloud_foundry
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +30,10 @@ var (
 	concealSensitiveData bool
 	listApps             bool
 )
+
+type manifestOutput struct {
+	Manifest cfProvider.Application `yaml:"manifest"`
+}
 
 func NewDiscoverCloudFoundryCommand(log logr.Logger) (string, *cobra.Command) {
 	logger = log
@@ -326,8 +331,13 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 	}
 	printer := printers.NewOutput(out)
 	printFunc := printer.ToStdout
+
+	output := map[string]any{
+		"manifest": discoverResult.Content,
+	}
+
 	// Marshal content
-	d, err := cfProvider.MarshalUnmarshal[cfProvider.Application](discoverResult.Content)
+	d, err := marshalUnmarshal[manifestOutput](output)
 	if err != nil {
 		return err
 	}
@@ -348,7 +358,7 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 	} else {
 		contentHeader := ""
 		// Write to stdout
-		if discoverResult.Secret != nil {
+		if len(discoverResult.Secret) > 0 {
 			contentHeader = "--- Content Section ---\n"
 		}
 		printer.ToStdoutWithHeader(contentHeader, string(contentBytes))
@@ -381,4 +391,16 @@ func OutputAppManifestsYAML(out io.Writer, discoverResult *providerTypes.Discove
 
 func isEmptyYamlString(yamlString string) bool {
 	return len(yamlString) == 0 || yamlString == "{}\n" || yamlString == "{}"
+}
+
+// Generic helper for marshaling/unmarshaling between types
+func marshalUnmarshal[T any](input interface{}) (T, error) {
+	var result T
+
+	b, err := json.Marshal(input)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(b, &result)
+	return result, err
 }

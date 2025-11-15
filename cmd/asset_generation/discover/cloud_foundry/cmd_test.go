@@ -64,8 +64,8 @@ var _ = Describe("Discover Manifest", func() {
 				Expect(err).ToNot(HaveOccurred(), "Expected no error for invalid manifest, but got one")
 			}
 		},
-		Entry("with an empty manifest", "", "no app name found in manifest file"),
-		Entry("with invalid YAML content", "invalid content", "failed to unmarshal YAML from"),
+		Entry("with an empty manifest", "", "no applications found in"),
+		Entry("with invalid YAML content", "invalid content", "failed to unmarshal YAML"),
 		Entry("with a valid manifest", `name: test-app`, nil),
 	)
 
@@ -297,7 +297,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app"))
 
 				// Verify secrets section is NOT present
@@ -326,7 +326,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app-with-sensitive-data"))
 
 				// Verify secrets section is present
@@ -398,7 +398,7 @@ var _ = Describe("Discover command", func() {
 				output := out.String()
 
 				// Verify content section is present
-				Expect(output).To(ContainSubstring("--- Content Section ---"))
+				Expect(output).NotTo(ContainSubstring("--- Content Section ---"))
 				Expect(output).To(ContainSubstring("test-app"))
 
 				// Verify secrets section is NOT present
@@ -658,7 +658,7 @@ var _ = Describe("Discover command", func() {
 
 			Expect(executeErr).To(Succeed())
 			expectedOutput := getExpectedYAMLOutput()
-			Expect(strings.TrimSpace(out.String())).To(Equal(strings.TrimSpace("--- Content Section ---\n" + expectedOutput)))
+			Expect(strings.TrimSpace(out.String())).To(Equal(strings.TrimSpace(expectedOutput)))
 		})
 
 		Context("when input file does not exist", func() {
@@ -880,8 +880,8 @@ env:
 services:
   - database-service
 docker:
-    image: myregistry/myapp:latest
-    username: docker-registry-user
+  image: myregistry/myapp:latest
+  username: docker-registry-user
 `)
 	manifestPath := filepath.Join(tempDir, "manifest-with-secrets.yml")
 	Expect(os.WriteFile(manifestPath, manifestContent, 0644)).To(Succeed())
@@ -902,10 +902,19 @@ func readOutputFile(outputPath, filename string) string {
 }
 
 func getExpectedYAMLOutput() string {
-	return `name: test-app
-timeout: 60
-memory: 256M
-instances: 1`
+	return `manifest:
+    name: test-app
+    processes:
+        - type: web
+          memory: 256M
+          healthCheck:
+            invocationTimeout: 1
+            interval: 30
+            type: port
+            timeout: 60
+          readinessCheck:
+            type: process
+          instances: 1`
 }
 
 func helperCreateTestManifest(manifestPath string, content string, perm os.FileMode) error {

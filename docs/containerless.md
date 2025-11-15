@@ -1,8 +1,12 @@
 # Run Containerless Kantra
 
-Have OpenJDK 17+ and Maven installed
-
-Have $JAVA_HOME set.
+Requirements:
+- Have OpenJDK 17+ and Maven installed.
+- Have $JAVA_HOME set.
+- **For Gradle analysis**:
+  - Have OpenJDK 8 installed.
+  - Have $JAVA8_HOME set and pointing to the OpenJDK 8 home.
+  - The project should have a Gradle wrapper.
 
 ## Download kantra and requirements:
 
@@ -11,7 +15,7 @@ Download appropriate zip for your OS [here](https://github.com/konveyor/kantra/r
 ## Move kantra binary to your $PATH:
 
 ```sh
-mv $HOME/kantra.<os>.<arch>/<os>-kantra /usr/bin
+mv $HOME/kantra.<os>.<arch>/<os>-kantra /usr/local/bin
 ```
 
 ### Move requirements to kantra known location, or run kantra from the current directory:

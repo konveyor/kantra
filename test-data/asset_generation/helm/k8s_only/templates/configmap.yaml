@@ -6,4 +6,4 @@ data:
   {{- end}}
 kind: ConfigMap
 metadata:
-  name: sample
+  name: {{ .Values.name | default "sample" | quote }}

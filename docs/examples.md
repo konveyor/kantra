@@ -53,7 +53,7 @@ static-report
     For example:
     `kantra discover cloud-foundry
     --input=./test-data/asset_generation/discover/cf-sample-app.yaml`
-    
+
 - Print list of available applications of source platform resources
 `kantra discover cloud-foundry --input=<path-to/manifest-yaml> --list-apps`
 
@@ -112,11 +112,23 @@ static-report
     For example:
     `kantra generate helm --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml`
 
+- Output the Helm template manifests with additional values in the CLI
+`kantra generate helm --set <key1=val1,key2=val2,...> --input=<path-to/discover-manifest> --chart-dir=<path-to/helm-chart>`
+
+    For example:
+    `kantra generate helm --set foo.bar=overwrite --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml`
+
 - Print the Helm template manifests
 `kantra generate helm --input=<path/to/discover/manifest> --chart-dir=<path/to/helmchart> --output-dir=<path-to/output-dir>`
 
     For example:
     `kantra generate helm --chart-dir=./test-data/asset_generation/helm/k8s_only --input=./test-data/asset_generation/helm/discover.yaml --output-dir=/tmp/generate-dir`
+
+- Output the Helm template manifests for non kubernetes templates only:
+`kantra generate helm --non-k8s-only --input=<path-to/discover-manifest> --chart-dir=<path-to/helm-chart>`
+
+    For example:
+    `kantra generate helm --non-k8s-only --chart-dir=./test-data/asset_generation/helm/mixed_templates --input=./test-data/asset_generation/helm/discover.yaml`
 
 
 ### Running as a Tekton Task

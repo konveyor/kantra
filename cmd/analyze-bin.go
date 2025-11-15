@@ -79,17 +79,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	defer analysisLog.Close()
 
-	// try to convert any xml rules
-	xmlTempConverted, xmlTempRulesDirs, err := a.ConvertXMLContainerless()
-	if err != nil {
-		a.log.Error(err, "failed to convert xml rules")
-		return err
-	}
-	defer os.RemoveAll(xmlTempConverted)
-	for _, d := range xmlTempRulesDirs {
-		defer os.RemoveAll(d)
-	}
-
 	// clean jdtls dirs after analysis
 	defer func() {
 		if err := a.cleanlsDirs(); err != nil {
@@ -143,6 +132,17 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		os.Exit(1)
 	}
 
+	providers := map[string]provider.InternalProviderClient{}
+	providerLocations := []string{}
+
+	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog)
+	if err != nil {
+		errLog.Error(err, "unable to start Java provider")
+		os.Exit(1)
+	}
+	providers[util.JavaProvider] = javaProvider
+	providerLocations = append(providerLocations, javaLocations...)
+
 	//scopes := []engine.Scope{}
 	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
 	if err != nil {
@@ -150,15 +150,13 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
 	}
 
-	// Get the configs
-	a.log.Info("creating provider config")
-	finalConfigs, err := a.createProviderConfigsContainerless(javaTargetPaths)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, javaTargetPaths, additionalBuiltinConfigs, analyzeLog)
 	if err != nil {
-		errLog.Error(err, "unable to get Java provider configuration")
+		errLog.Error(err, "unable to start builtin provider")
 		os.Exit(1)
 	}
-
-	providers, providerLocations := a.setInternalProviders(finalConfigs, analyzeLog)
+	providers["builtin"] = builtinProvider
+	providerLocations = append(providerLocations, builtinLocations...)
 
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 	//start up the rule eng
@@ -181,7 +179,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	needProviders := map[string]provider.InternalProviderClient{}
 
 	if a.enableDefaultRulesets {
-		a.rules = append(a.rules, filepath.Join(a.kantraDir, util.RulesetsLocation))
+		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
 
 	for _, f := range a.rules {
@@ -195,11 +193,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		for k, v := range internNeedProviders {
 			needProviders[k] = v
 		}
-	}
-
-	err = a.startProvidersContainerless(ctx, needProviders)
-	if err != nil {
-		os.Exit(1)
 	}
 
 	// start dependency analysis for full analysis mode only
@@ -263,6 +256,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 }
 
 func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
+	// validate input app is not the current dir
+	// .metadata cannot initialize in the app root
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if a.input == currentDir {
+		return fmt.Errorf("input path %s cannot be the current directory", a.input)
+	}
+
 	// validate mvn and openjdk install
 	_, mvnErr := exec.LookPath("mvn")
 	if mvnErr != nil {
@@ -291,8 +294,8 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, util.RulesetsLocation), filepath.Join(a.kantraDir, util.JavaBundlesLocation),
-		filepath.Join(a.kantraDir, util.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
+	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, RulesetsLocation), filepath.Join(a.kantraDir, JavaBundlesLocation),
+		filepath.Join(a.kantraDir, JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
 	for _, path := range requiredDirs {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
@@ -336,7 +339,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 
 func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(a.kantraDir, util.RulesetsLocation)
+	path := filepath.Join(a.kantraDir, RulesetsLocation)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		a.log.Error(err, "cannot open provided path")
 		return nil, err
@@ -361,7 +364,7 @@ func (a *analyzeCommand) setKantraDir() error {
 	var err error
 	set := true
 	reqs := []string{
-		util.RulesetsLocation,
+		RulesetsLocation,
 		"jdtls",
 		"static-report",
 	}
@@ -400,8 +403,8 @@ func (a *analyzeCommand) setKantraDir() error {
 }
 
 func (a *analyzeCommand) setBinMapContainerless() error {
-	a.reqMap["bundle"] = filepath.Join(a.kantraDir, util.JavaBundlesLocation)
-	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, util.JDTLSBinLocation)
+	a.reqMap["bundle"] = filepath.Join(a.kantraDir, JavaBundlesLocation)
+	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, JDTLSBinLocation)
 	// validate
 	for _, v := range a.reqMap {
 		stat, err := os.Stat(v)
@@ -415,7 +418,24 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 	return nil
 }
 
-func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
+func (a *analyzeCommand) makeBuiltinProviderConfig(excludedTargetPaths []interface{}) provider.Config {
+	builtinConfig := provider.Config{
+		Name: "builtin",
+		InitConfig: []provider.InitConfig{
+			{
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: map[string]interface{}{},
+			},
+		},
+	}
+	if len(excludedTargetPaths) > 0 {
+		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
+	}
+	return builtinConfig
+}
+
+func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
 	javaConfig := provider.Config{
 		Name:       util.JavaProvider,
 		BinaryPath: a.reqMap["jdtls"],
@@ -430,6 +450,8 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 					"bundles":                       a.reqMap["bundle"],
 					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
 					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
+					"disableMavenSearch":            a.disableMavenSearch,
+					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 				},
 			},
 		},
@@ -440,20 +462,12 @@ func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths 
 	if Settings.JvmMaxMem != "" {
 		javaConfig.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = Settings.JvmMaxMem
 	}
+	return javaConfig
+}
 
-	builtinConfig := provider.Config{
-		Name: "builtin",
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               a.input,
-				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{},
-			},
-		},
-	}
-	if len(excludedTargetPaths) > 0 {
-		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
-	}
+func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
+	builtinConfig := a.makeBuiltinProviderConfig(excludedTargetPaths)
+	javaConfig := a.makeJavaProviderConfig()
 
 	provConfigs := []provider.Config{builtinConfig, javaConfig}
 
@@ -534,34 +548,131 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 	return finalConfigs
 }
 
+func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog logr.Logger) (provider.InternalProviderClient, error) {
+	a.log.Info("setting provider from provider config", "provider", config.Name)
+	config.ContextLines = a.contextLines
+
+	// IF analysis mode is set from the CLI, then we will override this for each init config
+	if a.mode != "" {
+		inits := []provider.InitConfig{}
+		for _, i := range config.InitConfig {
+			i.AnalysisMode = provider.AnalysisMode(a.mode)
+			inits = append(inits, i)
+		}
+		config.InitConfig = inits
+	}
+
+	prov, err := lib.GetProviderClient(config, analysisLog)
+	if err != nil {
+		a.log.Error(err, "failed to create builtin provider")
+		return nil, err
+	}
+
+	return prov, nil
+}
+
+func (a *analyzeCommand) setJavaProvider(config provider.Config, analysisLog logr.Logger) provider.InternalProviderClient {
+	a.log.Info("setting provider from provider config", "provider", config.Name)
+	config.ContextLines = a.contextLines
+
+	// If analysis mode is set from the CLI, then we will override this for each init config
+	if a.mode != "" {
+		inits := []provider.InitConfig{}
+		for _, i := range config.InitConfig {
+			i.AnalysisMode = provider.AnalysisMode(a.mode)
+			inits = append(inits, i)
+		}
+		config.InitConfig = inits
+	}
+
+	return java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
+}
+
+func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+	javaConfig := a.makeJavaProviderConfig()
+	if a.httpProxy != "" || a.httpsProxy != "" {
+		proxy := provider.Proxy{
+			HTTPProxy:  a.httpProxy,
+			HTTPSProxy: a.httpsProxy,
+			NoProxy:    a.noProxy,
+		}
+		javaConfig.Proxy = &proxy
+	}
+	javaConfig.ContextLines = a.contextLines
+
+	providerLocations := []string{}
+	for _, ind := range javaConfig.InitConfig {
+		providerLocations = append(providerLocations, ind.Location)
+	}
+
+	javaProvider := a.setJavaProvider(javaConfig, analysisLog)
+
+	a.log.Info("starting provider", "provider", util.JavaProvider)
+	initCtx, initSpan := tracing.StartNewSpan(ctx, "init",
+		attribute.Key("provider").String(util.JavaProvider))
+	additionalBuiltinConfs, err := javaProvider.ProviderInit(initCtx, nil)
+	if err != nil {
+		a.log.Error(err, "unable to init the providers", "provider", util.JavaProvider)
+		initSpan.End()
+		return nil, nil, nil, err
+	}
+	initSpan.End()
+
+	return javaProvider, providerLocations, additionalBuiltinConfs, nil
+}
+
+func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
+	a.log.Info("setting up builtin provider")
+	builtinConfig := a.makeBuiltinProviderConfig(excludedTargetPaths)
+
+	// Set proxy if configured
+	if a.httpProxy != "" || a.httpsProxy != "" {
+		proxy := provider.Proxy{
+			HTTPProxy:  a.httpProxy,
+			HTTPSProxy: a.httpsProxy,
+			NoProxy:    a.noProxy,
+		}
+		builtinConfig.Proxy = &proxy
+	}
+	builtinConfig.ContextLines = a.contextLines
+
+	providerLocations := []string{}
+	for _, ind := range builtinConfig.InitConfig {
+		providerLocations = append(providerLocations, ind.Location)
+	}
+
+	builtinProvider, err := a.setBuiltinProvider(builtinConfig, analysisLog)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	a.log.Info("starting provider", "provider", "builtin")
+	if _, err := builtinProvider.ProviderInit(ctx, additionalConfigs); err != nil {
+		a.log.Error(err, "unable to init the builtin provider")
+		return nil, nil, err
+	}
+
+	return builtinProvider, providerLocations, nil
+}
+
 func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, analysisLog logr.Logger) (map[string]provider.InternalProviderClient, []string) {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
+
 	for _, config := range finalConfigs {
-		a.log.Info("setting provider from provider config", "provider", config.Name)
-		config.ContextLines = a.contextLines
 		for _, ind := range config.InitConfig {
 			providerLocations = append(providerLocations, ind.Location)
 		}
-		// IF analsyis mode is set from the CLI, then we will override this for each init config
-		if a.mode != "" {
-			inits := []provider.InitConfig{}
-			for _, i := range config.InitConfig {
-				i.AnalysisMode = provider.AnalysisMode(a.mode)
-				inits = append(inits, i)
-			}
-			config.InitConfig = inits
-		}
+
 		var prov provider.InternalProviderClient
 		var err error
+
 		// only create java and builtin providers
 		if config.Name == util.JavaProvider {
-			prov = java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
-
+			prov = a.setJavaProvider(config, analysisLog)
 		} else if config.Name == "builtin" {
-			prov, err = lib.GetProviderClient(config, analysisLog)
+			prov, err = a.setBuiltinProvider(config, analysisLog)
 			if err != nil {
-				a.log.Error(err, "failed to create builtin provider")
 				os.Exit(1)
 			}
 		}
