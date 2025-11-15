@@ -48,17 +48,33 @@ func (c *AnalyzeCommandContext) RmNetwork(ctx context.Context) error {
 }
 
 func (c *AnalyzeCommandContext) RmVolumes(ctx context.Context) error {
-	if c.volumeName == "" {
-		return nil
+	// Remove source volume
+	if c.volumeName != "" {
+		cmd := exec.CommandContext(
+			ctx,
+			Settings.ContainerBinary,
+			"volume",
+			"rm", c.volumeName)
+		c.log.V(1).Info("removing created volume",
+			"volume", c.volumeName)
+		if err := cmd.Run(); err != nil {
+			c.log.V(1).Error(err, "failed to remove volume", "volume", c.volumeName)
+		}
 	}
-	cmd := exec.CommandContext(
-		ctx,
-		Settings.ContainerBinary,
-		"volume",
-		"rm", c.volumeName)
-	c.log.V(1).Info("removing created volume",
-		"volume", c.volumeName)
-	return cmd.Run()
+
+	// NOTE: We do NOT remove the Maven cache volume here!
+	// The Maven cache volume (maven-cache-volume) is designed to persist across
+	// analysis runs to avoid re-downloading dependencies. Removing it would defeat
+	// the purpose of caching. The volume maps to the host's ~/.m2/repository and
+	// will be reused by subsequent analyses.
+	//
+	// To manually clean the Maven cache if needed:
+	//   podman volume rm maven-cache-volume
+	//
+	// Or clean the host cache directory:
+	//   rm -rf ~/.m2/repository
+
+	return nil
 }
 
 func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error {

@@ -114,6 +114,36 @@ Increase podman resources (minimum 4G memory is required):
 podman machine set <vm_name> --cpus 4 --memory 4096
 ```
 
+###### Known Limitation: Static Report Generation with `/tmp` on macOS
+
+When using hybrid mode (`--run-local=false`), static HTML report generation will fail if the output directory is under `/tmp`. This is a Podman Desktop limitation on macOS where `/tmp` paths cannot be mounted to containers.
+
+**Important Notes:**
+- The analysis itself completes successfully and produces correct `output.yaml` and `dependencies.yaml` files
+- Only the static HTML report generation fails
+- This limitation does NOT affect containerless mode (`--run-local`)
+
+**Workarounds:**
+
+1. **Use output directories outside `/tmp`** (recommended):
+   ```sh
+   # Works - generates static report
+   kantra analyze --input=./myapp --output=./output
+
+   # Fails static report on macOS - but analysis succeeds
+   kantra analyze --input=./myapp --output=/tmp/output
+   ```
+
+2. **Skip static report generation**:
+   ```sh
+   kantra analyze --input=./myapp --output=/tmp/output --skip-static-report
+   ```
+
+3. **Use containerless mode** (no container limitations):
+   ```sh
+   kantra analyze --input=./myapp --output=/tmp/output --run-local
+   ```
+
 ##### Windows
 
 Init the machine:
@@ -148,6 +178,29 @@ kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
 
 _--input_ must point to a source code directory or a binary file, _--output_ must point to a directory to contain analysis results.
 
+#### Analysis Modes
+
+Kantra supports two analysis modes:
+
+| Mode | Description | When to Use | Performance |
+|------|-------------|-------------|-------------|
+| **Containerless** (default) | Everything runs on host | Development, debugging, Linux systems | Fast on Linux |
+| **Hybrid** | Analyzer runs on host, providers in containers | Production use, macOS, multi-language apps | Faster on macOS |
+
+**Containerless Mode** (default):
+```sh
+# Default - just run analyze
+kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir>
+```
+
+**Hybrid Mode**:
+```sh
+# Use --run-local=false for hybrid mode
+kantra analyze --input=<path/to/source/code> --output=<path/to/output/dir> --run-local=false
+```
+
+For detailed information about hybrid mode, see [docs/hybrid.md](./docs/hybrid.md).
+
 All flags:
 
 ```
@@ -173,7 +226,7 @@ Flags:
   -o, --output string                    path to the directory for analysis output
       --overwrite                        overwrite output directory
       --rules stringArray                filename or directory containing rule files. Use multiple times for additional rules: --rules <rule1> --rules <rule2> ...
-      --run-local                        run Java analysis in containerless mode (default true)
+      --run-local                        run analysis in containerless mode. When false, uses hybrid mode with providers in containers (default true)
       --skip-static-report               do not generate static report
   -s, --source stringArray               source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...
   -t, --target stringArray               target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...
@@ -392,6 +445,7 @@ Flags:
 - [Using provider options](./docs/usage.md)
 - [Test runner for YAML rules](./docs/testrunner.md)
 - [Setup dev environment instructions](./hack/README.md#setup-dev-environment-for-asset-generation)
+- [Hybrid mode](./docs/hybrid.md)
 - [Containerless mode](./docs/containerless.md)
 
 ## Code of Conduct
