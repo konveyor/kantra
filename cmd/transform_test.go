@@ -23,7 +23,7 @@ func TestNewTransformCommand(t *testing.T) {
 		t.Errorf("Expected Use to be 'transform', got '%s'", cmd.Use)
 	}
 
-	if cmd.Short != "Transform application source code or windup XML rules" {
+	if cmd.Short != "Transform application source code" {
 		t.Errorf("Expected specific Short description, got '%s'", cmd.Short)
 	}
 
@@ -33,8 +33,8 @@ func TestNewTransformCommand(t *testing.T) {
 
 	// Test that subcommands are added
 	commands := cmd.Commands()
-	expectedSubcommands := []string{"openrewrite", "rules"}
-	
+	expectedSubcommands := []string{"openrewrite"}
+
 	if len(commands) != len(expectedSubcommands) {
 		t.Errorf("Expected %d subcommands, got %d", len(expectedSubcommands), len(commands))
 	}
@@ -99,7 +99,6 @@ func TestTransformCommand_Subcommands(t *testing.T) {
 		expected bool
 	}{
 		{"openrewrite subcommand exists", "openrewrite", true},
-		{"rules subcommand exists", "rules", true},
 		{"nonexistent subcommand", "nonexistent", false},
 	}
 
@@ -159,7 +158,7 @@ func TestTransformCommand_LoggerUsage(t *testing.T) {
 	for _, subcmd := range commands {
 		// Each subcommand should have been created with the logger
 		// This is an indirect test since we can't easily inspect the logger
-		if subcmd.Use == "openrewrite" || subcmd.Use == "rules" {
+		if subcmd.Use == "openrewrite" {
 			// Test that the subcommand was created successfully
 			if subcmd.RunE == nil && subcmd.Run == nil {
 				t.Errorf("Subcommand '%s' should have a run function", subcmd.Use)
@@ -190,9 +189,8 @@ func TestTransformCommand_HelpCommand(t *testing.T) {
 	// Check that help contains expected sections
 	expectedStrings := []string{
 		"transform",
-		"Transform application source code or windup XML rules",
+		"Transform application source code",
 		"openrewrite",
-		"rules",
 	}
 	
 	for _, expected := range expectedStrings {
@@ -249,8 +247,8 @@ func TestTransformCommand_Structure(t *testing.T) {
 	}
 	
 	// Test that it has the expected number of subcommands
-	if len(cmd.Commands()) != 2 {
-		t.Errorf("Expected 2 subcommands, got %d", len(cmd.Commands()))
+	if len(cmd.Commands()) != 1 {
+		t.Errorf("Expected 1 subcommand, got %d", len(cmd.Commands()))
 	}
 }
 
@@ -287,8 +285,8 @@ func TestTransformCommand_LoggerTypes(t *testing.T) {
 			}
 			
 			// Test that subcommands are still created
-			if len(cmd.Commands()) != 2 {
-				t.Errorf("Expected 2 subcommands, got %d", len(cmd.Commands()))
+			if len(cmd.Commands()) != 1 {
+				t.Errorf("Expected 1 subcommand, got %d", len(cmd.Commands()))
 			}
 		})
 	}
