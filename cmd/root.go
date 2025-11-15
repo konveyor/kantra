@@ -7,6 +7,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"testing"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/discover"
@@ -30,14 +31,17 @@ var rootCmd = &cobra.Command{
 	Long:         ``,
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// Try to parse flags, but ignore errors that occur during testing
-		// when test flags like --test.v are passed to the command
+		// Parse flags and only ignore errors during test execution
 		err := cmd.ParseFlags(args)
 		if err != nil {
-			// During testing, Go may pass test-specific flags that our command
-			// doesn't recognize. We'll silently ignore parse errors in this case.
-			// The logLevel will use its default value (4) if parsing fails.
-			return
+			// Only silently ignore errors during testing when Go passes test-specific
+			// flags like --test.v that our command doesn't recognize
+			if testing.Testing() {
+				// The logLevel will use its default value (4) if parsing fails in tests
+				return
+			}
+			// In production, report the error to the user
+			log.Fatalf("Error parsing flags: %v", err)
 		}
 		// TODO (pgaikwad): this is a hack to set log level
 		// this won't work if any subcommand overrides this func
