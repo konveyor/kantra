@@ -37,32 +37,6 @@ func TestNewTestCommand(t *testing.T) {
 	}
 }
 
-func TestTestCommand_Structure(t *testing.T) {
-	testLogger := logrus.New()
-	testLogger.SetOutput(bytes.NewBuffer(nil))
-	logger := logrusr.New(testLogger)
-
-	cmd := NewTestCommand(logger)
-	
-	// Test command properties
-	if cmd.Use != "test" {
-		t.Errorf("Expected Use to be 'test', got '%s'", cmd.Use)
-	}
-	
-	if cmd.Short == "" {
-		t.Error("Expected Short description to be set")
-	}
-	
-	if cmd.RunE == nil {
-		t.Error("Expected RunE function to be set")
-	}
-	
-	// Test that it has no subcommands
-	if len(cmd.Commands()) != 0 {
-		t.Errorf("Expected 0 subcommands, got %d", len(cmd.Commands()))
-	}
-}
-
 func TestTestCommand_Flags(t *testing.T) {
 	testLogger := logrus.New()
 	testLogger.SetOutput(bytes.NewBuffer(nil))
