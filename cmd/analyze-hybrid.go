@@ -465,40 +465,34 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
 
+	// Create progress mode to encapsulate progress reporting behavior
+	progressMode := NewProgressMode(a.noProgress)
+
 	// Create a conditional logger that only outputs in --no-progress mode
 	// In progress mode, operational messages are suppressed to avoid interfering with the progress bar
-	var operationalLog logr.Logger
-	if a.noProgress {
-		operationalLog = a.log
-	} else {
-		operationalLog = logr.Discard()
-	}
+	operationalLog := progressMode.OperationalLogger(a.log)
 
 	operationalLog.Info("[TIMING] Hybrid analysis starting")
 	operationalLog.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
 
 	// Hide cursor at the very start if progress is enabled
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "\033[?25l")
-		// Ensure cursor is shown at the end
-		defer fmt.Fprintf(os.Stderr, "\033[?25h")
-	}
+	progressMode.HideCursor()
+	// Ensure cursor is shown at the end
+	defer progressMode.ShowCursor()
 
 	// Show simplified message in progress mode
-	if !a.noProgress {
-		// Detect if this is binary analysis based on file extension
-		isBinaryAnalysis := false
-		if a.isFileInput {
-			ext := filepath.Ext(a.input)
-			isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
-				ext == util.EnterpriseArchive || ext == util.ClassFile)
-		}
+	// Detect if this is binary analysis based on file extension
+	isBinaryAnalysis := false
+	if a.isFileInput {
+		ext := filepath.Ext(a.input)
+		isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+			ext == util.EnterpriseArchive || ext == util.ClassFile)
+	}
 
-		if isBinaryAnalysis {
-			fmt.Fprintf(os.Stderr, "Running binary analysis...\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "Running source analysis...\n")
-		}
+	if isBinaryAnalysis {
+		progressMode.Printf("Running binary analysis...\n")
+	} else {
+		progressMode.Printf("Running source analysis...\n")
 	}
 
 	// Create analysis log file
@@ -517,7 +511,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Add console hook for rule processing messages
 	// but only if progress is disabled (to avoid interfering with progress bar)
-	if a.noProgress {
+	if progressMode.ShouldAddConsoleHook() {
 		consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
 		logrusAnalyzerLog.AddHook(consoleHook)
 	}
@@ -590,9 +584,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				"adjusted", util.SourceMountPath)
 		}
 
-		if !a.noProgress {
-			fmt.Fprintf(os.Stderr, "  ✓ Created volume\n")
-		}
+		progressMode.Printf("  ✓ Created volume\n")
 
 		// Start providers with port publishing
 		err = a.RunProvidersHostNetwork(ctx, volName, 5)
@@ -607,9 +599,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
 
-		if !a.noProgress {
-			fmt.Fprintf(os.Stderr, "  ✓ Started provider containers\n")
-		}
+		progressMode.Printf("  ✓ Started provider containers\n")
 
 		// Wait for providers to become ready with health checks (in parallel)
 		operationalLog.Info("waiting for providers to become ready...")
@@ -722,15 +712,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providerLocations = append(providerLocations, builtinLocations...)
 
 	// Show provider initialization completion in progress mode
-	if !a.noProgress {
-		// Build provider names dynamically from the providers map
-		providerNames := make([]string, 0, len(providers))
-		for name := range providers {
-			providerNames = append(providerNames, name)
-		}
-		sort.Strings(providerNames) // Sort for consistent output
-		fmt.Fprintf(os.Stderr, "  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+	// Build provider names dynamically from the providers map
+	providerNames := make([]string, 0, len(providers))
+	for name := range providers {
+		providerNames = append(providerNames, name)
 	}
+	sort.Strings(providerNames) // Sort for consistent output
+	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
 
 	// Create rule engine
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
@@ -750,9 +738,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		DepLabelSelector:     dependencyLabelSelector,
 	}
 
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "  ✓ Started rules engine\n")
-	}
+	progressMode.Printf("  ✓ Started rules engine\n")
 
 	// Load rules in parallel for better performance
 	ruleSets := []engine.RuleSet{}
@@ -862,7 +848,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}, selectors...)
 
 	// Cancel progress context and wait for goroutine to finish
-	if !a.noProgress {
+	if progressMode.IsEnabled() {
 		progressCancel()  // This closes the Events() channel
 		<-progressDone    // Wait for goroutine to finish
 	}
@@ -921,13 +907,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	operationalLog.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
 	// Print results summary (only in progress mode, not in --no-progress mode)
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "\nResults:\n")
-		reportPath := filepath.Join(a.output, "static-report", "index.html")
-		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
-		analysisLogPath := filepath.Join(a.output, "analysis.log")
-		fmt.Fprintf(os.Stderr, "  Analysis logs: %s\n", analysisLogPath)
-	}
+	progressMode.Println("\nResults:")
+	reportPath := filepath.Join(a.output, "static-report", "index.html")
+	progressMode.Printf("  Report: file://%s\n", reportPath)
+	analysisLogPath := filepath.Join(a.output, "analysis.log")
+	progressMode.Printf("  Analysis logs: %s\n", analysisLogPath)
 
 	operationalLog.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	operationalLog.Info("hybrid analysis completed successfully")

@@ -83,23 +83,19 @@ func renderProgressBar(percent int, current, total int, message string) {
 func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	startTotal := time.Now()
 
+	// Create progress mode to encapsulate progress reporting behavior
+	progressMode := NewProgressMode(a.noProgress)
+
 	// Create a conditional logger that only outputs in --no-progress mode
 	// In progress mode, operational messages are suppressed to avoid interfering with the progress bar
-	var operationalLog logr.Logger
-	if a.noProgress {
-		operationalLog = a.log
-	} else {
-		operationalLog = logr.Discard()
-	}
+	operationalLog := progressMode.OperationalLogger(a.log)
 
 	operationalLog.Info("[TIMING] Containerless analysis starting")
 
 	// Hide cursor at the very start if progress is enabled
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "\033[?25l")
-		// Ensure cursor is shown at the end
-		defer fmt.Fprintf(os.Stderr, "\033[?25h")
-	}
+	progressMode.HideCursor()
+	// Ensure cursor is shown at the end
+	defer progressMode.ShowCursor()
 
 	err := a.ValidateContainerless(ctx)
 	if err != nil {
@@ -135,7 +131,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	// add log hook, print the rule processing to the console
 	// but only if progress is disabled (to avoid interfering with progress bar)
-	if a.noProgress {
+	if progressMode.ShouldAddConsoleHook() {
 		consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
 		logrusAnalyzerLog.AddHook(consoleHook)
 	}
@@ -155,12 +151,10 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 			ext == util.EnterpriseArchive || ext == util.ClassFile)
 	}
 
-	if !a.noProgress {
-		if isBinaryAnalysis {
-			fmt.Fprintf(os.Stderr, "Running binary analysis...\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "Running source analysis...\n")
-		}
+	if isBinaryAnalysis {
+		progressMode.Printf("Running binary analysis...\n")
+	} else {
+		progressMode.Printf("Running source analysis...\n")
 	}
 	operationalLog.Info("running analysis")
 	labelSelectors := a.getLabelSelector()
@@ -195,8 +189,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations := []string{}
 
 	// Show decompiling message for binary analysis
-	if !a.noProgress && isBinaryAnalysis {
-		fmt.Fprintf(os.Stderr, "  Decompiling binary...\n")
+	if isBinaryAnalysis {
+		progressMode.Printf("  Decompiling binary...\n")
 	}
 
 	startJavaProvider := time.Now()
@@ -211,8 +205,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	operationalLog.Info("[TIMING] Java provider setup complete", "duration_ms", time.Since(startJavaProvider).Milliseconds())
 
 	// Show completion checkmark for binary decompilation
-	if !a.noProgress && isBinaryAnalysis {
-		fmt.Fprintf(os.Stderr, "  ✓ Decompiling complete\n")
+	if isBinaryAnalysis {
+		progressMode.Printf("  ✓ Decompiling complete\n")
 	}
 
 	// Get Java target paths to exclude from builtin
@@ -241,15 +235,13 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations = append(providerLocations, builtinLocations...)
 	operationalLog.Info("[TIMING] Builtin provider setup complete", "duration_ms", time.Since(startBuiltinProvider).Milliseconds())
 
-	if !a.noProgress {
-		// Build provider names dynamically from the providers map
-		providerNames := make([]string, 0, len(providers))
-		for name := range providers {
-			providerNames = append(providerNames, name)
-		}
-		sort.Strings(providerNames) // Sort for consistent output
-		fmt.Fprintf(os.Stderr, "  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+	// Build provider names dynamically from the providers map
+	providerNames := make([]string, 0, len(providers))
+	for name := range providers {
+		providerNames = append(providerNames, name)
 	}
+	sort.Strings(providerNames) // Sort for consistent output
+	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
 
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 	//start up the rule eng
@@ -275,9 +267,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
 
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "  ✓ Started rules engine\n")
-	}
+	progressMode.Printf("  ✓ Started rules engine\n")
 
 	startRuleLoading := time.Now()
 	operationalLog.Info("[TIMING] Starting rule loading")
@@ -324,7 +314,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}, selectors...)
 
 	// Cancel progress context and wait for goroutine to finish
-	if !a.noProgress {
+	if progressMode.IsEnabled() {
 		progressCancel()  // This closes the Events() channel
 		<-progressDone    // Wait for goroutine to finish
 	}
@@ -379,13 +369,11 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	operationalLog.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
 	// Print results summary (only in progress mode, not in --no-progress mode)
-	if !a.noProgress {
-		fmt.Fprintf(os.Stderr, "\nResults:\n")
-		reportPath := filepath.Join(a.output, "static-report", "index.html")
-		fmt.Fprintf(os.Stderr, "  Report: file://%s\n", reportPath)
-		analysisLogPath := filepath.Join(a.output, "analysis.log")
-		fmt.Fprintf(os.Stderr, "  Analysis logs: %s\n", analysisLogPath)
-	}
+	progressMode.Println("\nResults:")
+	reportPath := filepath.Join(a.output, "static-report", "index.html")
+	progressMode.Printf("  Report: file://%s\n", reportPath)
+	analysisLogPath := filepath.Join(a.output, "analysis.log")
+	progressMode.Printf("  Analysis logs: %s\n", analysisLogPath)
 
 	operationalLog.Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	return nil

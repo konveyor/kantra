@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
@@ -165,6 +166,36 @@ func (c *AnalyzeCommandContext) createTempRuleSet(path string, name string) erro
 	return nil
 }
 
+// setupCommandOutput configures stdout and stderr for a command based on verbosity.
+// At V(2) or higher, command output is captured and logged for debugging.
+// Otherwise, output is discarded to keep the console clean.
+// Returns buffers that can be passed to logCommandOutput after running the command.
+func (c *AnalyzeCommandContext) setupCommandOutput(cmd *exec.Cmd) (stdout, stderr *bytes.Buffer) {
+	if c.log.V(2).Enabled() {
+		// Capture output for verbose logging
+		stdout = &bytes.Buffer{}
+		stderr = &bytes.Buffer{}
+		cmd.Stdout = stdout
+		cmd.Stderr = stderr
+		return stdout, stderr
+	}
+	// Discard output to keep console clean
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	return nil, nil
+}
+
+// logCommandOutput logs the captured command output if verbosity is enabled.
+// Call this after running a command that was set up with setupCommandOutput.
+func (c *AnalyzeCommandContext) logCommandOutput(cmdName string, stdout, stderr *bytes.Buffer) {
+	if stdout != nil && stdout.Len() > 0 {
+		c.log.V(2).Info("command stdout", "command", cmdName, "output", stdout.String())
+	}
+	if stderr != nil && stderr.Len() > 0 {
+		c.log.V(2).Info("command stderr", "command", cmdName, "output", stderr.String())
+	}
+}
+
 func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 	networkName := fmt.Sprintf("network-%v", container.RandomName())
 	args := []string{
@@ -174,10 +205,9 @@ func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 	}
 
 	cmd := exec.Command(Settings.ContainerBinary, args...)
-	// Discard output to keep console clean
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	stdout, stderr := c.setupCommandOutput(cmd)
 	err := cmd.Run()
+	c.logCommandOutput("network create", stdout, stderr)
 	if err != nil {
 		return "", err
 	}
@@ -241,10 +271,9 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 		volName,
 	}
 	cmd := exec.Command(Settings.ContainerBinary, args...)
-	// Discard output to keep console clean
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	stdout, stderr := c.setupCommandOutput(cmd)
 	err = cmd.Run()
+	c.logCommandOutput("volume create", stdout, stderr)
 	if err != nil {
 		return "", err
 	}
