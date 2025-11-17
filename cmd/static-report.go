@@ -102,6 +102,7 @@ func generateJSBundle(apps []*Application, outputPath string, log logr.Logger) e
 	output, err := json.Marshal(apps)
 	if err != nil {
 		log.Error(err, "failed to marshal applications")
+		return err
 	}
 
 	tmpl := template.Must(template.New("").Parse(`
@@ -110,6 +111,7 @@ window["apps"] = {{.Apps}}
 	file, err := os.Create(outputPath)
 	if err != nil {
 		log.Error(err, "failed to create JS output bundle")
+		return err
 	}
 	defer file.Close()
 	err = tmpl.Execute(file, struct {

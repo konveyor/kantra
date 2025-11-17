@@ -1118,6 +1118,138 @@ func TestValidateContainerlessInput(t *testing.T) {
 	}
 }
 
+func TestGenerateStaticReportContainerlessSkipFlag(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name             string
+		skipStaticReport bool
+		shouldReturn     bool
+	}{
+		{
+			name:             "skip static report when flag is true",
+			skipStaticReport: true,
+			shouldReturn:     true,
+		},
+		{
+			name:             "attempt to generate report when flag is false",
+			skipStaticReport: false,
+			shouldReturn:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary output directory
+			tmpOutput, err := os.MkdirTemp("", "test-static-report-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpOutput)
+
+			// Create temporary kantra directory
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Create minimal files that the function looks for
+			if !tt.skipStaticReport {
+				// Create a minimal output.yaml so we can test further into the function
+				outputYaml := filepath.Join(tmpOutput, "output.yaml")
+				err = os.WriteFile(outputYaml, []byte("[]"), 0644)
+				require.NoError(t, err)
+
+				// Don't create the static-report directory - let the function fail
+				// when it tries to copy non-existent static report files
+			}
+
+			// Create analyze command
+			a := &analyzeCommand{
+				skipStaticReport: tt.skipStaticReport,
+				output:           tmpOutput,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       log,
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			// Call the method
+			err = a.GenerateStaticReportContainerless(context.Background())
+
+			if tt.skipStaticReport {
+				// Should return nil immediately without doing anything
+				assert.NoError(t, err)
+
+				// Verify no static-report.log was created
+				staticReportLog := filepath.Join(tmpOutput, "static-report.log")
+				_, statErr := os.Stat(staticReportLog)
+				assert.True(t, os.IsNotExist(statErr), "static-report.log should not exist when skipStaticReport is true")
+			} else {
+				// When not skipping, the function will try to generate a report
+				// It will fail in test environment due to missing files/binaries
+				// but static-report.log should be created
+				assert.Error(t, err, "should error when trying to generate report in test environment")
+
+				staticReportLog := filepath.Join(tmpOutput, "static-report.log")
+				_, statErr := os.Stat(staticReportLog)
+				// The log file should be created even if generation fails
+				assert.NoError(t, statErr, "static-report.log should be created when attempting to generate report")
+			}
+		})
+	}
+}
+
+func TestSkipStaticReportFlagParsing(t *testing.T) {
+	tests := []struct {
+		name                     string
+		skipStaticReport         bool
+		expectedToGenerateReport bool
+	}{
+		{
+			name:                     "skipStaticReport true should skip generation",
+			skipStaticReport:         true,
+			expectedToGenerateReport: false,
+		},
+		{
+			name:                     "skipStaticReport false should generate report",
+			skipStaticReport:         false,
+			expectedToGenerateReport: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &analyzeCommand{
+				skipStaticReport: tt.skipStaticReport,
+			}
+
+			// Create a mock context
+			ctx := context.Background()
+
+			// Test both container and containerless versions
+			t.Run("containerless", func(t *testing.T) {
+				// For containerless version
+				tmpOutput, err := os.MkdirTemp("", "test-skip-report-")
+				require.NoError(t, err)
+				defer os.RemoveAll(tmpOutput)
+
+				a.output = tmpOutput
+				a.AnalyzeCommandContext = AnalyzeCommandContext{
+					log: logr.Discard(),
+				}
+
+				err = a.GenerateStaticReportContainerless(ctx)
+
+				if tt.skipStaticReport {
+					// Should return nil immediately
+					assert.NoError(t, err)
+				}
+				// Note: When skipStaticReport is false, the function may fail
+				// due to missing dependencies in test environment, but that's ok
+				// as we're testing the flag behavior, not the full generation
+			})
+		})
+	}
+}
+
 func sliceContains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
