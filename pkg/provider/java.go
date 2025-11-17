@@ -68,14 +68,27 @@ func WalkJavaPathForTarget(log logr.Logger, isFileInput bool, root string) ([]in
 	var targetPaths []interface{}
 	var err error
 	if isFileInput {
+		originalRoot := root
 		root, err = GetJavaBinaryProjectDir(filepath.Dir(root))
 		if err != nil {
 			return nil, err
 		}
-		// for binaries, wait for "target" folder to decompile
-		err = WaitForTargetDir(log, root)
-		if err != nil {
-			return nil, err
+		// For JAR files, wait for "target" folder to be created during decompilation
+		// WAR and EAR files are just exploded (extracted), not compiled, so they don't create a target folder
+		ext := filepath.Ext(originalRoot)
+		if ext == util.JavaArchive || ext == util.ClassFile {
+			// Use 2 minute timeout for large binaries
+			err = WaitForTargetDir(log, root, 2*time.Minute)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// For WAR/EAR files, wait for decompilation to complete by checking for exploded directory
+		if ext == util.WebArchive || ext == util.EnterpriseArchive {
+			err = WaitForDecompilation(log, root, 2*time.Minute)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -113,41 +126,104 @@ func GetJavaBinaryProjectDir(root string) (string, error) {
 	return foundDir, nil
 }
 
-func WaitForTargetDir(log logr.Logger, path string) error {
-	// worst case we timeout
-	// may need to increase
-	timeout := 20 * time.Second
-	timeoutChan := time.After(timeout)
+func WaitForTargetDir(log logr.Logger, path string, timeout time.Duration) error {
+	targetPath := filepath.Join(path, "target")
+
+	// Check if target dir already exists
+	if _, err := os.Stat(targetPath); err == nil {
+		return nil
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
+
 	err = watcher.Add(path)
 	if err != nil {
 		return err
 	}
 
-	// target dir already exists
-	if _, err := os.Stat(filepath.Join(path, "target")); err == nil {
+	// Check again after watcher is set up to close the race window
+	// The target directory might have been created between our first check
+	// and setting up the watcher
+	if _, err := os.Stat(targetPath); err == nil {
 		return nil
 	}
+
 	log.Info("waiting for target directory in decompiled Java project")
+	timeoutChan := time.After(timeout)
 
 	for {
 		select {
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				info, err := os.Stat(event.Name)
-				if err == nil && info.IsDir() && event.Name == filepath.Join(path, "target") {
-					log.Info("target sub-folder detected:", "folder", event.Name)
+				if err == nil && info.IsDir() && event.Name == targetPath {
+					log.Info("target sub-folder detected", "folder", event.Name)
 					return nil
 				}
 			}
 		case err := <-watcher.Errors:
 			return err
 		case <-timeoutChan:
-			return fmt.Errorf("timeout waiting for target folder")
+			return fmt.Errorf("timeout waiting for target folder after %v", timeout)
+		}
+	}
+}
+
+// WaitForDecompilation waits for WAR/EAR decompilation to complete
+// by checking for the presence of any subdirectory in the java-project directory
+func WaitForDecompilation(log logr.Logger, path string, timeout time.Duration) error {
+	// Check if any subdirectory already exists (decompilation complete)
+	entries, err := os.ReadDir(path)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				return nil // Decompilation already complete
+			}
+		}
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+
+	err = watcher.Add(path)
+	if err != nil {
+		return err
+	}
+
+	// Check again after watcher is set up to close the race window
+	entries, err = os.ReadDir(path)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				return nil
+			}
+		}
+	}
+
+	log.Info("waiting for WAR/EAR decompilation to complete")
+	timeoutChan := time.After(timeout)
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				info, err := os.Stat(event.Name)
+				if err == nil && info.IsDir() {
+					log.Info("decompiled directory detected", "folder", event.Name)
+					return nil
+				}
+			}
+		case err := <-watcher.Errors:
+			return err
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for decompilation after %v", timeout)
 		}
 	}
 }

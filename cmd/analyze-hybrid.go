@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 )
 
 // validateProviderConfig validates hybrid-mode-specific configuration before starting provider containers.
+// This catches configuration errors early and provides helpful error messages.
 // Note: Maven settings and input path are already validated in the PreRunE Validate() function.
 func (a *analyzeCommand) validateProviderConfig() error {
 	// Validate override provider settings file if specified
@@ -152,8 +155,8 @@ func applyProviderOverrides(baseConfig provider.Config, overrideConfigs []provid
 func waitForProvider(ctx context.Context, providerName string, port int, timeout time.Duration, log logr.Logger) error {
 	deadline := time.Now().Add(timeout)
 	address := fmt.Sprintf("localhost:%d", port)
-	backoff := 100 * time.Millisecond
-	maxBackoff := 2 * time.Second
+	backoff := 50 * time.Millisecond
+	maxBackoff := 500 * time.Millisecond
 
 	log.V(1).Info("waiting for provider to become ready", "provider", providerName, "address", address, "timeout", timeout)
 
@@ -166,7 +169,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 		}
 
 		// Attempt TCP connection to check if port is open
-		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
 		if err == nil {
 			conn.Close()
 			log.V(1).Info("provider is ready", "provider", providerName, "address", address)
@@ -224,13 +227,9 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["bundles"] = JavaBundlesLocation
 		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
 		if a.mavenSettingsFile != "" {
-			providerSpecificConfig["mavenSettingsFile"] = a.mavenSettingsFile
+			// Use container path where settings.xml is mounted (copied by getConfigVolumes)
+			providerSpecificConfig["mavenSettingsFile"] = path.Join(util.ConfigMountPath, "settings.xml")
 		}
-		// Configure Maven cache directory for persistent dependency caching
-		// This path points to the mounted maven-cache-volume inside the container,
-		// which maps to the host's ~/.m2/repository. See RunProvidersHostNetwork()
-		// for volume mounting and createMavenCacheVolume() for volume creation.
-		providerSpecificConfig["mavenCacheDir"] = "/root/.m2/repository"
 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
@@ -324,12 +323,89 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	return providerClient, providerLocations, additionalBuiltinConfs, nil
 }
 
+// runParallelStartupTasks executes independent startup tasks concurrently for better performance.
+// Returns the volume name and rulesets directory on success.
+func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context) (volName string, rulesetsDir string, err error) {
+	type startupResult struct {
+		name string
+		err  error
+	}
+
+	var wg sync.WaitGroup
+	resultChan := make(chan startupResult, 3)
+
+	// Task 1: Validate provider configuration
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := a.validateProviderConfig()
+		resultChan <- startupResult{name: "config validation", err: err}
+	}()
+
+	// Task 2: Create container volume
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		vol, err := a.createContainerVolume(a.input)
+		if err == nil {
+			volName = vol
+		}
+		resultChan <- startupResult{name: "volume creation", err: err}
+	}()
+
+	// Task 3: Extract default rulesets (if enabled)
+	if a.enableDefaultRulesets {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dir, err := a.extractDefaultRulesets(ctx)
+			if err == nil {
+				rulesetsDir = dir
+			}
+			resultChan <- startupResult{name: "ruleset extraction", err: err}
+		}()
+	}
+
+	// Wait for all startup tasks to complete
+	wg.Wait()
+	close(resultChan)
+
+	// Check for errors from any task
+	for result := range resultChan {
+		if result.err != nil {
+			// Clean up any successfully created resources before returning
+			if volName != "" {
+				cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "rm", volName)
+				if cleanupErr := cmd.Run(); cleanupErr != nil {
+					a.log.Error(cleanupErr, "failed to cleanup volume after startup failure")
+				}
+			}
+			return "", "", fmt.Errorf("%s failed: %w", result.name, result.err)
+		}
+	}
+
+	return volName, rulesetsDir, nil
+}
+
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
 func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
-	// Use the excluded target paths passed in by the caller (already calculated in RunAnalysisHybridInProcess)
+	// Get Java target paths to exclude from builtin
+	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
+	var javaTargetPaths []interface{}
+	if !a.isFileInput {
+		// Only walk target paths for source code analysis
+		var err error
+		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
+		if err != nil {
+			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
+		}
+	} else {
+		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
+	}
+
 	builtinConfig := provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
@@ -337,7 +413,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"excludedDirs": excludedTargetPaths,
+					"excludedDirs": javaTargetPaths,
 				},
 			},
 		},
@@ -388,8 +464,36 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 //   - Provider isolation and consistency from containers
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
-	a.log.V(1).Info("[TIMING] Hybrid analysis starting")
-	a.log.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
+
+	// Create progress mode to encapsulate progress reporting behavior
+	progressMode := NewProgressMode(a.noProgress)
+
+	// Create a conditional logger that only outputs in --no-progress mode
+	// In progress mode, operational messages are suppressed to avoid interfering with the progress bar
+	operationalLog := progressMode.OperationalLogger(a.log)
+
+	operationalLog.Info("[TIMING] Hybrid analysis starting")
+	operationalLog.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
+
+	// Hide cursor at the very start if progress is enabled
+	progressMode.HideCursor()
+	// Ensure cursor is shown at the end
+	defer progressMode.ShowCursor()
+
+	// Show simplified message in progress mode
+	// Detect if this is binary analysis based on file extension
+	isBinaryAnalysis := false
+	if a.isFileInput {
+		ext := filepath.Ext(a.input)
+		isBinaryAnalysis = (ext == util.JavaArchive || ext == util.WebArchive ||
+			ext == util.EnterpriseArchive || ext == util.ClassFile)
+	}
+
+	if isBinaryAnalysis {
+		progressMode.Printf("Running binary analysis...\n")
+	} else {
+		progressMode.Printf("Running source analysis...\n")
+	}
 
 	// Create analysis log file
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
@@ -406,8 +510,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
 
 	// Add console hook for rule processing messages
-	consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
-	logrusAnalyzerLog.AddHook(consoleHook)
+	// but only if progress is disabled (to avoid interfering with progress bar)
+	if progressMode.ShouldAddConsoleHook() {
+		consoleHook := &ConsoleHook{Level: logrus.InfoLevel, Log: a.log}
+		logrusAnalyzerLog.AddHook(consoleHook)
+	}
 
 	analyzeLog := logrusr.New(logrusAnalyzerLog)
 
@@ -417,13 +524,14 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	errLog := logrusr.New(logrusErrLog)
 
 	// Setup label selectors
-	a.log.Info("running source analysis")
+	operationalLog.Info("running source analysis")
 	labelSelectors := a.getLabelSelector()
 
 	selectors := []engine.RuleSelector{}
 	if labelSelectors != "" {
 		selector, err := labels.NewLabelSelector[*engine.RuleMeta](labelSelectors, nil)
 		if err != nil {
+			errLog.Error(err, "failed to create label selector from expression", "selector", labelSelectors)
 			return fmt.Errorf("failed to create label selector from expression %q: %w", labelSelectors, err)
 		}
 		selectors = append(selectors, selector)
@@ -434,6 +542,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	if !a.analyzeKnownLibraries {
 		dependencyLabelSelector, err = labels.NewLabelSelector[*konveyor.Dep](depLabel, nil)
 		if err != nil {
+			errLog.Error(err, "failed to create label selector from expression", "selector", depLabel)
 			return fmt.Errorf("failed to create label selector from expression %q: %w", depLabel, err)
 		}
 	}
@@ -441,26 +550,27 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Load override provider settings if specified
 	overrideConfigs, err := a.loadOverrideProviderSettings()
 	if err != nil {
+		errLog.Error(err, "failed to load override provider settings")
 		return fmt.Errorf("failed to load override provider settings: %w", err)
 	}
 	if overrideConfigs != nil {
-		a.log.V(1).Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
+		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
 	}
 
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
-		a.log.V(1).Info("[TIMING] Starting provider container setup")
+		operationalLog.Info("[TIMING] Starting provider container setup")
 
-		// Validate configuration before starting containers
-		if err := a.validateProviderConfig(); err != nil {
-			return fmt.Errorf("provider configuration validation failed: %w", err)
+		// Run independent startup tasks in parallel for better performance
+		volName, rulesetsDir, err := a.runParallelStartupTasks(ctx)
+		if err != nil {
+			return err
 		}
 
-		// Create volume for provider containers
-		volName, err := a.createContainerVolume(a.input)
-		if err != nil {
-			return fmt.Errorf("failed to create container volume: %w", err)
+		// Add extracted rulesets to rules list if we got any
+		if rulesetsDir != "" {
+			a.rules = append(a.rules, rulesetsDir)
 		}
 
 		// For binary files, util.SourceMountPath includes the filename (e.g., /opt/input/source/app.war)
@@ -473,6 +583,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				"original", originalMountPath,
 				"adjusted", util.SourceMountPath)
 		}
+
+		progressMode.Printf("  ✓ Created volume\n")
 
 		// Start providers with port publishing
 		err = a.RunProvidersHostNetwork(ctx, volName, 5)
@@ -487,15 +599,38 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
 
-		// Wait for providers to become ready with health checks
-		a.log.Info("waiting for providers to become ready...")
+		progressMode.Printf("  ✓ Started provider containers\n")
+
+		// Wait for providers to become ready with health checks (in parallel)
+		operationalLog.Info("waiting for providers to become ready...")
+
+		// Parallel health checks with proper error handling
+		type providerHealthResult struct {
+			providerName string
+			err          error
+		}
+		healthChan := make(chan providerHealthResult, len(a.providersMap))
+
+		// Start health checks in parallel
 		for provName, provInit := range a.providersMap {
-			if err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log); err != nil {
-				return fmt.Errorf("provider health check failed: %w", err)
+			provName := provName // capture loop variable
+			provInit := provInit
+			go func() {
+				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, operationalLog)
+				healthChan <- providerHealthResult{providerName: provName, err: err}
+			}()
+		}
+
+		// Collect results
+		for i := 0; i < len(a.providersMap); i++ {
+			result := <-healthChan
+			if result.err != nil {
+				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
 		}
-		a.log.Info("all providers are ready")
-		a.log.V(1).Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
+
+		operationalLog.Info("all providers are ready")
+		operationalLog.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
 
 	// Setup provider clients
@@ -520,10 +655,19 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Setup network-based provider clients for all configured providers
 	for provName := range a.providersMap {
-		a.log.Info("setting up network provider", "provider", provName)
+		operationalLog.Info("setting up network provider", "provider", provName)
 		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
+			// Clean up any providers that were started before this failure
+			// to prevent resource leaks (containers left running)
+			for _, prov := range providers {
+				prov.Stop()
+			}
+			// Remove provider containers
+			if cleanupErr := a.RmProviderContainers(ctx); cleanupErr != nil {
+				errLog.Error(cleanupErr, "failed to cleanup providers after setup failure")
+			}
 			return fmt.Errorf("unable to start provider %s: %w", provName, err)
 		}
 		providers[provName] = provClient
@@ -535,12 +679,26 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
 	// The builtin provider runs on the host and needs host paths (a.input).
 	// We must transform these paths or builtin provider won't find any files!
+	hostRoot := a.input
+	containerRoot := util.SourceMountPath
+	if a.isFileInput {
+		// For binary files, use parent directory as hostRoot
+		hostRoot = filepath.Dir(a.input)
+		containerRoot = path.Dir(util.SourceMountPath)
+	}
+
 	transformedConfigs := make([]provider.InitConfig, len(additionalBuiltinConfigs))
 	for i, conf := range additionalBuiltinConfigs {
 		transformedConfigs[i] = conf
-		// Replace container path with host path
-		if conf.Location == util.SourceMountPath {
-			transformedConfigs[i].Location = a.input
+		// Replace container path prefix with host path
+		if strings.HasPrefix(conf.Location, containerRoot) {
+			rel := strings.TrimPrefix(conf.Location, containerRoot)
+			rel = strings.TrimPrefix(rel, "/")
+			if rel == "" {
+				transformedConfigs[i].Location = hostRoot
+			} else {
+				transformedConfigs[i].Location = filepath.Join(hostRoot, rel)
+			}
 		}
 	}
 
@@ -553,13 +711,17 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providers["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
 
+	// Show provider initialization completion in progress mode
+	// Build provider names dynamically from the providers map
+	providerNames := make([]string, 0, len(providers))
+	for name := range providers {
+		providerNames = append(providerNames, name)
+	}
+	sort.Strings(providerNames) // Sort for consistent output
+	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+
 	// Create rule engine
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
-	defer func() {
-		if engineSpan.IsRecording() {
-			engineSpan.End()
-		}
-	}()
 	eng := engine.CreateRuleEngine(engineCtx,
 		10,
 		analyzeLog,
@@ -576,36 +738,83 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		DepLabelSelector:     dependencyLabelSelector,
 	}
 
-	// Load rules
+	progressMode.Printf("  ✓ Started rules engine\n")
+
+	// Load rules in parallel for better performance
 	ruleSets := []engine.RuleSet{}
 	needProviders := map[string]provider.InternalProviderClient{}
 
-	// Extract default rulesets from container if enabled
-	if a.enableDefaultRulesets {
-		rulesetsDir, err := a.extractDefaultRulesets(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to extract default rulesets: %w", err)
-		}
-		if rulesetsDir != "" {
-			a.rules = append(a.rules, rulesetsDir)
-		}
-	}
+	// Note: Default rulesets extraction now happens earlier in parallel with
+	// volume creation and config validation for better performance
 
 	startRuleLoading := time.Now()
-	a.log.V(1).Info("[TIMING] Starting rule loading")
-	for _, f := range a.rules {
-		a.log.Info("parsing rules for analysis", "rules", f)
+	operationalLog.Info("[TIMING] Starting rule loading")
 
-		internRuleSet, internNeedProviders, err := ruleParser.LoadRules(f)
-		if err != nil {
-			a.log.Error(err, "unable to parse all the rules for ruleset", "file", f)
+	// Parallelize rule loading across multiple rulesets
+	type ruleLoadResult struct {
+		rulePath     string
+		ruleSets     []engine.RuleSet
+		providers    map[string]provider.InternalProviderClient
+		err          error
+	}
+
+	var ruleWg sync.WaitGroup
+	resultChan := make(chan ruleLoadResult, len(a.rules))
+
+	// Load each ruleset in parallel
+	for _, f := range a.rules {
+		ruleWg.Add(1)
+		go func(rulePath string) {
+			defer ruleWg.Done()
+			operationalLog.Info("parsing rules for analysis", "rules", rulePath)
+
+			internRuleSet, internNeedProviders, err := ruleParser.LoadRules(rulePath)
+			if err != nil {
+				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
+			}
+
+			resultChan <- ruleLoadResult{
+				rulePath:  rulePath,
+				ruleSets:  internRuleSet,
+				providers: internNeedProviders,
+				err:       err,
+			}
+		}(f)
+	}
+
+	// Wait for all rule loading to complete
+	ruleWg.Wait()
+	close(resultChan)
+
+	// Collect and merge results
+	var ruleLoadErrors []error
+	for result := range resultChan {
+		if result.err != nil {
+			ruleLoadErrors = append(ruleLoadErrors, fmt.Errorf("failed to load ruleset %s: %w", result.rulePath, result.err))
+			continue
 		}
-		ruleSets = append(ruleSets, internRuleSet...)
-		for k, v := range internNeedProviders {
+		ruleSets = append(ruleSets, result.ruleSets...)
+		for k, v := range result.providers {
 			needProviders[k] = v
 		}
 	}
-	a.log.V(1).Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+
+	// Check if we have at least one ruleset loaded successfully
+	if len(ruleSets) == 0 {
+		if len(ruleLoadErrors) > 0 {
+			return fmt.Errorf("failed to load any rulesets: %v", ruleLoadErrors)
+		}
+		return fmt.Errorf("no rulesets loaded")
+	}
+
+	// Log warnings for any failed rulesets (if we have at least one successful load)
+	if len(ruleLoadErrors) > 0 {
+		for _, err := range ruleLoadErrors {
+			a.log.Error(err, "ruleset load failed but continuing with other rulesets")
+		}
+	}
+
+	operationalLog.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
@@ -617,16 +826,33 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
 			wg.Add(1)
 
-			a.log.Info("running dependency analysis")
+			operationalLog.Info("running dependency analysis")
 			go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 		}
 	}
 
-	// Run rules
+	// Run rules with progress reporting
 	startRuleExecution := time.Now()
-	a.log.V(1).Info("[TIMING] Starting rule execution")
-	a.log.Info("evaluating rules for violations. see analysis.log for more info")
-	rulesets := eng.RunRules(ctx, ruleSets, selectors...)
+	operationalLog.Info("[TIMING] Starting rule execution")
+	operationalLog.Info("evaluating rules for violations. see analysis.log for more info")
+
+	// Create progress reporter (or noop if disabled)
+	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
+	if progressCancel != nil {
+		defer progressCancel()
+	}
+
+	// Run analysis with progress reporter
+	rulesets := eng.RunRulesWithOptions(ctx, ruleSets, []engine.RunOption{
+		engine.WithProgressReporter(reporter),
+	}, selectors...)
+
+	// Cancel progress context and wait for goroutine to finish
+	if progressMode.IsEnabled() {
+		progressCancel()  // This closes the Events() channel
+		<-progressDone    // Wait for goroutine to finish
+	}
+
 	engineSpan.End()
 	wg.Wait()
 	if depSpan != nil {
@@ -638,7 +864,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	for _, provider := range needProviders {
 		provider.Stop()
 	}
-	a.log.V(1).Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
+	operationalLog.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
 
 	// Sort rulesets
 	sort.SliceStable(rulesets, func(i, j int) bool {
@@ -647,8 +873,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Write results
 	startWriting := time.Now()
-	a.log.V(1).Info("[TIMING] Starting output writing")
-	a.log.Info("writing analysis results to output", "output", a.output)
+	operationalLog.Info("[TIMING] Starting output writing")
+	operationalLog.Info("writing analysis results to output", "output", a.output)
 	b, err := yaml.Marshal(rulesets)
 	if err != nil {
 		return err
@@ -665,22 +891,29 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Error(err, "failed to create json output file")
 		return err
 	}
-	a.log.V(1).Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
+	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report
 	analysisLog.Close()
 
 	// Generate static report
 	startStaticReport := time.Now()
-	a.log.V(1).Info("[TIMING] Starting static report generation")
-	err = a.GenerateStaticReport(ctx)
+	operationalLog.Info("[TIMING] Starting static report generation")
+	err = a.GenerateStaticReport(ctx, operationalLog)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
 	}
-	a.log.V(1).Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
+	operationalLog.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
 
-	a.log.V(1).Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
-	a.log.Info("hybrid analysis completed successfully")
+	// Print results summary (only in progress mode, not in --no-progress mode)
+	progressMode.Println("\nResults:")
+	reportPath := filepath.Join(a.output, "static-report", "index.html")
+	progressMode.Printf("  Report: file://%s\n", reportPath)
+	analysisLogPath := filepath.Join(a.output, "analysis.log")
+	progressMode.Printf("  Analysis logs: %s\n", analysisLogPath)
+
+	operationalLog.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
+	operationalLog.Info("hybrid analysis completed successfully")
 	return nil
 }

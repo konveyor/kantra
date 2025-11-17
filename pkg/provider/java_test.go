@@ -355,7 +355,7 @@ func TestWaitForTargetDir_ExistingTarget(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should return immediately since target already exists
-	err = WaitForTargetDir(logger, tmpDir)
+	err = WaitForTargetDir(logger, tmpDir, 5*time.Second)
 	require.NoError(t, err)
 }
 
@@ -365,7 +365,7 @@ func TestWaitForTargetDir_Timeout(t *testing.T) {
 
 	// Don't create target directory
 	// Should timeout waiting for it
-	err := WaitForTargetDir(logger, tmpDir)
+	err := WaitForTargetDir(logger, tmpDir, 100*time.Millisecond)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timeout")
 }
@@ -383,13 +383,13 @@ func TestWaitForTargetDir_CreateTargetDuringWait(t *testing.T) {
 	}()
 
 	// Should successfully detect the target directory once it's created
-	err := WaitForTargetDir(logger, tmpDir)
+	err := WaitForTargetDir(logger, tmpDir, 5*time.Second)
 	require.NoError(t, err)
 }
 
 func TestWaitForTargetDir_WithNonexistentPath(t *testing.T) {
 	logger := getTestLogger()
-	err := WaitForTargetDir(logger, "/nonexistent/path")
+	err := WaitForTargetDir(logger, "/nonexistent/path", 100*time.Millisecond)
 	// The initial Stat will fail, but it depends on the implementation
 	// This test is mostly to ensure we don't panic
 	t.Logf("Error for nonexistent path: %v", err)
@@ -480,7 +480,7 @@ func TestWaitForTargetDir_InvalidPath(t *testing.T) {
 	err := os.WriteFile(tmpFile, []byte("content"), 0644)
 	require.NoError(t, err)
 
-	err = WaitForTargetDir(logger, tmpFile)
+	err = WaitForTargetDir(logger, tmpFile, 100*time.Millisecond)
 	// This should either error or timeout
 	assert.Error(t, err)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"go.lsp.dev/uri"
 
@@ -48,38 +49,39 @@ type ProviderInit struct {
 
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources           bool
-	listTargets           bool
-	listProviders         bool
-	listLanguages         bool
-	skipStaticReport      bool
-	analyzeKnownLibraries bool
-	jsonOutput            bool
-	overwrite             bool
-	bulk                  bool
-	mavenSettingsFile     string
-	sources               []string
-	targets               []string
-	labelSelector         string
-	input                 string
-	output                string
-	mode                  string
-	noDepRules            bool
-	rules                 []string
-	tempRuleDir           string
-	jaegerEndpoint        string
-	enableDefaultRulesets bool
-	httpProxy             string
-	httpsProxy            string
-	noProxy               string
-	contextLines          int
-	incidentSelector      string
-	depFolders            []string
-	provider              []string
+	listSources              bool
+	listTargets              bool
+	listProviders            bool
+	listLanguages            bool
+	skipStaticReport         bool
+	analyzeKnownLibraries    bool
+	jsonOutput               bool
+	overwrite                bool
+	bulk                     bool
+	mavenSettingsFile        string
+	sources                  []string
+	targets                  []string
+	labelSelector            string
+	input                    string
+	output                   string
+	mode                     string
+	noDepRules               bool
+	rules                    []string
+	tempRuleDir              string
+	jaegerEndpoint           string
+	enableDefaultRulesets    bool
+	httpProxy                string
+	httpsProxy               string
+	noProxy                  string
+	contextLines             int
+	incidentSelector         string
+	depFolders               []string
+	provider                 []string
 	logLevel                 *uint32
 	cleanup                  bool
 	runLocal                 bool
 	disableMavenSearch       bool
+	noProgress               bool
 	overrideProviderSettings string
 	AnalyzeCommandContext
 }
@@ -206,7 +208,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			// ***** RUN CONTAINERLESS MODE *****
 			if analyzeCmd.runLocal {
-				log.Info("\n --run-local set. running analysis in containerless mode")
+				log.V(1).Info("\n --run-local set. running analysis in containerless mode")
 				if analyzeCmd.listSources || analyzeCmd.listTargets {
 					err := analyzeCmd.listLabelsContainerless(ctx)
 					if err != nil {
@@ -225,7 +227,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 
 			// ******* RUN HYBRID MODE ******
-			log.Info("--run-local set to false. Running analysis in hybrid mode")
+			if analyzeCmd.noProgress {
+				log.Info("--run-local set to false. Running analysis in hybrid mode")
+			}
 
 			// default rulesets are only java rules
 			// may want to change this in the future
@@ -275,7 +279,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return err
 			}
 
-			err = analyzeCmd.GenerateStaticReport(ctx)
+			// Create conditional logger for static report generation
+			var operationalLog logr.Logger
+			if analyzeCmd.noProgress {
+				operationalLog = log
+			} else {
+				operationalLog = logr.Discard()
+			}
+			err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
 			if err != nil {
 				log.Error(err, "failed to generate static report")
 				return err
@@ -313,6 +324,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	return analyzeCommand
 }
@@ -1103,7 +1115,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
 	if a.skipStaticReport {
 		return nil
 	}
@@ -1111,7 +1123,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	// in this case we still want to generate a static report for successful source analysis
 	_, noDepFileErr := os.Stat(filepath.Join(a.output, "dependencies.yaml"))
 	if errors.Is(noDepFileErr, os.ErrNotExist) {
-		a.log.Info("unable to get dependency output in static report. generating static report from source analysis only")
+		operationalLog.Info("unable to get dependency output in static report. generating static report from source analysis only")
 	} else if noDepFileErr != nil && !errors.Is(noDepFileErr, os.ErrNotExist) {
 		return noDepFileErr
 	}
@@ -1186,7 +1198,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 	staticReportCmd := []string{joinedArgs}
 
 	c := container.NewContainer()
-	a.log.Info("generating static report",
+	operationalLog.Info("generating static report",
 		"output", a.output, "args", strings.Join(staticReportCmd, " "))
 	err := c.Run(
 		ctx,
@@ -1203,7 +1215,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context) error {
 		return err
 	}
 	uri := uri.File(filepath.Join(a.output, "static-report", "index.html"))
-	a.log.Info("Static report created. Access it at this URL:", "URL", string(uri))
+	operationalLog.Info("Static report created. Access it at this URL:", "URL", string(uri))
 
 	return nil
 }
@@ -1477,6 +1489,90 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 	}
 
 	return false, nil
+}
+
+// setupProgressReporter creates and starts a progress reporter for analysis.
+// Returns the reporter, done channel, and cancel function.
+// If noProgress is true, returns a noop reporter with nil channel and cancel func.
+func setupProgressReporter(ctx context.Context, noProgress bool) (
+	reporter progress.ProgressReporter,
+	progressDone chan struct{},
+	progressCancel context.CancelFunc,
+) {
+	if !noProgress {
+		// Create channel-based progress reporter
+		var progressCtx context.Context
+		progressCtx, progressCancel = context.WithCancel(ctx)
+		channelReporter := progress.NewChannelReporter(progressCtx)
+		reporter = channelReporter
+
+		// Start goroutine to consume progress events and render progress bar
+		progressDone = make(chan struct{})
+		go func() {
+			defer close(progressDone)
+
+			// Track cumulative progress across all rulesets
+			var cumulativeTotal int
+			var completedFromPreviousRulesets int
+			var lastRulesetTotal int
+			var justPrintedLoadedRules bool
+
+			for event := range channelReporter.Events() {
+				switch event.Stage {
+				case progress.StageProviderInit:
+					// Skip provider init messages - we show them earlier
+				case progress.StageRuleParsing:
+					if event.Total > 0 {
+						cumulativeTotal += event.Total
+						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+						justPrintedLoadedRules = true
+					}
+				case progress.StageRuleExecution:
+					if event.Total > 0 {
+						// Initialize cumulativeTotal from first event if not set by rule parsing
+						if cumulativeTotal == 0 {
+							cumulativeTotal = event.Total
+							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+							justPrintedLoadedRules = true
+						}
+
+						// Skip first progress bar render right after printing "Loaded rules"
+						if justPrintedLoadedRules {
+							justPrintedLoadedRules = false
+							continue
+						}
+
+						// Detect if we've moved to a new ruleset
+						// This happens when event.Total changes
+						if lastRulesetTotal > 0 && event.Total != lastRulesetTotal {
+							// We've moved to a new ruleset
+							completedFromPreviousRulesets += lastRulesetTotal
+						}
+						lastRulesetTotal = event.Total
+
+						// Calculate overall progress
+						totalCompleted := completedFromPreviousRulesets + event.Current
+
+						overallPercent := (totalCompleted * 100) / cumulativeTotal
+						renderProgressBar(overallPercent, totalCompleted, cumulativeTotal, event.Message)
+					} else if event.Total == 0 && cumulativeTotal > 0 {
+						// Skip rendering if we get a zero-total event but we've already initialized
+						// This prevents spurious escape sequences from being rendered
+						continue
+					}
+				case progress.StageComplete:
+					// Move to next line, keeping the progress bar visible
+					fmt.Fprintf(os.Stderr, "\n\n")
+					fmt.Fprintf(os.Stderr, "Analysis complete!\n")
+				}
+			}
+		}()
+	} else {
+		// Use noop reporter when progress is disabled
+		reporter = progress.NewNoopReporter()
+	}
+
+	return reporter, progressDone, progressCancel
 }
 
 func listLanguages(languages []model.Language, input string) error {
