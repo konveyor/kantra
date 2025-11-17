@@ -37,6 +37,7 @@ type TestOptions struct {
 	ProgressPrinter    ResultPrinter
 	Log                logr.Logger
 	Prune              bool
+	NoCleanup          bool
 }
 
 // TODO (pgaikwad): we need to move the default config to a common place
@@ -214,19 +215,19 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			} else {
 				// write provider settings file
 				volumes, err := ensureProviderSettings(tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
+				if err != nil {
+					results = append(results, Result{
+						TestsFilePath: testsFile.Path,
+						Error:         fmt.Errorf("failed writing provider settings - %w", err)})
+					logFile.Close()
+					continue
+				}
 				volumes[tempDir] = "/shared/"
 				if reproducerCmd, err = runInContainer(
 					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams, opts.Prune); err != nil {
 					results = append(results, Result{
 						TestsFilePath: testsFile.Path,
 						Error:         err})
-					logFile.Close()
-					continue
-				}
-				if err != nil {
-					results = append(results, Result{
-						TestsFilePath: testsFile.Path,
-						Error:         fmt.Errorf("failed writing provider settings - %w", err)})
 					logFile.Close()
 					continue
 				}
@@ -277,7 +278,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 				}
 			}
 			results = append(results, groupResults...)
-			if !anyFailed {
+			if !anyFailed && !opts.NoCleanup {
 				os.RemoveAll(tempDir)
 			}
 			logFile.Close()
@@ -338,6 +339,7 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams, inpu
 	cmd := exec.Command(execPath, args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+	cmd.Dir = dir
 	err = cmd.Run()
 	return fmt.Sprintf("kantra %s", strings.Join(args, " ")), err
 }
