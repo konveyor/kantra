@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -828,17 +827,17 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 	// create output.js file from analysis output.yaml
 	apps, err := validateFlags(outputAnalyses, applicationNames, outputDeps, a.log)
 	if err != nil {
-		log.Fatalln("failed to validate flags", err)
+		return fmt.Errorf("failed to validate flags: %w", err)
 	}
 
 	err = loadApplications(apps)
 	if err != nil {
-		log.Fatalln("failed to load report data from analysis output", err)
+		return fmt.Errorf("failed to load report data from analysis output: %w", err)
 	}
 
 	err = generateJSBundle(apps, outputJSPath, a.log)
 	if err != nil {
-		log.Fatalln("failed to generate output.js file from template", err)
+		return fmt.Errorf("failed to generate output.js file from template: %w", err)
 	}
 
 	return nil
