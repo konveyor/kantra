@@ -202,7 +202,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			// default to run container mode if no Java provider found
 			if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-				log.Info("detected non-Java providers, switching to hybrid mode", "providers", foundProviders)
+				log.V(1).Info("detected non-Java providers, switching to hybrid mode", "providers", foundProviders)
 				analyzeCmd.runLocal = false
 			}
 
@@ -273,24 +273,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to run hybrid analysis")
 				return err
 			}
-			err = analyzeCmd.CreateJSONOutput()
-			if err != nil {
-				log.Error(err, "failed to create json output file")
-				return err
-			}
-
-			// Create conditional logger for static report generation
-			var operationalLog logr.Logger
-			if analyzeCmd.noProgress {
-				operationalLog = log
-			} else {
-				operationalLog = logr.Discard()
-			}
-			err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
-			if err != nil {
-				log.Error(err, "failed to generate static report")
-				return err
-			}
+			// Note: CreateJSONOutput and GenerateStaticReport are already called
+			// within RunAnalysisHybridInProcess, so no need to call them here
 
 			return nil
 		},
@@ -886,11 +870,12 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 //
 // Parameters:
 //   - ctx: Context for container operations and cancellation
+//   - containerLogWriter: Writer for container command output (typically analysis.log file)
 //
 // Returns:
 //   - string: Path to the extracted rulesets directory, or empty string if disabled
 //   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, error) {
+func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLogWriter io.Writer) (string, error) {
 	if !a.enableDefaultRulesets {
 		return "", nil
 	}
@@ -905,8 +890,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
 		createCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"create", "--name", tempName, Settings.RunnerImage)
-		createCmd.Stdout = os.Stdout
-		createCmd.Stderr = os.Stderr
+		// Send container output to log file instead of console
+		createCmd.Stdout = containerLogWriter
+		createCmd.Stderr = containerLogWriter
 		if err := createCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to create temp container for ruleset extraction: %w", err)
 		}
@@ -920,8 +906,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 		// Copy rulesets from container to host
 		copyCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
 			"cp", fmt.Sprintf("%s:/opt/rulesets", tempName), rulesetsDir)
-		copyCmd.Stdout = os.Stdout
-		copyCmd.Stderr = os.Stderr
+		// Send container output to log file instead of console
+		copyCmd.Stdout = containerLogWriter
+		copyCmd.Stderr = containerLogWriter
 		if err := copyCmd.Run(); err != nil {
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
@@ -954,10 +941,11 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 //   - ctx: Context for container operations and cancellation
 //   - volName: Name of the volume containing source code
 //   - retry: Number of retries remaining (currently unused, for future health checks)
+//   - containerLogWriter: Writer for container command output (typically analysis.log file)
 //
 // Returns:
 //   - error: Any error encountered starting provider containers
-func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int) error {
+func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, containerLogWriter io.Writer) error {
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
@@ -1011,6 +999,8 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 			container.WithCleanup(false),
 			container.WithName(fmt.Sprintf("provider-%v", container.RandomName())),
 			container.WithProxy(a.httpProxy, a.httpsProxy, a.noProxy),
+			container.WithStdout(containerLogWriter),
+			container.WithStderr(containerLogWriter),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to start provider %s: %w", prov, err)
@@ -1115,7 +1105,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger, containerLogWriter io.Writer) error {
 	if a.skipStaticReport {
 		return nil
 	}
@@ -1210,6 +1200,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLo
 		container.WithVolumes(volumes),
 		container.WithcFlag(true),
 		container.WithCleanup(a.cleanup),
+		container.WithStdout(containerLogWriter),
+		container.WithStderr(containerLogWriter),
 	)
 	if err != nil {
 		return err
