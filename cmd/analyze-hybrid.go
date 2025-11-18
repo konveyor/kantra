@@ -414,7 +414,8 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"excludedDirs": javaTargetPaths,
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
 				},
 			},
 		},

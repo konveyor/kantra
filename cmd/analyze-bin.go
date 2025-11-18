@@ -548,12 +548,13 @@ func (a *analyzeCommand) makeBuiltinProviderConfig(excludedTargetPaths []interfa
 			{
 				Location:               a.input,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{},
+				ProviderSpecificConfig: map[string]interface{}{
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+					// Java target paths are already included in the defaults (target/)
+				},
 			},
 		},
-	}
-	if len(excludedTargetPaths) > 0 {
-		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
 	}
 	return builtinConfig
 }
