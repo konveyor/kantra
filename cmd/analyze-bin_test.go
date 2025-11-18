@@ -1172,7 +1172,8 @@ func TestGenerateStaticReportContainerlessSkipFlag(t *testing.T) {
 			}
 
 			// Call the method
-			err = a.GenerateStaticReportContainerless(context.Background())
+			testLog := logr.Discard()
+			err = a.GenerateStaticReportContainerless(context.Background(), testLog)
 
 			if tt.skipStaticReport {
 				// Should return nil immediately without doing anything
@@ -1236,7 +1237,8 @@ func TestSkipStaticReportFlagParsing(t *testing.T) {
 					log: logr.Discard(),
 				}
 
-				err = a.GenerateStaticReportContainerless(ctx)
+				testLog := logr.Discard()
+				err = a.GenerateStaticReportContainerless(ctx, testLog)
 
 				if tt.skipStaticReport {
 					// Should return nil immediately

@@ -167,9 +167,10 @@ func TestExtractDefaultRulesets(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	testLog := logr.Discard() // Use discard logger for tests
 
 	// First extraction - should create the directory
-	rulesetsDir, err := cmd.extractDefaultRulesets(ctx)
+	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog)
 	if err != nil {
 		t.Fatalf("extractDefaultRulesets() failed: %v", err)
 	}
@@ -185,7 +186,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 	}
 
 	// Second extraction - should reuse cached directory
-	rulesetsDir2, err := cmd.extractDefaultRulesets(ctx)
+	rulesetsDir2, err := cmd.extractDefaultRulesets(ctx, testLog)
 	if err != nil {
 		t.Fatalf("second extractDefaultRulesets() failed: %v", err)
 	}
@@ -224,8 +225,9 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	testLog := logr.Discard() // Use discard logger for tests
 
-	rulesetsDir, err := cmd.extractDefaultRulesets(ctx)
+	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog)
 	if err != nil {
 		t.Fatalf("extractDefaultRulesets() should not error when disabled: %v", err)
 	}

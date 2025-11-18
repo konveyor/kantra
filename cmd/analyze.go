@@ -886,11 +886,12 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 //
 // Parameters:
 //   - ctx: Context for container operations and cancellation
+//   - operationalLog: Logger for operational messages (suppressed in progress mode)
 //
 // Returns:
 //   - string: Path to the extracted rulesets directory, or empty string if disabled
 //   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, error) {
+func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operationalLog logr.Logger) (string, error) {
 	if !a.enableDefaultRulesets {
 		return "", nil
 	}
@@ -899,7 +900,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		a.log.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
+		operationalLog.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
@@ -926,7 +927,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		a.log.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
+		operationalLog.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
 	} else {
 		a.log.V(1).Info("using cached default rulesets", "version", Version, "dir", rulesetsDir)
 	}
@@ -954,10 +955,11 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context) (string, er
 //   - ctx: Context for container operations and cancellation
 //   - volName: Name of the volume containing source code
 //   - retry: Number of retries remaining (currently unused, for future health checks)
+//   - operationalLog: Logger for operational messages (suppressed in progress mode)
 //
 // Returns:
 //   - error: Any error encountered starting provider containers
-func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int) error {
+func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, operationalLog logr.Logger) error {
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
@@ -997,7 +999,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)
 
-		a.log.Info("starting provider with port publishing", "provider", prov, "port", init.port)
+		operationalLog.Info("starting provider with port publishing", "provider", prov, "port", init.port)
 		con := container.NewContainer()
 		err := con.Run(
 			ctx,
