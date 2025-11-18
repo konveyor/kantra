@@ -50,14 +50,14 @@ func TestMakeBuiltinProviderConfig(t *testing.T) {
 			expectExcludedDirs:  false,
 		},
 		{
-			name:                "builtin config with excluded paths",
+			name:                "builtin config with excluded paths (ignored - uses defaults)",
 			input:               "/test/input",
 			mode:                "source-only",
 			excludedTargetPaths: []interface{}{"target", "build"},
 			expectedName:        "builtin",
 			expectedLocation:    "/test/input",
 			expectedMode:        provider.AnalysisMode("source-only"),
-			expectExcludedDirs:  true,
+			expectExcludedDirs:  false, // Changed: we don't set excludedDirs anymore
 		},
 	}
 
