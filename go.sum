@@ -144,8 +144,8 @@ github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251028123433-0431f774cad0 h1
 github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251028123433-0431f774cad0/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251028123433-0431f774cad0 h1:BCI9tEiWiQuZO197xBfytuG8Eb1q/aiZifryuGc1Isw=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251028123433-0431f774cad0/go.mod h1:QheVeScOOoCMuWMEYO9ypHgoasRaYddedh9cxWJwn94=
-github.com/konveyor/asset-generation v0.2.1 h1:9eiRYwseeiIw0b+FUNOW2QWxNGZi+tx6YMekOuFAiKE=
-github.com/konveyor/asset-generation v0.2.1/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
+github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=
+github.com/konveyor/asset-generation v0.2.2/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
