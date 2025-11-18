@@ -19,7 +19,7 @@ func (p *PythonProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 				AnalysisMode: provider.SourceOnlyAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "generic",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", util.SourceMountPath)},
+					"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
 					provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
 				},
 			},

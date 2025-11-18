@@ -235,19 +235,19 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
-		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
 
 	case util.PythonProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
-		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.NodeJSProvider:
 		providerSpecificConfig["lspServerName"] = "nodejs"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
-		providerSpecificConfig["lspServerArgs"] = []string{"--stdio"}
-		providerSpecificConfig["workspaceFolders"] = []string{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
+		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.DotnetProvider:
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe"

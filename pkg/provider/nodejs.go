@@ -19,9 +19,9 @@ func (p *NodeJsProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 				AnalysisMode: provider.SourceOnlyAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "nodejs",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", util.SourceMountPath)},
+					"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
 					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
-					"lspServerArgs":                 []string{"--stdio"},
+					"lspServerArgs":                 []interface{}{"--stdio"},
 				},
 			},
 		},
