@@ -202,7 +202,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			// default to run container mode if no Java provider found
 			if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-				log.Info("detected non-Java providers, switching to hybrid mode", "providers", foundProviders)
+				log.V(1).Info("detected non-Java providers, switching to hybrid mode", "providers", foundProviders)
 				analyzeCmd.runLocal = false
 			}
 
