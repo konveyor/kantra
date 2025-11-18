@@ -19,7 +19,7 @@ func (p *GoProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 				AnalysisMode: provider.FullAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"lspServerName":                 "generic",
-					"workspaceFolders":              []string{fmt.Sprintf("file://%s", util.SourceMountPath)},
+					"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
 					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 					provider.LspServerPathConfigKey: "/usr/local/bin/gopls",
 				},
