@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -168,9 +169,10 @@ func TestExtractDefaultRulesets(t *testing.T) {
 
 	ctx := context.Background()
 	testLog := logr.Discard() // Use discard logger for tests
+	containerLog := io.Discard // Use discard writer for container output
 
 	// First extraction - should create the directory
-	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog)
+	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog, containerLog)
 	if err != nil {
 		t.Fatalf("extractDefaultRulesets() failed: %v", err)
 	}
@@ -186,7 +188,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 	}
 
 	// Second extraction - should reuse cached directory
-	rulesetsDir2, err := cmd.extractDefaultRulesets(ctx, testLog)
+	rulesetsDir2, err := cmd.extractDefaultRulesets(ctx, testLog, containerLog)
 	if err != nil {
 		t.Fatalf("second extractDefaultRulesets() failed: %v", err)
 	}
@@ -226,8 +228,9 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 
 	ctx := context.Background()
 	testLog := logr.Discard() // Use discard logger for tests
+	containerLog := io.Discard // Use discard writer for container output
 
-	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog)
+	rulesetsDir, err := cmd.extractDefaultRulesets(ctx, testLog, containerLog)
 	if err != nil {
 		t.Fatalf("extractDefaultRulesets() should not error when disabled: %v", err)
 	}

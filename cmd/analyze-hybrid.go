@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -325,7 +326,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 
 // runParallelStartupTasks executes independent startup tasks concurrently for better performance.
 // Returns the volume name and rulesets directory on success.
-func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, operationalLog logr.Logger) (volName string, rulesetsDir string, err error) {
+func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, operationalLog logr.Logger, containerLogWriter io.Writer) (volName string, rulesetsDir string, err error) {
 	type startupResult struct {
 		name string
 		err  error
@@ -358,7 +359,7 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, operationa
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			dir, err := a.extractDefaultRulesets(ctx, operationalLog)
+			dir, err := a.extractDefaultRulesets(ctx, operationalLog, containerLogWriter)
 			if err == nil {
 				rulesetsDir = dir
 			}
@@ -563,7 +564,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		operationalLog.Info("[TIMING] Starting provider container setup")
 
 		// Run independent startup tasks in parallel for better performance
-		volName, rulesetsDir, err := a.runParallelStartupTasks(ctx, operationalLog)
+		volName, rulesetsDir, err := a.runParallelStartupTasks(ctx, operationalLog, analysisLog)
 		if err != nil {
 			return err
 		}
@@ -587,7 +588,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		progressMode.Printf("  ✓ Created volume\n")
 
 		// Start providers with port publishing
-		err = a.RunProvidersHostNetwork(ctx, volName, 5, operationalLog)
+		err = a.RunProvidersHostNetwork(ctx, volName, 5, operationalLog, analysisLog)
 
 		// Restore original mount path for provider configuration
 		if a.isFileInput {
