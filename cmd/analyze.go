@@ -273,24 +273,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to run hybrid analysis")
 				return err
 			}
-			err = analyzeCmd.CreateJSONOutput()
-			if err != nil {
-				log.Error(err, "failed to create json output file")
-				return err
-			}
-
-			// Create conditional logger for static report generation
-			var operationalLog logr.Logger
-			if analyzeCmd.noProgress {
-				operationalLog = log
-			} else {
-				operationalLog = logr.Discard()
-			}
-			err = analyzeCmd.GenerateStaticReport(ctx, operationalLog)
-			if err != nil {
-				log.Error(err, "failed to generate static report")
-				return err
-			}
+			// Note: CreateJSONOutput and GenerateStaticReport are already called
+			// within RunAnalysisHybridInProcess, so no need to call them here
 
 			return nil
 		},
@@ -886,13 +870,12 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 //
 // Parameters:
 //   - ctx: Context for container operations and cancellation
-//   - operationalLog: Logger for operational messages (suppressed in progress mode)
 //   - containerLogWriter: Writer for container command output (typically analysis.log file)
 //
 // Returns:
 //   - string: Path to the extracted rulesets directory, or empty string if disabled
 //   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operationalLog logr.Logger, containerLogWriter io.Writer) (string, error) {
+func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLogWriter io.Writer) (string, error) {
 	if !a.enableDefaultRulesets {
 		return "", nil
 	}
@@ -901,7 +884,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		operationalLog.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
+		a.log.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
@@ -930,7 +913,7 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		operationalLog.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
+		a.log.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
 	} else {
 		a.log.V(1).Info("using cached default rulesets", "version", Version, "dir", rulesetsDir)
 	}
@@ -958,12 +941,11 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, operational
 //   - ctx: Context for container operations and cancellation
 //   - volName: Name of the volume containing source code
 //   - retry: Number of retries remaining (currently unused, for future health checks)
-//   - operationalLog: Logger for operational messages (suppressed in progress mode)
 //   - containerLogWriter: Writer for container command output (typically analysis.log file)
 //
 // Returns:
 //   - error: Any error encountered starting provider containers
-func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, operationalLog logr.Logger, containerLogWriter io.Writer) error {
+func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName string, retry int, containerLogWriter io.Writer) error {
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
@@ -1003,7 +985,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)
 
-		operationalLog.Info("starting provider with port publishing", "provider", prov, "port", init.port)
+		a.log.Info("starting provider with port publishing", "provider", prov, "port", init.port)
 		con := container.NewContainer()
 		err := con.Run(
 			ctx,
@@ -1123,7 +1105,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger, containerLogWriter io.Writer) error {
 	if a.skipStaticReport {
 		return nil
 	}
@@ -1218,6 +1200,8 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLo
 		container.WithVolumes(volumes),
 		container.WithcFlag(true),
 		container.WithCleanup(a.cleanup),
+		container.WithStdout(containerLogWriter),
+		container.WithStderr(containerLogWriter),
 	)
 	if err != nil {
 		return err
