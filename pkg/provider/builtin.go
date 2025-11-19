@@ -3,7 +3,6 @@ package provider
 import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
-	"strings"
 )
 
 type BuiltinProvider struct {
@@ -16,28 +15,16 @@ func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               util.SourceMountPath,
-				AnalysisMode:           provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: map[string]interface{}{},
+				Location:     util.SourceMountPath,
+				AnalysisMode: provider.AnalysisMode(c.Mode),
+				ProviderSpecificConfig: map[string]interface{}{
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+					// Java target paths are already included in the defaults (target/)
+				},
 			},
 		},
 	}
 
-	excludedPaths := getBuiltinTargetConfigs(c)
-	if len(excludedPaths) > 0 {
-		p.config.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedPaths
-	}
-
 	return p.config, nil
-}
-
-func getBuiltinTargetConfigs(c ConfigInput) []interface{} {
-	var volumePaths []interface{}
-
-	for _, path := range c.JavaExcludedTargetPaths {
-		ns := strings.Replace(path.(string), c.InputPath, util.SourceMountPath, 1)
-		volumePaths = append(volumePaths, ns)
-	}
-
-	return volumePaths
 }
