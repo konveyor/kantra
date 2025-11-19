@@ -19,7 +19,7 @@ import (
 func TestGradleSourcesTaskFileConfiguration(t *testing.T) {
 	a := analyzeCommand{}
 	a.AnalyzeCommandContext.kantraDir = "kantraDir"
-	configs, err := a.createProviderConfigsContainerless([]interface{}{})
+	configs, err := a.createProviderConfigsContainerless()
 	if err != nil {
 		t.Fail()
 	}
@@ -30,34 +30,20 @@ func TestGradleSourcesTaskFileConfiguration(t *testing.T) {
 
 func TestMakeBuiltinProviderConfig(t *testing.T) {
 	tests := []struct {
-		name                string
-		input               string
-		mode                string
-		excludedTargetPaths []interface{}
-		expectedName        string
-		expectedLocation    string
-		expectedMode        provider.AnalysisMode
-		expectExcludedDirs  bool
+		name             string
+		input            string
+		mode             string
+		expectedName     string
+		expectedLocation string
+		expectedMode     provider.AnalysisMode
 	}{
 		{
-			name:                "basic builtin config",
-			input:               "/test/input",
-			mode:                "full",
-			excludedTargetPaths: nil,
-			expectedName:        "builtin",
-			expectedLocation:    "/test/input",
-			expectedMode:        provider.AnalysisMode("full"),
-			expectExcludedDirs:  false,
-		},
-		{
-			name:                "builtin config with excluded paths",
-			input:               "/test/input",
-			mode:                "source-only",
-			excludedTargetPaths: []interface{}{"target", "build"},
-			expectedName:        "builtin",
-			expectedLocation:    "/test/input",
-			expectedMode:        provider.AnalysisMode("source-only"),
-			expectExcludedDirs:  true,
+			name:             "basic builtin config",
+			input:            "/test/input",
+			mode:             "full",
+			expectedName:     "builtin",
+			expectedLocation: "/test/input",
+			expectedMode:     provider.AnalysisMode("full"),
 		},
 	}
 
@@ -68,21 +54,16 @@ func TestMakeBuiltinProviderConfig(t *testing.T) {
 				mode:  tt.mode,
 			}
 
-			config := a.makeBuiltinProviderConfig(tt.excludedTargetPaths)
+			config := a.makeBuiltinProviderConfig()
 
 			assert.Equal(t, tt.expectedName, config.Name)
 			require.Len(t, config.InitConfig, 1)
 			assert.Equal(t, tt.expectedLocation, config.InitConfig[0].Location)
 			assert.Equal(t, tt.expectedMode, config.InitConfig[0].AnalysisMode)
 
-			if tt.expectExcludedDirs {
-				excludedDirs, exists := config.InitConfig[0].ProviderSpecificConfig["excludedDirs"]
-				assert.True(t, exists)
-				assert.Equal(t, tt.excludedTargetPaths, excludedDirs)
-			} else {
-				_, exists := config.InitConfig[0].ProviderSpecificConfig["excludedDirs"]
-				assert.False(t, exists)
-			}
+			// Verify excludedDirs is not set (we rely on analyzer-lsp defaults)
+			_, exists := config.InitConfig[0].ProviderSpecificConfig["excludedDirs"]
+			assert.False(t, exists)
 		})
 	}
 }

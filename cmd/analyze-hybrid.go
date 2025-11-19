@@ -17,7 +17,6 @@ import (
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
-	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/engine"
 	"github.com/konveyor/analyzer-lsp/engine/labels"
@@ -390,22 +389,8 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
-
-	// Get Java target paths to exclude from builtin
-	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
-	var javaTargetPaths []interface{}
-	if !a.isFileInput {
-		// Only walk target paths for source code analysis
-		var err error
-		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-		if err != nil {
-			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
-		}
-	} else {
-		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
-	}
 
 	builtinConfig := provider.Config{
 		Name: "builtin",
@@ -414,7 +399,8 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, exclude
 				Location:     a.input,
 				AnalysisMode: provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
-					"excludedDirs": javaTargetPaths,
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
 				},
 			},
 		},
@@ -638,20 +624,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
-	// Get Java target paths to exclude from builtin
-	// Note: For binary files in hybrid mode, skip this as decompilation happens in container
-	var javaTargetPaths []interface{}
-	if !a.isFileInput {
-		// Only walk target paths for source code analysis
-		var err error
-		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-		if err != nil {
-			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
-		}
-	} else {
-		a.log.V(1).Info("skipping target directory walk for binary input (decompilation happens in container)")
-	}
-
 	var additionalBuiltinConfigs []provider.InitConfig
 
 	// Setup network-based provider clients for all configured providers
@@ -704,7 +676,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, javaTargetPaths, transformedConfigs, analyzeLog)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)

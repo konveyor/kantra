@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/bombsimon/logrusr/v3"
@@ -208,24 +207,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		progressMode.Printf("  ✓ Decompiling complete\n")
 	}
 
-	// Get Java target paths to exclude from builtin
-	// Note: For binary files, skip this as decompilation happens in provider
-	var javaTargetPaths []interface{}
-	if !a.isFileInput {
-		// Only walk target paths for source code analysis
-		var err error
-		javaTargetPaths, err = kantraProvider.WalkJavaPathForTarget(analyzeLog, a.isFileInput, a.input)
-		if err != nil {
-			// allow for duplicate incidents rather than failing analysis
-			a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
-		}
-	} else {
-		operationalLog.V(1).Info("skipping target directory walk for binary input (decompilation happens in provider)")
-	}
-
 	startBuiltinProvider := time.Now()
 	operationalLog.Info("[TIMING] Starting builtin provider setup")
-	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, javaTargetPaths, additionalBuiltinConfigs, analyzeLog, operationalLog)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
@@ -541,19 +525,20 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 	return nil
 }
 
-func (a *analyzeCommand) makeBuiltinProviderConfig(excludedTargetPaths []interface{}) provider.Config {
+func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
 	builtinConfig := provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
 				Location:               a.input,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{},
+				ProviderSpecificConfig: map[string]interface{}{
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+					// Java target paths are already included in the defaults (target/)
+				},
 			},
 		},
-	}
-	if len(excludedTargetPaths) > 0 {
-		builtinConfig.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedTargetPaths
 	}
 	return builtinConfig
 }
@@ -589,8 +574,8 @@ func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
 	return javaConfig
 }
 
-func (a *analyzeCommand) createProviderConfigsContainerless(excludedTargetPaths []interface{}) ([]provider.Config, error) {
-	builtinConfig := a.makeBuiltinProviderConfig(excludedTargetPaths)
+func (a *analyzeCommand) createProviderConfigsContainerless() ([]provider.Config, error) {
+	builtinConfig := a.makeBuiltinProviderConfig()
 	javaConfig := a.makeJavaProviderConfig()
 
 	provConfigs := []provider.Config{builtinConfig, javaConfig}
@@ -745,9 +730,9 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 	return javaProvider, providerLocations, additionalBuiltinConfs, nil
 }
 
-func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, excludedTargetPaths []interface{}, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger) (provider.InternalProviderClient, []string, error) {
 	operationalLog.Info("setting up builtin provider")
-	builtinConfig := a.makeBuiltinProviderConfig(excludedTargetPaths)
+	builtinConfig := a.makeBuiltinProviderConfig()
 
 	// Set proxy if configured
 	if a.httpProxy != "" || a.httpsProxy != "" {
