@@ -3,598 +3,728 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"github.com/konveyor/tackle2-hub/api"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// createTestProfile creates a test profile YAML file and returns the path
-func createTestProfile(t *testing.T, content string) string {
-	tmpDir := t.TempDir()
-	profilePath := filepath.Join(tmpDir, "profile.yaml")
-	err := os.WriteFile(profilePath, []byte(content), 0644)
-	require.NoError(t, err)
-	return profilePath
-}
-
-// createTestAnalyzeCommand creates a test analyzeCommand instance
-func createTestAnalyzeCommand() *analyzeCommand {
-	return &analyzeCommand{
-		enableDefaultRulesets: true, // default value as set by the flag
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log: logr.Discard(),
-		},
-	}
-}
-
-// createTestCobraCommand creates a test cobra command with flags
-func createTestCobraCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "test",
-	}
-
-	// Add all the flags that validateProfile checks
-	cmd.Flags().String("input", "", "input flag")
-	cmd.Flags().String("mode", "", "mode flag")
-	cmd.Flags().Bool("analyze-known-libraries", false, "analyze-known-libraries flag")
-	cmd.Flags().String("label-selector", "", "label-selector flag")
-	cmd.Flags().StringSlice("source", []string{}, "source flag")
-	cmd.Flags().StringSlice("target", []string{}, "target flag")
-	cmd.Flags().Bool("no-dependency-rules", false, "no-dependency-rules flag")
-	cmd.Flags().StringSlice("rules", []string{}, "rules flag")
-	cmd.Flags().Bool("enable-default-rulesets", false, "enable-default-rulesets flag")
-	cmd.Flags().String("incident-selector", "", "incident-selector flag")
-
-	return cmd
-}
-
-func TestValidateProfile(t *testing.T) {
+func TestAnalyzeCommand_unmarshalProfile(t *testing.T) {
 	tests := []struct {
-		name          string
-		setupProfile  func(t *testing.T) string
-		setupCommand  func() *cobra.Command
-		expectedError string
+		name        string
+		profile     string
+		setupFunc   func() (string, func(), error)
+		wantProfile *api.AnalysisProfile
+		wantErr     bool
+		errMsg      string
 	}{
 		{
-			name: "valid profile directory",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
+			name:    "empty profile should return nil",
+			profile: "",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
 			},
-			setupCommand: func() *cobra.Command {
-				return createTestCobraCommand()
-			},
-			expectedError: "",
+			wantProfile: nil,
+			wantErr:     false,
 		},
 		{
-			name: "profile path does not exist",
-			setupProfile: func(t *testing.T) string {
-				return "/nonexistent/path"
+			name:    "valid profile file",
+			profile: "test-profile",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilePath := filepath.Join(tmpDir, "profile.yaml")
+				profileData := `
+name: "Test Profile"
+mode:
+  withDeps: true
+scope:
+  withKnownLibs: true
+  packages:
+    included:
+      - "com.example"
+rules:
+  labels:
+    included:
+      - "test-label"
+`
+
+				err = os.WriteFile(profilePath, []byte(profileData), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilePath, func() { os.RemoveAll(tmpDir) }, nil
 			},
-			setupCommand: func() *cobra.Command {
-				return createTestCobraCommand()
+			wantProfile: &api.AnalysisProfile{
+				Name: "Test Profile",
 			},
-			expectedError: "failed to stat profile at path /nonexistent/path",
+			wantErr: false,
 		},
 		{
-			name: "profile is a file not directory",
-			setupProfile: func(t *testing.T) string {
-				tmpDir := t.TempDir()
-				filePath := filepath.Join(tmpDir, "profile.yaml")
-				err := os.WriteFile(filePath, []byte("test"), 0644)
-				require.NoError(t, err)
-				return filePath
+			name:    "non-existent file should fail",
+			profile: "test-profile",
+			setupFunc: func() (string, func(), error) {
+				return "/non/existent/profile.yaml", func() {}, nil
 			},
-			setupCommand: func() *cobra.Command {
-				return createTestCobraCommand()
-			},
-			expectedError: "profile must be a directory",
+			wantProfile: nil,
+			wantErr:     true,
+			errMsg:      "failed to read profile file",
 		},
 		{
-			name: "input flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
+			name:    "invalid yaml should fail",
+			profile: "test-profile",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilePath := filepath.Join(tmpDir, "profile.yaml")
+				invalidYaml := "invalid: yaml: content: ["
+
+				err = os.WriteFile(profilePath, []byte(invalidYaml), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilePath, func() { os.RemoveAll(tmpDir) }, nil
 			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("input", "/some/path")
-				return cmd
-			},
-			expectedError: "input must not be set when profile is set",
-		},
-		{
-			name: "mode flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("mode", "source-only")
-				return cmd
-			},
-			expectedError: "mode must not be set when profile is set",
-		},
-		{
-			name: "analyze-known-libraries flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("analyze-known-libraries", "true")
-				return cmd
-			},
-			expectedError: "analyzeKnownLibraries must not be set when profile is set",
-		},
-		{
-			name: "label-selector flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("label-selector", "app=test")
-				return cmd
-			},
-			expectedError: "labelSelector must not be set when profile is set",
-		},
-		{
-			name: "source flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("source", "java")
-				return cmd
-			},
-			expectedError: "sources must not be set when profile is set",
-		},
-		{
-			name: "target flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("target", "cloud-readiness")
-				return cmd
-			},
-			expectedError: "targets must not be set when profile is set",
-		},
-		{
-			name: "no-dependency-rules flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("no-dependency-rules", "true")
-				return cmd
-			},
-			expectedError: "noDepRules must not be set when profile is set",
-		},
-		{
-			name: "rules flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("rules", "rule1")
-				return cmd
-			},
-			expectedError: "rules must not be set when profile is set",
-		},
-		{
-			name: "enable-default-rulesets flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("enable-default-rulesets", "true")
-				return cmd
-			},
-			expectedError: "enableDefaultRulesets must not be set when profile is set",
-		},
-		{
-			name: "incident-selector flag is set",
-			setupProfile: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			setupCommand: func() *cobra.Command {
-				cmd := createTestCobraCommand()
-				cmd.Flags().Set("incident-selector", "package=com.example")
-				return cmd
-			},
-			expectedError: "incidentSelector must not be set when profile is set",
+			wantProfile: nil,
+			wantErr:     true,
+			errMsg:      "failed to unmarshal profile file",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := createTestAnalyzeCommand()
-			a.profile = tt.setupProfile(t)
-			cmd := tt.setupCommand()
-
-			err := a.validateProfile(cmd)
-
-			if tt.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedError)
+			path, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
 			}
-		})
-	}
-}
+			defer cleanup()
 
-func TestUnmarshalProfile(t *testing.T) {
-	tests := []struct {
-		name           string
-		profileContent string
-		profilePath    string
-		expectError    bool
-		expectedResult *Profile
-	}{
-		{
-			name:           "empty profile path returns nil",
-			profilePath:    "",
-			expectError:    false,
-			expectedResult: nil,
-		},
-		{
-			name: "valid profile YAML",
-			profileContent: `apiVersion: v1
-kind: Profile
-metadata:
-  name: test-profile
-  id: test-id
-  source: test-source
-  syncedAt: "2023-01-01T00:00:00Z"
-  version: "1.0.0"
-spec:
-  rules:
-    labelSelectors:
-      - "app=test"
-      - "env=prod"
-    rulesets:
-      - "ruleset1"
-      - "ruleset2"
-    useDefaultRules: true
-    withDepRules: false
-  scope:
-    depAanlysis: true
-    withKnownLibs: false
-    packages: "com.example"
-  hubMetadata:
-    applicationId: "app-123"
-    profileId: "profile-456"
-    readonly: true`,
-			expectError: false,
-			expectedResult: &Profile{
-				APIVersion: "v1",
-				Kind:       "Profile",
-				Metadata: ProfileMetadata{
-					Name:     "test-profile",
-					ID:       "test-id",
-					Source:   "test-source",
-					SyncedAt: "2023-01-01T00:00:00Z",
-					Version:  "1.0.0",
-				},
-				Spec: ProfileSpec{
-					Rules: ProfileRules{
-						LabelSelectors:  []string{"app=test", "env=prod"},
-						Rulesets:        []string{"ruleset1", "ruleset2"},
-						UseDefaultRules: true,
-						WithDepRules:    false,
-					},
-					Scope: ProfileScope{
-						DepAnalysis:   true,
-						WithKnownLibs: false,
-						Packages:      "com.example",
-					},
-					HubMetadata: &ProfileHubMetadata{
-						ApplicationID: "app-123",
-						ProfileID:     "profile-456",
-						Readonly:      true,
-					},
-				},
-			},
-		},
-		{
-			name: "minimal valid profile",
-			profileContent: `apiVersion: v1
-kind: Profile
-metadata:
-  name: minimal-profile
-spec:
-  rules:
-    useDefaultRules: false
-    withDepRules: false
-  scope:
-    depAanlysis: false
-    withKnownLibs: false`,
-			expectError: false,
-			expectedResult: &Profile{
-				APIVersion: "v1",
-				Kind:       "Profile",
-				Metadata: ProfileMetadata{
-					Name: "minimal-profile",
-				},
-				Spec: ProfileSpec{
-					Rules: ProfileRules{
-						UseDefaultRules: false,
-						WithDepRules:    false,
-					},
-					Scope: ProfileScope{
-						DepAnalysis:   false,
-						WithKnownLibs: false,
-					},
-				},
-			},
-		},
-		{
-			name:           "invalid YAML",
-			profileContent: "invalid: yaml: content: [",
-			expectError:    true,
-		},
-		{
-			name:        "nonexistent file",
-			profilePath: "/nonexistent/file.yaml",
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := createTestAnalyzeCommand()
-
-			var profilePath string
-			if tt.profilePath != "" {
-				profilePath = tt.profilePath
-				a.profile = "set" // non-empty to trigger processing
-			} else if tt.profileContent != "" {
-				profilePath = createTestProfile(t, tt.profileContent)
-				a.profile = "set" // non-empty to trigger processing
+			cmd := &analyzeCommand{
+				profile: tt.profile,
 			}
 
-			result, err := a.unmarshalProfile(profilePath)
+			got, err := cmd.unmarshalProfile(path)
 
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				if tt.expectedResult == nil {
-					assert.Nil(t, result)
-				} else {
-					assert.Equal(t, tt.expectedResult, result)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("unmarshalProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("unmarshalProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unmarshalProfile() unexpected error = %v", err)
+				return
+			}
+
+			if tt.wantProfile == nil && got != nil {
+				t.Errorf("unmarshalProfile() = %v, want nil", got)
+				return
+			}
+
+			if tt.wantProfile != nil && got == nil {
+				t.Errorf("unmarshalProfile() = nil, want %v", tt.wantProfile)
+				return
+			}
+
+			if tt.wantProfile != nil && got != nil {
+				if got.Name != tt.wantProfile.Name {
+					t.Errorf("unmarshalProfile() Name = %v, want %v", got.Name, tt.wantProfile.Name)
+				}
+				if got.Mode.WithDeps != true {
+					t.Errorf("unmarshalProfile() Mode.WithDeps = %v, want true", got.Mode.WithDeps)
+				}
+				if got.Scope.WithKnownLibs != true {
+					t.Errorf("unmarshalProfile() Scope.WithKnownLibs = %v, want true", got.Scope.WithKnownLibs)
+				}
+				if len(got.Scope.Packages.Included) == 0 || got.Scope.Packages.Included[0] != "com.example" {
+					t.Errorf("unmarshalProfile() Scope.Packages.Included = %v, want [com.example]", got.Scope.Packages.Included)
+				}
+				if len(got.Rules.Labels.Included) == 0 || got.Rules.Labels.Included[0] != "test-label" {
+					t.Errorf("unmarshalProfile() Rules.Labels.Included = %v, want [test-label]", got.Rules.Labels.Included)
 				}
 			}
 		})
 	}
 }
 
-func TestGetSettingsFromProfile(t *testing.T) {
+func TestAnalyzeCommand_setSettingsFromProfile(t *testing.T) {
 	tests := []struct {
-		name           string
-		profileContent string
-		profilePath    string
-		expectError    bool
-		validateFunc   func(t *testing.T, a *analyzeCommand)
+		name      string
+		setupFunc func() (*analyzeCommand, *cobra.Command, string, func(), error)
+		wantErr   bool
+		errMsg    string
+		validate  func(*analyzeCommand, *testing.T)
 	}{
 		{
-			name: "full profile settings applied correctly",
-			profileContent: `apiVersion: v1
-kind: Profile
-metadata:
-  name: full-profile
-spec:
-  rules:
-    labelSelectors:
-      - "app=test"
-      - "env=prod"
-    rulesets:
-      - "ruleset1"
-      - "ruleset2"
-    useDefaultRules: false
-    withDepRules: true
-  scope:
-    depAanlysis: true
-    withKnownLibs: true
-    packages: "com.example"`,
-			validateFunc: func(t *testing.T, a *analyzeCommand) {
-				// input should be set to the directory above .konveyor
-				expectedInput := filepath.Dir(filepath.Dir(a.profile))
-				assert.Equal(t, expectedInput, a.input)
+			name: "profile with all settings",
+			setupFunc: func() (*analyzeCommand, *cobra.Command, string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return nil, nil, "", nil, err
+				}
 
-				// mode should be FullAnalysisMode since depAnalysis is true
-				assert.Equal(t, string(provider.FullAnalysisMode), a.mode)
+				konveyorDir := filepath.Join(tmpDir, ".konveyor", "profiles", "test-profile")
+				err = os.MkdirAll(konveyorDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, "", nil, err
+				}
 
-				// analyzeKnownLibraries should be true
-				assert.True(t, a.analyzeKnownLibraries)
+				rulesDir := filepath.Join(konveyorDir, "rules", "test-rule")
+				err = os.MkdirAll(rulesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, "", nil, err
+				}
 
-				// labelSelector should be joined with " || "
-				assert.Equal(t, "app=test || env=prod", a.labelSelector)
+				profilePath := filepath.Join(konveyorDir, "profile.yaml")
+				profileData := `
+name: "Test Profile"
+mode:
+  withDeps: true
+scope:
+  withKnownLibs: true
+  packages:
+    included:
+      - "com.example"
+      - "org.test"
+rules:
+  labels:
+    included:
+      - "test-label"
+      - "another-label"
+`
 
-				// rules should be set
-				assert.Equal(t, []string{"ruleset1", "ruleset2"}, a.rules)
+				err = os.WriteFile(profilePath, []byte(profileData), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, "", nil, err
+				}
 
-				// enableDefaultRulesets should be false since useDefaultRules is false
-				assert.False(t, a.enableDefaultRulesets)
+				cmd := &analyzeCommand{
+					profile: profilePath,
+				}
+				cmd.log = logr.Discard()
 
-				// noDepRules should be true since withDepRules is true
-				assert.True(t, a.noDepRules)
+				cobraCmd := &cobra.Command{}
+				cobraCmd.Flags().String("input", "", "")
+				cobraCmd.Flags().String("mode", "", "")
+				cobraCmd.Flags().Bool("analyze-known-libraries", false, "")
+				cobraCmd.Flags().String("incident-selector", "", "")
+				cobraCmd.Flags().String("label-selector", "", "")
+				cobraCmd.Flags().StringSlice("rules", []string{}, "")
 
-				// incidentSelector should be set
-				assert.Equal(t, "com.example", a.incidentSelector)
+				return cmd, cobraCmd, profilePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+			validate: func(cmd *analyzeCommand, t *testing.T) {
+				expectedInput := strings.Split(cmd.profile, ".konveyor")[0]
+				expectedInput = strings.TrimSuffix(expectedInput, "/")
+				if cmd.input != expectedInput {
+					t.Errorf("Expected input to be %s, got %s", expectedInput, cmd.input)
+				}
+
+				if cmd.mode != string(provider.FullAnalysisMode) {
+					t.Errorf("Expected mode to be %s, got %s", provider.FullAnalysisMode, cmd.mode)
+				}
+
+				if !cmd.analyzeKnownLibraries {
+					t.Errorf("Expected analyzeKnownLibraries to be true")
+				}
+
+				expectedIncidentSelector := "com.example || org.test"
+				if cmd.incidentSelector != expectedIncidentSelector {
+					t.Errorf("Expected incidentSelector to be %s, got %s", expectedIncidentSelector, cmd.incidentSelector)
+				}
+
+				expectedLabelSelector := "test-label || another-label"
+				if cmd.labelSelector != expectedLabelSelector {
+					t.Errorf("Expected labelSelector to be %s, got %s", expectedLabelSelector, cmd.labelSelector)
+				}
+
+				if len(cmd.rules) == 0 {
+					t.Errorf("Expected rules to be added from profile")
+				}
+				if cmd.enableDefaultRulesets {
+					t.Errorf("Expected enableDefaultRulesets to be false when profile rules are found")
+				}
 			},
 		},
 		{
-			name: "minimal profile with source-only mode",
-			profileContent: `apiVersion: v1
-kind: Profile
-metadata:
-  name: minimal-profile
-spec:
-  rules:
-    useDefaultRules: true
-    withDepRules: false
-  scope:
-    depAanlysis: false
-    withKnownLibs: false`,
-			validateFunc: func(t *testing.T, a *analyzeCommand) {
-				// mode should be SourceOnlyAnalysisMode since depAnalysis is false
-				assert.Equal(t, string(provider.SourceOnlyAnalysisMode), a.mode)
+			name: "profile with source-only mode",
+			setupFunc: func() (*analyzeCommand, *cobra.Command, string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return nil, nil, "", nil, err
+				}
 
-				// analyzeKnownLibraries should be false (default)
-				assert.False(t, a.analyzeKnownLibraries)
+				konveyorDir := filepath.Join(tmpDir, ".konveyor", "profiles", "test-profile")
+				err = os.MkdirAll(konveyorDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, "", nil, err
+				}
 
-				// enableDefaultRulesets should be true since useDefaultRules is true
-				assert.True(t, a.enableDefaultRulesets)
+				profilePath := filepath.Join(konveyorDir, "profile.yaml")
+				profileData := `
+name: "Source Only Profile"
+mode:
+  withDeps: false
+`
 
-				// noDepRules should be false since withDepRules is false
-				assert.False(t, a.noDepRules)
+				err = os.WriteFile(profilePath, []byte(profileData), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return nil, nil, "", nil, err
+				}
+
+				cmd := &analyzeCommand{
+					profile: profilePath,
+				}
+				cmd.log = logr.Discard()
+
+				cobraCmd := &cobra.Command{}
+				cobraCmd.Flags().String("input", "", "")
+				cobraCmd.Flags().String("mode", "", "")
+				cobraCmd.Flags().Bool("analyze-known-libraries", false, "")
+				cobraCmd.Flags().String("incident-selector", "", "")
+				cobraCmd.Flags().String("label-selector", "", "")
+				cobraCmd.Flags().StringSlice("rules", []string{}, "")
+
+				return cmd, cobraCmd, profilePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+			validate: func(cmd *analyzeCommand, t *testing.T) {
+				if cmd.mode != string(provider.SourceOnlyAnalysisMode) {
+					t.Errorf("Expected mode to be %s, got %s", provider.SourceOnlyAnalysisMode, cmd.mode)
+				}
 			},
 		},
 		{
-			name: "profile with empty arrays and strings",
-			profileContent: `apiVersion: v1
-kind: Profile
-metadata:
-  name: empty-arrays-profile
-spec:
-  rules:
-    labelSelectors: []
-    rulesets: []
-    useDefaultRules: true
-    withDepRules: false
-  scope:
-    depAanlysis: true
-    withKnownLibs: false
-    packages: ""`,
-			validateFunc: func(t *testing.T, a *analyzeCommand) {
-				// labelSelector should be empty since labelSelectors is empty
-				assert.Equal(t, "", a.labelSelector)
+			name: "invalid profile path without .konveyor",
+			setupFunc: func() (*analyzeCommand, *cobra.Command, string, func(), error) {
+				cmd := &analyzeCommand{
+					profile: "/invalid/path/profile.yaml",
+				}
 
-				// rules should be empty since rulesets is empty
-				assert.Empty(t, a.rules)
+				cobraCmd := &cobra.Command{}
+				cobraCmd.Flags().String("input", "", "")
+				cobraCmd.Flags().String("mode", "", "")
+				cobraCmd.Flags().Bool("analyze-known-libraries", false, "")
+				cobraCmd.Flags().String("incident-selector", "", "")
+				cobraCmd.Flags().String("label-selector", "", "")
+				cobraCmd.Flags().StringSlice("rules", []string{}, "")
 
-				// incidentSelector should be empty since packages is empty
-				assert.Equal(t, "", a.incidentSelector)
+				return cmd, cobraCmd, "/invalid/path/profile.yaml", func() {}, nil
 			},
-		},
-		{
-			name:        "invalid profile file",
-			profilePath: "/nonexistent/file.yaml",
-			expectError: true,
-			validateFunc: func(t *testing.T, a *analyzeCommand) {
-				// No validation needed for error case
-			},
+			wantErr: true,
+			errMsg:  "profile path does not contain .konveyor directory",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := createTestAnalyzeCommand()
+			cmd, cobraCmd, path, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
 
-			var profilePath string
-			if tt.profilePath != "" {
-				profilePath = tt.profilePath
-				a.profile = filepath.Dir(profilePath) // Set profile to directory containing the file
-			} else {
-				// Create a proper directory structure: /tmp/test/.konveyor/profiles/profile.yaml
-				tmpDir := t.TempDir()
-				konveyorDir := filepath.Join(tmpDir, ".konveyor")
-				profilesDir := filepath.Join(konveyorDir, "profiles")
-				err := os.MkdirAll(profilesDir, 0755)
-				require.NoError(t, err)
+			err = cmd.setSettingsFromProfile(path, cobraCmd)
 
-				profilePath = filepath.Join(profilesDir, "profile.yaml")
-				err = os.WriteFile(profilePath, []byte(tt.profileContent), 0644)
-				require.NoError(t, err)
-
-				a.profile = profilesDir
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("setSettingsFromProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("setSettingsFromProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
 			}
 
-			err := a.getSettingsFromProfile(profilePath)
+			if err != nil {
+				t.Errorf("setSettingsFromProfile() unexpected error = %v", err)
+				return
+			}
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				if tt.validateFunc != nil {
-					tt.validateFunc(t, a)
-				}
+			if tt.validate != nil {
+				tt.validate(cmd, t)
 			}
 		})
 	}
 }
 
-func TestProfileStructs(t *testing.T) {
-	t.Run("Profile struct fields", func(t *testing.T) {
-		profile := Profile{
-			APIVersion: "v1",
-			Kind:       "Profile",
-			Metadata: ProfileMetadata{
-				Name:     "test",
-				ID:       "id",
-				Source:   "source",
-				SyncedAt: "time",
-				Version:  "1.0",
+func TestAnalyzeCommand_getRulesInProfile(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantRules []string
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "empty profile should return nil",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
 			},
-			Spec: ProfileSpec{
-				Rules: ProfileRules{
-					LabelSelectors:  []string{"label1"},
-					Rulesets:        []string{"ruleset1"},
-					UseDefaultRules: true,
-					WithDepRules:    false,
-				},
-				Scope: ProfileScope{
-					DepAnalysis:   true,
-					WithKnownLibs: false,
-					Packages:      "com.example",
-				},
-				HubMetadata: &ProfileHubMetadata{
-					ApplicationID: "app-id",
-					ProfileID:     "profile-id",
-					Readonly:      true,
-				},
-			},
-		}
+			wantRules: nil,
+			wantErr:   false,
+		},
+		{
+			name: "profile with multiple rule directories",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
 
-		// Test that all fields are accessible
-		assert.Equal(t, "v1", profile.APIVersion)
-		assert.Equal(t, "Profile", profile.Kind)
-		assert.Equal(t, "test", profile.Metadata.Name)
-		assert.Equal(t, "id", profile.Metadata.ID)
-		assert.Equal(t, "source", profile.Metadata.Source)
-		assert.Equal(t, "time", profile.Metadata.SyncedAt)
-		assert.Equal(t, "1.0", profile.Metadata.Version)
-		assert.Equal(t, []string{"label1"}, profile.Spec.Rules.LabelSelectors)
-		assert.Equal(t, []string{"ruleset1"}, profile.Spec.Rules.Rulesets)
-		assert.True(t, profile.Spec.Rules.UseDefaultRules)
-		assert.False(t, profile.Spec.Rules.WithDepRules)
-		assert.True(t, profile.Spec.Scope.DepAnalysis)
-		assert.False(t, profile.Spec.Scope.WithKnownLibs)
-		assert.Equal(t, "com.example", profile.Spec.Scope.Packages)
-		assert.NotNil(t, profile.Spec.HubMetadata)
-		assert.Equal(t, "app-id", profile.Spec.HubMetadata.ApplicationID)
-		assert.Equal(t, "profile-id", profile.Spec.HubMetadata.ProfileID)
-		assert.True(t, profile.Spec.HubMetadata.Readonly)
-	})
+				profileDir := filepath.Join(tmpDir, "profile")
+				rulesDir := filepath.Join(profileDir, "rules")
 
-	t.Run("ProfileHubMetadata can be nil", func(t *testing.T) {
-		profile := Profile{
-			Spec: ProfileSpec{
-				HubMetadata: nil,
+				rule1Dir := filepath.Join(rulesDir, "rule1")
+				rule2Dir := filepath.Join(rulesDir, "rule2")
+
+				err = os.MkdirAll(rule1Dir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				err = os.MkdirAll(rule2Dir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				err = os.WriteFile(filepath.Join(rulesDir, "not-a-rule.txt"), []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profileDir, func() { os.RemoveAll(tmpDir) }, nil
 			},
-		}
-		assert.Nil(t, profile.Spec.HubMetadata)
-	})
+			wantRules: []string{}, 
+			wantErr:   false,
+		},
+		{
+			name: "profile with no rules directory",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profileDir := filepath.Join(tmpDir, "profile")
+				err = os.MkdirAll(profileDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profileDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantRules: nil,
+			wantErr:   false,
+		},
+		{
+			name: "rules path is a file not directory",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-rules-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profileDir := filepath.Join(tmpDir, "profile")
+				err = os.MkdirAll(profileDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				rulesFile := filepath.Join(profileDir, "rules")
+				err = os.WriteFile(rulesFile, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profileDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantRules: nil,
+			wantErr:   true,
+			errMsg:    "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profileDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+
+			cmd := &analyzeCommand{}
+			got, err := cmd.getRulesInProfile(profileDir)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("getRulesInProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("getRulesInProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("getRulesInProfile() unexpected error = %v", err)
+				return
+			}
+
+			if tt.name == "profile with multiple rule directories" {
+				if len(got) != 2 {
+					t.Errorf("getRulesInProfile() returned %d rules, expected 2", len(got))
+					return
+				}
+
+				expectedRules := []string{
+					filepath.Join(profileDir, "rules", "rule1"),
+					filepath.Join(profileDir, "rules", "rule2"),
+				}
+
+				for _, expectedRule := range expectedRules {
+					found := false
+					for _, gotRule := range got {
+						if gotRule == expectedRule {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("getRulesInProfile() missing expected rule %s", expectedRule)
+					}
+				}
+				return
+			}
+
+			if len(got) != len(tt.wantRules) {
+				t.Errorf("getRulesInProfile() returned %d rules, expected %d", len(got), len(tt.wantRules))
+			}
+		})
+	}
+}
+
+func TestAnalyzeCommand_findSingleProfile(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupFunc   func() (string, func(), error)
+		wantProfile string
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name: "single valid profile",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesDir := filepath.Join(tmpDir, "profiles")
+				profileDir := filepath.Join(profilesDir, "test-profile")
+				err = os.MkdirAll(profileDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				profilePath := filepath.Join(profileDir, "profile.yaml")
+				err = os.WriteFile(profilePath, []byte("name: test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantProfile: "", 
+			wantErr:     false,
+		},
+		{
+			name: "multiple profiles should return empty",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesDir := filepath.Join(tmpDir, "profiles")
+
+				profile1Dir := filepath.Join(profilesDir, "profile1")
+				err = os.MkdirAll(profile1Dir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				profile1Path := filepath.Join(profile1Dir, "profile.yaml")
+				err = os.WriteFile(profile1Path, []byte("name: profile1"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				profile2Dir := filepath.Join(profilesDir, "profile2")
+				err = os.MkdirAll(profile2Dir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				profile2Path := filepath.Join(profile2Dir, "profile.yaml")
+				err = os.WriteFile(profile2Path, []byte("name: profile2"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantProfile: "",
+			wantErr:     false,
+		},
+		{
+			name: "no profiles should return empty",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesDir := filepath.Join(tmpDir, "profiles")
+				err = os.MkdirAll(profilesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantProfile: "",
+			wantErr:     false,
+		},
+		{
+			name: "directory with profile dir but no profile.yaml",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesDir := filepath.Join(tmpDir, "profiles")
+				profileDir := filepath.Join(profilesDir, "test-profile")
+				err = os.MkdirAll(profileDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				// Don't create profile.yaml
+
+				return profilesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantProfile: "",
+			wantErr:     false,
+		},
+		{
+			name: "non-existent directory",
+			setupFunc: func() (string, func(), error) {
+				return "/non/existent/profiles", func() {}, nil
+			},
+			wantProfile: "",
+			wantErr:     false, 
+		},
+		{
+			name: "profiles path is a file not directory",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesFile := filepath.Join(tmpDir, "profiles")
+				err = os.WriteFile(profilesFile, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return profilesFile, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantProfile: "",
+			wantErr:     true,
+			errMsg:      "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profilesDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+
+			cmd := &analyzeCommand{}
+			got, err := cmd.findSingleProfile(profilesDir)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("findSingleProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("findSingleProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("findSingleProfile() unexpected error = %v", err)
+				return
+			}
+
+			if tt.name == "single valid profile" {
+				expectedPath := filepath.Join(profilesDir, "test-profile", "profile.yaml")
+				if got != expectedPath {
+					t.Errorf("findSingleProfile() = %v, want %v", got, expectedPath)
+				}
+				return
+			}
+
+			if got != tt.wantProfile {
+				t.Errorf("findSingleProfile() = %v, want %v", got, tt.wantProfile)
+			}
+		})
+	}
 }
