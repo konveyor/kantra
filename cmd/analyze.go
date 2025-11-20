@@ -148,27 +148,35 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 
 			// get profile options for analysis
-			profile := &Profile{}
 			if analyzeCmd.profile != "" {
+				stat, err := os.Stat(analyzeCmd.profile)
+				if err != nil {
+					return fmt.Errorf("failed to stat profiles directory %s: %w", analyzeCmd.profile, err)
+				}
+
+				if !stat.IsDir() {
+					return fmt.Errorf("found profiles path %s is not a directory", analyzeCmd.profile)
+				}
 				profilePath := filepath.Join(analyzeCmd.profile, "profile.yaml")
-				err := analyzeCmd.getSettingsFromProfile(profilePath)
+				err = analyzeCmd.setSettingsFromProfile(profilePath, cmd)
 				if err != nil {
 					analyzeCmd.log.Error(err, "failed to get settings from profile")
 					return err
 				}
 			} else {
-				// check for profile in default path
-				// TODO  profile names
-				profilePath := filepath.Join(profilePath, "profile-.yaml")
-				_, err := os.Stat(profilePath)
-				// do not return err if profile is not found
+				// check for a single profile in default path
+				profilesDir := filepath.Join(analyzeCmd.input, Profiles)
+				profilePath, err := analyzeCmd.findSingleProfile(profilesDir)
 				if err != nil {
-					return nil
+					analyzeCmd.log.Error(err, "did not find valid profile in default path")
 				}
-				err = analyzeCmd.getSettingsFromProfile(profilePath)
-				if err != nil {
-					analyzeCmd.log.Error(err, "failed to get settings from profile")
-					return err
+				if profilePath != "" {
+					analyzeCmd.log.Info("using found profile", "profile", profilePath)
+					err = analyzeCmd.setSettingsFromProfile(profilePath, cmd)
+					if err != nil {
+						analyzeCmd.log.Error(err, "failed to get settings from profile")
+						return err
+					}
 				}
 			}
 
@@ -302,6 +310,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			// Note: CreateJSONOutput and GenerateStaticReport are already called
 			// within RunAnalysisHybridInProcess, so no need to call them here
+
 			return nil
 		},
 	}
@@ -356,12 +365,6 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command) error
 		return nil
 	}
 
-	if a.profile != "" {
-		err := a.validateProfile(cmd)
-		if err != nil {
-			return err
-		}
-	}
 	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
 		return fmt.Errorf("must not specify label-selector and sources or targets")
 	}
