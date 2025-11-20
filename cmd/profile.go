@@ -7,145 +7,150 @@ import (
 	"strings"
 
 	"github.com/konveyor/analyzer-lsp/provider"
+	"github.com/konveyor/tackle2-hub/api"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
-const profilePath = ".konveyor/profiles"
+const Profiles = ".konveyor/profiles"
 
-type Profile struct {
-	APIVersion string          `yaml:"apiVersion" json:"apiVersion"`
-	Kind       string          `yaml:"kind" json:"kind"`
-	Metadata   ProfileMetadata `yaml:"metadata" json:"metadata"`
-	Spec       ProfileSpec     `yaml:"spec" json:"spec"`
-}
-
-type ProfileMetadata struct {
-	Name     string `yaml:"name" json:"name"`
-	ID       string `yaml:"id,omitempty" json:"id,omitempty"`
-	Source   string `yaml:"source,omitempty" json:"source,omitempty"`
-	SyncedAt string `yaml:"syncedAt,omitempty" json:"syncedAt,omitempty"`
-	Version  string `yaml:"version,omitempty" json:"version,omitempty"`
-}
-
-type ProfileSpec struct {
-	Rules       ProfileRules        `yaml:"rules" json:"rules"`
-	Scope       ProfileScope        `yaml:"scope" json:"scope"`
-	HubMetadata *ProfileHubMetadata `yaml:"hubMetadata,omitempty" json:"hubMetadata,omitempty"`
-}
-
-type ProfileRules struct {
-	LabelSelectors  []string `yaml:"labelSelectors,omitempty" json:"labelSelectors,omitempty"`
-	Rulesets        []string `yaml:"rulesets,omitempty" json:"rulesets,omitempty"`
-	UseDefaultRules bool     `yaml:"useDefaultRules" json:"useDefaultRules"`
-	WithDepRules    bool     `yaml:"withDepRules" json:"withDepRules"`
-}
-
-type ProfileScope struct {
-	DepAnalysis   bool   `yaml:"depAanlysis" json:"depAanlysis"`
-	WithKnownLibs bool   `yaml:"withKnownLibs" json:"withKnownLibs"`
-	Packages      string `yaml:"packages,omitempty" json:"packages,omitempty"`
-}
-
-type ProfileHubMetadata struct {
-	ApplicationID string `yaml:"applicationId" json:"applicationId"`
-	ProfileID     string `yaml:"profileId" json:"profileId"`
-	Readonly      bool   `yaml:"readonly" json:"readonly"`
-}
-
-func (a *analyzeCommand) validateProfile(cmd *cobra.Command) error {
-	stat, err := os.Stat(a.profile)
-	if err != nil {
-		return fmt.Errorf("%w failed to stat profile at path %s", err, a.profile)
-	}
-	if !stat.IsDir() {
-		return fmt.Errorf("profile must be a directory")
-	}
-	if cmd.Flags().Lookup("input").Changed {
-		return fmt.Errorf("input must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("mode").Changed {
-		return fmt.Errorf("mode must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("analyze-known-libraries").Changed {
-		return fmt.Errorf("analyzeKnownLibraries must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("label-selector").Changed {
-		return fmt.Errorf("labelSelector must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("source").Changed {
-		return fmt.Errorf("sources must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("target").Changed {
-		return fmt.Errorf("targets must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("no-dependency-rules").Changed {
-		return fmt.Errorf("noDepRules must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("rules").Changed {
-		return fmt.Errorf("rules must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("enable-default-rulesets").Changed {
-		return fmt.Errorf("enableDefaultRulesets must not be set when profile is set")
-	}
-	if cmd.Flags().Lookup("incident-selector").Changed {
-		return fmt.Errorf("incidentSelector must not be set when profile is set")
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) unmarshalProfile(path string) (*Profile, error) {
+func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, error) {
 	if a.profile == "" {
 		return nil, nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%w failed to read profile file %s", err, profilePath)
+		return nil, fmt.Errorf("%w failed to read profile file %s", err, Profiles)
 	}
 
-	var profile Profile
+	var profile api.AnalysisProfile
 	if err := yaml.Unmarshal(data, &profile); err != nil {
-		return nil, fmt.Errorf("%w failed to unmarshal profile file %s", err, profilePath)
+		return nil, fmt.Errorf("%w failed to unmarshal profile file %s", err, Profiles)
 	}
 
 	return &profile, nil
 }
 
-func (a *analyzeCommand) getSettingsFromProfile(path string) error {
+func (a *analyzeCommand) setSettingsFromProfile(path string, cmd *cobra.Command) error {
 	profile, err := a.unmarshalProfile(path)
 	if err != nil {
 		a.log.Error(err, "failed to unmarshal profile file")
 		return err
 	}
-	// location is the dir before .konveyor
-	konveyorProfileDir := filepath.Dir(a.profile)
-	locationDir := filepath.Dir(konveyorProfileDir)
-
-	a.input = locationDir
-	if !profile.Spec.Scope.DepAnalysis {
-		a.mode = string(provider.SourceOnlyAnalysisMode)
-	} else {
-		a.mode = string(provider.FullAnalysisMode)
+	konveyorIndex := strings.Index(a.profile, ".konveyor")
+	if konveyorIndex == -1 {
+		return fmt.Errorf("profile path does not contain .konveyor directory: %s", a.profile)
 	}
-	// default is false
-	if profile.Spec.Scope.WithKnownLibs {
+	// get dir before .konveyor/
+	locationDir := a.profile[:konveyorIndex-1]
+
+	if !cmd.Flags().Lookup("input").Changed {
+		a.input = locationDir
+	}
+	if !cmd.Flags().Lookup("mode").Changed {
+		if !profile.Mode.WithDeps {
+			a.mode = string(provider.SourceOnlyAnalysisMode)
+		} else {
+			a.mode = string(provider.FullAnalysisMode)
+		}
+	}
+	if !cmd.Flags().Lookup("analyze-known-libraries").Changed && profile.Scope.WithKnownLibs {
 		a.analyzeKnownLibraries = true
 	}
-	if profile.Spec.Rules.LabelSelectors != nil {
-		a.labelSelector = strings.Join(profile.Spec.Rules.LabelSelectors, " || ")
+	if !cmd.Flags().Lookup("incident-selector").Changed && len(profile.Scope.Packages.Included) > 0 {
+		a.incidentSelector = strings.Join(profile.Scope.Packages.Included, " || ")
 	}
-	if profile.Spec.Rules.Rulesets != nil {
-		a.rules = profile.Spec.Rules.Rulesets
+	if !cmd.Flags().Lookup("label-selector").Changed && len(profile.Rules.Labels.Included) > 0 {
+		a.labelSelector = strings.Join(profile.Rules.Labels.Included, " || ")
 	}
-	if !profile.Spec.Rules.UseDefaultRules {
-		a.enableDefaultRulesets = false
+
+	// Add rules from profile directory if not explicitly set via command line
+	if !cmd.Flags().Lookup("rules").Changed {
+		profileDir := filepath.Dir(path)
+		profileRules, err := a.getRulesInProfile(profileDir)
+		if err != nil {
+			a.log.Error(err, "failed to get rules from profile directory")
+			return err
+		}
+		if len(profileRules) > 0 {
+			a.rules = append(a.rules, profileRules...)
+
+			a.enableDefaultRulesets = false
+		}
 	}
-	if profile.Spec.Rules.WithDepRules {
-		a.noDepRules = true
-	}
-	if profile.Spec.Scope.Packages != "" {
-		a.incidentSelector = profile.Spec.Scope.Packages
-	}
+
 	return nil
+}
+
+func (a *analyzeCommand) getRulesInProfile(profile string) ([]string, error) {
+	if profile == "" {
+		return nil, nil
+	}
+	rulesDir := filepath.Join(profile, "rules")
+	stat, err := os.Stat(rulesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to stat rules directory %s: %w", rulesDir, err)
+	}
+
+	if !stat.IsDir() {
+		return nil, fmt.Errorf("rules path %s is not a directory", rulesDir)
+	}
+	entries, err := os.ReadDir(rulesDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rules directory %s: %w", rulesDir, err)
+	}
+
+	var rulePaths []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			rulePath := filepath.Join(rulesDir, entry.Name())
+			rulePaths = append(rulePaths, rulePath)
+		}
+	}
+
+	return rulePaths, nil
+}
+
+func (a *analyzeCommand) findSingleProfile(profilesDir string) (string, error) {
+	// check for a profile dir to use as default
+	stat, err := os.Stat(profilesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to stat profiles directory %s: %w", profilesDir, err)
+	}
+
+	if !stat.IsDir() {
+		return "", fmt.Errorf("found profiles path %s is not a directory", profilesDir)
+	}
+	entries, err := os.ReadDir(profilesDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read profiles directory %s: %w", profilesDir, err)
+	}
+
+	var profileDirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// check if profile.yaml exists
+			profilePath := filepath.Join(profilesDir, entry.Name(), "profile.yaml")
+			if _, err := os.Stat(profilePath); err == nil {
+				profileDirs = append(profileDirs, entry.Name())
+			}
+		}
+	}
+	// do not error
+	if len(profileDirs) == 0 {
+		return "", nil
+	}
+	// do not error - only use as default if 1 found
+	if len(profileDirs) > 1 {
+		return "", nil
+	}
+
+	profilePath := filepath.Join(profilesDir, profileDirs[0], "profile.yaml")
+	return profilePath, nil
 }

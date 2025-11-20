@@ -1,4 +1,4 @@
-# Kantra Profiles
+# Profiles
 
 ## Overview
 
@@ -17,76 +17,85 @@ Profiles eliminate the need to specify complex command-line arguments repeatedly
 ## Profile Structure
 
 ```yaml
-apiVersion: v1
-kind: Profile
-metadata:
-  name: "profile-name"
-  id: "unique-profile-id"
-  source: "hub-or-local"
-  syncedAt: "2023-01-01T00:00:00Z"
-  version: "1.0.0"
-spec:
-  rules:
-    labelSelectors:
-      - "konveyor.io/target=cloud-readiness"
-      - "konveyor.io/source=java"
-    rulesets:
-      - "custom-ruleset.yaml"
-      - "/path/to/another/ruleset.yaml"
-    useDefaultRules: true
-    withDepRules: false
-  scope:
-    depAanlysis: true
-    withKnownLibs: false
-    packages: "com.example"
-  hubMetadata:
-    applicationId: "app-123"
-    profileId: "profile-456"
-    readonly: true
+id: 1
+createUser: admin
+createTime: 2025-11-12T23:57:35
+name: Profile-1
+mode:
+  withDeps: true
+scope:
+  withKnownLibs: true
+  packages:
+    included:
+    - one
+    - two
+    excluded:
+    - three
+    - four
+rules:
+  targets:
+  - id: 1
+    name: Application server migration 
+  - id: 2
+    name: Containerization
+  labels:
+    included:
+    - konveyor.io/target=spring6
+    - konveyor.io/source=springboot
+    - konveyor.io/target=quarkus
+    excluded:
+    - C
+    - D
+  files:
+  - id: 400
+    name: ""
+  repository:
+    kind: git
+    url: <url>
+    branch: ""
+    tag: ""
+    path: default/generated
 ```
 
 ### Profile Fields
 
-#### Metadata
+- **id**: Unique identifier for the profile
+- **createUser**: User who created the profile
+- **createTime**: Timestamp when the profile was created
 - **name**: Human-readable name for the profile
-- **id**: Unique identifier (optional, used for Hub integration)
-- **source**: Source of the profile (hub, local, etc.)
-- **syncedAt**: Timestamp of last synchronization with Hub
-- **version**: Profile version
 
-#### Rules Configuration
-- **labelSelectors**: Array of label selector expressions to filter rules
-- **rulesets**: Array of paths to custom ruleset files
-- **useDefaultRules**: Whether to include Kantra's default rulesets
-- **withDepRules**: Whether to include dependency analysis rules
+#### Mode Configuration
+- **withDeps**: Whether to include dependency analysis
 
 #### Scope Configuration
-- **depAanlysis**: Enable/disable dependency analysis
 - **withKnownLibs**: Include analysis of known libraries
-- **packages**: Package filter expression (e.g., "com.example" to analyze only packages starting with com.example)
+- **packages**: Package filtering configuration
+  - **included**: Array of packages to include in analysis
+  - **excluded**: Array of packages to exclude from analysis
 
-#### Hub Metadata (Optional)
-- **applicationId**: Associated application ID in the Hub
-- **profileId**: Profile ID in the Hub
-- **readonly**: Whether the profile is read-only
-
-## Hub Integration
-
-### What is the Konveyor Hub?
-
-The Konveyor Hub is a centralized platform for managing application modernization projects. It provides:
-
-- **Centralized Profile Management**: Store and share analysis profiles across teams
-- **Application Tracking**: Monitor multiple applications and their modernization progress
-- **Collaboration**: Share analysis results and configurations with team members
-- **Governance**: Enforce consistent analysis standards across your organization
+#### Rules Configuration
+- **targets**: Array of target configurations for migration
+  - **id**: Target identifier
+  - **name**: Target name/description
+- **labels**: Label selector configuration
+  - **included**: Array of labels to include (e.g., "konveyor.io/target=spring6")
+  - **excluded**: Array of labels to exclude
+- **files**: File-based rule configurations
+  - **id**: File rule identifier
+  - **name**: File rule name
+- **repository**: External ruleset repository configuration
+  - **kind**: Repository type (e.g., "git")
+  - **url**: Repository URL
+  - **branch**: Git branch (optional)
+  - **tag**: Git tag (optional)
+  - **path**: Path within repository to rulesets
 
 ### Hub Login
 
 To connect Kantra to a Konveyor Hub instance, use the login command:
 
 ```bash
-kantra config --login
+kantra config login
 ```
 
 This will prompt you for:
@@ -104,7 +113,6 @@ The login process:
 
 Once logged in, you can:
 - **Download profiles** from the Hub to your local environment
-- **Upload local profiles** to share with your team
 - **Sync profile updates** to keep configurations current
 
 ## Using Profiles
@@ -112,7 +120,9 @@ Once logged in, you can:
 ### Creating a Profile Directory
 
 Profiles are stored in a `.konveyor/profiles` directory within your application.
-If a profile is found here, it will be used by default for analysis configuration
+Each profile should be in its own subdirectory with a `profile.yaml` file.
+For example: `.konveyor/profiles/profile-1/profile.yaml`.
+If a single profile is found here, it will be used by default for analysis configuration
 options. You can also use the `kantra analyze --profile` option to pass in a valid
 profile path.
 
@@ -127,14 +137,12 @@ kantra analyze --profile myapp/.konveyor/profiles
 
 When using a profile, the following flags will override settings on a profile:
 - `--input` (derived from profile location)
-- `--mode` (set based on `depAanlysis`)
+- `--mode` (set based on `withDeps`)
 - `--analyze-known-libraries` (set based on `withKnownLibs`)
-- `--label-selector` (set based on `labelSelectors`)
-- `--source` and `--target` (derived from label selectors)
-- `--rules` (set based on `rulesets`)
-- `--enable-default-rulesets` (set based on `useDefaultRules`)
-- `--no-dependency-rules` (set based on `withDepRules`)
-- `--incident-selector` (set based on `packages`)
+- `--label-selector` (set based on `labels.included`)
+- `--source` and `--target` (derived from labels)
+- `--rules` (set based on `rules.repository` and `rules.files`)
+- `--incident-selector` (set based on `scope.packages`)
 
 ## Profile Management Commands
 
@@ -151,12 +159,11 @@ kantra config --list-profiles /path/to/application
 Synchronize profiles from the Hub (requires login):
 
 ```bash
-kantra config --sync application-id
+kantra config sync --url <repository-url> --application-path <path-to-application>
 ```
 
-## Examples
 
-### Example 1: End-to-End Hub Workflow
+### Example: End-to-End Hub Workflow
 
 This example demonstrates a complete workflow from hub login to running analysis with a synced profile.
 
@@ -165,15 +172,15 @@ This example demonstrates a complete workflow from hub login to running analysis
 First, authenticate with your Konveyor Hub instance:
 
 ```bash
-kantra config --login
+kantra config login
 ```
 
 You'll be prompted for:
+
 ```
-URL: https://hub.mycompany.com
-username: john.doe
-password: [hidden]
-Login successful
+URL: https://hub.myapp.com
+username: <username>
+password: 12345
 ```
 
 #### Step 2: Navigate to Your Application
@@ -187,10 +194,10 @@ cd /path/to/my-java-app
 Sync the available profiles for your application from the Hub:
 
 ```bash
-kantra config --sync my-app-123
+kantra config sync --url https://github.com/mycompany/my-app-repo.git --application-path /path/to/my-java-app
 ```
 
-This downloads profiles associated with application ID `my-app-123` to `.konveyor/profiles/`.
+This downloads profiles associated with the application repository to `.konveyor/profiles/`.
 
 #### Step 4: Verify Downloaded Profile
 
@@ -198,132 +205,25 @@ Check what profile was downloaded:
 
 ```bash
 ls .konveyor/profiles/
-# Output: java-modernization.yaml
 
-cat .konveyor/profiles/java-modernization.yaml
+cat .konveyor/profiles/profile-1/profile.yaml
 ```
 
-Example synced profile:
-```yaml
-apiVersion: v1
-kind: Profile
-metadata:
-  name: "Java Modernization Standard"
-  id: "java-mod-001"
-  source: "hub"
-  syncedAt: "2023-12-01T10:30:00Z"
-  version: "1.2.0"
-spec:
-  rules:
-    labelSelectors:
-      - "konveyor.io/source=java"
-      - "konveyor.io/target=cloud-readiness"
-    useDefaultRules: true
-    withDepRules: false
-  scope:
-    depAanlysis: true
-    withKnownLibs: false
-  hubMetadata:
-    applicationId: "my-app-123"
-    profileId: "java-mod-001"
-    readonly: true
-```
 
 #### Step 5: Run Analysis with Profile
 
 Since the profile is in the default location (`.konveyor/profiles/`), you can run analysis without specifying the profile path:
 
 ```bash
-kantra analyze
+kantra analyze --output <output-dir>
 ```
 
 Or explicitly specify the profile directory:
 
 ```bash
-kantra analyze --profile .konveyor/profiles
+kantra analyze --profile .konveyor/profiles --output <output-dir>
 ```
 
-
-
-### Example 2: Cloud Readiness Assessment
-
-```yaml
-# .konveyor/profiles/cloud-readiness.yaml
-apiVersion: v1
-kind: Profile
-metadata:
-  name: "Cloud Readiness Assessment"
-spec:
-  rules:
-    labelSelectors:
-      - "konveyor.io/target=cloud-readiness"
-    useDefaultRules: true
-    withDepRules: true
-  scope:
-    depAanlysis: true
-    withKnownLibs: true
-```
-
-**Usage:**
-```bash
-kantra analyze --profile .konveyor/profiles
-```
-
-
-### Example 4: Hub-Managed Profile
-
-```yaml
-# .konveyor/profiles/enterprise-standards.yaml
-apiVersion: v1
-kind: Profile
-metadata:
-  name: "Enterprise Analysis Standards"
-  id: "ent-std-001"
-  source: "hub"
-  syncedAt: "2023-12-01T10:30:00Z"
-  version: "2.1.0"
-spec:
-  rules:
-    labelSelectors:
-      - "konveyor.io/target=kubernetes"
-      - "enterprise.io/compliance=required"
-    useDefaultRules: true
-    withDepRules: true
-  scope:
-    depAanlysis: true
-    withKnownLibs: true
-  hubMetadata:
-    applicationId: "myapp-123"
-    profileId: "profile-ent-std-001"
-    readonly: true
-```
-
-## Best Practices
-
-### 1. Profile Organization
-- Use descriptive names that indicate the analysis purpose
-- Group related profiles in the same directory
-- Version your profiles when making significant changes
-
-### 2. Label Selector Strategy
-- Use specific label selectors to target relevant rules
-- Combine source and target labels for migration scenarios
-- Test label selectors with `kantra analyze --list-targets` and `--list-sources`
-
-### 3. Hub Integration
-- Regularly sync profiles to get the latest updates
-- Use readonly profiles for organization-wide standards
-- Create application-specific profiles for custom requirements
-
-### 4. Rule Management
-- Start with default rules and add custom rulesets as needed
-- Document custom rulesets and their purpose
-- Test rule combinations before deploying to production
-
-### 5. Scope Configuration
-- Enable dependency analysis for comprehensive coverage
-- Use package filtering to focus on relevant code
-- Consider performance impact of analyzing known libraries
 
 ## Troubleshooting
 
@@ -336,14 +236,6 @@ spec:
    - Ensure the profile directory exists
    - Check that the path is correct and accessible
 
-2. **Invalid profile YAML**
-   ```
-   Error: failed to unmarshal profile file
-   ```
-   - Validate YAML syntax
-   - Check that all required fields are present
-   - Ensure proper indentation
-
 3. **Hub connection issues**
    ```
    Error: login failed with status: 401 Unauthorized
@@ -351,30 +243,4 @@ spec:
    - Verify Hub URL is correct
    - Check username and password
    - Ensure Hub is accessible from your network
-
-4. **Conflicting flags**
-   ```
-   Error: input must not be set when profile is set
-   ```
-   - Remove conflicting command-line flags when using profiles
-   - Let the profile configure analysis settings
-
-### Validation
-
-To validate a profile before using it:
-
-1. Check YAML syntax:
-   ```bash
-   yamllint .konveyor/profiles/myprofile.yaml
-   ```
-
-2. Test the profile:
-   ```bash
-   kantra analyze --profile .konveyor/profiles --dry-run
-   ```
-
-3. Verify rule selection:
-   ```bash
-   kantra analyze --profile .konveyor/profiles --list-targets
-   ```
 

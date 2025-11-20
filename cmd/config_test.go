@@ -1,430 +1,1290 @@
 package cmd
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/konveyor/tackle2-hub/api"
+	"gopkg.in/yaml.v2"
 )
 
-// createTestConfigCommand creates a test configCommand instance
-func createTestConfigCommand() *configCommand {
-	return &configCommand{
-		log: logr.Discard(),
-	}
-}
+func TestNewConfigCmd(t *testing.T) {
+	log := logr.Discard()
+	cmd := NewConfigCmd(log)
 
-// captureOutput captures stdout output during test execution
-func captureOutput(t *testing.T, fn func()) string {
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	os.Stdout = w
-
-	outputChan := make(chan string)
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outputChan <- buf.String()
-	}()
-
-	fn()
-
-	w.Close()
-	os.Stdout = oldStdout
-	output := <-outputChan
-
-	return output
-}
-
-func TestValidate(t *testing.T) {
-	tests := []struct {
-		name          string
-		setupCommand  func(t *testing.T) *configCommand
-		expectedError string
-	}{
-		{
-			name: "empty listProfiles should pass",
-			setupCommand: func(t *testing.T) *configCommand {
-				cmd := createTestConfigCommand()
-				cmd.listProfiles = ""
-				return cmd
-			},
-			expectedError: "",
-		},
-		{
-			name: "valid directory path should pass",
-			setupCommand: func(t *testing.T) *configCommand {
-				cmd := createTestConfigCommand()
-				cmd.listProfiles = t.TempDir()
-				return cmd
-			},
-			expectedError: "",
-		},
-		{
-			name: "non-existent path should fail",
-			setupCommand: func(t *testing.T) *configCommand {
-				cmd := createTestConfigCommand()
-				cmd.listProfiles = "/nonexistent/path"
-				return cmd
-			},
-			expectedError: "failed to stat application path for profile /nonexistent/path",
-		},
-		{
-			name: "file path instead of directory should fail",
-			setupCommand: func(t *testing.T) *configCommand {
-				tmpDir := t.TempDir()
-				filePath := filepath.Join(tmpDir, "testfile.txt")
-				err := os.WriteFile(filePath, []byte("test"), 0644)
-				require.NoError(t, err)
-
-				cmd := createTestConfigCommand()
-				cmd.listProfiles = filePath
-				return cmd
-			},
-			expectedError: "is not a directory",
-		},
+	if cmd.Use != "config" {
+		t.Errorf("Expected command use to be 'config', got %s", cmd.Use)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := tt.setupCommand(t)
-			ctx := context.Background()
-
-			err := cmd.Validate(ctx)
-
-			if tt.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.expectedError)
-			}
-		})
-	}
-}
-
-func TestListProfiles(t *testing.T) {
-	t.Run("should print list profiles message", func(t *testing.T) {
-		cmd := createTestConfigCommand()
-
-		output := captureOutput(t, func() {
-			cmd.ListProfiles()
-		})
-
-		assert.Equal(t, "list profiles\n", output)
-	})
-}
-
-func TestPerformLogin(t *testing.T) {
-	tests := []struct {
-		name           string
-		hubURL         string
-		username       string
-		password       string
-		serverResponse func(w http.ResponseWriter, r *http.Request)
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:     "successful login",
-			hubURL:   "http://example.com",
-			username: "testuser",
-			password: "testpass",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				// Verify request method and headers
-				assert.Equal(t, "POST", r.Method)
-				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
-				assert.Equal(t, "kantra-cli", r.Header.Get("User-Agent"))
-
-				// Verify request body
-				err := r.ParseForm()
-				assert.NoError(t, err)
-				assert.Equal(t, "testuser", r.FormValue("username"))
-				assert.Equal(t, "testpass", r.FormValue("password"))
-
-				w.WriteHeader(http.StatusOK)
-			},
-			expectError: false,
-		},
-		{
-			name:     "login with trailing slash in URL",
-			hubURL:   "http://example.com/",
-			username: "testuser",
-			password: "testpass",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				// Verify the URL is correctly constructed without double slashes
-				assert.Equal(t, "/api/login", r.URL.Path)
-				w.WriteHeader(http.StatusOK)
-			},
-			expectError: false,
-		},
-		{
-			name:     "server returns 401 unauthorized",
-			hubURL:   "http://example.com",
-			username: "wronguser",
-			password: "wrongpass",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusUnauthorized)
-			},
-			expectError:   true,
-			errorContains: "login failed with status: 401 Unauthorized",
-		},
-		{
-			name:     "server returns 500 internal server error",
-			hubURL:   "http://example.com",
-			username: "testuser",
-			password: "testpass",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-			},
-			expectError:   true,
-			errorContains: "login failed with status: 500 Internal Server Error",
-		},
-		{
-			name:     "empty username and password",
-			hubURL:   "http://example.com",
-			username: "",
-			password: "",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				err := r.ParseForm()
-				assert.NoError(t, err)
-				assert.Equal(t, "", r.FormValue("username"))
-				assert.Equal(t, "", r.FormValue("password"))
-				w.WriteHeader(http.StatusOK)
-			},
-			expectError: false,
-		},
-		{
-			name:     "special characters in credentials",
-			hubURL:   "http://example.com",
-			username: "user@domain.com",
-			password: "p@ssw0rd!#$%",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				err := r.ParseForm()
-				assert.NoError(t, err)
-				assert.Equal(t, "user@domain.com", r.FormValue("username"))
-				assert.Equal(t, "p@ssw0rd!#$%", r.FormValue("password"))
-				w.WriteHeader(http.StatusOK)
-			},
-			expectError: false,
-		},
+	if cmd.Short != "Configure kantra" {
+		t.Errorf("Expected command short description to be 'Configure kantra', got %s", cmd.Short)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				tt.serverResponse(w, r)
-			}))
-			defer server.Close()
-
-			cmd := createTestConfigCommand()
-
-			// Use the test server URL instead of the provided hubURL for actual HTTP calls
-			// but test URL construction with the provided hubURL
-			var testURL string
-			if tt.hubURL != "" {
-				// Replace the scheme and host with test server, but keep the path construction logic
-				testURL = server.URL
-			}
-
-			err := cmd.performLogin(testURL, tt.username, tt.password)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestPerformLoginNetworkErrors(t *testing.T) {
-	t.Run("invalid URL should fail", func(t *testing.T) {
-		cmd := createTestConfigCommand()
-
-		err := cmd.performLogin("://invalid-url", "user", "pass")
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create login request")
-	})
-
-	t.Run("unreachable server should fail", func(t *testing.T) {
-		cmd := createTestConfigCommand()
-
-		// Use a URL that will definitely fail to connect
-		err := cmd.performLogin("http://localhost:99999", "user", "pass")
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to send login request")
-	})
-}
-
-func TestPerformLoginURLConstruction(t *testing.T) {
-	tests := []struct {
-		name        string
-		inputURL    string
-		expectedURL string
-	}{
-		{
-			name:        "URL without trailing slash",
-			inputURL:    "http://example.com",
-			expectedURL: "http://example.com/api/login",
-		},
-		{
-			name:        "URL with trailing slash",
-			inputURL:    "http://example.com/",
-			expectedURL: "http://example.com/api/login",
-		},
-		{
-			name:        "URL with path",
-			inputURL:    "http://example.com/hub",
-			expectedURL: "http://example.com/hub/api/login",
-		},
-		{
-			name:        "URL with path and trailing slash",
-			inputURL:    "http://example.com/hub/",
-			expectedURL: "http://example.com/hub/api/login",
-		},
+	flag := cmd.Flags().Lookup("list-profiles")
+	if flag == nil {
+		t.Error("Expected --list-profiles flag to be present")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a test server that captures the request URL
-			var capturedURL string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				capturedURL = r.URL.String()
-				w.WriteHeader(http.StatusOK)
-			}))
-			defer server.Close()
-
-			cmd := createTestConfigCommand()
-
-			// We need to test the URL construction logic, so we'll modify the function
-			// to use our test server but verify the path construction
-			err := cmd.performLogin(server.URL, "user", "pass")
-			assert.NoError(t, err)
-
-			// The captured URL should be "/api/login" since that's the path part
-			assert.Equal(t, "/api/login", capturedURL)
-		})
+	subCommands := cmd.Commands()
+	expectedSubCommands := []string{"sync", "login"}
+	foundCommands := make(map[string]bool)
+	for _, subCmd := range subCommands {
+		foundCommands[subCmd.Use] = true
 	}
-}
 
-func TestConfigCommandStructFields(t *testing.T) {
-	t.Run("configCommand struct fields", func(t *testing.T) {
-		var logLevel uint32 = 5
-		cmd := &configCommand{
-			listProfiles: "test-path",
-			sync:         "test-sync",
-			login:        true,
-			logLevel:     &logLevel,
-			log:          logr.Discard(),
+	for _, expected := range expectedSubCommands {
+		if !foundCommands[expected] {
+			t.Errorf("Expected subcommand %s to be present", expected)
 		}
-
-		// Test that all fields are accessible
-		assert.Equal(t, "test-path", cmd.listProfiles)
-		assert.Equal(t, "test-sync", cmd.sync)
-		assert.True(t, cmd.login)
-		assert.NotNil(t, cmd.logLevel)
-		assert.Equal(t, uint32(5), *cmd.logLevel)
-		assert.NotNil(t, cmd.log)
-	})
-
-	t.Run("logLevel can be nil", func(t *testing.T) {
-		cmd := &configCommand{
-			logLevel: nil,
-		}
-		assert.Nil(t, cmd.logLevel)
-	})
+	}
 }
 
-// TestLoginInteractive tests the interactive parts of Login function
-// Note: This test is more complex due to the interactive nature of the Login function
-func TestLoginInteractive(t *testing.T) {
-	t.Run("Login function prints expected prompts", func(t *testing.T) {
-		// This test is challenging because Login() reads from os.Stdin
-		// In a real scenario, you might want to use dependency injection
-		// to make the Login function more testable by accepting io.Reader
-
-		// For now, we'll just test that the function exists and can be called
-		// without panicking (though it will hang waiting for input)
-		cmd := createTestConfigCommand()
-
-		// We can't easily test the interactive parts without mocking stdin
-		// but we can test that the function exists and has the right signature
-		assert.NotNil(t, cmd.Login)
-
-		// In a production environment, you might want to refactor Login
-		// to accept io.Reader and io.Writer for better testability
-	})
-}
-
-// Integration test that tests the overall flow
-func TestConfigCommandIntegration(t *testing.T) {
-	t.Run("validate and list profiles flow", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		cmd := createTestConfigCommand()
-		cmd.listProfiles = tmpDir
-
-		// Test validation
-		ctx := context.Background()
-		err := cmd.Validate(ctx)
-		assert.NoError(t, err)
-
-		// Test list profiles
-		output := captureOutput(t, func() {
-			cmd.ListProfiles()
-		})
-		assert.Equal(t, "list profiles\n", output)
-	})
-
-	t.Run("validate with invalid path should fail", func(t *testing.T) {
-		cmd := createTestConfigCommand()
-		cmd.listProfiles = "/nonexistent/path"
-
-		ctx := context.Background()
-		err := cmd.Validate(ctx)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to stat application path")
-	})
-}
-
-// Benchmark tests for performance-critical functions
-func BenchmarkValidate(b *testing.B) {
-	tmpDir := b.TempDir()
-	cmd := createTestConfigCommand()
-	cmd.listProfiles = tmpDir
+func TestConfigCommand_Validate(t *testing.T) {
+	log := logr.Discard()
 	ctx := context.Background()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cmd.Validate(ctx)
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "empty list-profiles should pass",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid directory with profiles should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				profilesDir := filepath.Join(tmpDir, Profiles)
+				err = os.MkdirAll(profilesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent directory should fail",
+			setupFunc: func() (string, func(), error) {
+				return "/non/existent/path", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "failed to stat application path",
+		},
+		{
+			name: "file instead of directory should fail",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "notadir")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "is not a directory",
+		},
+		{
+			name: "directory without profiles subdirectory should fail",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "no such file or directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			configCmd := &configCommand{
+				listProfiles: path,
+				log:          log,
+			}
+
+			err = configCmd.Validate(ctx)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Validate() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Validate() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Validate() unexpected error = %v", err)
+				}
+			}
+		})
 	}
 }
 
-func BenchmarkPerformLogin(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+func TestConfigCommand_ListProfiles(t *testing.T) {
+	log := logr.Discard()
 
-	cmd := createTestConfigCommand()
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "empty list-profiles should not error",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "directory with profile subdirectories should list them",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				profilesDir := filepath.Join(tmpDir, Profiles)
+				err = os.MkdirAll(profilesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cmd.performLogin(server.URL, "user", "pass")
+				profileDirs := []string{"profile1", "profile2", "profile3"}
+				for _, dir := range profileDirs {
+					err = os.MkdirAll(filepath.Join(profilesDir, dir), 0755)
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						return "", nil, err
+					}
+				}
+
+				err = os.WriteFile(filepath.Join(profilesDir, "notadir.txt"), []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "directory with no profile subdirectories should not error",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				profilesDir := filepath.Join(tmpDir, Profiles)
+				err = os.MkdirAll(profilesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent profiles directory should error",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-config-")
+				if err != nil {
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "no such file or directory",
+		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			configCmd := &configCommand{
+				listProfiles: path,
+				log:          log,
+			}
+
+			err = configCmd.ListProfiles()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ListProfiles() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("ListProfiles() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ListProfiles() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestNewSyncCmd(t *testing.T) {
+	log := logr.Discard()
+	cmd := NewSyncCmd(log)
+
+	if cmd.Use != "sync [URL]" {
+		t.Errorf("Expected command use to be 'sync [URL]', got %s", cmd.Use)
+	}
+
+	if cmd.Short != "Sync Hub application profiles" {
+		t.Errorf("Expected command short description to be 'Sync Hub application profiles', got %s", cmd.Short)
+	}
+
+	urlFlag := cmd.Flags().Lookup("url")
+	if urlFlag == nil {
+		t.Error("Expected --url flag to be present")
+	}
+
+	appPathFlag := cmd.Flags().Lookup("application-path")
+	if appPathFlag == nil {
+		t.Error("Expected --application-path flag to be present")
+	}
+}
+
+func TestSyncCommand_Validate(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "empty application path should fail",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "application path is required",
+		},
+		{
+			name: "valid directory should pass",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-sync-")
+				if err != nil {
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent directory should fail",
+			setupFunc: func() (string, func(), error) {
+				return "/non/existent/path", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "failed to stat application path",
+		},
+		{
+			name: "file instead of directory should fail",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-sync-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "notadir")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			syncCmd := &syncCommand{
+				applicationPath: path,
+			}
+
+			err = syncCmd.Validate(ctx)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Validate() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Validate() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Validate() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestSyncCommand_getHubClient(t *testing.T) {
+	syncCmd := &syncCommand{}
+
+	// First call should create a new client
+	client1 := syncCmd.getHubClient()
+	if client1 == nil {
+		t.Error("Expected hubClient to be created")
+	}
+
+	// Second call should return the same client
+	client2 := syncCmd.getHubClient()
+	if client1 != client2 {
+		t.Error("Expected getHubClient to return the same instance")
+	}
+}
+
+func TestNewHubClientWithOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		insecure     bool
+		hostEnv      string
+		expectedHost string
+	}{
+		{
+			name:         "secure client with no host env",
+			insecure:     false,
+			hostEnv:      "",
+			expectedHost: "",
+		},
+		{
+			name:         "insecure client with no host env",
+			insecure:     true,
+			hostEnv:      "",
+			expectedHost: "",
+		},
+		{
+			name:         "secure client with custom host",
+			insecure:     false,
+			hostEnv:      "https://example.com:9090/",
+			expectedHost: "https://example.com:9090",
+		},
+		{
+			name:         "insecure client with custom host",
+			insecure:     true,
+			hostEnv:      "https://example.com:9090/",
+			expectedHost: "https://example.com:9090",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up environment
+			if tt.hostEnv != "" {
+				os.Setenv("HOST", tt.hostEnv)
+				defer os.Unsetenv("HOST")
+			} else {
+				os.Unsetenv("HOST")
+			}
+
+			client := newHubClientWithOptions(tt.insecure)
+
+			if client.host != tt.expectedHost {
+				t.Errorf("Expected host to be '%s', got '%s'", tt.expectedHost, client.host)
+			}
+
+			if client.insecure != tt.insecure {
+				t.Errorf("Expected insecure to be %v, got %v", tt.insecure, client.insecure)
+			}
+
+			if client.client == nil {
+				t.Error("Expected HTTP client to be initialized")
+			}
+
+			if client.client.Timeout != 10*time.Second {
+				t.Errorf("Expected timeout to be 10s, got %v", client.client.Timeout)
+			}
+
+			// Check if TLS config is set correctly for insecure clients
+			if tt.insecure {
+				if client.client.Transport == nil {
+					t.Error("Expected custom transport for insecure client")
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_doRequest(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		path           string
+		acceptHeader   string
+		wantErr        bool
+		errMsg         string
+	}{
+		{
+			name: "successful request",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status": "ok"}`))
+			},
+			path:         "/test",
+			acceptHeader: "application/json",
+			wantErr:      false,
+		},
+		{
+			name: "server error response",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Internal Server Error"))
+			},
+			path:         "/error",
+			acceptHeader: "application/json",
+			wantErr:      false, // doRequest doesn't fail on HTTP errors, readResponseBody does
+		},
+		{
+			name: "check authentication header with token",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				auth := r.Header.Get("Authentication")
+				if auth != "Bearer test-token" {
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte("Unauthorized"))
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"authenticated": true}`))
+			},
+			path:         "/auth",
+			acceptHeader: "application/json",
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			client := &hubClient{
+				client: &http.Client{Timeout: 5 * time.Second},
+				host:   server.URL,
+			}
+
+			// Set token for authentication test
+			if tt.name == "check authentication header with token" {
+				os.Setenv("TOKEN", "test-token")
+				defer os.Unsetenv("TOKEN")
+			}
+
+			resp, err := client.doRequest(tt.path, tt.acceptHeader, log)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("doRequest() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("doRequest() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("doRequest() unexpected error = %v", err)
+				}
+				if resp == nil {
+					t.Error("Expected response to be non-nil")
+				} else {
+					resp.Body.Close()
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_readResponseBody(t *testing.T) {
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody string
+		wantErr      bool
+		errMsg       string
+		expectedBody string
+	}{
+		{
+			name:         "successful response",
+			statusCode:   http.StatusOK,
+			responseBody: "success response",
+			wantErr:      false,
+			expectedBody: "success response",
+		},
+		{
+			name:         "client error response",
+			statusCode:   http.StatusBadRequest,
+			responseBody: "Bad Request",
+			wantErr:      true,
+			errMsg:       "HTTP 400",
+		},
+		{
+			name:         "server error response",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: "Internal Server Error",
+			wantErr:      true,
+			errMsg:       "HTTP 500",
+		},
+		{
+			name:         "empty response body",
+			statusCode:   http.StatusOK,
+			responseBody: "",
+			wantErr:      false,
+			expectedBody: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock response
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
+			}
+
+			client := &hubClient{}
+			body, err := client.readResponseBody(resp)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("readResponseBody() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("readResponseBody() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("readResponseBody() unexpected error = %v", err)
+				}
+				if string(body) != tt.expectedBody {
+					t.Errorf("readResponseBody() body = %s, expected %s", string(body), tt.expectedBody)
+				}
+			}
+		})
+	}
+}
+
+func TestParseApplicationsFromHub(t *testing.T) {
+	tests := []struct {
+		name     string
+		yamlData string
+		wantErr  bool
+		errMsg   string
+		expected int
+	}{
+		{
+			name: "valid YAML with applications",
+			yamlData: `
+- id: 1
+  name: "App1"
+  repository:
+    url: "https://github.com/example/app1"
+- id: 2
+  name: "App2"
+  repository:
+    url: "https://github.com/example/app2"
+`,
+			wantErr:  false,
+			expected: 2,
+		},
+		{
+			name:     "empty YAML",
+			yamlData: "",
+			wantErr:  false,
+			expected: 0,
+		},
+		{
+			name:     "invalid YAML",
+			yamlData: "invalid: yaml: content: [",
+			wantErr:  true,
+			errMsg:   "yaml",
+		},
+		{
+			name: "single application",
+			yamlData: `
+- id: 1
+  name: "SingleApp"
+  repository:
+    url: "https://github.com/example/single"
+`,
+			wantErr:  false,
+			expected: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			apps, err := parseApplicationsFromHub(tt.yamlData)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("parseApplicationsFromHub() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("parseApplicationsFromHub() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("parseApplicationsFromHub() unexpected error = %v", err)
+				}
+				if len(apps) != tt.expected {
+					t.Errorf("parseApplicationsFromHub() returned %d applications, expected %d", len(apps), tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestSyncCommand_getApplicationFromHub(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		url            string
+		wantErr        bool
+		errMsg         string
+		expectedAppID  uint
+	}{
+		{
+			name: "successful application retrieval",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				apps := []api.Application{
+					{
+						Resource: api.Resource{ID: 1},
+						Name:     "Test App",
+					},
+				}
+				apps[0].Repository.URL = "https://github.com/example/test"
+				yamlData, _ := yaml.Marshal(apps)
+				w.Header().Set("Content-Type", "application/x-yaml")
+				w.WriteHeader(http.StatusOK)
+				w.Write(yamlData)
+			},
+			url:           "https://github.com/example/test",
+			wantErr:       false,
+			expectedAppID: 1,
+		},
+		{
+			name: "application not found",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				apps := []api.Application{
+					{
+						Resource: api.Resource{ID: 1},
+						Name:     "Different App",
+					},
+				}
+				apps[0].Repository.URL = "https://github.com/example/different"
+				yamlData, _ := yaml.Marshal(apps)
+				w.Header().Set("Content-Type", "application/x-yaml")
+				w.WriteHeader(http.StatusOK)
+				w.Write(yamlData)
+			},
+			url:           "https://github.com/example/notfound",
+			wantErr:       false,
+			expectedAppID: 0, // Should return empty application
+		},
+		{
+			name: "server error",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Internal Server Error"))
+			},
+			url:     "https://github.com/example/test",
+			wantErr: true,
+			errMsg:  "HTTP 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			syncCmd := &syncCommand{
+				url: tt.url,
+				log: log,
+				hubClient: &hubClient{
+					client: &http.Client{Timeout: 5 * time.Second},
+					host:   server.URL,
+				},
+			}
+
+			app, err := syncCmd.getApplicationFromHub(tt.url)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("getApplicationFromHub() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("getApplicationFromHub() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("getApplicationFromHub() unexpected error = %v", err)
+				}
+				if app.Resource.ID != tt.expectedAppID {
+					t.Errorf("getApplicationFromHub() returned app ID %d, expected %d", app.Resource.ID, tt.expectedAppID)
+				}
+			}
+		})
+	}
+}
+
+func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		appID          int
+		wantErr        bool
+		errMsg         string
+		expectedCount  int
+	}{
+		{
+			name: "successful profiles retrieval",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				profiles := []api.AnalysisProfile{
+					{
+						Resource: api.Resource{ID: 1},
+						Name:     "Profile 1",
+					},
+					{
+						Resource: api.Resource{ID: 2},
+						Name:     "Profile 2",
+					},
+				}
+				yamlData, _ := yaml.Marshal(profiles)
+				w.Header().Set("Content-Type", "application/x-yaml")
+				w.WriteHeader(http.StatusOK)
+				w.Write(yamlData)
+			},
+			appID:         1,
+			wantErr:       false,
+			expectedCount: 2,
+		},
+		{
+			name: "no profiles found",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				profiles := []api.AnalysisProfile{}
+				yamlData, _ := yaml.Marshal(profiles)
+				w.Header().Set("Content-Type", "application/x-yaml")
+				w.WriteHeader(http.StatusOK)
+				w.Write(yamlData)
+			},
+			appID:         1,
+			wantErr:       false,
+			expectedCount: 0,
+		},
+		{
+			name: "server error",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte("Application not found"))
+			},
+			appID:   999,
+			wantErr: true,
+			errMsg:  "HTTP 404",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			syncCmd := &syncCommand{
+				log: log,
+				hubClient: &hubClient{
+					client: &http.Client{Timeout: 5 * time.Second},
+					host:   server.URL,
+				},
+			}
+
+			profiles, err := syncCmd.getProfilesFromHubApplicaton(tt.appID)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("getProfilesFromHubApplicaton() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("getProfilesFromHubApplicaton() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("getProfilesFromHubApplicaton() unexpected error = %v", err)
+				}
+				if len(profiles) != tt.expectedCount {
+					t.Errorf("getProfilesFromHubApplicaton() returned %d profiles, expected %d", len(profiles), tt.expectedCount)
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_downloadToFile(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody []byte
+		wantErr      bool
+		errMsg       string
+	}{
+		{
+			name:         "successful download",
+			statusCode:   http.StatusOK,
+			responseBody: []byte("test file content"),
+			wantErr:      false,
+		},
+		{
+			name:         "server error response",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: []byte("Internal Server Error"),
+			wantErr:      true,
+			errMsg:       "HTTP 500",
+		},
+		{
+			name:         "empty file download",
+			statusCode:   http.StatusOK,
+			responseBody: []byte(""),
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-download-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			outputPath := filepath.Join(tmpDir, "test-file.tar")
+
+			// Create a mock response
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+				Body:       io.NopCloser(bytes.NewReader(tt.responseBody)),
+			}
+
+			client := &hubClient{}
+			err = client.downloadToFile(resp, outputPath, log)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("downloadToFile() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("downloadToFile() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("downloadToFile() unexpected error = %v", err)
+				}
+
+				if tt.statusCode == http.StatusOK {
+					extractDir := strings.TrimSuffix(outputPath, ".tar")
+					if _, err := os.Stat(extractDir); os.IsNotExist(err) {
+						if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+							t.Error("Expected either tar file or extracted directory to exist")
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestExtractTarFile(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name      string
+		setupFunc func() (string, string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "extract simple tar file",
+			setupFunc: func() (string, string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-extract-")
+				if err != nil {
+					return "", "", nil, err
+				}
+
+				// Create a simple tar file
+				tarPath := filepath.Join(tmpDir, "test.tar")
+				tarFile, err := os.Create(tarPath)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+
+				tarWriter := tar.NewWriter(tarFile)
+
+				// Add a file to the tar
+				header := &tar.Header{
+					Name: "test.txt",
+					Mode: 0644,
+					Size: int64(len("test content")),
+				}
+				if err := tarWriter.WriteHeader(header); err != nil {
+					tarFile.Close()
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+				if _, err := tarWriter.Write([]byte("test content")); err != nil {
+					tarFile.Close()
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+
+				// Add a directory to the tar
+				dirHeader := &tar.Header{
+					Name:     "testdir/",
+					Mode:     0755,
+					Typeflag: tar.TypeDir,
+				}
+				if err := tarWriter.WriteHeader(dirHeader); err != nil {
+					tarFile.Close()
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+
+				tarWriter.Close()
+				tarFile.Close()
+
+				destDir := filepath.Join(tmpDir, "extracted")
+				return tarPath, destDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "extract gzipped tar file",
+			setupFunc: func() (string, string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-extract-gz-")
+				if err != nil {
+					return "", "", nil, err
+				}
+
+				// Create a gzipped tar file
+				tarPath := filepath.Join(tmpDir, "test.tar.gz")
+				tarFile, err := os.Create(tarPath)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+
+				gzipWriter := gzip.NewWriter(tarFile)
+				tarWriter := tar.NewWriter(gzipWriter)
+
+				header := &tar.Header{
+					Name: "gztest.txt",
+					Mode: 0644,
+					Size: int64(len("gzipped content")),
+				}
+				if err := tarWriter.WriteHeader(header); err != nil {
+					tarFile.Close()
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+				if _, err := tarWriter.Write([]byte("gzipped content")); err != nil {
+					tarFile.Close()
+					os.RemoveAll(tmpDir)
+					return "", "", nil, err
+				}
+
+				tarWriter.Close()
+				gzipWriter.Close()
+				tarFile.Close()
+
+				destDir := filepath.Join(tmpDir, "extracted")
+				return tarPath, destDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent tar file should fail",
+			setupFunc: func() (string, string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-extract-")
+				if err != nil {
+					return "", "", nil, err
+				}
+				tarPath := filepath.Join(tmpDir, "nonexistent.tar")
+				destDir := filepath.Join(tmpDir, "extracted")
+				return tarPath, destDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "failed to open tar file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tarPath, destDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			err = extractTarFile(tarPath, destDir, log)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("extractTarFile() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("extractTarFile() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("extractTarFile() unexpected error = %v", err)
+				}
+
+				if _, err := os.Stat(destDir); os.IsNotExist(err) {
+					t.Error("Expected destination directory to be created")
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteTarFile(t *testing.T) {
+
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "delete existing file",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-delete-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "test.tar")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "delete non-existent file should fail",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-delete-")
+				if err != nil {
+					return "", nil, err
+				}
+				filePath := filepath.Join(tmpDir, "nonexistent.tar")
+				return filePath, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "failed to delete tar file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filePath, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Failed to setup test: %v", err)
+			}
+			defer cleanup()
+
+			err = deleteTarFile(filePath)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("deleteTarFile() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("deleteTarFile() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("deleteTarFile() unexpected error = %v", err)
+				}
+
+				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+					t.Error("Expected file to be deleted")
+				}
+			}
+		})
+	}
+}
+
+func TestSyncCommand_downloadProfileBundle(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		profileID      int
+		wantErr        bool
+		errMsg         string
+	}{
+		{
+			name: "successful profile bundle download",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				// Create a simple tar content
+				var buf bytes.Buffer
+				tarWriter := tar.NewWriter(&buf)
+
+				header := &tar.Header{
+					Name: "profile.yaml",
+					Mode: 0644,
+					Size: int64(len("profile content")),
+				}
+				tarWriter.WriteHeader(header)
+				tarWriter.Write([]byte("profile content"))
+				tarWriter.Close()
+
+				w.Header().Set("Content-Type", "application/octet-stream")
+				w.WriteHeader(http.StatusOK)
+				w.Write(buf.Bytes())
+			},
+			profileID: 1,
+			wantErr:   false,
+		},
+		{
+			name: "server error during download",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte("Profile not found"))
+			},
+			profileID: 999,
+			wantErr:   true,
+			errMsg:    "HTTP 404",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-download-profile-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			syncCmd := &syncCommand{
+				applicationPath: tmpDir,
+				log:             log,
+				hubClient: &hubClient{
+					client: &http.Client{Timeout: 5 * time.Second},
+					host:   server.URL,
+				},
+			}
+
+			err = syncCmd.downloadProfileBundle(tt.profileID)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("downloadProfileBundle() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("downloadProfileBundle() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("downloadProfileBundle() unexpected error = %v", err)
+				}
+
+				// Verify profiles directory was created
+				profilesDir := filepath.Join(tmpDir, Profiles)
+				if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
+					t.Error("Expected profiles directory to be created")
+				}
+			}
+		})
+	}
+}
+
+func TestConfigCommandIntegration(t *testing.T) {
+	log := logr.Discard()
+
+	t.Run("config command with list-profiles flag", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "test-config-integration-")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		profilesDir := filepath.Join(tmpDir, Profiles)
+		err = os.MkdirAll(profilesDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create profiles dir: %v", err)
+		}
+
+		profileDirs := []string{"profile1", "profile2"}
+		for _, dir := range profileDirs {
+			err = os.MkdirAll(filepath.Join(profilesDir, dir), 0755)
+			if err != nil {
+				t.Fatalf("Failed to create profile dir: %v", err)
+			}
+		}
+
+		cmd := NewConfigCmd(log)
+		cmd.SetArgs([]string{"--list-profiles", tmpDir})
+
+		err = cmd.Execute()
+		if err != nil {
+			t.Errorf("Command execution failed: %v", err)
+		}
+	})
 }
