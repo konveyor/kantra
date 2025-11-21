@@ -83,6 +83,7 @@ type analyzeCommand struct {
 	disableMavenSearch       bool
 	noProgress               bool
 	overrideProviderSettings string
+	profile                  string
 	AnalyzeCommandContext
 }
 
@@ -101,7 +102,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
 				!cmd.Flags().Lookup("list-providers").Changed &&
-				!cmd.Flags().Lookup("list-languages").Changed {
+				!cmd.Flags().Lookup("list-languages").Changed &&
+				!cmd.Flags().Lookup("profile").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
@@ -118,7 +120,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			err := analyzeCmd.Validate(cmd.Context())
+			err := analyzeCmd.Validate(cmd.Context(), cmd)
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -143,6 +145,39 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
+			}
+
+			// get profile options for analysis
+			if analyzeCmd.profile != "" {
+				stat, err := os.Stat(analyzeCmd.profile)
+				if err != nil {
+					return fmt.Errorf("failed to stat profiles directory %s: %w", analyzeCmd.profile, err)
+				}
+
+				if !stat.IsDir() {
+					return fmt.Errorf("found profiles path %s is not a directory", analyzeCmd.profile)
+				}
+				profilePath := filepath.Join(analyzeCmd.profile, "profile.yaml")
+				err = analyzeCmd.setSettingsFromProfile(profilePath, cmd)
+				if err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
+			} else {
+				// check for a single profile in default path
+				profilesDir := filepath.Join(analyzeCmd.input, ProfilePath)
+				profilePath, err := analyzeCmd.findSingleProfile(profilesDir)
+				if err != nil {
+					analyzeCmd.log.Error(err, "did not find valid profile in default path")
+				}
+				if profilePath != "" {
+					analyzeCmd.log.Info("using found profile", "profile", profilePath)
+					err = analyzeCmd.setSettingsFromProfile(profilePath, cmd)
+					if err != nil {
+						analyzeCmd.log.Error(err, "failed to get settings from profile")
+						return err
+					}
+				}
 			}
 
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -310,10 +345,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.profile, "profile", "", "path to an analysis profile")
 	return analyzeCommand
 }
 
-func (a *analyzeCommand) Validate(ctx context.Context) error {
+func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command) error {
 	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
