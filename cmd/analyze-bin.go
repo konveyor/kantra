@@ -265,6 +265,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	if a.enableDefaultRulesets {
 		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
 	}
+	providerConditions := map[string][]provider.ConditionsByCap{}
 
 	progressMode.Printf("  ✓ Started rules engine\n")
 
@@ -273,13 +274,27 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	for _, f := range a.rules {
 		operationalLog.Info("parsing rules for analysis", "rules", f)
 
-		internRuleSet, internNeedProviders, err := parser.LoadRules(f)
+		internRuleSet, internNeedProviders, provConditions, err := parser.LoadRules(f)
 		if err != nil {
 			a.log.Error(err, "unable to parse all the rules for ruleset", "file", f)
 		}
 		ruleSets = append(ruleSets, internRuleSet...)
 		for k, v := range internNeedProviders {
 			needProviders[k] = v
+		}
+		for k, v := range provConditions {
+			if _, ok := providerConditions[k]; !ok {
+				providerConditions[k] = []provider.ConditionsByCap{}
+			}
+			providerConditions[k] = append(providerConditions[k], v...)
+		}
+	}
+
+	for name, conditions := range providerConditions {
+		if provider, ok := needProviders[name]; ok {
+			if err := provider.Prepare(ctx, conditions); err != nil {
+				errLog.Error(err, "unable to prepare provider", "provider", name)
+			}
 		}
 	}
 	operationalLog.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
@@ -314,8 +329,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	// Cancel progress context and wait for goroutine to finish
 	if progressMode.IsEnabled() {
-		progressCancel()  // This closes the Events() channel
-		<-progressDone    // Wait for goroutine to finish
+		progressCancel() // This closes the Events() channel
+		<-progressDone   // Wait for goroutine to finish
 	}
 
 	engineSpan.End()
