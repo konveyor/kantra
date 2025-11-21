@@ -90,6 +90,22 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	operationalLog.Info("[TIMING] Containerless analysis starting")
 
+	// Initialize Jaeger tracing if endpoint is provided
+	if a.jaegerEndpoint != "" {
+		operationalLog.Info("initializing Jaeger tracing", "endpoint", a.jaegerEndpoint)
+		tracerOptions := tracing.Options{
+			EnableJaeger:   true,
+			JaegerEndpoint: a.jaegerEndpoint,
+		}
+		tp, err := tracing.InitTracerProvider(a.log, tracerOptions)
+		if err != nil {
+			a.log.Error(err, "failed to initialize tracing")
+			return fmt.Errorf("failed to initialize tracing: %w", err)
+		}
+		defer tracing.Shutdown(ctx, a.log, tp)
+		operationalLog.Info("Jaeger tracing initialized successfully")
+	}
+
 	// Hide cursor at the very start if progress is enabled
 	progressMode.HideCursor()
 	// Ensure cursor is shown at the end

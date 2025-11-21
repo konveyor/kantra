@@ -462,6 +462,22 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	a.log.Info("[TIMING] Hybrid analysis starting")
 	a.log.Info("running analysis in hybrid mode (analyzer in-process, providers in containers)")
 
+	// Initialize Jaeger tracing if endpoint is provided
+	if a.jaegerEndpoint != "" {
+		a.log.Info("initializing Jaeger tracing", "endpoint", a.jaegerEndpoint)
+		tracerOptions := tracing.Options{
+			EnableJaeger:   true,
+			JaegerEndpoint: a.jaegerEndpoint,
+		}
+		tp, err := tracing.InitTracerProvider(a.log, tracerOptions)
+		if err != nil {
+			a.log.Error(err, "failed to initialize tracing")
+			return fmt.Errorf("failed to initialize tracing: %w", err)
+		}
+		defer tracing.Shutdown(ctx, a.log, tp)
+		a.log.Info("Jaeger tracing initialized successfully")
+	}
+
 	// Hide cursor at the very start if progress is enabled
 	progressMode.HideCursor()
 	// Ensure cursor is shown at the end
