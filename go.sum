@@ -140,10 +140,6 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251031191139-321209b0bb21 h1:jFr01QAcEz6u0Afy2tMPvWGVaV5oIuI3cdXMxVKP7NA=
-github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251031191139-321209b0bb21/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251031191139-321209b0bb21 h1:UAvonakPIqBT0q3Es1Un9rngf8d6HdtcYABDXCETWsU=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251031191139-321209b0bb21/go.mod h1:QheVeScOOoCMuWMEYO9ypHgoasRaYddedh9cxWJwn94=
 github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=
 github.com/konveyor/asset-generation v0.2.2/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
@@ -192,6 +188,10 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/pranavgaikwad/analyzer-lsp v0.0.0-20251121163454-ab0fba51e71c h1:pC4bFnmk1Himcru8TAP0OKuNdTzeNgvtcGVDBru6kkk=
+github.com/pranavgaikwad/analyzer-lsp v0.0.0-20251121163454-ab0fba51e71c/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
+github.com/pranavgaikwad/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251121163454-ab0fba51e71c h1:oHk3a587xds/WafLQUvmas8tRfyqHiTWzvAGN2hNRVk=
+github.com/pranavgaikwad/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251121163454-ab0fba51e71c/go.mod h1:Ec+miOKXTYjs4lR3UdA6zjV2FhuZvxuyDQn8VxBOkU4=
 github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
 github.com/prashantv/gostub v1.1.0/go.mod h1:A5zLQHz7ieHGG7is6LLXLz7I8+3LZzsrV0P1IAHhP5U=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=

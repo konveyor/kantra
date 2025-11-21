@@ -269,7 +269,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	providerConfig := provider.Config{
 		Name:       providerName,
 		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
-		BinaryPath: "",                                          // Empty = network mode
+		BinaryPath: "",                                         // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
 				Location:               util.SourceMountPath, // Path inside provider container
@@ -396,8 +396,8 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     a.input,
-				AnalysisMode: provider.AnalysisMode(a.mode),
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: map[string]interface{}{
 					// Don't set excludedDirs - let analyzer-lsp use default exclusions
 					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
@@ -741,15 +741,15 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Parallelize rule loading across multiple rulesets
 	type ruleLoadResult struct {
-		rulePath     string
-		ruleSets     []engine.RuleSet
-		providers    map[string]provider.InternalProviderClient
-		err          error
+		rulePath  string
+		ruleSets  []engine.RuleSet
+		providers map[string]provider.InternalProviderClient
+		err       error
 	}
 
 	var ruleWg sync.WaitGroup
 	resultChan := make(chan ruleLoadResult, len(a.rules))
-
+	providerConditions := map[string][]provider.ConditionsByCap{}
 	// Load each ruleset in parallel
 	for _, f := range a.rules {
 		ruleWg.Add(1)
@@ -757,9 +757,16 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			defer ruleWg.Done()
 			a.log.Info("parsing rules for analysis", "rules", rulePath)
 
-			internRuleSet, internNeedProviders, err := ruleParser.LoadRules(rulePath)
+			internRuleSet, internNeedProviders, provConditions, err := ruleParser.LoadRules(rulePath)
 			if err != nil {
 				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
+			}
+
+			for k, v := range provConditions {
+				if _, ok := providerConditions[k]; !ok {
+					providerConditions[k] = []provider.ConditionsByCap{}
+				}
+				providerConditions[k] = append(providerConditions[k], v...)
 			}
 
 			resultChan <- ruleLoadResult{
@@ -805,6 +812,15 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
+	// prpare the providers
+	for name, conditions := range providerConditions {
+		if provider, ok := needProviders[name]; ok {
+			if err := provider.Prepare(ctx, conditions); err != nil {
+				errLog.Error(err, "unable to prepare provider", "provider", name)
+			}
+		}
+	}
+
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
@@ -838,8 +854,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Cancel progress context and wait for goroutine to finish
 	if progressMode.IsEnabled() {
-		progressCancel()  // This closes the Events() channel
-		<-progressDone    // Wait for goroutine to finish
+		progressCancel() // This closes the Events() channel
+		<-progressDone   // Wait for goroutine to finish
 	}
 
 	engineSpan.End()
