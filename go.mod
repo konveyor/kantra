@@ -135,14 +135,10 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251107235035-7470a4a226f4
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251031191139-321209b0bb21
+	github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251121202139-b3f742caf596
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251121202139-b3f742caf596
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.7 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
-
-replace github.com/konveyor/analyzer-lsp => github.com/pranavgaikwad/analyzer-lsp v0.0.0-20251121163454-ab0fba51e71c
-
-replace github.com/konveyor/analyzer-lsp/external-providers/java-external-provider => github.com/pranavgaikwad/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251121163454-ab0fba51e71c
