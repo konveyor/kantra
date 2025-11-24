@@ -19,7 +19,7 @@
 		<spring-framework.version>5.3.7</spring-framework.version>
 		<tomcat.version>9.0.46</tomcat.version>
 		<spring-data.version>2021.0.1</spring-data.version>
-		<hibernate.version>5.4.32.Final</hibernate.version>
+		<hibernate.version>5.6.15.Final</hibernate.version>
 		<hibernate-validator.version>6.2.0.Final</hibernate-validator.version>
 
 		<postgresql-driver.version>42.2.20</postgresql-driver.version>
