@@ -822,9 +822,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 	}
 
-	progressMode.Printf("  ✓ Waiting for 3 seconds before calling prepare()\n")
-	time.Sleep(3 * time.Second)
-
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
