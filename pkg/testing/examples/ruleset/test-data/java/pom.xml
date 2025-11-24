@@ -17,7 +17,7 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<spring-framework.version>5.3.7</spring-framework.version>
-		<tomcat.version>9.0.46</tomcat.version>
+		<tomcat.version>9.0.111</tomcat.version>
 		<spring-data.version>2021.0.1</spring-data.version>
 		<hibernate.version>5.4.32.Final</hibernate.version>
 		<hibernate-validator.version>6.2.0.Final</hibernate-validator.version>
