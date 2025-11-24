@@ -741,10 +741,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Parallelize rule loading across multiple rulesets
 	type ruleLoadResult struct {
-		rulePath  string
-		ruleSets  []engine.RuleSet
-		providers map[string]provider.InternalProviderClient
-		err       error
+		rulePath       string
+		ruleSets       []engine.RuleSet
+		providers      map[string]provider.InternalProviderClient
+		provConditions map[string][]provider.ConditionsByCap
+		err            error
 	}
 
 	var ruleWg sync.WaitGroup
@@ -762,18 +763,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
 			}
 
-			for k, v := range provConditions {
-				if _, ok := providerConditions[k]; !ok {
-					providerConditions[k] = []provider.ConditionsByCap{}
-				}
-				providerConditions[k] = append(providerConditions[k], v...)
-			}
-
 			resultChan <- ruleLoadResult{
-				rulePath:  rulePath,
-				ruleSets:  internRuleSet,
-				providers: internNeedProviders,
-				err:       err,
+				rulePath:       rulePath,
+				ruleSets:       internRuleSet,
+				providers:      internNeedProviders,
+				provConditions: provConditions,
+				err:            err,
 			}
 		}(f)
 	}
@@ -792,6 +787,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		ruleSets = append(ruleSets, result.ruleSets...)
 		for k, v := range result.providers {
 			needProviders[k] = v
+		}
+		for k, v := range result.provConditions {
+			if _, ok := providerConditions[k]; !ok {
+				providerConditions[k] = []provider.ConditionsByCap{}
+			}
+			providerConditions[k] = append(providerConditions[k], v...)
 		}
 	}
 
@@ -821,6 +822,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 	}
 
+	progressMode.Printf("  ✓ Waiting for 3 seconds before calling prepare()\n")
+	time.Sleep(3 * time.Second)
+
 	// Start dependency analysis for full analysis mode
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
@@ -846,7 +850,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	if progressCancel != nil {
 		defer progressCancel()
 	}
-
 	// Run analysis with progress reporter
 	rulesets := eng.RunRulesWithOptions(ctx, ruleSets, []engine.RunOption{
 		engine.WithProgressReporter(reporter),
