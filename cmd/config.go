@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,6 +35,12 @@ type syncCommand struct {
 	log             logr.Logger
 	hubClient       *hubClient
 	insecure        bool
+}
+
+type hubClient struct {
+	client   *http.Client
+	host     string
+	insecure bool
 }
 
 func NewConfigCmd(log logr.Logger) *cobra.Command {
@@ -81,7 +88,7 @@ func (c *configCommand) Validate(ctx context.Context) error {
 	if c.listProfiles != "" {
 		stat, err := os.Stat(c.listProfiles)
 		if err != nil {
-			return fmt.Errorf("%w failed to stat application path for profile %s", err, c.listProfiles)
+			return err
 		}
 		if !stat.IsDir() {
 			return fmt.Errorf("application path for profile %s is not a directory", c.listProfiles)
@@ -182,7 +189,7 @@ func (s *syncCommand) Validate(ctx context.Context) error {
 	}
 	stat, err := os.Stat(s.applicationPath)
 	if err != nil {
-		return fmt.Errorf("%w failed to stat application path %s", err, s.applicationPath)
+		return err
 	}
 	if !stat.IsDir() {
 		return fmt.Errorf("application path %s is not a directory", s.applicationPath)
@@ -191,30 +198,26 @@ func (s *syncCommand) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (s *syncCommand) getHubClient() *hubClient {
+func (s *syncCommand) getHubClient() (*hubClient, error) {
+	var err error
 	if s.hubClient == nil {
-		s.hubClient = newHubClientWithOptions(s.insecure)
-	}
-	return s.hubClient
-}
-
-type hubClient struct {
-	client   *http.Client
-	host     string
-	insecure bool
-}
-
-func newHubClientWithOptions(insecure bool) *hubClient {
-	host := ""
-	if foundHost := os.Getenv("HOST"); foundHost != "" {
-		host = foundHost
-	} else {
-		if storedAuth, err := LoadStoredTokens(); err == nil && storedAuth.Host != "" {
-			host = storedAuth.Host
+		s.hubClient, err = newHubClientWithOptions(s.insecure)
+		if err != nil {
+			return nil, err
 		}
 	}
-	host = strings.TrimSuffix(host, "/")
-	fmt.Printf("Hub client connecting to: %s\n", host)
+	return s.hubClient, nil
+}
+
+func newHubClientWithOptions(insecure bool) (*hubClient, error) {
+	storedAuth, err := loadStoredTokens()
+	if err != nil {
+		return nil, err
+	}
+	if storedAuth.Host == "" {
+		return nil, fmt.Errorf("stored authentication is invalid. Please login")
+	}
+	host := strings.TrimSuffix(storedAuth.Host, "/")
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -228,7 +231,7 @@ func newHubClientWithOptions(insecure bool) *hubClient {
 		client:   client,
 		host:     host,
 		insecure: insecure,
-	}
+	}, nil
 }
 
 func (hc *hubClient) doRequest(path, acceptHeader string, log logr.Logger) (*http.Response, error) {
@@ -239,31 +242,44 @@ func (hc *hubClient) doRequestWithRetry(path, acceptHeader string, log logr.Logg
 	url := hc.host + path
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, err
 	}
 	req.Header.Set("Accept", acceptHeader)
-	storedAuth, _ := LoadStoredTokens()
-
-	token := os.Getenv("TOKEN")
-	if token == "" && storedAuth != nil {
-		token = storedAuth.Token
+	storedAuth, err := loadStoredTokens()
+	if err != nil {
+		return nil, err
 	}
-	if token != "" {
-		req.Header.Set("Authentication", "Bearer "+token)
+
+	var token string
+	if storedAuth != nil {
+		expired, err := isTokenExpired(storedAuth.Token)
+		if err != nil {
+			return nil, err
+		}
+		if expired && !isRetry {
+			// refresh if token if expired
+			if err := hc.refreshStoredToken(storedAuth, log); err != nil {
+				return nil, err
+			}
+			if refreshedAuth, err := loadStoredTokens(); err == nil {
+				token = refreshedAuth.Token
+			}
+		} else if !expired {
+			token = storedAuth.Token
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	resp, err := hc.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request to %s: %w", url, err)
+		return nil, err
 	}
-	if resp.StatusCode == http.StatusUnauthorized && !isRetry && storedAuth != nil && storedAuth.RefreshToken != "" {
+
+	if resp.StatusCode == http.StatusUnauthorized && !isRetry {
 		resp.Body.Close()
-
-		log.V(7).Info("token expired, attempting automatic refresh")
+		// refresh token if unauthorized
 		if err := hc.refreshStoredToken(storedAuth, log); err != nil {
-			return nil, fmt.Errorf("authentication failed and token refresh failed: %w", err)
+			return nil, err
 		}
-
-		log.V(7).Info("token refreshed, retrying request")
 		return hc.doRequestWithRetry(path, acceptHeader, log, true)
 	}
 
@@ -274,7 +290,7 @@ func (hc *hubClient) readResponseBody(resp *http.Response) ([]byte, error) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
@@ -283,10 +299,29 @@ func (hc *hubClient) readResponseBody(resp *http.Response) ([]byte, error) {
 	return body, nil
 }
 
+func (s *syncCommand) checkAuthentication() error {
+	storedAuth, err := loadStoredTokens()
+	if err != nil {
+		return err
+	}
+	if storedAuth.Token == "" {
+		return fmt.Errorf("stored authentication is invalid. Please login")
+	}
+
+	return nil
+}
+
 func (s *syncCommand) getApplicationFromHub(urlRepo string) (api.Application, error) {
-	hubClient := s.getHubClient()
-	path := fmt.Sprintf(`/applications?filter=repository.url='%s'`, urlRepo)
-	resp, err := hubClient.doRequest(path, "application/x-yaml", s.log)
+	if err := s.checkAuthentication(); err != nil {
+		return api.Application{}, err
+	}
+	hubClient, err := s.getHubClient()
+	if err != nil {
+		return api.Application{}, err
+	}
+	path := fmt.Sprintf("/applications?filter=repository.url='%s'", urlRepo)
+
+	resp, err := hubClient.doRequest(path, "application/json", s.log)
 	if err != nil {
 		return api.Application{}, err
 	}
@@ -294,33 +329,42 @@ func (s *syncCommand) getApplicationFromHub(urlRepo string) (api.Application, er
 	if err != nil {
 		return api.Application{}, err
 	}
+
 	apps, err := parseApplicationsFromHub(string(body))
 	if err != nil {
 		return api.Application{}, err
 	}
-	var application api.Application
-	for _, app := range apps {
-		fmt.Println(app.Repository.URL)
+	if len(apps) == 0 {
+		return api.Application{}, fmt.Errorf("no applications found in Hub for URL: %s", urlRepo)
 
-		if app.Repository.URL == s.url {
-			application = app
-		}
+		// TODO handle multiple applications later
+	} else if len(apps) > 1 {
+		return api.Application{}, fmt.Errorf("multiple applications found in Hub for URL: %s", urlRepo)
+	}
+	var application api.Application
+	if apps[0].Repository.URL == s.url {
+		application = apps[0]
 	}
 
 	return application, nil
 }
 
-func parseApplicationsFromHub(yamlData string) ([]api.Application, error) {
+func parseApplicationsFromHub(jsonData string) ([]api.Application, error) {
 	var apps []api.Application
-	err := yaml.Unmarshal([]byte(yamlData), &apps)
+
+	err := json.Unmarshal([]byte(jsonData), &apps)
 	if err != nil {
 		return nil, err
 	}
+
 	return apps, nil
 }
 
 func (s *syncCommand) getProfilesFromHubApplicaton(appID int) ([]api.AnalysisProfile, error) {
-	hubClient := s.getHubClient()
+	hubClient, err := s.getHubClient()
+	if err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/applications/%d/analysis/profiles", appID)
 	resp, err := hubClient.doRequest(path, "application/x-yaml", s.log)
 	if err != nil {
@@ -339,12 +383,15 @@ func (s *syncCommand) getProfilesFromHubApplicaton(appID int) ([]api.AnalysisPro
 }
 
 func (s *syncCommand) downloadProfileBundle(profileID int) error {
-	hubClient := s.getHubClient()
+	hubClient, err := s.getHubClient()
+	if err != nil {
+		return err
+	}
 	filename := fmt.Sprintf("profile-%d.tar", profileID)
 	downloadPath := filepath.Join(s.applicationPath, Profiles, filename)
-	err := os.MkdirAll(filepath.Join(s.applicationPath, Profiles), 0755)
+	err = os.MkdirAll(filepath.Join(s.applicationPath, Profiles), 0755)
 	if err != nil {
-		return fmt.Errorf("failed to create profiles directory %s: %w", filepath.Join(s.applicationPath, Profiles), err)
+		return err
 	}
 
 	path := fmt.Sprintf("/analysis/profiles/%d/bundle", profileID)
@@ -365,26 +412,27 @@ func (hc *hubClient) downloadToFile(resp *http.Response, outputPath string, log 
 
 	outFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("failed to create output file %s: %w", outputPath, err)
+		return err
 	}
 	defer outFile.Close()
 
 	_, err = io.Copy(outFile, resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to write to output file: %w", err)
+		return err
 	}
 	log.V(7).Info("compressed bundle file downloaded successfully", "path", outputPath)
 
 	extractDir := strings.TrimSuffix(outputPath, ".tar")
 	err = extractTarFile(outputPath, extractDir, log)
 	if err != nil {
-		return fmt.Errorf("failed to extract tar file: %w", err)
+		return err
 	}
 	err = deleteTarFile(outputPath)
 	if err != nil {
 		// don't return error here as extraction was successful
 		log.Error(err, "failed to delete tar file after extraction", "path", outputPath)
 	}
+	log.Info("profile bundle downloaded successfully", "path", outputPath)
 
 	return nil
 }
@@ -392,28 +440,27 @@ func (hc *hubClient) downloadToFile(resp *http.Response, outputPath string, log 
 func extractTarFile(tarPath, destDir string, log logr.Logger) error {
 	tarFile, err := os.Open(tarPath)
 	if err != nil {
-		return fmt.Errorf("failed to open tar file %s: %w", tarPath, err)
+		return err
 	}
 	defer tarFile.Close()
 
 	err = os.MkdirAll(destDir, 0755)
 	if err != nil {
-		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
+		return err
 	}
-
 	var reader io.Reader = tarFile
 	tarFile.Seek(0, 0)
 	header := make([]byte, 3)
 	n, err := tarFile.Read(header)
 	if err != nil && err != io.EOF {
-		return fmt.Errorf("failed to read file header: %w", err)
+		return err
 	}
 
 	tarFile.Seek(0, 0)
 	if n >= 2 && header[0] == 0x1f && header[1] == 0x8b {
 		gzipReader, err := gzip.NewReader(tarFile)
 		if err != nil {
-			return fmt.Errorf("failed to create gzip reader: %w", err)
+			return err
 		}
 		defer gzipReader.Close()
 		reader = gzipReader
@@ -428,42 +475,36 @@ func extractTarFile(tarPath, destDir string, log logr.Logger) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read tar header: %w", err)
+			return err
 		}
-
 		targetPath := filepath.Join(destDir, header.Name)
 		if !strings.HasPrefix(targetPath, filepath.Clean(destDir)+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid file path in tar: %s", header.Name)
 		}
-
 		switch header.Typeflag {
 		case tar.TypeDir:
 			err = os.MkdirAll(targetPath, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+				return err
 			}
-
 		case tar.TypeReg:
 			parentDir := filepath.Dir(targetPath)
 			err = os.MkdirAll(parentDir, 0755)
 			if err != nil {
-				return fmt.Errorf("failed to create parent directory %s: %w", parentDir, err)
+				return err
 			}
-
 			outFile, err := os.Create(targetPath)
 			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+				return err
 			}
-
 			_, err = io.Copy(outFile, tarReader)
 			outFile.Close()
 			if err != nil {
-				return fmt.Errorf("failed to write file %s: %w", targetPath, err)
+				return err
 			}
-
 			err = os.Chmod(targetPath, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to set permissions for %s: %w", targetPath, err)
+				return err
 			}
 		}
 	}
@@ -474,7 +515,7 @@ func extractTarFile(tarPath, destDir string, log logr.Logger) error {
 func deleteTarFile(tarPath string) error {
 	err := os.Remove(tarPath)
 	if err != nil {
-		return fmt.Errorf("failed to delete tar file %s: %w", tarPath, err)
+		return err
 	}
 	return nil
 }
