@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -33,6 +34,10 @@ type LoginResponse struct {
 	Host         string `json:"host,omitempty"`
 }
 
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh"`
+}
+
 type loginCommand struct {
 	logLevel  *uint32
 	log       logr.Logger
@@ -41,7 +46,6 @@ type loginCommand struct {
 	host      string
 	user      string
 	password  string
-	refresh   bool
 }
 
 func NewLoginCmd(log logr.Logger) *cobra.Command {
@@ -64,16 +68,12 @@ func NewLoginCmd(log logr.Logger) *cobra.Command {
 			if len(args) > 2 {
 				loginCmd.password = args[2]
 			}
-			if loginCmd.refresh {
-				return loginCmd.Refresh(log)
-			}
 
 			return loginCmd.Login(log)
 		},
 	}
 
 	loginCommand.Flags().BoolVarP(&loginCmd.insecure, "insecure", "k", false, "skip TLS certificate verification")
-	loginCommand.Flags().BoolVarP(&loginCmd.refresh, "refresh", "r", false, "refresh existing authentication tokens")
 
 	return loginCommand
 }
@@ -112,29 +112,24 @@ func (l *loginCommand) Login(log logr.Logger) error {
 	if !strings.HasPrefix(l.host, "http://") && !strings.HasPrefix(l.host, "https://") {
 		l.host = "http://" + l.host
 	}
-
 	if _, err := url.ParseRequestURI(l.host); err != nil {
-		return fmt.Errorf("invalid URL format: %w", err)
+		return err
 	}
-
 	loginResp, err := l.performLogin(l.host, l.user, l.password)
 	if err != nil {
-		l.log.Error(err, "login failed")
-		return fmt.Errorf("login failed: %w", err)
+		return err
 	}
-
 	if err := l.storeTokens(loginResp); err != nil {
-		l.log.Error(err, "failed to store tokens")
-		return fmt.Errorf("failed to store tokens: %w", err)
+		return err
 	}
 
-	l.log.Info("Login successful", "user", loginResp.User)
+	l.log.Info("login successful", "user", loginResp.User)
 	return nil
 }
 
 func (l *loginCommand) performLogin(hubURL, username, password string) (*LoginResponse, error) {
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 	if l.insecure {
 		tr := &http.Transport{
@@ -150,44 +145,44 @@ func (l *loginCommand) performLogin(hubURL, username, password string) (*LoginRe
 
 	jsonData, err := json.Marshal(loginReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal login request: %w", err)
+		return nil, err
 	}
 	req, err := http.NewRequest("POST", loginURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create login request: %w", err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "kantra-cli")
 
 	l.log.Info("Attempting login", "url", loginURL, "user", username)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send login request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode, string(body))
 	}
 	var loginResp LoginResponse
 	if err := json.Unmarshal(body, &loginResp); err != nil {
-		return nil, fmt.Errorf("failed to parse login response: %w", err)
+		return nil, err
 	}
 	if loginResp.Token == "" {
 		return nil, fmt.Errorf("login response missing token")
 	}
+	loginResp.Host = hubURL
 
 	return &loginResp, nil
 }
 
 func (l *loginCommand) RefreshToken(hubURL string, loginResp *LoginResponse) (*LoginResponse, error) {
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 	if l.insecure {
 		tr := &http.Transport{
@@ -195,116 +190,91 @@ func (l *loginCommand) RefreshToken(hubURL string, loginResp *LoginResponse) (*L
 		}
 		client.Transport = tr
 	}
-
 	refreshURL := strings.TrimSuffix(hubURL, "/") + "/auth/refresh"
-	jsonData, err := json.Marshal(loginResp)
+
+	if loginResp.RefreshToken == "" {
+		return nil, fmt.Errorf("no refresh token available")
+	}
+	refreshReq := RefreshRequest{
+		RefreshToken: loginResp.RefreshToken,
+	}
+	jsonData, err := json.Marshal(refreshReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal refresh request: %w", err)
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", refreshURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create refresh request: %w", err)
+		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "kantra-cli")
+	req.Header.Set("Accept", "application/json")
 
-	l.log.Info("Attempting token refresh", "url", refreshURL)
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send refresh request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read refresh response body: %w", err)
+		return nil, err
 	}
+
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var newLoginResp LoginResponse
 	if err := json.Unmarshal(body, &newLoginResp); err != nil {
-		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
+		return nil, err
+	}
+	if newLoginResp.Host == "" {
+		newLoginResp.Host = loginResp.Host
 	}
 
 	return &newLoginResp, nil
 }
 
 func (l *loginCommand) storeTokens(loginResp *LoginResponse) error {
-	if loginResp.Host == "" && l.host != "" {
-		loginResp.Host = l.host
-	}
-
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+		return err
 	}
 	kantraDir := filepath.Join(homeDir, ".kantra")
 	if err := os.MkdirAll(kantraDir, 0700); err != nil {
-		return fmt.Errorf("failed to create kantra directory: %w", err)
+		return err
 	}
 
 	tokenFile := filepath.Join(kantraDir, "auth.json")
 	jsonData, err := json.MarshalIndent(loginResp, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal tokens: %w", err)
+		return err
 	}
-
 	if err := os.WriteFile(tokenFile, jsonData, 0600); err != nil {
-		return fmt.Errorf("failed to write token file: %w", err)
+		return err
 	}
-	l.log.V(7).Info("tokens stored", "file", tokenFile)
 	return nil
 }
 
-func LoadStoredTokens() (*LoginResponse, error) {
+func loadStoredTokens() (*LoginResponse, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user home directory: %w", err)
+		return nil, err
 	}
-
 	tokenFile := filepath.Join(homeDir, ".kantra", "auth.json")
 	data, err := os.ReadFile(tokenFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no stored authentication found, please run 'kantra login' first")
+			return nil, fmt.Errorf("no stored authentication found, please login")
 		}
-		return nil, fmt.Errorf("failed to read token file: %w", err)
+		return nil, err
 	}
-
 	var loginResp LoginResponse
 	if err := json.Unmarshal(data, &loginResp); err != nil {
-		return nil, fmt.Errorf("failed to parse stored tokens: %w", err)
+		return nil, err
 	}
 
 	return &loginResp, nil
-}
-
-func (l *loginCommand) Refresh(log logr.Logger) error {
-	log.V(7).Info("refreshing authentication tokens")
-	storedTokens, err := LoadStoredTokens()
-	if err != nil {
-		return fmt.Errorf("failed to load stored tokens: %w", err)
-	}
-	if l.host == "" {
-		return fmt.Errorf("host is required for refresh (provide as argument)")
-	}
-	if !strings.HasPrefix(l.host, "http://") && !strings.HasPrefix(l.host, "https://") {
-		l.host = "http://" + l.host
-	}
-
-	newTokens, err := l.RefreshToken(l.host, storedTokens)
-	if err != nil {
-		return fmt.Errorf("failed to refresh tokens: %w", err)
-	}
-	if err := l.storeTokens(newTokens); err != nil {
-		return fmt.Errorf("failed to store refreshed tokens: %w", err)
-	}
-
-	l.log.V(7).Info("tokens refreshed successfully", "user", newTokens.User)
-	return nil
 }
 
 func (hc *hubClient) refreshStoredToken(storedAuth *LoginResponse, log logr.Logger) error {
@@ -315,12 +285,32 @@ func (hc *hubClient) refreshStoredToken(storedAuth *LoginResponse, log logr.Logg
 	}
 	newTokens, err := loginCmd.RefreshToken(hc.host, storedAuth)
 	if err != nil {
-		return fmt.Errorf("failed to refresh token: %w", err)
+		return err
+	}
+	if err := loginCmd.storeTokens(newTokens); err != nil {
+		return err
 	}
 
-	if err := loginCmd.storeTokens(newTokens); err != nil {
-		return fmt.Errorf("failed to store refreshed tokens: %w", err)
-	}
-	log.V(7).Info("token automatically refreshed and stored")
 	return nil
+}
+
+func isTokenExpired(token string) (bool, error) {
+	if token == "" {
+		return true, nil
+	}
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	claims := jwt.MapClaims{}
+	_, _, err := parser.ParseUnverified(token, claims)
+	if err != nil {
+		return true, err
+	}
+	if exp, ok := claims["exp"]; ok {
+		if expFloat, ok := exp.(float64); ok {
+			expTime := time.Unix(int64(expFloat), 0)
+			return time.Now().After(expTime), nil
+		}
+		return false, fmt.Errorf("invalid expiration claim format in token")
+	}
+
+	return false, nil
 }

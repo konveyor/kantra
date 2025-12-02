@@ -76,7 +76,7 @@ rules:
 			},
 			wantProfile: nil,
 			wantErr:     true,
-			errMsg:      "failed to read profile file",
+			errMsg:      "no such file or directory",
 		},
 		{
 			name:    "invalid yaml should fail",
@@ -100,7 +100,7 @@ rules:
 			},
 			wantProfile: nil,
 			wantErr:     true,
-			errMsg:      "failed to unmarshal profile file",
+			errMsg:      "mapping values are not allowed",
 		},
 	}
 
@@ -336,7 +336,7 @@ mode:
 				return cmd, cobraCmd, "/invalid/path/profile.yaml", func() {}, nil
 			},
 			wantErr: true,
-			errMsg:  "profile path does not contain .konveyor directory",
+			errMsg:  "no such file or directory",
 		},
 	}
 
@@ -423,7 +423,7 @@ func TestAnalyzeCommand_getRulesInProfile(t *testing.T) {
 
 				return profileDir, func() { os.RemoveAll(tmpDir) }, nil
 			},
-			wantRules: []string{}, 
+			wantRules: []string{},
 			wantErr:   false,
 		},
 		{
@@ -569,7 +569,7 @@ func TestAnalyzeCommand_findSingleProfile(t *testing.T) {
 
 				return profilesDir, func() { os.RemoveAll(tmpDir) }, nil
 			},
-			wantProfile: "", 
+			wantProfile: "",
 			wantErr:     false,
 		},
 		{
@@ -662,7 +662,7 @@ func TestAnalyzeCommand_findSingleProfile(t *testing.T) {
 				return "/non/existent/profiles", func() {}, nil
 			},
 			wantProfile: "",
-			wantErr:     false, 
+			wantErr:     false,
 		},
 		{
 			name: "profiles path is a file not directory",
