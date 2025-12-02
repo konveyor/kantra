@@ -20,12 +20,12 @@ func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, er
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%w failed to read profile file %s", err, Profiles)
+		return nil, err
 	}
 
 	var profile api.AnalysisProfile
 	if err := yaml.Unmarshal(data, &profile); err != nil {
-		return nil, fmt.Errorf("%w failed to unmarshal profile file %s", err, Profiles)
+		return nil, err
 	}
 
 	return &profile, nil
@@ -34,7 +34,6 @@ func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, er
 func (a *analyzeCommand) setSettingsFromProfile(path string, cmd *cobra.Command) error {
 	profile, err := a.unmarshalProfile(path)
 	if err != nil {
-		a.log.Error(err, "failed to unmarshal profile file")
 		return err
 	}
 	konveyorIndex := strings.Index(a.profile, ".konveyor")
@@ -64,7 +63,7 @@ func (a *analyzeCommand) setSettingsFromProfile(path string, cmd *cobra.Command)
 		a.labelSelector = strings.Join(profile.Rules.Labels.Included, " || ")
 	}
 
-	// Add rules from profile directory if not explicitly set via command line
+	// add rules from profile directory if not explicitly set via command line
 	if !cmd.Flags().Lookup("rules").Changed {
 		profileDir := filepath.Dir(path)
 		profileRules, err := a.getRulesInProfile(profileDir)
@@ -92,7 +91,7 @@ func (a *analyzeCommand) getRulesInProfile(profile string) ([]string, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to stat rules directory %s: %w", rulesDir, err)
+		return nil, err
 	}
 
 	if !stat.IsDir() {
@@ -100,7 +99,7 @@ func (a *analyzeCommand) getRulesInProfile(profile string) ([]string, error) {
 	}
 	entries, err := os.ReadDir(rulesDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read rules directory %s: %w", rulesDir, err)
+		return nil, err
 	}
 
 	var rulePaths []string
@@ -121,7 +120,7 @@ func (a *analyzeCommand) findSingleProfile(profilesDir string) (string, error) {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
-		return "", fmt.Errorf("failed to stat profiles directory %s: %w", profilesDir, err)
+		return "", err
 	}
 
 	if !stat.IsDir() {
@@ -129,13 +128,12 @@ func (a *analyzeCommand) findSingleProfile(profilesDir string) (string, error) {
 	}
 	entries, err := os.ReadDir(profilesDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to read profiles directory %s: %w", profilesDir, err)
+		return "", err
 	}
 
 	var profileDirs []string
 	for _, entry := range entries {
 		if entry.IsDir() {
-			// check if profile.yaml exists
 			profilePath := filepath.Join(profilesDir, entry.Name(), "profile.yaml")
 			if _, err := os.Stat(profilePath); err == nil {
 				profileDirs = append(profileDirs, entry.Name())
