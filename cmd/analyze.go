@@ -1513,6 +1513,12 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 				switch event.Stage {
 				case progress.StageProviderInit:
 					// Skip provider init messages - we show them earlier
+				case progress.StageProviderPrepare:
+					// Display provider preparation progress
+					if event.Total > 0 {
+						percent := (event.Current * 100) / event.Total
+						renderProgressBar(percent, event.Current, event.Total, event.Message)
+					}
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
