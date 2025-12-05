@@ -235,18 +235,23 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
-		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		// Don't set workspaceFolders here - the generic Init method will set it from Location
+		// to avoid duplicate paths in GetDocumentUris (which would count files twice)
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
 
 	case util.PythonProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
-		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		// Don't set workspaceFolders here - the generic Init method will set it from Location
+		// to avoid duplicate paths in GetDocumentUris (which would count files twice)
 
 	case util.NodeJSProvider:
 		providerSpecificConfig["lspServerName"] = "nodejs"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
 		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
+		// WORKAROUND for analyzer-lsp bug: Set workspaceFolders in config to avoid duplicate counting
+		// GetDocumentUris uses BOTH Location and workspaceFolders, so we set workspaceFolders
+		// and leave Location empty (will be set to "" below after switch statement)
 		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.DotnetProvider:
@@ -267,13 +272,20 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		}
 	}
 
+	// WORKAROUND: For nodejs, leave Location empty to prevent duplicate file counting
+	// GetDocumentUris bug counts files twice when both Location and workspaceFolders are set
+	location := util.SourceMountPath
+	if providerName == util.NodeJSProvider {
+		location = "" // workspaceFolders is already set in providerSpecificConfig above
+	}
+
 	providerConfig := provider.Config{
 		Name:       providerName,
 		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
 		BinaryPath: "",                                         // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               util.SourceMountPath, // Path inside provider container
+				Location:               location,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: providerSpecificConfig,
 				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
@@ -836,7 +848,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
-	// prpare the providers
+	// prepare the providers
 	for name, conditions := range providerConditions {
 		if provider, ok := needProviders[name]; ok {
 			if err := provider.Prepare(ctx, conditions); err != nil {
