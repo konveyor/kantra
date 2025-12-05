@@ -742,8 +742,8 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 	javaConfig.ContextLines = a.contextLines
 
 	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
 	if progressReporter != nil {
-		javaConfig.PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		for i := range javaConfig.InitConfig {
 			javaConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		}
@@ -786,8 +786,8 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalCon
 	builtinConfig.ContextLines = a.contextLines
 
 	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
 	if progressReporter != nil {
-		builtinConfig.PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		for i := range builtinConfig.InitConfig {
 			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		}

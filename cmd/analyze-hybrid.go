@@ -283,8 +283,8 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	providerConfig.ContextLines = a.contextLines
 
 	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
 	if progressReporter != nil {
-		providerConfig.PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		for i := range providerConfig.InitConfig {
 			providerConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		}
@@ -427,8 +427,8 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 	builtinConfig.ContextLines = a.contextLines
 
 	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
 	if progressReporter != nil {
-		builtinConfig.PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		for i := range builtinConfig.InitConfig {
 			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		}

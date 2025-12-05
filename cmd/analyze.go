@@ -1517,7 +1517,15 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 					// Display provider preparation progress
 					if event.Total > 0 {
 						percent := (event.Current * 100) / event.Total
-						renderProgressBar(percent, event.Current, event.Total, event.Message)
+						const barWidth = 25
+						filled := (percent * barWidth) / 100
+						if filled > barWidth {
+							filled = barWidth
+						}
+						bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+						// Use \r to return to start of line and \033[K to clear to end of line
+						fmt.Fprintf(os.Stderr, "\r\033[K%s %3d%% |%s| %d/%d",
+							event.Message, percent, bar, event.Current, event.Total)
 					}
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
