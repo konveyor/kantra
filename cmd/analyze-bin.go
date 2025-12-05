@@ -75,7 +75,7 @@ func renderProgressBar(percent int, current, total int, message string) {
 	}
 
 	// Use \r to return to start of line and \033[K to clear to end of line
-	fmt.Fprintf(os.Stderr, "\r\033[KProcessing rules %3d%% |%s| %d/%d  %s",
+	fmt.Fprintf(os.Stderr, "\r\033[K  ✓ Processing rules %3d%% |%s| %d/%d  %s",
 		percent, bar, current, total, message)
 }
 

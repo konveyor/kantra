@@ -1524,13 +1524,17 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 						}
 						bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 						// Use \r to return to start of line and \033[K to clear to end of line
-						fmt.Fprintf(os.Stderr, "\r\033[K%s %3d%% |%s| %d/%d",
+						fmt.Fprintf(os.Stderr, "\r\033[K  ✓ %s %3d%% |%s| %d/%d files",
 							event.Message, percent, bar, event.Current, event.Total)
+						// Print newline when prepare progress reaches 100%
+						if event.Current >= event.Total {
+							fmt.Fprintf(os.Stderr, "\n")
+						}
 					}
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
-						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n", cumulativeTotal)
 						justPrintedLoadedRules = true
 					}
 				case progress.StageRuleExecution:
@@ -1538,7 +1542,7 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 						// Initialize cumulativeTotal from first event if not set by rule parsing
 						if cumulativeTotal == 0 {
 							cumulativeTotal = event.Total
-							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n\n", cumulativeTotal)
+							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n", cumulativeTotal)
 							justPrintedLoadedRules = true
 						}
 
