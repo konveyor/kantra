@@ -45,7 +45,7 @@ func Test_analyzeCommand_setupBuiltinProviderHybrid(t *testing.T) {
 
 	ctx := context.Background()
 
-	builtinProvider, locations, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard())
+	builtinProvider, locations, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard(), nil)
 
 	if err != nil {
 		t.Fatalf("setupBuiltinProviderHybrid() error = %v", err)
@@ -79,7 +79,7 @@ func Test_analyzeCommand_setupBuiltinProviderHybrid_WithProxy(t *testing.T) {
 
 	ctx := context.Background()
 
-	builtinProvider, _, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard())
+	builtinProvider, _, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard(), nil)
 
 	if err != nil {
 		t.Fatalf("setupBuiltinProviderHybrid() error = %v", err)
