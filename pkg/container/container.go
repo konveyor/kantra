@@ -292,7 +292,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if err != nil {
 		c.log.Error(err, "container run error")
 		if _, ok := err.(*exec.ExitError); ok {
-			return fmt.Errorf(errBytes.String())
+			return fmt.Errorf("%s", errBytes.String())
 		}
 		return err
 	}
@@ -318,7 +318,7 @@ func (c *container) RunCommand(ctx context.Context, logger logr.Logger, command 
 	if err != nil {
 		logger.Error(err, "container run error during cleanup")
 		if _, ok := err.(*exec.ExitError); ok {
-			return fmt.Errorf(errBytes.String())
+			return fmt.Errorf("%s", errBytes.String())
 		}
 		return err
 	}
