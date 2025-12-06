@@ -235,24 +235,22 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
-		// Don't set workspaceFolders here - the generic Init method will set it from Location
-		// to avoid duplicate paths in GetDocumentUris (which would count files twice)
+		// Note: Don't set workspaceFolders - the generic Init method will use Location
+		// Setting both would cause duplicate file counting in GetDocumentUris
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
 
 	case util.PythonProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
-		// Don't set workspaceFolders here - the generic Init method will set it from Location
-		// to avoid duplicate paths in GetDocumentUris (which would count files twice)
+		// Note: Don't set workspaceFolders - the generic Init method will use Location
+		// Setting both would cause duplicate file counting in GetDocumentUris
 
 	case util.NodeJSProvider:
 		providerSpecificConfig["lspServerName"] = "nodejs"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
 		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
-		// WORKAROUND for analyzer-lsp#1035: Set workspaceFolders in config to avoid duplicate counting
-		// GetDocumentUris uses BOTH Location and workspaceFolders, so we set workspaceFolders
-		// and leave Location empty (will be set to "" below after switch statement)
-		// See: https://github.com/konveyor/analyzer-lsp/issues/1035
+		// Set workspaceFolders for nodejs provider (used alongside Location)
+		// Fix merged in analyzer-lsp#1036 prevents duplicate file counting
 		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.DotnetProvider:
@@ -273,20 +271,13 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		}
 	}
 
-	// WORKAROUND: For nodejs, leave Location empty to prevent duplicate file counting
-	// GetDocumentUris bug counts files twice when both Location and workspaceFolders are set
-	location := util.SourceMountPath
-	if providerName == util.NodeJSProvider {
-		location = "" // workspaceFolders is already set in providerSpecificConfig above
-	}
-
 	providerConfig := provider.Config{
 		Name:       providerName,
 		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
 		BinaryPath: "",                                         // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               location,
+				Location:               util.SourceMountPath,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: providerSpecificConfig,
 				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
