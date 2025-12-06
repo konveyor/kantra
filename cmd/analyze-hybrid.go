@@ -249,9 +249,10 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["lspServerName"] = "nodejs"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
 		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
-		// WORKAROUND for analyzer-lsp bug: Set workspaceFolders in config to avoid duplicate counting
+		// WORKAROUND for analyzer-lsp#1035: Set workspaceFolders in config to avoid duplicate counting
 		// GetDocumentUris uses BOTH Location and workspaceFolders, so we set workspaceFolders
 		// and leave Location empty (will be set to "" below after switch statement)
+		// See: https://github.com/konveyor/analyzer-lsp/issues/1035
 		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.DotnetProvider:
