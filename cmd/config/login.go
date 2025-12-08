@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"bufio"
@@ -56,7 +56,7 @@ func NewLoginCmd(log logr.Logger) *cobra.Command {
 		Use:   "login [host] [user] [password]",
 		Short: "Login to the Hub and store authentication tokens",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if val, err := cmd.Flags().GetUint32(logLevelFlag); err == nil {
+			if val, err := cmd.Flags().GetUint32("log-level"); err == nil {
 				loginCmd.logLevel = &val
 			}
 			if len(args) > 0 {

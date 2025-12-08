@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"archive/tar"
@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor/tackle2-hub/api"
+	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"gopkg.in/yaml.v2"
 )
 
@@ -75,7 +75,7 @@ func TestConfigCommand_Validate(t *testing.T) {
 				if err != nil {
 					return "", nil, err
 				}
-				profilesDir := filepath.Join(tmpDir, Profiles)
+				profilesDir := filepath.Join(tmpDir, profile.Profiles)
 				err = os.MkdirAll(profilesDir, 0755)
 				if err != nil {
 					os.RemoveAll(tmpDir)
@@ -178,7 +178,7 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 				if err != nil {
 					return "", nil, err
 				}
-				profilesDir := filepath.Join(tmpDir, Profiles)
+				profilesDir := filepath.Join(tmpDir, profile.Profiles)
 				err = os.MkdirAll(profilesDir, 0755)
 				if err != nil {
 					os.RemoveAll(tmpDir)
@@ -211,7 +211,7 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 				if err != nil {
 					return "", nil, err
 				}
-				profilesDir := filepath.Join(tmpDir, Profiles)
+				profilesDir := filepath.Join(tmpDir, profile.Profiles)
 				err = os.MkdirAll(profilesDir, 0755)
 				if err != nil {
 					os.RemoveAll(tmpDir)
@@ -298,12 +298,11 @@ func TestSyncCommand_Validate(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "empty application path should fail",
+			name: "empty application path should use default (current directory)",
 			setupFunc: func() (string, func(), error) {
 				return "", func() {}, nil
 			},
-			wantErr: true,
-			errMsg:  "application path is required",
+			wantErr: false,
 		},
 		{
 			name: "valid directory should pass",
@@ -379,10 +378,10 @@ func TestSyncCommand_getHubClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get home directory: %v", err)
 	}
-	
+
 	kantreDir := filepath.Join(homeDir, ".kantra")
 	authFile := filepath.Join(kantreDir, "auth.json")
-	
+
 	// Backup existing auth file if it exists
 	var backupData []byte
 	var hasBackup bool
@@ -390,23 +389,23 @@ func TestSyncCommand_getHubClient(t *testing.T) {
 		backupData = data
 		hasBackup = true
 	}
-	
+
 	// Create test auth with a valid JWT token
 	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-	
+
 	testAuth := LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
-	
+
 	// Ensure directory exists
 	os.MkdirAll(kantreDir, 0755)
-	
+
 	// Write test auth
 	authData, _ := json.Marshal(testAuth)
 	os.WriteFile(authFile, authData, 0600)
-	
+
 	// Cleanup function
 	defer func() {
 		if hasBackup {
@@ -849,11 +848,11 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 		{
 			name: "successful application retrieval",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				apps := []api.Application{
+				apps := []profile.Application{
 					{
-						Resource: api.Resource{ID: 1},
-						Name:     "Test App",
-						Repository: &api.Repository{
+						ID:   1,
+						Name: "Test App",
+						Repository: &profile.Repository{
 							URL: "https://github.com/example/test",
 						},
 					},
@@ -870,13 +869,13 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 		{
 			name: "application not found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				apps := []api.Application{
+				apps := []profile.Application{
 					{
-						Resource: api.Resource{ID: 1},
-						Name:     "Different App",
+						ID:   1,
+						Name: "Different App",
 					},
 				}
-				apps[0].Repository = &api.Repository{URL: "https://github.com/example/different"}
+				apps[0].Repository = &profile.Repository{URL: "https://github.com/example/different"}
 				jsonData, _ := json.Marshal(apps)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
@@ -924,8 +923,8 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 				if err != nil {
 					t.Errorf("getApplicationFromHub() unexpected error = %v", err)
 				}
-				if app.Resource.ID != tt.expectedAppID {
-					t.Errorf("getApplicationFromHub() returned app ID %d, expected %d", app.Resource.ID, tt.expectedAppID)
+				if app.ID != tt.expectedAppID {
+					t.Errorf("getApplicationFromHub() returned app ID %d, expected %d", app.ID, tt.expectedAppID)
 				}
 			}
 		})
@@ -988,14 +987,14 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 		{
 			name: "successful profiles retrieval",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				profiles := []api.AnalysisProfile{
+				profiles := []profile.AnalysisProfile{
 					{
-						Resource: api.Resource{ID: 1},
-						Name:     "Profile 1",
+						ID:   1,
+						Name: "Profile 1",
 					},
 					{
-						Resource: api.Resource{ID: 2},
-						Name:     "Profile 2",
+						ID:   2,
+						Name: "Profile 2",
 					},
 				}
 				yamlData, _ := yaml.Marshal(profiles)
@@ -1010,7 +1009,7 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 		{
 			name: "no profiles found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				profiles := []api.AnalysisProfile{}
+				profiles := []profile.AnalysisProfile{}
 				yamlData, _ := yaml.Marshal(profiles)
 				w.Header().Set("Content-Type", "application/x-yaml")
 				w.WriteHeader(http.StatusOK)
@@ -1045,20 +1044,20 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 				},
 			}
 
-			profiles, err := syncCmd.getProfilesFromHubApplicaton(tt.appID)
+			profiles, err := syncCmd.getProfilesFromHubApplication(tt.appID)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("getProfilesFromHubApplicaton() expected error but got none")
+					t.Errorf("getProfilesFromHubApplication() expected error but got none")
 				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("getProfilesFromHubApplicaton() error = %v, expected to contain %v", err, tt.errMsg)
+					t.Errorf("getProfilesFromHubApplication() error = %v, expected to contain %v", err, tt.errMsg)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("getProfilesFromHubApplicaton() unexpected error = %v", err)
+					t.Errorf("getProfilesFromHubApplication() unexpected error = %v", err)
 				}
 				if len(profiles) != tt.expectedCount {
-					t.Errorf("getProfilesFromHubApplicaton() returned %d profiles, expected %d", len(profiles), tt.expectedCount)
+					t.Errorf("getProfilesFromHubApplication() returned %d profiles, expected %d", len(profiles), tt.expectedCount)
 				}
 			}
 		})
@@ -1497,7 +1496,7 @@ func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 				}
 
 				// Verify profiles directory was created
-				profilesDir := filepath.Join(tmpDir, Profiles)
+				profilesDir := filepath.Join(tmpDir, profile.Profiles)
 				if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
 					t.Error("Expected profiles directory to be created")
 				}
@@ -1516,7 +1515,7 @@ func TestConfigCommandIntegration(t *testing.T) {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		profilesDir := filepath.Join(tmpDir, Profiles)
+		profilesDir := filepath.Join(tmpDir, profile.Profiles)
 		err = os.MkdirAll(profilesDir, 0755)
 		if err != nil {
 			t.Fatalf("Failed to create profiles dir: %v", err)
