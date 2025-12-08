@@ -134,7 +134,7 @@ func (l *listCommand) Validate(ctx context.Context) error {
 	if !stat.IsDir() {
 		return fmt.Errorf("application path for profile %s is not a directory", l.profileDir)
 	}
-	profilesDir := filepath.Join(l.profileDir, Profiles)
+	profilesDir := filepath.Join(l.profileDir, profile.Profiles)
 	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
 		return err
 	}
