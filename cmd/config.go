@@ -21,11 +21,10 @@ import (
 )
 
 type configCommand struct {
-	listProfiles string
-	logLevel     *uint32
-	log          logr.Logger
-	hubClient    *hubClient
-	insecure     bool
+	logLevel  *uint32
+	log       logr.Logger
+	hubClient *hubClient
+	insecure  bool
 }
 
 type syncCommand struct {
@@ -35,6 +34,12 @@ type syncCommand struct {
 	log             logr.Logger
 	hubClient       *hubClient
 	insecure        bool
+}
+
+type listCommand struct {
+	profileDir string
+	logLevel   *uint32
+	log        logr.Logger
 }
 
 type hubClient struct {
@@ -63,52 +68,81 @@ func NewConfigCmd(log logr.Logger) *cobra.Command {
 				configCmd.logLevel = &val
 			}
 
-			if configCmd.listProfiles != "" {
-				err := configCmd.ListProfiles()
-				if err != nil {
-					return err
-				}
-				return nil
-			}
-
 			return nil
 		},
 	}
 
-	configCommand.Flags().StringVar(&configCmd.listProfiles, "list-profiles", "", "list local Hub profiles in the application")
 	configCommand.PersistentFlags().BoolVarP(&configCmd.insecure, "insecure", "k", false, "Skip TLS certificate verification")
 
 	configCommand.AddCommand(NewSyncCmd(log))
 	configCommand.AddCommand(NewLoginCmd(log))
+	configCommand.AddCommand(NewListCmd(log))
 
 	return configCommand
 }
 
 func (c *configCommand) Validate(ctx context.Context) error {
-	if c.listProfiles != "" {
-		stat, err := os.Stat(c.listProfiles)
-		if err != nil {
-			return err
-		}
-		if !stat.IsDir() {
-			return fmt.Errorf("application path for profile %s is not a directory", c.listProfiles)
-		}
-		profilesDir := filepath.Join(c.listProfiles, Profiles)
-		if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-
 	return nil
 }
 
-func (c *configCommand) ListProfiles() error {
-	if c.listProfiles == "" {
-		c.log.Info("application path not provided")
-		return nil
+func NewListCmd(log logr.Logger) *cobra.Command {
+	listCmd := &listCommand{}
+	listCmd.log = log
+
+	listCommand := &cobra.Command{
+		Use:   "list",
+		Short: "List local Hub profiles in the application",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			err := listCmd.Validate(cmd.Context())
+			if err != nil {
+				log.Error(err, "failed to validate flags")
+				return err
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if val, err := cmd.Flags().GetUint32("log-level"); err == nil {
+				listCmd.logLevel = &val
+			}
+
+			err := listCmd.ListProfiles()
+			if err != nil {
+				return err
+			}
+			return nil
+		},
 	}
-	profilesDir := filepath.Join(c.listProfiles, Profiles)
+
+	listCommand.Flags().StringVar(&listCmd.profileDir, "profile-dir", "", "application directory path to look for profiles. Default is the current directory")
+
+	return listCommand
+}
+
+func (l *listCommand) Validate(ctx context.Context) error {
+	if l.profileDir == "" {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		l.profileDir = currentDir
+	}
+
+	stat, err := os.Stat(l.profileDir)
+	if err != nil {
+		return err
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("application path for profile %s is not a directory", l.profileDir)
+	}
+	profilesDir := filepath.Join(l.profileDir, Profiles)
+	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (l *listCommand) ListProfiles() error {
+	profilesDir := filepath.Join(l.profileDir, Profiles)
 	entries, err := os.ReadDir(profilesDir)
 	if err != nil {
 		return err
@@ -121,10 +155,10 @@ func (c *configCommand) ListProfiles() error {
 	}
 
 	if len(profileDirs) == 0 {
-		c.log.Info("no profile directories found in: %s", profilesDir)
+		l.log.Info("no profile directories found in: %s", profilesDir)
 		return nil
 	}
-	fmt.Fprintln(os.Stdout, "profiles found in", c.listProfiles)
+	fmt.Fprintln(os.Stdout, "profiles found in", l.profileDir)
 	for _, dir := range profileDirs {
 		fmt.Fprintln(os.Stdout, dir)
 	}
@@ -344,6 +378,8 @@ func (s *syncCommand) getApplicationFromHub(urlRepo string) (api.Application, er
 	var application api.Application
 	if apps[0].Repository.URL == s.url {
 		application = apps[0]
+	} else {
+		return api.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, apps[0].Repository.URL)
 	}
 
 	return application, nil
