@@ -90,30 +90,92 @@ rules:
   - **tag**: Git tag (optional)
   - **path**: Path within repository to rulesets
 
-### Hub Login
+## Configuration Commands
 
-To connect Kantra to a Konveyor Hub instance, use the login command:
+Kantra provides a `config` command with subcommands for managing profiles and Hub integration.
+
+### Main Config Command
 
 ```bash
-kantra config login
+kantra config [flags]
 ```
 
-This will prompt you for:
-- **Hub URL**: The URL of your Konveyor Hub instance (e.g., `https://hub.example.com`)
-- **Username**: Your Hub username
-- **Password**: Your Hub password (entered securely)
+**Flags:**
+- `--list-profiles <path>`: List local Hub profiles in the specified application directory
+- `--insecure, -k`: Skip TLS certificate verification for Hub connections
 
-The login process:
-1. Validates the Hub URL format
-2. Sends authentication credentials to the Hub's `/api/login` endpoint
-3. Stores authentication tokens for future API calls
-4. Enables profile synchronization and sharing features
+**Example:**
+```bash
+# List profiles in current application
+kantra config --list-profiles /path/to/my-app
+
+# List profiles with insecure connection
+kantra config --list-profiles /path/to/my-app --insecure
+```
+
+### Hub Login
+
+To connect Kantra to a Konveyor Hub instance, use the login subcommand:
+
+```bash
+kantra config login [host] [username] [password]
+```
+
+**Arguments (all optional):**
+- `host`: Hub URL (e.g., `https://hub.example.com`)
+- `username`: Your Hub username  
+- `password`: Your Hub password
+
+**Flags:**
+- `--insecure, -k`: Skip TLS certificate verification
+
+If arguments are not provided, you'll be prompted interactively for:
+- **Hub URL**: The URL of your Konveyor Hub instance
+- **Username**: Your Hub username
+- **Password**: Your Hub password (entered securely, hidden from terminal)
+
+**Examples:**
+```bash
+# Interactive login (prompts for all credentials)
+kantra config login
+
+# Provide all credentials as arguments
+kantra config login https://hub.example.com myuser mypassword
+
+# Provide only host, prompt for username/password
+kantra config login https://hub.example.com
+
+# Login with insecure connection (skip TLS verification)
+kantra config login --insecure
+```
 
 ### Profile Synchronization
 
-Once logged in, you can:
-- **Download profiles** from the Hub to your local environment
-- **Sync profile updates** to keep configurations current
+Once logged in, you can sync profiles from the Hub using the sync subcommand:
+
+```bash
+kantra config sync --url <repository-url> [flags]
+```
+
+**Required Flags:**
+- `--url <repository-url>`: URL of the remote application repository to sync profiles for
+
+**Optional Flags:**
+- `--application-path <path>`: Path to the local application directory (defaults to current directory)
+- `--insecure, -k`: Skip TLS certificate verification (inherited from parent config command)
+
+**Examples:**
+```bash
+# Sync profiles for a repository to current directory
+kantra config sync --url https://github.com/mycompany/my-app.git
+
+# Sync profiles to specific application path
+kantra config sync --url https://github.com/mycompany/my-app.git --application-path /path/to/my-app
+
+# Sync with insecure connection
+kantra config sync --url https://github.com/mycompany/my-app.git --insecure
+```
+
 
 ## Using Profiles
 
@@ -122,17 +184,29 @@ Once logged in, you can:
 Profiles are stored in a `.konveyor/profiles` directory within your application.
 Each profile should be in its own subdirectory with a `profile.yaml` file.
 For example: `.konveyor/profiles/profile-1/profile.yaml`.
-If a single profile is found here, it will be used by default for analysis configuration
-options. You can also use the `kantra analyze --profile` option to pass in a valid
-profile path.
+
+**Directory Structure:**
+```
+my-application/
+├── src/
+├── .konveyor/
+│   └── profiles/
+│       ├── profile-1/
+│       │   └── profile.yaml
+│       └── profile-2/
+│           └── profile.yaml
+└── other-files...
+```
+
+If a single profile is found in `.konveyor/profiles/`, it will be used by default for analysis configuration options. You can also use the `kantra analyze --profile` option to pass in a valid profile path.
 
 
 ### Running Analysis with a Profile
 
-Use the `--profile` flag to specify the profile directory:
+Use the `--profile-dir` flag to specify the profile directory:
 
 ```bash
-kantra analyze --profile myapp/.konveyor/profiles
+kantra analyze --profile-dir myapp/.konveyor/profiles
 ```
 
 When using a profile, the following flags will override settings on a profile:
@@ -151,7 +225,7 @@ When using a profile, the following flags will override settings on a profile:
 List profiles for a specific application:
 
 ```bash
-kantra config --list-profiles /path/to/application
+kantra config list --profile-dir /path/to/application
 ```
 
 ### Sync Profiles from Hub
@@ -178,9 +252,9 @@ kantra config login
 You'll be prompted for:
 
 ```
-URL: https://hub.myapp.com
-username: <username>
-password: 12345
+Host: https://hub.myapp.com
+Username: myusername
+Password: [hidden]
 ```
 
 #### Step 2: Navigate to Your Application
@@ -221,7 +295,7 @@ kantra analyze --output <output-dir>
 Or explicitly specify the profile directory:
 
 ```bash
-kantra analyze --profile .konveyor/profiles --output <output-dir>
+kantra analyze --profile-dir .konveyor/profiles --output <output-dir>
 ```
 
 
@@ -235,12 +309,43 @@ kantra analyze --profile .konveyor/profiles --output <output-dir>
    ```
    - Ensure the profile directory exists
    - Check that the path is correct and accessible
+   - Verify the `.konveyor/profiles` directory structure
+
+2. **Authentication required**
+   ```
+   Error: no stored authentication found, please login
+   ```
+   - Run `kantra config login` to authenticate with the Hub
+   - Check that `~/.kantra/auth.json` exists and contains valid tokens
 
 3. **Hub connection issues**
    ```
    Error: login failed with status: 401 Unauthorized
    ```
-   - Verify Hub URL is correct
+   - Verify Hub URL is correct and accessible
    - Check username and password
    - Ensure Hub is accessible from your network
+   - Try using `--insecure` flag if using self-signed certificates
+
+4. **Application not found in Hub**
+   ```
+   Error: no applications found in Hub for URL: https://github.com/example/repo.git
+   ```
+   - Verify the repository URL is correct and matches exactly what's configured in the Hub
+   - Ensure the application exists in the Hub and is associated with the repository
+   - Check that you have access permissions to the application in the Hub
+
+5. **TLS certificate issues**
+   ```
+   Error: x509: certificate signed by unknown authority
+   ```
+   - Use the `--insecure` flag to skip TLS verification: `kantra config login --insecure`
+   - Or properly configure your system's certificate store with the Hub's CA certificate
+
+6. **Token expiration**
+   ```
+   Error: stored authentication is invalid. Please login
+   ```
+   - Re-authenticate with `kantra config login`
+   - Tokens are automatically refreshed, but may need manual re-login in some cases
 
