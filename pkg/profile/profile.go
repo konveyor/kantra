@@ -1,4 +1,4 @@
-package cmd
+package profile
 
 import (
 	"fmt"
@@ -7,15 +7,55 @@ import (
 	"strings"
 
 	"github.com/konveyor/analyzer-lsp/provider"
-	"github.com/konveyor/tackle2-hub/api"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
 const Profiles = ".konveyor/profiles"
 
-func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, error) {
-	if a.profile == "" {
+type AnalysisProfile struct {
+	ID    uint          `json:"id" yaml:"id"`
+	Name  string        `json:"name" yaml:"name"`
+	Mode  AnalysisMode  `json:"mode,omitempty" yaml:"mode,omitempty"`
+	Scope AnalysisScope `json:"scope,omitempty" yaml:"scope,omitempty"`
+	Rules AnalysisRules `json:"rules,omitempty" yaml:"rules,omitempty"`
+}
+
+type AnalysisMode struct {
+	WithDeps bool `json:"withDeps" yaml:"withDeps"`
+}
+
+type PackageSelector struct {
+	Included []string `json:"included,omitempty" yaml:"included,omitempty"`
+	Excluded []string `json:"excluded,omitempty" yaml:"excluded,omitempty"`
+}
+
+type AnalysisScope struct {
+	WithKnownLibs bool            `json:"withKnownLibs" yaml:"withKnownLibs"`
+	Packages      PackageSelector `json:"packages,omitempty" yaml:"packages,omitempty"`
+}
+
+type LabelSelector struct {
+	Included []string `json:"included,omitempty" yaml:"included,omitempty"`
+	Excluded []string `json:"excluded,omitempty" yaml:"excluded,omitempty"`
+}
+
+type AnalysisRules struct {
+	Labels LabelSelector `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+type ProfileSettings struct {
+	Input                 string
+	Mode                  string
+	AnalyzeKnownLibraries bool
+	IncidentSelector      string
+	LabelSelector         string
+	Rules                 []string
+	EnableDefaultRulesets bool
+}
+
+func UnmarshalProfile(path string) (*AnalysisProfile, error) {
+	if path == "" {
 		return nil, nil
 	}
 	data, err := os.ReadFile(path)
@@ -23,7 +63,7 @@ func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, er
 		return nil, err
 	}
 
-	var profile api.AnalysisProfile
+	var profile AnalysisProfile
 	if err := yaml.Unmarshal(data, &profile); err != nil {
 		return nil, err
 	}
@@ -31,61 +71,59 @@ func (a *analyzeCommand) unmarshalProfile(path string) (*api.AnalysisProfile, er
 	return &profile, nil
 }
 
-func (a *analyzeCommand) setSettingsFromProfile(path string, cmd *cobra.Command) error {
-	profile, err := a.unmarshalProfile(path)
+func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSettings) error {
+	profile, err := UnmarshalProfile(path)
 	if err != nil {
 		return err
 	}
-	konveyorIndex := strings.Index(a.profile, ".konveyor")
+	konveyorIndex := strings.Index(path, ".konveyor")
 	if konveyorIndex == -1 {
-		return fmt.Errorf("profile path does not contain .konveyor directory: %s", a.profile)
+		return fmt.Errorf("profile path does not contain .konveyor directory: %s", path)
 	}
 	// get dir before .konveyor/
-	locationDir := a.profile[:konveyorIndex-1]
+	locationDir := path[:konveyorIndex-1]
 
 	if !cmd.Flags().Lookup("input").Changed {
-		a.input = locationDir
+		settings.Input = locationDir
 	}
 	if !cmd.Flags().Lookup("mode").Changed {
 		if !profile.Mode.WithDeps {
-			a.mode = string(provider.SourceOnlyAnalysisMode)
+			settings.Mode = string(provider.SourceOnlyAnalysisMode)
 		} else {
-			a.mode = string(provider.FullAnalysisMode)
+			settings.Mode = string(provider.FullAnalysisMode)
 		}
 	}
 	if !cmd.Flags().Lookup("analyze-known-libraries").Changed && profile.Scope.WithKnownLibs {
-		a.analyzeKnownLibraries = true
+		settings.AnalyzeKnownLibraries = true
 	}
 	if !cmd.Flags().Lookup("incident-selector").Changed && len(profile.Scope.Packages.Included) > 0 {
-		a.incidentSelector = strings.Join(profile.Scope.Packages.Included, " || ")
+		settings.IncidentSelector = strings.Join(profile.Scope.Packages.Included, " || ")
 	}
 	if !cmd.Flags().Lookup("label-selector").Changed && len(profile.Rules.Labels.Included) > 0 {
-		a.labelSelector = strings.Join(profile.Rules.Labels.Included, " || ")
+		settings.LabelSelector = strings.Join(profile.Rules.Labels.Included, " || ")
 	}
 
 	// add rules from profile directory if not explicitly set via command line
 	if !cmd.Flags().Lookup("rules").Changed {
 		profileDir := filepath.Dir(path)
-		profileRules, err := a.getRulesInProfile(profileDir)
+		profileRules, err := GetRulesInProfile(profileDir)
 		if err != nil {
-			a.log.Error(err, "failed to get rules from profile directory")
 			return err
 		}
 		if len(profileRules) > 0 {
-			a.rules = append(a.rules, profileRules...)
-
-			a.enableDefaultRulesets = false
+			settings.Rules = append(settings.Rules, profileRules...)
+			settings.EnableDefaultRulesets = false
 		}
 	}
 
 	return nil
 }
 
-func (a *analyzeCommand) getRulesInProfile(profile string) ([]string, error) {
-	if profile == "" {
+func GetRulesInProfile(profileDir string) ([]string, error) {
+	if profileDir == "" {
 		return nil, nil
 	}
-	rulesDir := filepath.Join(profile, "rules")
+	rulesDir := filepath.Join(profileDir, "rules")
 	stat, err := os.Stat(rulesDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -113,7 +151,7 @@ func (a *analyzeCommand) getRulesInProfile(profile string) ([]string, error) {
 	return rulePaths, nil
 }
 
-func (a *analyzeCommand) findSingleProfile(profilesDir string) (string, error) {
+func FindSingleProfile(profilesDir string) (string, error) {
 	// check for a profile dir to use as default
 	stat, err := os.Stat(profilesDir)
 	if err != nil {

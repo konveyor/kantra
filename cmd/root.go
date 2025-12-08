@@ -12,6 +12,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/discover"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/generate"
+	"github.com/konveyor-ecosystem/kantra/cmd/config"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -70,7 +71,7 @@ func init() {
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))
-	rootCmd.AddCommand(NewConfigCmd(logger))
+	rootCmd.AddCommand(config.NewConfigCmd(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
