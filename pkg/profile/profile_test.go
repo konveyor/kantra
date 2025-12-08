@@ -1105,3 +1105,294 @@ type mockAnalyzeCommand struct {
 }
 
 // Additional comprehensive tests for better coverage
+
+func TestSetSettingsFromProfile_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (string, *cobra.Command, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "invalid profile file should fail",
+			setupFunc: func() (string, *cobra.Command, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, nil, err
+				}
+
+				konveyorDir := filepath.Join(tmpDir, ".konveyor", "profiles", "test-profile")
+				err = os.MkdirAll(konveyorDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+
+				// Create invalid YAML file
+				profilePath := filepath.Join(konveyorDir, "profile.yaml")
+				invalidYaml := "invalid: yaml: content: ["
+				err = os.WriteFile(profilePath, []byte(invalidYaml), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+
+				cmd := &cobra.Command{}
+				cmd.Flags().String("input", "", "input flag")
+				cmd.Flags().String("mode", "", "mode flag")
+				cmd.Flags().Bool("analyze-known-libraries", false, "analyze known libraries flag")
+				cmd.Flags().String("incident-selector", "", "incident selector flag")
+				cmd.Flags().String("label-selector", "", "label selector flag")
+				cmd.Flags().StringSlice("rules", []string{}, "rules flag")
+
+				cleanup := func() { os.RemoveAll(tmpDir) }
+				return profilePath, cmd, cleanup, nil
+			},
+			wantErr: true,
+			errMsg:  "mapping values are not allowed",
+		},
+		{
+			name: "GetRulesInProfile error should be handled",
+			setupFunc: func() (string, *cobra.Command, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, nil, err
+				}
+
+				konveyorDir := filepath.Join(tmpDir, ".konveyor", "profiles", "test-profile")
+				err = os.MkdirAll(konveyorDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+
+				// Create valid profile
+				profileContent := `
+mode:
+  withDeps: true
+`
+				profilePath := filepath.Join(konveyorDir, "profile.yaml")
+				err = os.WriteFile(profilePath, []byte(profileContent), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+
+				// Create a file named "rules" instead of directory to cause error
+				rulesFile := filepath.Join(konveyorDir, "rules")
+				err = os.WriteFile(rulesFile, []byte("content"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+
+				cmd := &cobra.Command{}
+				cmd.Flags().String("input", "", "input flag")
+				cmd.Flags().String("mode", "", "mode flag")
+				cmd.Flags().Bool("analyze-known-libraries", false, "analyze known libraries flag")
+				cmd.Flags().String("incident-selector", "", "incident selector flag")
+				cmd.Flags().String("label-selector", "", "label selector flag")
+				cmd.Flags().StringSlice("rules", []string{}, "rules flag")
+
+				cleanup := func() { os.RemoveAll(tmpDir) }
+				return profilePath, cmd, cleanup, nil
+			},
+			wantErr: true,
+			errMsg:  "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, cmd, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+
+			settings := &ProfileSettings{
+				EnableDefaultRulesets: true,
+			}
+			err = SetSettingsFromProfile(path, cmd, settings)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("SetSettingsFromProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("SetSettingsFromProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("SetSettingsFromProfile() unexpected error = %v", err)
+				return
+			}
+		})
+	}
+}
+
+func TestGetRulesInProfile_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "stat error on rules directory should be handled",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				// Create a directory with no permissions to cause stat error
+				rulesDir := filepath.Join(tmpDir, "rules")
+				err = os.Mkdir(rulesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				// Remove read permissions from parent directory to cause stat error
+				err = os.Chmod(tmpDir, 0000)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				cleanup := func() {
+					os.Chmod(tmpDir, 0755) // Restore permissions for cleanup
+					os.RemoveAll(tmpDir)
+				}
+				return tmpDir, cleanup, nil
+			},
+			wantErr: true,
+			errMsg:  "permission denied",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profileDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+
+			_, err = GetRulesInProfile(profileDir)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("GetRulesInProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("GetRulesInProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("GetRulesInProfile() unexpected error = %v", err)
+				return
+			}
+		})
+	}
+}
+
+func TestFindSingleProfile_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (string, func(), error)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "stat error on profiles directory should be handled",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				profilesDir := filepath.Join(tmpDir, "profiles")
+				err = os.Mkdir(profilesDir, 0755)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				// Remove read permissions from parent directory to cause stat error
+				err = os.Chmod(tmpDir, 0000)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				cleanup := func() {
+					os.Chmod(tmpDir, 0755) // Restore permissions for cleanup
+					os.RemoveAll(tmpDir)
+				}
+				return profilesDir, cleanup, nil
+			},
+			wantErr: true,
+			errMsg:  "permission denied",
+		},
+		{
+			name: "readdir error should be handled",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profiles-")
+				if err != nil {
+					return "", nil, err
+				}
+
+				// Remove read permissions to cause ReadDir error
+				err = os.Chmod(tmpDir, 0000)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+
+				cleanup := func() {
+					os.Chmod(tmpDir, 0755) // Restore permissions for cleanup
+					os.RemoveAll(tmpDir)
+				}
+				return tmpDir, cleanup, nil
+			},
+			wantErr: true,
+			errMsg:  "permission denied",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profilesDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+
+			_, err = FindSingleProfile(profilesDir)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("FindSingleProfile() expected error but got none")
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("FindSingleProfile() error = %v, want error containing %v", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("FindSingleProfile() unexpected error = %v", err)
+				return
+			}
+		})
+	}
+}

@@ -137,7 +137,11 @@ func (l *loginCommand) performLogin(hubURL, username, password string) (*LoginRe
 		}
 		client.Transport = tr
 	}
-	loginURL := strings.TrimSuffix(hubURL, "/") + "/auth/login"
+	baseURL, err := url.Parse(strings.TrimSuffix(hubURL, "/"))
+	if err != nil {
+		return nil, err
+	}
+	loginURL := baseURL.JoinPath("auth", "login").String()
 	loginReq := LoginRequest{
 		User:     username,
 		Password: password,
@@ -190,7 +194,11 @@ func (l *loginCommand) RefreshToken(hubURL string, loginResp *LoginResponse) (*L
 		}
 		client.Transport = tr
 	}
-	refreshURL := strings.TrimSuffix(hubURL, "/") + "/auth/refresh"
+	baseURL, err := url.Parse(strings.TrimSuffix(hubURL, "/"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid hub URL: %w", err)
+	}
+	refreshURL := baseURL.JoinPath("auth", "refresh").String()
 
 	if loginResp.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available")

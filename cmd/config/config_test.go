@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -20,6 +21,60 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// generateMockJWT creates a mock JWT token for testing purposes
+// The token has a valid structure with an expiration claim set to a future date
+func generateMockJWT(expirationTime time.Time) string {
+	// JWT Header
+	header := map[string]interface{}{
+		"alg": "HS256",
+		"typ": "JWT",
+	}
+	headerJSON, _ := json.Marshal(header)
+	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+
+	// JWT Payload with expiration claim
+	payload := map[string]interface{}{
+		"exp": expirationTime.Unix(),
+	}
+	payloadJSON, _ := json.Marshal(payload)
+	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+
+	// Mock signature (not cryptographically valid, but sufficient for testing)
+	signature := "mock_signature_for_testing"
+	signatureB64 := base64.RawURLEncoding.EncodeToString([]byte(signature))
+
+	return headerB64 + "." + payloadB64 + "." + signatureB64
+}
+
+// setupTempAuth creates a temporary HOME directory and writes auth data to ~/.kantra/auth.json
+// Returns the temp home directory path for cleanup
+func setupTempAuth(t *testing.T, auth *LoginResponse) string {
+	// Create temporary home directory
+	tempHome := t.TempDir()
+
+	// Set HOME environment variable to point to temp directory
+	t.Setenv("HOME", tempHome)
+
+	// Create .kantra directory in temp home
+	kantreDir := filepath.Join(tempHome, ".kantra")
+	os.MkdirAll(kantreDir, 0755)
+
+	// Write auth data if provided
+	if auth != nil {
+		authFile := filepath.Join(kantreDir, "auth.json")
+		authData, err := json.Marshal(auth)
+		if err != nil {
+			t.Fatalf("Failed to marshal auth data: %v", err)
+		}
+		err = os.WriteFile(authFile, authData, 0600)
+		if err != nil {
+			t.Fatalf("Failed to write auth file: %v", err)
+		}
+	}
+
+	return tempHome
+}
+
 func TestNewConfigCmd(t *testing.T) {
 	log := logr.Discard()
 	cmd := NewConfigCmd(log)
@@ -32,13 +87,14 @@ func TestNewConfigCmd(t *testing.T) {
 		t.Errorf("Expected command short description to be 'Configure kantra', got %s", cmd.Short)
 	}
 
+	// Check that --list-profiles flag is no longer present
 	flag := cmd.Flags().Lookup("list-profiles")
-	if flag == nil {
-		t.Error("Expected --list-profiles flag to be present")
+	if flag != nil {
+		t.Error("Expected --list-profiles flag to be removed")
 	}
 
 	subCommands := cmd.Commands()
-	expectedSubCommands := []string{"sync", "login"}
+	expectedSubCommands := []string{"sync", "login", "list"}
 	foundCommands := make(map[string]bool)
 	for _, subCmd := range subCommands {
 		foundCommands[subCmd.Name()] = true
@@ -55,6 +111,40 @@ func TestConfigCommand_Validate(t *testing.T) {
 	log := logr.Discard()
 	ctx := context.Background()
 
+	// Test that the main config command validation now always passes
+	// since list-profiles functionality moved to subcommand
+	configCmd := &configCommand{
+		log: log,
+	}
+
+	err := configCmd.Validate(ctx)
+	if err != nil {
+		t.Errorf("Validate() unexpected error = %v", err)
+	}
+}
+
+func TestNewListCmd(t *testing.T) {
+	log := logr.Discard()
+	cmd := NewListCmd(log)
+
+	if cmd.Use != "list" {
+		t.Errorf("Expected command use to be 'list', got %s", cmd.Use)
+	}
+
+	if cmd.Short != "List local Hub profiles in the application" {
+		t.Errorf("Expected command short description to be 'List local Hub profiles in the application', got %s", cmd.Short)
+	}
+
+	profileDirFlag := cmd.Flags().Lookup("profile-dir")
+	if profileDirFlag == nil {
+		t.Error("Expected --profile-dir flag to be present")
+	}
+}
+
+func TestListCommand_Validate(t *testing.T) {
+	log := logr.Discard()
+	ctx := context.Background()
+
 	tests := []struct {
 		name      string
 		setupFunc func() (string, func(), error)
@@ -62,16 +152,26 @@ func TestConfigCommand_Validate(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "empty list-profiles should pass",
+			name: "empty profile-dir should use current directory",
 			setupFunc: func() (string, func(), error) {
-				return "", func() {}, nil
+				// Create profiles directory in current working directory for test
+				currentDir, err := os.Getwd()
+				if err != nil {
+					return "", nil, err
+				}
+				profilesDir := filepath.Join(currentDir, profile.Profiles)
+				err = os.MkdirAll(profilesDir, 0755)
+				if err != nil {
+					return "", nil, err
+				}
+				return "", func() { os.RemoveAll(profilesDir) }, nil
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid directory with profiles should pass",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -96,7 +196,7 @@ func TestConfigCommand_Validate(t *testing.T) {
 		{
 			name: "file instead of directory should fail",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -114,7 +214,7 @@ func TestConfigCommand_Validate(t *testing.T) {
 		{
 			name: "directory without profiles subdirectory should fail",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -133,12 +233,12 @@ func TestConfigCommand_Validate(t *testing.T) {
 			}
 			defer cleanup()
 
-			configCmd := &configCommand{
-				listProfiles: path,
-				log:          log,
+			listCmd := &listCommand{
+				profileDir: path,
+				log:        log,
 			}
 
-			err = configCmd.Validate(ctx)
+			err = listCmd.Validate(ctx)
 
 			if tt.wantErr {
 				if err == nil {
@@ -155,7 +255,7 @@ func TestConfigCommand_Validate(t *testing.T) {
 	}
 }
 
-func TestConfigCommand_ListProfiles(t *testing.T) {
+func TestListCommand_ListProfiles(t *testing.T) {
 	log := logr.Discard()
 
 	tests := []struct {
@@ -165,16 +265,9 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "empty list-profiles should not error",
-			setupFunc: func() (string, func(), error) {
-				return "", func() {}, nil
-			},
-			wantErr: false,
-		},
-		{
 			name: "directory with profile subdirectories should list them",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -207,7 +300,7 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 		{
 			name: "directory with no profile subdirectories should not error",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -224,7 +317,7 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 		{
 			name: "non-existent profiles directory should error",
 			setupFunc: func() (string, func(), error) {
-				tmpDir, err := os.MkdirTemp("", "test-config-")
+				tmpDir, err := os.MkdirTemp("", "test-list-")
 				if err != nil {
 					return "", nil, err
 				}
@@ -243,12 +336,12 @@ func TestConfigCommand_ListProfiles(t *testing.T) {
 			}
 			defer cleanup()
 
-			configCmd := &configCommand{
-				listProfiles: path,
-				log:          log,
+			listCmd := &listCommand{
+				profileDir: path,
+				log:        log,
 			}
 
-			err = configCmd.ListProfiles()
+			err = listCmd.ListProfiles()
 
 			if tt.wantErr {
 				if err == nil {
@@ -373,47 +466,16 @@ func TestSyncCommand_Validate(t *testing.T) {
 }
 
 func TestSyncCommand_getHubClient(t *testing.T) {
-	// Create temporary auth file for testing
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	kantreDir := filepath.Join(homeDir, ".kantra")
-	authFile := filepath.Join(kantreDir, "auth.json")
-
-	// Backup existing auth file if it exists
-	var backupData []byte
-	var hasBackup bool
-	if data, err := os.ReadFile(authFile); err == nil {
-		backupData = data
-		hasBackup = true
-	}
-
 	// Create test auth with a valid JWT token
-	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-
-	testAuth := LoginResponse{
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
 
-	// Ensure directory exists
-	os.MkdirAll(kantreDir, 0755)
-
-	// Write test auth
-	authData, _ := json.Marshal(testAuth)
-	os.WriteFile(authFile, authData, 0600)
-
-	// Cleanup function
-	defer func() {
-		if hasBackup {
-			os.WriteFile(authFile, backupData, 0600)
-		} else {
-			os.Remove(authFile)
-		}
-	}()
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
 
 	syncCmd := &syncCommand{}
 
@@ -506,51 +568,16 @@ func TestNewHubClientWithOptions(t *testing.T) {
 func TestHubClient_doRequest(t *testing.T) {
 	log := logr.Discard()
 
-	// Create temporary auth file for testing
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	kantreDir := filepath.Join(homeDir, ".kantra")
-	authFile := filepath.Join(kantreDir, "auth.json")
-
-	// Backup existing auth file if it exists
-	var backupData []byte
-	var hasBackup bool
-	if data, err := os.ReadFile(authFile); err == nil {
-		backupData = data
-		hasBackup = true
-	}
-
 	// Create test auth with a valid JWT token
-	// This is a simple JWT token with exp claim set to far future (year 2030)
-	// Header: {"alg":"HS256","typ":"JWT"}
-	// Payload: {"exp":1893456000}
-	// Signature: signed with secret "test"
-	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-
-	testAuth := LoginResponse{
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
 
-	// Ensure directory exists
-	os.MkdirAll(kantreDir, 0755)
-
-	// Write test auth
-	authData, _ := json.Marshal(testAuth)
-	os.WriteFile(authFile, authData, 0600)
-
-	// Cleanup function
-	defer func() {
-		if hasBackup {
-			os.WriteFile(authFile, backupData, 0600)
-		} else {
-			os.Remove(authFile)
-		}
-	}()
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
 
 	tests := []struct {
 		name           string
@@ -609,12 +636,6 @@ func TestHubClient_doRequest(t *testing.T) {
 			client := &hubClient{
 				client: &http.Client{Timeout: 5 * time.Second},
 				host:   server.URL,
-			}
-
-			// Set token for authentication test
-			if tt.name == "check authentication header with token" {
-				os.Setenv("TOKEN", "test-token")
-				defer os.Unsetenv("TOKEN")
 			}
 
 			resp, err := client.doRequest(tt.path, tt.acceptHeader, log)
@@ -795,47 +816,16 @@ func TestParseApplicationsFromHub(t *testing.T) {
 func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 	log := logr.Discard()
 
-	// Create temporary auth file for testing
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	kantreDir := filepath.Join(homeDir, ".kantra")
-	authFile := filepath.Join(kantreDir, "auth.json")
-
-	// Backup existing auth file if it exists
-	var backupData []byte
-	var hasBackup bool
-	if data, err := os.ReadFile(authFile); err == nil {
-		backupData = data
-		hasBackup = true
-	}
-
 	// Create test auth with a valid JWT token
-	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-
-	testAuth := LoginResponse{
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
 
-	// Ensure directory exists
-	os.MkdirAll(kantreDir, 0755)
-
-	// Write test auth
-	authData, _ := json.Marshal(testAuth)
-	os.WriteFile(authFile, authData, 0600)
-
-	// Cleanup function
-	defer func() {
-		if hasBackup {
-			os.WriteFile(authFile, backupData, 0600)
-		} else {
-			os.Remove(authFile)
-		}
-	}()
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
 
 	tests := []struct {
 		name           string
@@ -882,8 +872,9 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 				w.Write(jsonData)
 			},
 			url:           "https://github.com/example/notfound",
-			wantErr:       false,
-			expectedAppID: 0, // Should return empty application
+			wantErr:       true,
+			errMsg:        "URL mismatch",
+			expectedAppID: 0,
 		},
 		{
 			name: "server error",
@@ -934,47 +925,16 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 	log := logr.Discard()
 
-	// Create temporary auth file for testing
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	kantreDir := filepath.Join(homeDir, ".kantra")
-	authFile := filepath.Join(kantreDir, "auth.json")
-
-	// Backup existing auth file if it exists
-	var backupData []byte
-	var hasBackup bool
-	if data, err := os.ReadFile(authFile); err == nil {
-		backupData = data
-		hasBackup = true
-	}
-
 	// Create test auth with a valid JWT token
-	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-
-	testAuth := LoginResponse{
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
 
-	// Ensure directory exists
-	os.MkdirAll(kantreDir, 0755)
-
-	// Write test auth
-	authData, _ := json.Marshal(testAuth)
-	os.WriteFile(authFile, authData, 0600)
-
-	// Cleanup function
-	defer func() {
-		if hasBackup {
-			os.WriteFile(authFile, backupData, 0600)
-		} else {
-			os.Remove(authFile)
-		}
-	}()
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
 
 	tests := []struct {
 		name           string
@@ -1378,47 +1338,16 @@ func TestDeleteTarFile(t *testing.T) {
 func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 	log := logr.Discard()
 
-	// Create temporary auth file for testing
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
-
-	kantreDir := filepath.Join(homeDir, ".kantra")
-	authFile := filepath.Join(kantreDir, "auth.json")
-
-	// Backup existing auth file if it exists
-	var backupData []byte
-	var hasBackup bool
-	if data, err := os.ReadFile(authFile); err == nil {
-		backupData = data
-		hasBackup = true
-	}
-
 	// Create test auth with a valid JWT token
-	validJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-
-	testAuth := LoginResponse{
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
 		Host:         "http://test-host",
 		Token:        validJWT,
 		RefreshToken: "test-refresh-token",
 	}
 
-	// Ensure directory exists
-	os.MkdirAll(kantreDir, 0755)
-
-	// Write test auth
-	authData, _ := json.Marshal(testAuth)
-	os.WriteFile(authFile, authData, 0600)
-
-	// Cleanup function
-	defer func() {
-		if hasBackup {
-			os.WriteFile(authFile, backupData, 0600)
-		} else {
-			os.Remove(authFile)
-		}
-	}()
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
 
 	tests := []struct {
 		name           string
@@ -1508,7 +1437,7 @@ func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 func TestConfigCommandIntegration(t *testing.T) {
 	log := logr.Discard()
 
-	t.Run("config command with list-profiles flag", func(t *testing.T) {
+	t.Run("config list subcommand with profile-dir flag", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "test-config-integration-")
 		if err != nil {
 			t.Fatalf("Failed to create temp dir: %v", err)
@@ -1530,11 +1459,273 @@ func TestConfigCommandIntegration(t *testing.T) {
 		}
 
 		cmd := NewConfigCmd(log)
-		cmd.SetArgs([]string{"--list-profiles", tmpDir})
+		cmd.SetArgs([]string{"list", "--profile-dir", tmpDir})
 
 		err = cmd.Execute()
 		if err != nil {
 			t.Errorf("Command execution failed: %v", err)
 		}
 	})
+
+	t.Run("config list subcommand without profile-dir flag (uses current directory)", func(t *testing.T) {
+		// Create profiles directory in current working directory for test
+		currentDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current directory: %v", err)
+		}
+
+		profilesDir := filepath.Join(currentDir, profile.Profiles)
+		err = os.MkdirAll(profilesDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create profiles dir: %v", err)
+		}
+		defer os.RemoveAll(profilesDir)
+
+		profileDirs := []string{"profile1", "profile2"}
+		for _, dir := range profileDirs {
+			err = os.MkdirAll(filepath.Join(profilesDir, dir), 0755)
+			if err != nil {
+				t.Fatalf("Failed to create profile dir: %v", err)
+			}
+		}
+
+		cmd := NewConfigCmd(log)
+		cmd.SetArgs([]string{"list"})
+
+		err = cmd.Execute()
+		if err != nil {
+			t.Errorf("Command execution failed: %v", err)
+		}
+	})
+}
+
+func TestSyncCommand_setDefaultApplicationPath(t *testing.T) {
+	syncCmd := &syncCommand{}
+
+	path, err := syncCmd.setDefaultApplicationPath()
+
+	if err != nil {
+		t.Errorf("setDefaultApplicationPath() unexpected error = %v", err)
+	}
+
+	if path == "" {
+		t.Error("setDefaultApplicationPath() returned empty path")
+	}
+
+	// Verify it returns a valid directory path
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Errorf("setDefaultApplicationPath() returned non-existent path: %s", path)
+	}
+}
+
+func TestSyncCommand_checkAuthentication(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupAuth func(t *testing.T)
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name: "valid authentication",
+			setupAuth: func(t *testing.T) {
+				validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+				testAuth := &LoginResponse{
+					Host:         "http://test-host",
+					Token:        validJWT,
+					RefreshToken: "test-refresh-token",
+				}
+				setupTempAuth(t, testAuth)
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing token should fail",
+			setupAuth: func(t *testing.T) {
+				testAuth := &LoginResponse{
+					Host:         "http://test-host",
+					Token:        "",
+					RefreshToken: "test-refresh-token",
+				}
+				setupTempAuth(t, testAuth)
+			},
+			wantErr: true,
+			errMsg:  "stored authentication is invalid",
+		},
+		{
+			name: "no auth file should fail",
+			setupAuth: func(t *testing.T) {
+				// Set up temp HOME but don't write any auth file
+				setupTempAuth(t, nil)
+			},
+			wantErr: true,
+			errMsg:  "no stored authentication found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupAuth(t)
+
+			syncCmd := &syncCommand{}
+			err := syncCmd.checkAuthentication()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("checkAuthentication() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("checkAuthentication() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("checkAuthentication() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_doRequestWithRetry(t *testing.T) {
+	log := logr.Discard()
+
+	// Create test auth with a valid JWT token
+	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
+	testAuth := &LoginResponse{
+		Host:         "http://test-host",
+		Token:        validJWT,
+		RefreshToken: "test-refresh-token",
+	}
+
+	// Set up temporary auth in isolated HOME
+	setupTempAuth(t, testAuth)
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		isRetry        bool
+		wantErr        bool
+		errMsg         string
+	}{
+		{
+			name: "successful request with retry flag",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status": "ok"}`))
+			},
+			isRetry: true,
+			wantErr: false,
+		},
+		{
+			name: "unauthorized response triggers retry",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("Unauthorized"))
+			},
+			isRetry: false,
+			wantErr: true, // Will fail because refresh token logic will fail in test
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			client := &hubClient{
+				client: &http.Client{Timeout: 5 * time.Second},
+				host:   server.URL,
+			}
+
+			resp, err := client.doRequestWithRetry("/test", "application/json", log, tt.isRetry)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("doRequestWithRetry() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("doRequestWithRetry() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("doRequestWithRetry() unexpected error = %v", err)
+				}
+				if resp != nil {
+					resp.Body.Close()
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_refreshStoredToken(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name           string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		wantErr        bool
+		errMsg         string
+	}{
+		{
+			name: "successful token refresh",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/auth/refresh" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					response := LoginResponse{
+						Host:         "http://test-host",
+						Token:        "new-token",
+						RefreshToken: "new-refresh-token",
+					}
+					json.NewEncoder(w).Encode(response)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "refresh endpoint error",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("Refresh failed"))
+			},
+			wantErr: true,
+			errMsg:  "token refresh failed with status 401",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up temporary auth environment to avoid touching real auth.json
+			setupTempAuth(t, nil)
+
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			client := &hubClient{
+				client: &http.Client{Timeout: 5 * time.Second},
+				host:   server.URL,
+			}
+
+			storedAuth := &LoginResponse{
+				Host:         server.URL,
+				Token:        "old-token",
+				RefreshToken: "old-refresh-token",
+			}
+
+			err := client.refreshStoredToken(storedAuth, log)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("refreshStoredToken() expected error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("refreshStoredToken() error = %v, expected to contain %v", err, tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("refreshStoredToken() unexpected error = %v", err)
+				}
+			}
+		})
+	}
 }
