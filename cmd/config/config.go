@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"archive/tar"
@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor/tackle2-hub/api"
+	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -64,7 +64,7 @@ func NewConfigCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if val, err := cmd.Flags().GetUint32(logLevelFlag); err == nil {
+			if val, err := cmd.Flags().GetUint32("log-level"); err == nil {
 				configCmd.logLevel = &val
 			}
 
@@ -142,7 +142,7 @@ func (l *listCommand) Validate(ctx context.Context) error {
 }
 
 func (l *listCommand) ListProfiles() error {
-	profilesDir := filepath.Join(l.profileDir, Profiles)
+	profilesDir := filepath.Join(l.profileDir, profile.Profiles)
 	entries, err := os.ReadDir(profilesDir)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if val, err := cmd.Flags().GetUint32(logLevelFlag); err == nil {
+			if val, err := cmd.Flags().GetUint32("log-level"); err == nil {
 				syncCmd.logLevel = &val
 			}
 			if insecure, err := cmd.Parent().PersistentFlags().GetBool("insecure"); err == nil {
@@ -193,7 +193,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 				log.Error(err, "failed to get applications from Hub")
 				return err
 			}
-			profiles, err := syncCmd.getProfilesFromHubApplicaton(int(application.Resource.ID))
+			profiles, err := syncCmd.getProfilesFromHubApplication(int(application.ID))
 			if err != nil {
 				return err
 			}
@@ -211,15 +211,18 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 
 	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository")
 	syncCommand.MarkFlagRequired("url")
-	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "path to the local application to download Hub profiles")
-	syncCommand.MarkFlagRequired("application-path")
+	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "path to the local application for Hub profiles. Default is the current directory")
 
 	return syncCommand
 }
 
 func (s *syncCommand) Validate(ctx context.Context) error {
 	if s.applicationPath == "" {
-		return fmt.Errorf("application path is required")
+		defaultPath, err := s.setDefaultApplicationPath()
+		if err != nil {
+			return err
+		}
+		s.applicationPath = defaultPath
 	}
 	stat, err := os.Stat(s.applicationPath)
 	if err != nil {
@@ -230,6 +233,14 @@ func (s *syncCommand) Validate(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *syncCommand) setDefaultApplicationPath() (string, error) {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return currentDir, nil
 }
 
 func (s *syncCommand) getHubClient() (*hubClient, error) {
@@ -345,48 +356,48 @@ func (s *syncCommand) checkAuthentication() error {
 	return nil
 }
 
-func (s *syncCommand) getApplicationFromHub(urlRepo string) (api.Application, error) {
+func (s *syncCommand) getApplicationFromHub(urlRepo string) (profile.Application, error) {
 	if err := s.checkAuthentication(); err != nil {
-		return api.Application{}, err
+		return profile.Application{}, err
 	}
 	hubClient, err := s.getHubClient()
 	if err != nil {
-		return api.Application{}, err
+		return profile.Application{}, err
 	}
 	path := fmt.Sprintf("/applications?filter=repository.url='%s'", urlRepo)
 
 	resp, err := hubClient.doRequest(path, "application/json", s.log)
 	if err != nil {
-		return api.Application{}, err
+		return profile.Application{}, err
 	}
 	body, err := hubClient.readResponseBody(resp)
 	if err != nil {
-		return api.Application{}, err
+		return profile.Application{}, err
 	}
 
 	apps, err := parseApplicationsFromHub(string(body))
 	if err != nil {
-		return api.Application{}, err
+		return profile.Application{}, err
 	}
 	if len(apps) == 0 {
-		return api.Application{}, fmt.Errorf("no applications found in Hub for URL: %s", urlRepo)
+		return profile.Application{}, fmt.Errorf("no applications found in Hub for URL: %s", urlRepo)
 
 		// TODO handle multiple applications later
 	} else if len(apps) > 1 {
-		return api.Application{}, fmt.Errorf("multiple applications found in Hub for URL: %s", urlRepo)
+		return profile.Application{}, fmt.Errorf("multiple applications found in Hub for URL: %s", urlRepo)
 	}
-	var application api.Application
-	if apps[0].Repository.URL == s.url {
+	var application profile.Application
+	if apps[0].Repository != nil && apps[0].Repository.URL == s.url {
 		application = apps[0]
 	} else {
-		return api.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, apps[0].Repository.URL)
+		return profile.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, apps[0].Repository.URL)
 	}
 
 	return application, nil
 }
 
-func parseApplicationsFromHub(jsonData string) ([]api.Application, error) {
-	var apps []api.Application
+func parseApplicationsFromHub(jsonData string) ([]profile.Application, error) {
+	var apps []profile.Application
 
 	err := json.Unmarshal([]byte(jsonData), &apps)
 	if err != nil {
@@ -396,7 +407,7 @@ func parseApplicationsFromHub(jsonData string) ([]api.Application, error) {
 	return apps, nil
 }
 
-func (s *syncCommand) getProfilesFromHubApplicaton(appID int) ([]api.AnalysisProfile, error) {
+func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]profile.AnalysisProfile, error) {
 	hubClient, err := s.getHubClient()
 	if err != nil {
 		return nil, err
@@ -410,7 +421,7 @@ func (s *syncCommand) getProfilesFromHubApplicaton(appID int) ([]api.AnalysisPro
 	if err != nil {
 		return nil, err
 	}
-	profiles := []api.AnalysisProfile{}
+	profiles := []profile.AnalysisProfile{}
 	if err := yaml.Unmarshal(body, &profiles); err != nil {
 		return nil, err
 	}
@@ -424,8 +435,8 @@ func (s *syncCommand) downloadProfileBundle(profileID int) error {
 		return err
 	}
 	filename := fmt.Sprintf("profile-%d.tar", profileID)
-	downloadPath := filepath.Join(s.applicationPath, Profiles, filename)
-	err = os.MkdirAll(filepath.Join(s.applicationPath, Profiles), 0755)
+	downloadPath := filepath.Join(s.applicationPath, profile.Profiles, filename)
+	err = os.MkdirAll(filepath.Join(s.applicationPath, profile.Profiles), 0755)
 	if err != nil {
 		return err
 	}
