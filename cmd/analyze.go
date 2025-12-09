@@ -1118,9 +1118,15 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLo
 		return noDepFileErr
 	}
 
+	volName, err := createVolumeforStaticReport(a.output, a.log)
+	if err != nil {
+		return err
+	}
+	defer rmVolForStaticReport(volName, ctx, a.log)
+
 	volumes := map[string]string{
-		a.input:  util.SourceMountPath,
-		a.output: util.OutputPath,
+		a.input: util.SourceMountPath,
+		volName: util.OutputPath,
 	}
 
 	args := []string{}
@@ -1190,7 +1196,7 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLo
 	c := container.NewContainer()
 	operationalLog.Info("generating static report",
 		"output", a.output, "args", strings.Join(staticReportCmd, " "))
-	err := c.Run(
+	err = c.Run(
 		ctx,
 		container.WithImage(Settings.RunnerImage),
 		container.WithLog(a.log.V(1)),
@@ -1577,6 +1583,63 @@ func listLanguages(languages []model.Language, input string) error {
 			fmt.Fprintln(os.Stdout, l.Name)
 		}
 		fmt.Fprintln(os.Stdout, "run --list-providers to view supported language providers")
+	}
+	return nil
+}
+
+func createVolumeforStaticReport(outputPath string, log logr.Logger) (string, error) {
+	volName := fmt.Sprintf("volume-%v", container.RandomName())
+	output, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", err
+	}
+	if runtime.GOOS == "windows" {
+		// TODO(djzager): Thank ChatGPT
+		// Extract the volume name (e.g., "C:")
+		// Remove the volume name from the path to get the remaining part
+		// Convert backslashes to forward slashes
+		// Remove the colon from the volume name and convert to lowercase
+		volumeName := filepath.VolumeName(output)
+		remainingPath := output[len(volumeName):]
+		remainingPath = filepath.ToSlash(remainingPath)
+		driveLetter := strings.ToLower(strings.TrimSuffix(volumeName, ":"))
+
+		// Construct the Linux-style path
+		output = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
+	}
+
+	args := []string{
+		"volume",
+		"create",
+		"--opt",
+		"type=none",
+		"--opt",
+		fmt.Sprintf("device=%v", output),
+		"--opt",
+		"o=bind",
+		volName,
+	}
+	cmd := exec.Command(Settings.ContainerBinary, args...)
+	err = cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	log.V(7).Info("created container volume for static report", "volume", volName)
+
+	return volName, nil
+}
+
+func rmVolForStaticReport(volName string, ctx context.Context, log logr.Logger) error {
+	if volName != "" {
+		cmd := exec.CommandContext(
+			ctx,
+			Settings.ContainerBinary,
+			"volume",
+			"rm", volName)
+		if err := cmd.Run(); err != nil {
+			log.V(1).Error(err, "failed to remove volume", "volume", volName)
+		}
+		log.V(7).Info("removed static report container volume", "volume", volName)
 	}
 	return nil
 }
