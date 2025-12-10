@@ -338,11 +338,11 @@ rules:
 				if !settings.AnalyzeKnownLibraries {
 					t.Errorf("Expected AnalyzeKnownLibraries to be true")
 				}
-				if settings.IncidentSelector != "com.example" {
-					t.Errorf("Expected IncidentSelector 'com.example', got '%s'", settings.IncidentSelector)
+				if settings.IncidentSelector != "package=com.example" {
+					t.Errorf("Expected IncidentSelector 'package=com.example', got '%s'", settings.IncidentSelector)
 				}
-				if settings.LabelSelector != "test-label" {
-					t.Errorf("Expected LabelSelector 'test-label', got '%s'", settings.LabelSelector)
+				if settings.LabelSelector != "(test-label)" {
+					t.Errorf("Expected LabelSelector '(test-label)', got '%s'", settings.LabelSelector)
 				}
 				if len(settings.Rules) == 0 {
 					t.Errorf("Expected rules to be populated")
