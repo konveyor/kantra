@@ -27,6 +27,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
+	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -82,6 +83,7 @@ type analyzeCommand struct {
 	cleanup                  bool
 	runLocal                 bool
 	disableMavenSearch       bool
+	profileDir               string
 	AnalyzeCommandContext
 }
 
@@ -100,7 +102,8 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if !cmd.Flags().Lookup("list-sources").Changed &&
 				!cmd.Flags().Lookup("list-targets").Changed &&
 				!cmd.Flags().Lookup("list-providers").Changed &&
-				!cmd.Flags().Lookup("list-languages").Changed {
+				!cmd.Flags().Lookup("list-languages").Changed &&
+				!cmd.Flags().Lookup("profile-dir").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
 				if err := cmd.ValidateRequiredFlags(); err != nil {
@@ -117,7 +120,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			err := analyzeCmd.Validate(cmd.Context())
+			err := analyzeCmd.Validate(cmd.Context(), cmd)
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -142,6 +145,39 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
+			}
+
+			// get profile options for analysis
+			if analyzeCmd.profileDir != "" {
+				stat, err := os.Stat(analyzeCmd.profileDir)
+				if err != nil {
+					return fmt.Errorf("failed to stat profiles directory %s: %w", analyzeCmd.profileDir, err)
+				}
+
+				if !stat.IsDir() {
+					return fmt.Errorf("found profiles path %s is not a directory", analyzeCmd.profileDir)
+				}
+				profilePath := filepath.Join(analyzeCmd.profileDir, "profile.yaml")
+				err = analyzeCmd.applyProfileSettings(profilePath, cmd)
+				if err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
+			} else {
+				// check for a single profile in default path
+				profilesDir := filepath.Join(analyzeCmd.input, profile.Profiles)
+				profilePath, err := profile.FindSingleProfile(profilesDir)
+				if err != nil {
+					analyzeCmd.log.Error(err, "did not find valid profile in default path")
+				}
+				if profilePath != "" {
+					analyzeCmd.log.Info("using found profile", "profile", profilePath)
+					err = analyzeCmd.applyProfileSettings(profilePath, cmd)
+					if err != nil {
+						analyzeCmd.log.Error(err, "failed to get settings from profile")
+						return err
+					}
+				}
 			}
 
 			if analyzeCmd.overrideProviderSettings == "" {
@@ -341,10 +377,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringArrayVar(&analyzeCmd.provider, "provider", []string{}, "specify which provider(s) to run")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
 	return analyzeCommand
 }
 
-func (a *analyzeCommand) Validate(ctx context.Context) error {
+func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command) error {
 	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
@@ -1949,5 +1986,34 @@ func listLanguages(languages []model.Language, input string) error {
 		}
 		fmt.Fprintln(os.Stdout, "run --list-providers to view supported language providers")
 	}
+	return nil
+}
+
+func (a *analyzeCommand) createProfileSettings() *profile.ProfileSettings {
+	return &profile.ProfileSettings{
+		Input:                 a.input,
+		Mode:                  a.mode,
+		AnalyzeKnownLibraries: a.analyzeKnownLibraries,
+		IncidentSelector:      a.incidentSelector,
+		LabelSelector:         a.labelSelector,
+		Rules:                 a.rules,
+		EnableDefaultRulesets: a.enableDefaultRulesets,
+	}
+}
+
+func (a *analyzeCommand) applyProfileSettings(profilePath string, cmd *cobra.Command) error {
+	settings := a.createProfileSettings()
+	err := profile.SetSettingsFromProfile(profilePath, cmd, settings)
+	if err != nil {
+		return err
+	}
+	a.input = settings.Input
+	a.mode = settings.Mode
+	a.analyzeKnownLibraries = settings.AnalyzeKnownLibraries
+	a.incidentSelector = settings.IncidentSelector
+	a.labelSelector = settings.LabelSelector
+	a.rules = settings.Rules
+	a.enableDefaultRulesets = settings.EnableDefaultRulesets
+
 	return nil
 }
