@@ -204,6 +204,9 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
+github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
+github.com/klauspost/cpuid/v2 v2.2.4 h1:acbojRNwl3o09bUq+yDCtZFc1aiwaAAxtcn8YkZXnvk=
+github.com/klauspost/cpuid/v2 v2.2.4/go.mod h1:RVVoqg1df56z8g3pUjL/3lE5UfnlrJX8tyFgg4nqhuY=
 github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251028123433-0431f774cad0 h1:rprnuThRwphDdoahhttq6viz+twxi4RFtzjyZ1sc/18=
 github.com/konveyor/analyzer-lsp v0.8.1-alpha.2.0.20251028123433-0431f774cad0/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251028123433-0431f774cad0 h1:BCI9tEiWiQuZO197xBfytuG8Eb1q/aiZifryuGc1Isw=
