@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -218,4 +219,60 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 	for _, tech := range newSl {
 		fmt.Fprintln(out, tech)
 	}
+}
+
+func IsXMLDirEmpty(dir string) (bool, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdir(1)
+	if err == io.EOF {
+		return true, nil
+	}
+
+	return false, err
+}
+
+func GetKantraDir() (string, error) {
+	var dir string
+	var err error
+	set := true
+	reqs := []string{
+		"rulesets",
+		"jdtls",
+		"static-report",
+	}
+	// check current dir first for reqs
+	dir, err = os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for _, v := range reqs {
+		_, err := os.Stat(filepath.Join(dir, v))
+		if err != nil {
+			set = false
+			break
+		}
+	}
+	// all reqs found here
+	if set {
+		return dir, nil
+	}
+	// fall back to $HOME/.kantra
+	ops := runtime.GOOS
+	if ops == "linux" {
+		dir, set = os.LookupEnv("XDG_CONFIG_HOME")
+	}
+	if ops != "linux" || dir == "" || !set {
+		// on Unix, including macOS, this returns the $HOME environment variable. On Windows, it returns %USERPROFILE%
+		dir, err = os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(dir, ".kantra"), nil
+
 }

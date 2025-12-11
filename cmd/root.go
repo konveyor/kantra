@@ -68,6 +68,7 @@ func init() {
 	rootCmd.AddCommand(NewAnalyzeCmd(logger))
 	rootCmd.AddCommand(NewTestCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
+	rootCmd.AddCommand(NewDumpRulesCommand(logger))
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))
 }
