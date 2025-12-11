@@ -96,11 +96,11 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	if !cmd.Flags().Lookup("analyze-known-libraries").Changed && profile.Scope.WithKnownLibs {
 		settings.AnalyzeKnownLibraries = true
 	}
-	if !cmd.Flags().Lookup("incident-selector").Changed && len(profile.Scope.Packages.Included) > 0 {
-		settings.IncidentSelector = strings.Join(profile.Scope.Packages.Included, " || ")
+	if !cmd.Flags().Lookup("incident-selector").Changed {
+		settings.IncidentSelector = buildIncidentSelector(profile.Scope.Packages)
 	}
-	if !cmd.Flags().Lookup("label-selector").Changed && len(profile.Rules.Labels.Included) > 0 {
-		settings.LabelSelector = strings.Join(profile.Rules.Labels.Included, " || ")
+	if !cmd.Flags().Lookup("label-selector").Changed {
+		settings.LabelSelector = buildLabelSelector(profile.Rules.Labels)
 	}
 
 	// add rules from profile directory if not explicitly set via command line
@@ -117,6 +117,89 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	}
 
 	return nil
+}
+
+func buildIncidentSelector(packages PackageSelector) string {
+	incidentParts := []string{}
+	if len(packages.Included) > 0 {
+		for _, pkg := range packages.Included {
+			pkg = strings.TrimSpace(pkg)
+			if pkg != "" {
+				incidentParts = append(incidentParts, fmt.Sprintf("package=%s", pkg))
+			}
+		}
+	}
+	if len(packages.Excluded) > 0 {
+		for _, pkg := range packages.Excluded {
+			pkg = strings.TrimSpace(pkg)
+			if pkg != "" {
+				incidentParts = append(incidentParts, fmt.Sprintf("!package=%s", pkg))
+			}
+		}
+	}
+	if len(incidentParts) == 0 {
+		return ""
+	}
+	includedParts := []string{}
+	excludedParts := []string{}
+	for _, part := range incidentParts {
+		if strings.HasPrefix(part, "!") {
+			excludedParts = append(excludedParts, part)
+		} else {
+			includedParts = append(includedParts, part)
+		}
+	}
+	selector := ""
+	if len(includedParts) > 0 {
+		selector = strings.Join(includedParts, " || ")
+	}
+
+	if len(excludedParts) > 0 {
+		if selector != "" {
+			selector = fmt.Sprintf("(%s) && %s", selector, strings.Join(excludedParts, " && "))
+		} else {
+			selector = strings.Join(excludedParts, " && ")
+		}
+	}
+
+	return selector
+}
+
+func buildLabelSelector(labels LabelSelector) string {
+	includedParts := []string{}
+	excludedParts := []string{}
+	if len(labels.Included) > 0 {
+		for _, label := range labels.Included {
+			label = strings.TrimSpace(label)
+			if label != "" {
+				includedParts = append(includedParts, label)
+			}
+		}
+	}
+	if len(labels.Excluded) > 0 {
+		for _, label := range labels.Excluded {
+			label = strings.TrimSpace(label)
+			if label != "" {
+				excludedParts = append(excludedParts, fmt.Sprintf("!%s", label))
+			}
+		}
+	}
+	if len(includedParts) == 0 && len(excludedParts) == 0 {
+		return ""
+	}
+	selector := ""
+	if len(includedParts) > 0 {
+		selector = fmt.Sprintf("(%s)", strings.Join(includedParts, " || "))
+	}
+	if len(excludedParts) > 0 {
+		if selector != "" {
+			selector = fmt.Sprintf("%s && %s", selector, strings.Join(excludedParts, " && "))
+		} else {
+			selector = strings.Join(excludedParts, " && ")
+		}
+	}
+
+	return selector
 }
 
 func GetRulesInProfile(profileDir string) ([]string, error) {
