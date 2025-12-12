@@ -77,10 +77,10 @@ RUN mkdir -p /home/mta/.config/containers/
 RUN cp /etc/containers/storage.conf /home/mta/.config/containers/storage.conf
 RUN sed -i "s/^driver.*/driver = \"vfs\"/g" /home/mta/.config/containers/storage.conf
 RUN echo -ne '[containers]\nvolumes = ["/proc:/proc",]\ndefault_sysctls = []' > /home/mta/.config/containers/containers.conf
-RUN chown -R 1000:1000 /home/mta
+RUN chown -R 1001:1001 /home/mta
 
 RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input /usr/local/static-report
-RUN chown -R 0:1000 /usr/local/static-report
+RUN chown -R 0:1001 /usr/local/static-report
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
@@ -100,5 +100,5 @@ COPY --from=analyzer /usr/local/bin/konveyor-analyzer-dep /usr/local/bin/konveyo
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
-USER 1000
+USER 1001
 ENTRYPOINT ["kantra"]
