@@ -70,7 +70,7 @@ RUN echo -e "[almalinux9-appstream]" \
  "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
 
 RUN microdnf -y install podman
-RUN echo mta:x:1000:0:1000 user:/home/mta:/sbin/nologin > /etc/passwd
+RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
 RUN echo mta:10000:5000 > /etc/subuid
 RUN echo mta:10000:5000 > /etc/subgid
 RUN mkdir -p /home/mta/.config/containers/
