@@ -100,5 +100,5 @@ COPY --from=analyzer /usr/local/bin/konveyor-analyzer-dep /usr/local/bin/konveyo
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
-USER 10000
+USER 1000
 ENTRYPOINT ["kantra"]
