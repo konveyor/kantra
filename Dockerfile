@@ -53,8 +53,15 @@ RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosy
 -X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
+FROM jaegertracing/all-in-one:latest AS jaeger-builder
+FROM quay.io/konveyor/java-external-provider:${VERSION} as java-provider
+FROM quay.io/konveyor/generic-external-provider:${VERSION} as generic-provider
+FROM quay.io/konveyor/yq-external-provider:${VERSION} as yq-provider
+
 FROM quay.io/konveyor/analyzer-lsp:${VERSION}
 
+
+USER 0
 RUN echo -e "[almalinux9-appstream]" \
  "\nname = almalinux9-appstream" \
  "\nbaseurl = https://repo.almalinux.org/almalinux/9/AppStream/\$basearch/os/" \
@@ -80,7 +87,21 @@ COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
+COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
+COPY --from=generic-provider /usr/local/bin/generic-external-provider /usr/local/bin/generic-external-provider
+COPY --from=generic-provider /usr/local/bin/golang-dependency-provider /usr/local/bin/golang-dependency-provider
+COPY --from=generic-provider /usr/local/bin/gopls /usr/local/bin/gopls
+COPY --from=yq-provider /usr/local/bin/yq /usr/local/bin/yq
+COPY --from=yq-provider /usr/local/bin/yq-external-provider /usr/local/bin/yq-external-provider
+COPY --from=java-provider /usr/local/bin/java-external-provider /usr/local/bin/java-external-provider
+COPY --from=java-provider /jdtls /jdtls/
+COPY --from=java-provider /jdtls/plugins/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar /jdtls/plugins/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
+COPY --from=java-provider /jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar /jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
+COPY --from=java-provider /bin/fernflower.jar /bin/fernflower.jar
+COPY --from=java-provider /usr/local/etc/maven.default.index /usr/local/etc/maven.default.index
+COPY --from=java-provider /usr/local/etc/maven-index.txt /usr/local/etc/maven-index.txt
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
+USER 10000
 ENTRYPOINT ["kantra"]
