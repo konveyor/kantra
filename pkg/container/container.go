@@ -31,7 +31,7 @@ type container struct {
 	// whether to delete container after run()
 	cleanup bool
 	// map of source -> dest paths to mount
-	volumes          map[string]string
+	volumes map[string]string
 	// port mappings in format "host:container"
 	ports            []string
 	cFlag            bool
@@ -247,13 +247,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		if os == "linux" {
-			args = append(args, fmt.Sprintf("%s:%s:z",
-				filepath.Clean(sourcePath), path.Clean(destPath)))
-		} else {
-			args = append(args, fmt.Sprintf("%s:%s",
-				filepath.Clean(sourcePath), path.Clean(destPath)))
-		}
+		args = append(args, fmt.Sprintf("%s:%s:U,z",
+			filepath.Clean(sourcePath), path.Clean(destPath)))
 	}
 	for _, portMapping := range c.ports {
 		args = append(args, "-p")
