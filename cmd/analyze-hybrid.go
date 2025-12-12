@@ -204,8 +204,8 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
-// This function works for all provider types (Java, Go, Python, NodeJS, Dotnet).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+// This function works for all provider types (Java, Go, Python, NodeJS, C#).
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	provInit, ok := a.providersMap[providerName]
 	if !ok {
 		return nil, nil, nil, fmt.Errorf(
@@ -253,8 +253,9 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		// Fix merged in analyzer-lsp#1036 prevents duplicate file counting
 		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
-	case util.DotnetProvider:
-		providerSpecificConfig[provider.LspServerPathConfigKey] = "C:/Users/ContainerAdministrator/.dotnet/tools/csharp-ls.exe"
+	case util.CsharpProvider:
+		providerSpecificConfig["ilspy_cmd"] = "/usr/local/bin/ilspycmd"
+		providerSpecificConfig["paket_cmd"] = "/usr/local/bin/paket"
 	}
 
 	// Create network-based provider config
