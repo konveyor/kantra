@@ -412,13 +412,13 @@
            * Configuration: Store configuration settings in environment variables so that they can be updated without code changes.
            * Data storage: Use a database backing service for relational data or use a persistent data storage system.
            * Temporary data storage: Use the file system of a running container as a brief, single-transaction cache.
-        codeSnip: "10  \n11  \tpublic ApplicationConfiguration() {\n12  \t\tsuper();\n13
-          \ \t\tthis.config = loadProperties();\n14  \n15  \t}\n16  \n17  \tprivate
-          Properties loadProperties() {\n18  \t\tProperties properties = new Properties();\n19
-          \ \n20  \t\ttry (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\"))
-          {\n21  \n22  \t\t\tproperties.load(inputStream);\n23  \n24  \t\t} catch
-          (Exception e) {\n25  \t\t\tSystem.out.println(\"Exception: \" + e);\n26
-          \ \t\t}\n27  \n28  \t\treturn properties;\n29  \t}\n30  "
+        codeSnip: "\n10  \n11  public ApplicationConfiguration() {\n12  super();\n13
+          \ this.config = loadProperties();\n14  \n15  }\n16  \n17  private Properties
+          loadProperties() {\n18  Properties properties = new Properties();\n19  \n20
+          \ try (InputStream inputStream = new FileInputStream(\"/opt/config/persistence.properties\"))
+          {\n21  \n22  properties.load(inputStream);\n23  \n24  } catch (Exception
+          e) {\n25  System.out.println(\"Exception: \" + e);\n26  }\n27  \n28  return
+          properties;\n29  }\n30  "
         lineNumber: 20
         variables:
           file: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0/io/konveyor/demo/config/ApplicationConfiguration.java
@@ -499,9 +499,16 @@
       - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to
           be modified or eliminated.
-        lineNumber: 362
+        codeSnip: |2
+            1  jdbc.driverClassName=oracle.jdbc.driver.OracleDriver
+            2  jdbc.url=jdbc:oracle:thin:@169.60.225.216:1521/XEPDB1
+            3  jdbc.user=customers
+            4  jdbc.password=customers
+            5  hibernate.hbm2ddl.auto=create-drop
+            6  hibernate.dialect=org.hibernate.dialect.OracleDialect
+        lineNumber: 2
         variables:
-          matchingText: "225."
+          matchingText: 169.60.225.216
       effort: 1
   insights:
     discover-java-files:
@@ -2293,16 +2300,14 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: "67  \t\t<dependency>\n68  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n69
-          \ \t\t\t<artifactId>jackson-core</artifactId>\n70  \t\t</dependency>\n71
-          \ \t\t<dependency>\n72  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n73
-          \ \t\t\t<artifactId>jackson-databind</artifactId>\n74  \t\t</dependency>\n75
-          \ \t\t<dependency>\n76  \t\t\t<groupId>org.springframework.data</groupId>\n77
-          \ \t\t\t<artifactId>spring-data-jpa</artifactId>\n78  \t\t</dependency>\n79
-          \ \n80  \t\t<dependency>\n81  \t\t\t<groupId>org.springframework</groupId>\n82
-          \ \t\t\t<artifactId>spring-jdbc</artifactId>\n83  \t\t\t<version>${spring-framework.version}</version>\n84
-          \ \t\t</dependency>\n85  \t\t<dependency>\n86  \t\t\t<groupId>org.springframework</groupId>\n87
-          \ \t\t\t<artifactId>spring-webmvc</artifactId>"
+        codeSnip: "\n67  <dependency>\n68  <groupId>com.fasterxml.jackson.core</groupId>\n69
+          \ <artifactId>jackson-core</artifactId>\n70  </dependency>\n71  <dependency>\n72
+          \ <groupId>com.fasterxml.jackson.core</groupId>\n73  <artifactId>jackson-databind</artifactId>\n74
+          \ </dependency>\n75  <dependency>\n76  <groupId>org.springframework.data</groupId>\n77
+          \ <artifactId>spring-data-jpa</artifactId>\n78  </dependency>\n79  \n80
+          \ <dependency>\n81  <groupId>org.springframework</groupId>\n82  <artifactId>spring-jdbc</artifactId>\n83
+          \ <version>${spring-framework.version}</version>\n84  </dependency>\n85
+          \ <dependency>\n86  <groupId>org.springframework</groupId>\n87  <artifactId>spring-webmvc</artifactId>"
         lineNumber: 76
         variables:
           name: org.springframework.data.spring-data-jpa
@@ -2317,16 +2322,14 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: "67  \t\t<dependency>\n68  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n69
-          \ \t\t\t<artifactId>jackson-core</artifactId>\n70  \t\t</dependency>\n71
-          \ \t\t<dependency>\n72  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n73
-          \ \t\t\t<artifactId>jackson-databind</artifactId>\n74  \t\t</dependency>\n75
-          \ \t\t<dependency>\n76  \t\t\t<groupId>org.springframework.data</groupId>\n77
-          \ \t\t\t<artifactId>spring-data-jpa</artifactId>\n78  \t\t</dependency>\n79
-          \ \n80  \t\t<dependency>\n81  \t\t\t<groupId>org.springframework</groupId>\n82
-          \ \t\t\t<artifactId>spring-jdbc</artifactId>\n83  \t\t\t<version>${spring-framework.version}</version>\n84
-          \ \t\t</dependency>\n85  \t\t<dependency>\n86  \t\t\t<groupId>org.springframework</groupId>\n87
-          \ \t\t\t<artifactId>spring-webmvc</artifactId>"
+        codeSnip: "\n67  <dependency>\n68  <groupId>com.fasterxml.jackson.core</groupId>\n69
+          \ <artifactId>jackson-core</artifactId>\n70  </dependency>\n71  <dependency>\n72
+          \ <groupId>com.fasterxml.jackson.core</groupId>\n73  <artifactId>jackson-databind</artifactId>\n74
+          \ </dependency>\n75  <dependency>\n76  <groupId>org.springframework.data</groupId>\n77
+          \ <artifactId>spring-data-jpa</artifactId>\n78  </dependency>\n79  \n80
+          \ <dependency>\n81  <groupId>org.springframework</groupId>\n82  <artifactId>spring-jdbc</artifactId>\n83
+          \ <version>${spring-framework.version}</version>\n84  </dependency>\n85
+          \ <dependency>\n86  <groupId>org.springframework</groupId>\n87  <artifactId>spring-webmvc</artifactId>"
         lineNumber: 76
         variables:
           name: org.springframework.spring-beans
@@ -2341,15 +2344,29 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: " 87  \t\t\t<artifactId>spring-webmvc</artifactId>\n 88  \t\t\t<version>${spring-framework.version}</version>\n
-          89  \t\t</dependency>\n 90  \t\t<dependency>\n 91  \t\t\t<groupId>org.springframework</groupId>\n
-          92  \t\t\t<artifactId>spring-web</artifactId>\n 93  \t\t\t<version>${spring-framework.version}</version>\n
-          94  \t\t</dependency>\n 95  \t\t<dependency>\n 96  \t\t\t<groupId>org.springframework.boot</groupId>\n
-          97  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n 98  \t\t\t<version>2.5.0</version>\n
-          99  \t\t</dependency>\n100  \t\t<dependency>\n101  \t\t\t<groupId>org.apache.tomcat</groupId>\n102
-          \ \t\t\t<artifactId>tomcat-jdbc</artifactId>\n103  \t\t\t<version>${tomcat.version}</version>\n104
-          \ \t\t\t<scope>runtime</scope>\n105  \t\t</dependency>\n106  \t\t<dependency>\n107
-          \ \t\t\t<groupId>org.hibernate</groupId>"
+        codeSnip: |2-
+
+           87  <artifactId>spring-webmvc</artifactId>
+           88  <version>${spring-framework.version}</version>
+           89  </dependency>
+           90  <dependency>
+           91  <groupId>org.springframework</groupId>
+           92  <artifactId>spring-web</artifactId>
+           93  <version>${spring-framework.version}</version>
+           94  </dependency>
+           95  <dependency>
+           96  <groupId>org.springframework.boot</groupId>
+           97  <artifactId>spring-boot-starter-actuator</artifactId>
+           98  <version>2.5.0</version>
+           99  </dependency>
+          100  <dependency>
+          101  <groupId>org.apache.tomcat</groupId>
+          102  <artifactId>tomcat-jdbc</artifactId>
+          103  <version>${tomcat.version}</version>
+          104  <scope>runtime</scope>
+          105  </dependency>
+          106  <dependency>
+          107  <groupId>org.hibernate</groupId>
         lineNumber: 96
         variables:
           name: io.micrometer.micrometer-core
@@ -2364,15 +2381,29 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: " 82  \t\t\t<artifactId>spring-jdbc</artifactId>\n 83  \t\t\t<version>${spring-framework.version}</version>\n
-          84  \t\t</dependency>\n 85  \t\t<dependency>\n 86  \t\t\t<groupId>org.springframework</groupId>\n
-          87  \t\t\t<artifactId>spring-webmvc</artifactId>\n 88  \t\t\t<version>${spring-framework.version}</version>\n
-          89  \t\t</dependency>\n 90  \t\t<dependency>\n 91  \t\t\t<groupId>org.springframework</groupId>\n
-          92  \t\t\t<artifactId>spring-web</artifactId>\n 93  \t\t\t<version>${spring-framework.version}</version>\n
-          94  \t\t</dependency>\n 95  \t\t<dependency>\n 96  \t\t\t<groupId>org.springframework.boot</groupId>\n
-          97  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n 98  \t\t\t<version>2.5.0</version>\n
-          99  \t\t</dependency>\n100  \t\t<dependency>\n101  \t\t\t<groupId>org.apache.tomcat</groupId>\n102
-          \ \t\t\t<artifactId>tomcat-jdbc</artifactId>"
+        codeSnip: |2-
+
+           82  <artifactId>spring-jdbc</artifactId>
+           83  <version>${spring-framework.version}</version>
+           84  </dependency>
+           85  <dependency>
+           86  <groupId>org.springframework</groupId>
+           87  <artifactId>spring-webmvc</artifactId>
+           88  <version>${spring-framework.version}</version>
+           89  </dependency>
+           90  <dependency>
+           91  <groupId>org.springframework</groupId>
+           92  <artifactId>spring-web</artifactId>
+           93  <version>${spring-framework.version}</version>
+           94  </dependency>
+           95  <dependency>
+           96  <groupId>org.springframework.boot</groupId>
+           97  <artifactId>spring-boot-starter-actuator</artifactId>
+           98  <version>2.5.0</version>
+           99  </dependency>
+          100  <dependency>
+          101  <groupId>org.apache.tomcat</groupId>
+          102  <artifactId>tomcat-jdbc</artifactId>
         lineNumber: 91
         variables:
           name: org.springframework.spring-web
@@ -2387,7 +2418,7 @@
       incidents:
       - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
         message: ""
-        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
+        codeSnip: "\n 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
           javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n
           5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n
           8  import org.springframework.web.context.ContextLoaderListener;\n 9  import
@@ -2403,7 +2434,7 @@
           package: io.konveyor.demo.ordermanagement
       - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
         message: ""
-        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
+        codeSnip: "\n 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
           javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n
           5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n
           8  import org.springframework.web.context.ContextLoaderListener;\n 9  import
@@ -2419,14 +2450,14 @@
           package: io.konveyor.demo.ordermanagement
       - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
         message: ""
-        codeSnip: " 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
+        codeSnip: "\n 1  package io.konveyor.demo.ordermanagement;\n 2  \n 3  import
           javax.servlet.ServletContext;\n 4  import javax.servlet.ServletException;\n
           5  import javax.servlet.ServletRegistration;\n 6  \n 7  import org.springframework.web.WebApplicationInitializer;\n
           8  import org.springframework.web.context.ContextLoaderListener;\n 9  import
           org.springframework.web.context.support.AnnotationConfigWebApplicationContext;\n10
           \ import org.springframework.web.servlet.DispatcherServlet;\n11  \n12  \n13
           \ public class OrderManagementAppInitializer implements WebApplicationInitializer
-          \ {\n14  \n15  \t@Override"
+          \ {\n14  \n15  @Override"
         lineNumber: 5
         variables:
           file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
@@ -2457,15 +2488,14 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: "77  \t\t\t<artifactId>spring-data-jpa</artifactId>\n78  \t\t</dependency>\n79
-          \ \n80  \t\t<dependency>\n81  \t\t\t<groupId>org.springframework</groupId>\n82
-          \ \t\t\t<artifactId>spring-jdbc</artifactId>\n83  \t\t\t<version>${spring-framework.version}</version>\n84
-          \ \t\t</dependency>\n85  \t\t<dependency>\n86  \t\t\t<groupId>org.springframework</groupId>\n87
-          \ \t\t\t<artifactId>spring-webmvc</artifactId>\n88  \t\t\t<version>${spring-framework.version}</version>\n89
-          \ \t\t</dependency>\n90  \t\t<dependency>\n91  \t\t\t<groupId>org.springframework</groupId>\n92
-          \ \t\t\t<artifactId>spring-web</artifactId>\n93  \t\t\t<version>${spring-framework.version}</version>\n94
-          \ \t\t</dependency>\n95  \t\t<dependency>\n96  \t\t\t<groupId>org.springframework.boot</groupId>\n97
-          \ \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>"
+        codeSnip: "\n77  <artifactId>spring-data-jpa</artifactId>\n78  </dependency>\n79
+          \ \n80  <dependency>\n81  <groupId>org.springframework</groupId>\n82  <artifactId>spring-jdbc</artifactId>\n83
+          \ <version>${spring-framework.version}</version>\n84  </dependency>\n85
+          \ <dependency>\n86  <groupId>org.springframework</groupId>\n87  <artifactId>spring-webmvc</artifactId>\n88
+          \ <version>${spring-framework.version}</version>\n89  </dependency>\n90
+          \ <dependency>\n91  <groupId>org.springframework</groupId>\n92  <artifactId>spring-web</artifactId>\n93
+          \ <version>${spring-framework.version}</version>\n94  </dependency>\n95
+          \ <dependency>\n96  <groupId>org.springframework.boot</groupId>\n97  <artifactId>spring-boot-starter-actuator</artifactId>"
         lineNumber: 86
         variables:
           name: org.springframework.spring-webmvc
@@ -2508,15 +2538,29 @@
       incidents:
       - uri: file:///opt/input/source/pom.xml
         message: ""
-        codeSnip: " 87  \t\t\t<artifactId>spring-webmvc</artifactId>\n 88  \t\t\t<version>${spring-framework.version}</version>\n
-          89  \t\t</dependency>\n 90  \t\t<dependency>\n 91  \t\t\t<groupId>org.springframework</groupId>\n
-          92  \t\t\t<artifactId>spring-web</artifactId>\n 93  \t\t\t<version>${spring-framework.version}</version>\n
-          94  \t\t</dependency>\n 95  \t\t<dependency>\n 96  \t\t\t<groupId>org.springframework.boot</groupId>\n
-          97  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n 98  \t\t\t<version>2.5.0</version>\n
-          99  \t\t</dependency>\n100  \t\t<dependency>\n101  \t\t\t<groupId>org.apache.tomcat</groupId>\n102
-          \ \t\t\t<artifactId>tomcat-jdbc</artifactId>\n103  \t\t\t<version>${tomcat.version}</version>\n104
-          \ \t\t\t<scope>runtime</scope>\n105  \t\t</dependency>\n106  \t\t<dependency>\n107
-          \ \t\t\t<groupId>org.hibernate</groupId>"
+        codeSnip: |2-
+
+           87  <artifactId>spring-webmvc</artifactId>
+           88  <version>${spring-framework.version}</version>
+           89  </dependency>
+           90  <dependency>
+           91  <groupId>org.springframework</groupId>
+           92  <artifactId>spring-web</artifactId>
+           93  <version>${spring-framework.version}</version>
+           94  </dependency>
+           95  <dependency>
+           96  <groupId>org.springframework.boot</groupId>
+           97  <artifactId>spring-boot-starter-actuator</artifactId>
+           98  <version>2.5.0</version>
+           99  </dependency>
+          100  <dependency>
+          101  <groupId>org.apache.tomcat</groupId>
+          102  <artifactId>tomcat-jdbc</artifactId>
+          103  <version>${tomcat.version}</version>
+          104  <scope>runtime</scope>
+          105  </dependency>
+          106  <dependency>
+          107  <groupId>org.hibernate</groupId>
         lineNumber: 96
         variables:
           name: org.springframework.boot.spring-boot-starter-actuator
@@ -2546,16 +2590,16 @@
       incidents:
       - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
         message: ""
-        codeSnip: " 1  package io.konveyor.demo.ordermanagement.model;\n 2  \n 3  import
-          javax.persistence.Column;\n 4  import javax.persistence.Entity;\n 5  import
-          javax.persistence.GeneratedValue;\n 6  import javax.persistence.GenerationType;\n
+        codeSnip: "\n 1  package io.konveyor.demo.ordermanagement.model;\n 2  \n 3
+          \ import javax.persistence.Column;\n 4  import javax.persistence.Entity;\n
+          5  import javax.persistence.GeneratedValue;\n 6  import javax.persistence.GenerationType;\n
           7  import javax.persistence.Id;\n 8  import javax.persistence.SequenceGenerator;\n
           9  import javax.persistence.Table;\n10  \n11  @Entity\n12  @Table(name =
-          \"customers\")\n13  public class Customer {\n14  \t@Id\n15      @SequenceGenerator(\n16
-          \             name = \"customersSequence\",\n17              sequenceName
-          = \"customers_id_seq\",\n18              allocationSize = 1,\n19              initialValue
-          = 6)\n20      @GeneratedValue(strategy = GenerationType.SEQUENCE, generator
-          = \"customersSequence\")\n21  \tprivate Long id;"
+          \"customers\")\n13  public class Customer {\n14  @Id\n15  @SequenceGenerator(\n16
+          \ name = \"customersSequence\",\n17  sequenceName = \"customers_id_seq\",\n18
+          \ allocationSize = 1,\n19  initialValue = 6)\n20  @GeneratedValue(strategy
+          = GenerationType.SEQUENCE, generator = \"customersSequence\")\n21  private
+          Long id;"
         lineNumber: 11
         variables:
           file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
@@ -2564,15 +2608,15 @@
           package: io.konveyor.demo.ordermanagement.model
       - uri: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
         message: ""
-        codeSnip: " 2  \n 3  import javax.persistence.Column;\n 4  import javax.persistence.Entity;\n
+        codeSnip: "\n 2  \n 3  import javax.persistence.Column;\n 4  import javax.persistence.Entity;\n
           5  import javax.persistence.GeneratedValue;\n 6  import javax.persistence.GenerationType;\n
           7  import javax.persistence.Id;\n 8  import javax.persistence.SequenceGenerator;\n
           9  import javax.persistence.Table;\n10  \n11  @Entity\n12  @Table(name =
-          \"customers\")\n13  public class Customer {\n14  \t@Id\n15      @SequenceGenerator(\n16
-          \             name = \"customersSequence\",\n17              sequenceName
-          = \"customers_id_seq\",\n18              allocationSize = 1,\n19              initialValue
-          = 6)\n20      @GeneratedValue(strategy = GenerationType.SEQUENCE, generator
-          = \"customersSequence\")\n21  \tprivate Long id;\n22  \t"
+          \"customers\")\n13  public class Customer {\n14  @Id\n15  @SequenceGenerator(\n16
+          \ name = \"customersSequence\",\n17  sequenceName = \"customers_id_seq\",\n18
+          \ allocationSize = 1,\n19  initialValue = 6)\n20  @GeneratedValue(strategy
+          = GenerationType.SEQUENCE, generator = \"customersSequence\")\n21  private
+          Long id;\n22  "
         lineNumber: 12
         variables:
           file: file:///opt/input/source/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
