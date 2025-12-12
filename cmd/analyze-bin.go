@@ -209,6 +209,16 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
+	// Load override provider settings if specified
+	overrideConfigs, err := a.loadOverrideProviderSettings()
+	if err != nil {
+		errLog.Error(err, "failed to load override provider settings")
+		return fmt.Errorf("failed to load override provider settings: %w", err)
+	}
+	if overrideConfigs != nil {
+		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
+	}
+
 	// Show decompiling message for binary analysis
 	if isBinaryAnalysis {
 		progressMode.Printf("  Decompiling binary...\n")
@@ -232,7 +242,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startBuiltinProvider := time.Now()
 	operationalLog.Info("[TIMING] Starting builtin provider setup")
-	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, reporter)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, overrideConfigs, reporter)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
@@ -770,7 +780,7 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 	return javaProvider, providerLocations, additionalBuiltinConfs, nil
 }
 
-func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
 	operationalLog.Info("setting up builtin provider")
 	builtinConfig := a.makeBuiltinProviderConfig()
 
@@ -784,6 +794,9 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalCon
 		builtinConfig.Proxy = &proxy
 	}
 	builtinConfig.ContextLines = a.contextLines
+
+	// Apply override settings (same as containerized providers)
+	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
 
 	// Add prepare progress reporter if available
 	// Note: Only set on InitConfig level to avoid duplicate progress events
