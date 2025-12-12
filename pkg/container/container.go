@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -215,7 +214,6 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		return fmt.Errorf("image and containerToolBin must be set")
 	}
 	args := []string{"run"}
-	os := runtime.GOOS
 	if c.detached {
 		args = append(args, "-d")
 	}
