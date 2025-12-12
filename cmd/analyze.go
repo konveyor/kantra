@@ -511,8 +511,7 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 		util.PythonProvider,
 		util.GoProvider,
 		util.NodeJSProvider,
-		util.DotnetProvider,
-		util.DotnetFrameworkProvider,
+		util.CsharpProvider,
 	}
 	for _, prov := range providers {
 		//validate other providers
@@ -567,7 +566,7 @@ func (a *analyzeCommand) ListAllProviders() {
 		"java",
 		"python",
 		"go",
-		"dotnet",
+		"csharp",
 		"nodejs",
 	}
 	supportedProvsContainerless := []string{

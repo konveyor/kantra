@@ -555,7 +555,7 @@ func Test_analyzeCommand_needDefaultRules(t *testing.T) {
 			name:                         "dotnet provider only should disable default rulesets",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
-				util.DotnetProvider: {},
+				util.CsharpProvider: {},
 			},
 			expectedEnableDefaultRulesets: false,
 		},
