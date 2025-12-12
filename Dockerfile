@@ -54,11 +54,12 @@ RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosy
 -X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
 FROM jaegertracing/all-in-one:latest AS jaeger-builder
-FROM quay.io/konveyor/java-external-provider:${VERSION} as java-provider
 FROM quay.io/konveyor/generic-external-provider:${VERSION} as generic-provider
 FROM quay.io/konveyor/yq-external-provider:${VERSION} as yq-provider
+FROM quay.io/konveyor/analyzer-lsp:${VERSION} as analyzer
 
-FROM quay.io/konveyor/analyzer-lsp:${VERSION}
+
+FROM quay.io/konveyor/java-external-provider:${VERSION}
 
 
 USER 0
@@ -78,7 +79,8 @@ RUN sed -i "s/^driver.*/driver = \"vfs\"/g" /home/mta/.config/containers/storage
 RUN echo -ne '[containers]\nvolumes = ["/proc:/proc",]\ndefault_sysctls = []' > /home/mta/.config/containers/containers.conf
 RUN chown -R 1000:1000 /home/mta
 
-RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input
+RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input /usr/local/static-report
+RUN chown -R 0:1000 /usr/local/static-report
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
@@ -93,13 +95,8 @@ COPY --from=generic-provider /usr/local/bin/golang-dependency-provider /usr/loca
 COPY --from=generic-provider /usr/local/bin/gopls /usr/local/bin/gopls
 COPY --from=yq-provider /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=yq-provider /usr/local/bin/yq-external-provider /usr/local/bin/yq-external-provider
-COPY --from=java-provider /usr/local/bin/java-external-provider /usr/local/bin/java-external-provider
-COPY --from=java-provider /jdtls /jdtls/
-COPY --from=java-provider /jdtls/plugins/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar /jdtls/plugins/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
-COPY --from=java-provider /jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar /jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
-COPY --from=java-provider /bin/fernflower.jar /bin/fernflower.jar
-COPY --from=java-provider /usr/local/etc/maven.default.index /usr/local/etc/maven.default.index
-COPY --from=java-provider /usr/local/etc/maven-index.txt /usr/local/etc/maven-index.txt
+COPY --from=analyzer /usr/local/bin/konveyor-analyzer /usr/local/bin/konveyor-analyzer
+COPY --from=analyzer /usr/local/bin/konveyor-analyzer-dep /usr/local/bin/konveyor-analyzer-dep
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
