@@ -77,17 +77,15 @@ jobs:
         run: |
           expected_file=./test-data/analysis-output.yaml
           actual_file=./output/output.yaml
-          ls -la $expected_file
-          ls -la $actual_file
           function filter_and_sort() {
             yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
               | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
               | yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' \
               | yq e '.[] | (.tags // []) |= sort'
           }
-          filter_and_sort $expected_file > $expected_file
-          filter_and_sort $actual_file > $actual_file
-          diff $expected_file $actual_file
+          filter_and_sort $expected_file > /tmp/expected_file_filtered
+          filter_and_sort $actual_file > /tmp/actual_file_filtered
+          diff /tmp/expected_file_filtered /tmp/actual_file_filtered
 
       - name: Fail if dependencies output does not match expected
         run: |
