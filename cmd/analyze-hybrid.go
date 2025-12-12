@@ -389,7 +389,7 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
 	builtinConfig := provider.Config{
@@ -416,6 +416,9 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 		builtinConfig.Proxy = &proxy
 	}
 	builtinConfig.ContextLines = a.contextLines
+
+	// Apply override settings (same as containerized providers)
+	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
 
 	providerLocations := []string{}
 	for _, ind := range builtinConfig.InitConfig {
@@ -692,7 +695,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog, overrideConfigs)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
