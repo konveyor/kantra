@@ -53,8 +53,16 @@ RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosy
 -X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
-FROM quay.io/konveyor/analyzer-lsp:${VERSION}
+FROM jaegertracing/all-in-one:latest AS jaeger-builder
+FROM quay.io/konveyor/generic-external-provider:${VERSION} as generic-provider
+FROM quay.io/konveyor/yq-external-provider:${VERSION} as yq-provider
+FROM quay.io/konveyor/analyzer-lsp:${VERSION} as analyzer
 
+
+FROM quay.io/konveyor/java-external-provider:${VERSION}
+
+
+USER 0
 RUN echo -e "[almalinux9-appstream]" \
  "\nname = almalinux9-appstream" \
  "\nbaseurl = https://repo.almalinux.org/almalinux/9/AppStream/\$basearch/os/" \
@@ -62,16 +70,17 @@ RUN echo -e "[almalinux9-appstream]" \
  "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
 
 RUN microdnf -y install podman
-RUN echo mta:x:1000:0:1000 user:/home/mta:/sbin/nologin > /etc/passwd
+RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
 RUN echo mta:10000:5000 > /etc/subuid
 RUN echo mta:10000:5000 > /etc/subgid
 RUN mkdir -p /home/mta/.config/containers/
 RUN cp /etc/containers/storage.conf /home/mta/.config/containers/storage.conf
 RUN sed -i "s/^driver.*/driver = \"vfs\"/g" /home/mta/.config/containers/storage.conf
 RUN echo -ne '[containers]\nvolumes = ["/proc:/proc",]\ndefault_sysctls = []' > /home/mta/.config/containers/containers.conf
-RUN chown -R 1000:1000 /home/mta
+RUN chown -R 1001:1001 /home/mta
 
-RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input
+RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input /usr/local/static-report
+RUN chown -R 0:1001 /usr/local/static-report
 
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
@@ -80,7 +89,16 @@ COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
+COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
+COPY --from=generic-provider /usr/local/bin/generic-external-provider /usr/local/bin/generic-external-provider
+COPY --from=generic-provider /usr/local/bin/golang-dependency-provider /usr/local/bin/golang-dependency-provider
+COPY --from=generic-provider /usr/local/bin/gopls /usr/local/bin/gopls
+COPY --from=yq-provider /usr/local/bin/yq /usr/local/bin/yq
+COPY --from=yq-provider /usr/local/bin/yq-external-provider /usr/local/bin/yq-external-provider
+COPY --from=analyzer /usr/local/bin/konveyor-analyzer /usr/local/bin/konveyor-analyzer
+COPY --from=analyzer /usr/local/bin/konveyor-analyzer-dep /usr/local/bin/konveyor-analyzer-dep
 COPY --chmod=755 entrypoint.sh /usr/bin/entrypoint.sh
 COPY --chmod=755 openrewrite_entrypoint.sh /usr/bin/openrewrite_entrypoint.sh
 
+USER 1001
 ENTRYPOINT ["kantra"]
