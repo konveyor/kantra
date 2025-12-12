@@ -496,7 +496,7 @@
       - konveyor.io/target=cloud-readiness
       - konveyor.io/target=discovery
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/resources/persistence.properties
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
         message: When migrating environments, hard-coded IP addresses may need to
           be modified or eliminated.
         lineNumber: 362
@@ -512,25 +512,25 @@
       - konveyor.io/target=discovery
       - tag=Java Source
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/OrderManagementAppInitializer.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/config/PersistenceConfig.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/config/WebConfig.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/config/WebConfig.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/controller/CustomerController.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/controller/CustomerController.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/exception/ResourceNotFoundException.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/exception/ResourceNotFoundException.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/exception/handler/ExceptionHandlingController.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/exception/handler/ExceptionHandlingController.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/model/Customer.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/repository/CustomerRepository.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/repository/CustomerRepository.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/service/CustomerService.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/service/CustomerService.java
         message: ""
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/service/ICustomerService.java
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/java/io/konveyor/demo/ordermanagement/service/ICustomerService.java
         message: ""
     discover-maven-xml:
       description: Maven XML file
@@ -540,7 +540,7 @@
       - konveyor.io/target=discovery
       - tag=Maven XML
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/pom.xml
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/pom.xml
         message: ""
     discover-properties-file:
       description: Properties file
@@ -550,7 +550,7 @@
       - konveyor.io/target=discovery
       - tag=Properties
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/resources/persistence.properties
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
         message: ""
     windup-discover-ejb-configuration:
       description: EJB XML Configuration
@@ -560,7 +560,7 @@
       - konveyor.io/target=discovery
       - tag=EJB XML
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/pom.xml
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/pom.xml
         message: ""
         codeSnip: "  1  <project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n  2
           \ \txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  3  \txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0
@@ -2267,7 +2267,7 @@
       - tag=Application Properties File
       - tag=Application properties file detected
       incidents:
-      - uri: file:///Users/tsanders/Workspace/kantra/example-applications/example-1/src/main/resources/persistence.properties
+      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
         message: ""
     configuration-management-technology-usage-0200:
       description: Application Properties File
