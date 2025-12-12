@@ -77,6 +77,8 @@ jobs:
         run: |
           expected_file=./test-data/analysis-output.yaml
           actual_file=./output/output.yaml
+          ls -la $expected_file
+          ls -la $actual_file
           function filter_and_sort() {
             yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
               | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
