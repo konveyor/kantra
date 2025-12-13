@@ -10,7 +10,7 @@ RUN microdnf -y install git &&\
 FROM quay.io/konveyor/static-report:${VERSION} as static-report
 
 # Build the manager binary
-FROM golang:1.23.9 as builder
+FROM golang:1.24.0 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

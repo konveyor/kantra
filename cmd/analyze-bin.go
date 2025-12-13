@@ -27,6 +27,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/parser"
+	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
@@ -74,7 +75,7 @@ func renderProgressBar(percent int, current, total int, message string) {
 	}
 
 	// Use \r to return to start of line and \033[K to clear to end of line
-	fmt.Fprintf(os.Stderr, "\r\033[KProcessing rules %3d%% |%s| %d/%d  %s",
+	fmt.Fprintf(os.Stderr, "\r\033[K  ✓ Processing rules %3d%% |%s| %d/%d  %s",
 		percent, bar, current, total, message)
 }
 
@@ -199,6 +200,12 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		return fmt.Errorf("unable to find kantra dependencies: %w", err)
 	}
 
+	// Create progress reporter early (before provider preparation)
+	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
+	if progressCancel != nil {
+		defer progressCancel()
+	}
+
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
@@ -219,7 +226,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startJavaProvider := time.Now()
 	operationalLog.Info("[TIMING] Starting Java provider setup")
-	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog, operationalLog)
+	javaProvider, javaLocations, additionalBuiltinConfigs, err := a.setupJavaProvider(ctx, analyzeLog, operationalLog, reporter)
 	if err != nil {
 		errLog.Error(err, "unable to start Java provider")
 		return fmt.Errorf("unable to start Java provider: %w", err)
@@ -235,7 +242,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startBuiltinProvider := time.Now()
 	operationalLog.Info("[TIMING] Starting builtin provider setup")
-	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, overrideConfigs)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, overrideConfigs, reporter)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
@@ -326,13 +333,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	operationalLog.Info("[TIMING] Starting rule execution")
 	operationalLog.Info("evaluating rules for violations. see analysis.log for more info")
 
-	// Create progress reporter (or noop if disabled)
-	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
-	if progressCancel != nil {
-		defer progressCancel()
-	}
-
-	// Run analysis with progress reporter
+	// Run analysis with progress reporter (already created earlier)
 	rulesets := eng.RunRulesWithOptions(ctx, ruleSets, []engine.RunOption{
 		engine.WithProgressReporter(reporter),
 	}, selectors...)
@@ -738,7 +739,7 @@ func (a *analyzeCommand) setJavaProvider(config provider.Config, analysisLog log
 	return java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
 }
 
-func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger, operationalLog logr.Logger) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger, operationalLog logr.Logger, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	javaConfig := a.makeJavaProviderConfig()
 	if a.httpProxy != "" || a.httpsProxy != "" {
 		proxy := provider.Proxy{
@@ -749,6 +750,14 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 		javaConfig.Proxy = &proxy
 	}
 	javaConfig.ContextLines = a.contextLines
+
+	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
+	if progressReporter != nil {
+		for i := range javaConfig.InitConfig {
+			javaConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		}
+	}
 
 	providerLocations := []string{}
 	for _, ind := range javaConfig.InitConfig {
@@ -771,7 +780,7 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 	return javaProvider, providerLocations, additionalBuiltinConfs, nil
 }
 
-func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
 	operationalLog.Info("setting up builtin provider")
 	builtinConfig := a.makeBuiltinProviderConfig()
 
@@ -788,6 +797,14 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalCon
 
 	// Apply override settings (same as containerized providers)
 	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
+
+	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
+	if progressReporter != nil {
+		for i := range builtinConfig.InitConfig {
+			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		}
+	}
 
 	providerLocations := []string{}
 	for _, ind := range builtinConfig.InitConfig {

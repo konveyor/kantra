@@ -22,6 +22,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/engine/labels"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/parser"
+	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
@@ -204,7 +205,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, Dotnet).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	provInit, ok := a.providersMap[providerName]
 	if !ok {
 		return nil, nil, nil, fmt.Errorf(
@@ -234,18 +235,22 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	case util.GoProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/gopls"
-		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		// Note: Don't set workspaceFolders - the generic Init method will use Location
+		// Setting both would cause duplicate file counting in GetDocumentUris
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
 
 	case util.PythonProvider:
 		providerSpecificConfig["lspServerName"] = "generic"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
-		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		// Note: Don't set workspaceFolders - the generic Init method will use Location
+		// Setting both would cause duplicate file counting in GetDocumentUris
 
 	case util.NodeJSProvider:
 		providerSpecificConfig["lspServerName"] = "nodejs"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/typescript-language-server"
 		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
+		// Set workspaceFolders for nodejs provider (used alongside Location)
+		// Fix merged in analyzer-lsp#1036 prevents duplicate file counting
 		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
 
 	case util.DotnetProvider:
@@ -272,7 +277,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		BinaryPath: "",                                         // Empty = network mode
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               util.SourceMountPath, // Path inside provider container
+				Location:               util.SourceMountPath,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
 				ProviderSpecificConfig: providerSpecificConfig,
 				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
@@ -280,6 +285,14 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		},
 	}
 	providerConfig.ContextLines = a.contextLines
+
+	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
+	if progressReporter != nil {
+		for i := range providerConfig.InitConfig {
+			providerConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		}
+	}
 
 	// Apply override provider settings if provided
 	providerConfig = applyProviderOverrides(providerConfig, overrideConfigs)
@@ -389,7 +402,7 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
 	builtinConfig := provider.Config{
@@ -419,6 +432,14 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 
 	// Apply override settings (same as containerized providers)
 	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
+
+	// Add prepare progress reporter if available
+	// Note: Only set on InitConfig level to avoid duplicate progress events
+	if progressReporter != nil {
+		for i := range builtinConfig.InitConfig {
+			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		}
+	}
 
 	providerLocations := []string{}
 	for _, ind := range builtinConfig.InitConfig {
@@ -639,6 +660,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
 
+	// Create progress reporter early (before provider preparation)
+	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
+	if progressCancel != nil {
+		defer progressCancel()
+	}
+
 	// Setup provider clients
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
@@ -648,7 +675,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Setup network-based provider clients for all configured providers
 	for provName := range a.providersMap {
 		a.log.Info("setting up network provider", "provider", provName)
-		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs)
+		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs, reporter)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
 			// Clean up any providers that were started before this failure
@@ -695,7 +722,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog, overrideConfigs)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog, overrideConfigs, reporter)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
@@ -816,7 +843,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
-	// prpare the providers
+	// prepare the providers
 	for name, conditions := range providerConditions {
 		if provider, ok := needProviders[name]; ok {
 			if err := provider.Prepare(ctx, conditions); err != nil {
@@ -845,12 +872,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	a.log.Info("[TIMING] Starting rule execution")
 	a.log.Info("evaluating rules for violations. see analysis.log for more info")
 
-	// Create progress reporter (or noop if disabled)
-	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
-	if progressCancel != nil {
-		defer progressCancel()
-	}
-	// Run analysis with progress reporter
+	// Run analysis with progress reporter (already created earlier)
 	rulesets := eng.RunRulesWithOptions(ctx, ruleSets, []engine.RunOption{
 		engine.WithProgressReporter(reporter),
 	}, selectors...)
