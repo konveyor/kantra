@@ -2,24 +2,26 @@ package provider
 
 import (
 	"fmt"
+
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
-type DotNetProvider struct {
+type CsharpProvider struct {
 	config provider.Config
 }
 
-func (p *DotNetProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
+func (p *CsharpProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 	p.config = provider.Config{
-		Name:    util.DotnetProvider,
+		Name:    util.CsharpProvider,
 		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
 		InitConfig: []provider.InitConfig{
 			{
 				Location:     util.SourceMountPath,
 				AnalysisMode: provider.SourceOnlyAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
-					provider.LspServerPathConfigKey: "/opt/app-root/.dotnet/tools/csharp-ls",
+					"ilspy_cmd": "/usr/local/bin/ilspycmd",
+					"paket_cmd": "/usr/local/bin/paket",
 				},
 			},
 		},

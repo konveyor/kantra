@@ -31,7 +31,7 @@ type Config struct {
 	JvmMaxMem            string `env:"JVM_MAX_MEM" default:""`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
 	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
-	DotnetProviderImage  string `env:"DOTNET_PROVIDER_IMG" default:"quay.io/konveyor/dotnet-external-provider:latest"`
+	CsharpProviderImage  string `env:"CSHARP_PROVIDER_IMG" default:"quay.io/konveyor/c-sharp-provider:latest"`
 }
 
 func (c *Config) Load() error {
