@@ -205,7 +205,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, C#).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	provInit, ok := a.providersMap[providerName]
 	if !ok {
 		return nil, nil, nil, fmt.Errorf(
