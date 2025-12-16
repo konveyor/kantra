@@ -568,17 +568,18 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 }
 
 func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
+	providerSpecificConfig := map[string]interface{}{}
+	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
+		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	}
+
 	builtinConfig := provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
 				Location:               a.input,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					// Don't set excludedDirs - let analyzer-lsp use default exclusions
-					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-					// Java target paths are already included in the defaults (target/)
-				},
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}
@@ -586,24 +587,30 @@ func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
 }
 
 func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
+	providerSpecificConfig := map[string]interface{}{
+		"cleanExplodedBin":              true,
+		"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
+		"lspServerName":                 util.JavaProvider,
+		"bundles":                       a.reqMap["bundle"],
+		provider.LspServerPathConfigKey: a.reqMap["jdtls"],
+		"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
+		"mavenIndexPath":                filepath.Join(a.kantraDir),
+		"disableMavenSearch":            a.disableMavenSearch,
+		"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
+	}
+
+	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
+		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	}
+
 	javaConfig := provider.Config{
 		Name:       util.JavaProvider,
 		BinaryPath: a.reqMap["jdtls"],
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     a.input,
-				AnalysisMode: provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					"cleanExplodedBin":              true,
-					"fernFlowerPath":                filepath.Join(a.kantraDir, "fernflower.jar"),
-					"lspServerName":                 util.JavaProvider,
-					"bundles":                       a.reqMap["bundle"],
-					provider.LspServerPathConfigKey: a.reqMap["jdtls"],
-					"depOpenSourceLabelsFile":       filepath.Join(a.kantraDir, "maven.default.index"),
-					"mavenIndexPath":                filepath.Join(a.kantraDir),
-					"disableMavenSearch":            a.disableMavenSearch,
-					"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
-				},
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}

@@ -29,21 +29,26 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 		mountPath = path.Join(util.SourceMountPath, filepath.Base(c.InputPath))
 	}
 
+	providerSpecificConfig := map[string]interface{}{
+		"lspServerName":                 util.JavaProvider,
+		"bundles":                       c.JavaBundleLocation,
+		"mavenIndexPath":                "/usr/local/etc/maven-index.txt",
+		"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
+		provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
+		"disableMavenSearch":            c.DisableMavenSearch,
+	}
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	}
+
 	p.config = provider.Config{
 		Name:    util.JavaProvider,
 		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     mountPath,
-				AnalysisMode: provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 util.JavaProvider,
-					"bundles":                       c.JavaBundleLocation,
-					"mavenIndexPath":                "/usr/local/etc/maven-index.txt",
-					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
-					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
-					"disableMavenSearch":            c.DisableMavenSearch,
-				},
+				Location:               mountPath,
+				AnalysisMode:           provider.AnalysisMode(c.Mode),
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}
