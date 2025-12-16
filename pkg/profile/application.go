@@ -12,5 +12,6 @@ type Resource struct {
 }
 
 type Repository struct {
-	URL string `json:"url" yaml:"url"`
+	URL    string `json:"url" yaml:"url"`
+	Branch string `json:"branch,omitempty" yaml:"branch,omitempty"`
 }

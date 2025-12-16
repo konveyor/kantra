@@ -29,6 +29,7 @@ type configCommand struct {
 
 type syncCommand struct {
 	url             string
+	branch          string
 	applicationPath string
 	logLevel        *uint32
 	log             logr.Logger
@@ -209,7 +210,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 		},
 	}
 
-	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository")
+	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository. use url:branch to specify a branch")
 	syncCommand.MarkFlagRequired("url")
 	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "path to the local application for Hub profiles. Default is the current directory")
 
@@ -217,6 +218,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 }
 
 func (s *syncCommand) Validate(ctx context.Context) error {
+	s.url, s.branch = parseURLWithBranch(s.url)
 	if s.applicationPath == "" {
 		defaultPath, err := s.setDefaultApplicationPath()
 		if err != nil {
@@ -388,6 +390,9 @@ func (s *syncCommand) getApplicationFromHub(urlRepo string) (profile.Application
 	}
 	var application profile.Application
 	if apps[0].Repository != nil && apps[0].Repository.URL == s.url {
+		if s.branch != "" && apps[0].Repository.Branch != "" && apps[0].Repository.Branch != s.branch {
+			return profile.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, apps[0].Repository.Branch)
+		}
 		application = apps[0]
 	} else {
 		return profile.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, apps[0].Repository.URL)
@@ -405,6 +410,19 @@ func parseApplicationsFromHub(jsonData string) ([]profile.Application, error) {
 	}
 
 	return apps, nil
+}
+
+func parseURLWithBranch(input string) (url, branch string) {
+	schemeEnd := strings.Index(input, "://")
+	searchStart := 0
+	if schemeEnd != -1 {
+		searchStart = schemeEnd + 3
+	}
+	remainder := input[searchStart:]
+	if idx := strings.LastIndex(remainder, ":"); idx != -1 {
+		return input[:searchStart+idx], remainder[idx+1:]
+	}
+	return input, ""
 }
 
 func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]profile.AnalysisProfile, error) {
