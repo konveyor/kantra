@@ -10,18 +10,23 @@ type BuiltinProvider struct {
 }
 
 func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
+	providerSpecificConfig := map[string]interface{}{
+		// Don't set excludedDirs - let analyzer-lsp use default exclusions
+		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+		// Java target paths are already included in the defaults (target/)
+	}
+
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	}
 
 	p.config = provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     util.SourceMountPath,
-				AnalysisMode: provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					// Don't set excludedDirs - let analyzer-lsp use default exclusions
-					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-					// Java target paths are already included in the defaults (target/)
-				},
+				Location:               util.SourceMountPath,
+				AnalysisMode:           provider.AnalysisMode(c.Mode),
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}

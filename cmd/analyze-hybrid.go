@@ -405,16 +405,23 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
+	providerSpecificConfig := map[string]interface{}{
+		// Don't set excludedDirs - let analyzer-lsp use default exclusions
+		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+	}
+
+	// Check if profiles directory exists in input and add to excludedDirs
+	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
+		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	}
+
 	builtinConfig := provider.Config{
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
 				Location:               a.input,
 				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					// Don't set excludedDirs - let analyzer-lsp use default exclusions
-					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-				},
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}
