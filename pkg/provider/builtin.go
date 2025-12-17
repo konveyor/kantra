@@ -1,9 +1,10 @@
 package provider
 
 import (
+	"strings"
+
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
-	"strings"
 )
 
 type BuiltinProvider struct {
@@ -11,6 +12,21 @@ type BuiltinProvider struct {
 }
 
 func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
+	providerSpecificConfig := map[string]interface{}{
+		// Don't set excludedDirs - let analyzer-lsp use default exclusions
+		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+		// Java target paths are already included in the defaults (target/)
+	}
+
+	var excludedDirs []interface{}
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+		excludedDirs = append(excludedDirs, excludedDir)
+	}
+	excludedPaths := getBuiltinTargetConfigs(c)
+	excludedDirs = append(excludedDirs, excludedPaths...)
+	if len(excludedDirs) > 0 {
+		providerSpecificConfig["excludedDirs"] = excludedDirs
+	}
 
 	p.config = provider.Config{
 		Name: "builtin",
@@ -18,14 +34,9 @@ func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error
 			{
 				Location:               util.SourceMountPath,
 				AnalysisMode:           provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: map[string]interface{}{},
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
-	}
-
-	excludedPaths := getBuiltinTargetConfigs(c)
-	if len(excludedPaths) > 0 {
-		p.config.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = excludedPaths
 	}
 
 	return p.config, nil
