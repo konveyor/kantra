@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -508,49 +507,6 @@ func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]st
 	return labelsSlice, nil
 }
 
-func (a *analyzeCommand) setKantraDir() error {
-	var dir string
-	var err error
-	set := true
-	reqs := []string{
-		RulesetsLocation,
-		"jdtls",
-		"static-report",
-	}
-	// check current dir first for reqs
-	dir, err = os.Getwd()
-	if err != nil {
-		return err
-	}
-	for _, v := range reqs {
-		_, err := os.Stat(filepath.Join(dir, v))
-		if err != nil {
-			set = false
-			a.log.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra")
-			break
-		}
-	}
-	// all reqs found here
-	if set {
-		a.kantraDir = dir
-		return nil
-	}
-	// fall back to $HOME/.kantra
-	ops := runtime.GOOS
-	if ops == "linux" {
-		dir, set = os.LookupEnv("XDG_CONFIG_HOME")
-	}
-	if ops != "linux" || dir == "" || !set {
-		// on Unix, including macOS, this returns the $HOME environment variable. On Windows, it returns %USERPROFILE%
-		dir, err = os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-	}
-	a.kantraDir = filepath.Join(dir, ".kantra")
-	return nil
-}
-
 func (a *analyzeCommand) setBinMapContainerless() error {
 	a.reqMap["bundle"] = filepath.Join(a.kantraDir, JavaBundlesLocation)
 	a.reqMap["jdtls"] = filepath.Join(a.kantraDir, JDTLSBinLocation)
@@ -577,9 +533,13 @@ func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               a.input,
-				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: providerSpecificConfig,
+				Location:     a.input,
+				AnalysisMode: provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: map[string]interface{}{
+					// Don't set excludedDirs - let analyzer-lsp use default exclusions
+					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
+					// Java target paths are already included in the defaults (target/)
+				},
 			},
 		},
 	}
