@@ -44,7 +44,7 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 			rulesPath := filepath.Join(kantraDir, RulesetsLocation)
 			if _, err := os.Stat(rulesPath); os.IsNotExist(err) {
 				log.Error(err, "cannot open rulesets path")
-				return nil
+				return fmt.Errorf("rulesets directory not found at %s", rulesPath)
 			}
 
 			log.Info("rulesets dir found", "dir", rulesPath)
