@@ -533,13 +533,9 @@ func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     a.input,
-				AnalysisMode: provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: map[string]interface{}{
-					// Don't set excludedDirs - let analyzer-lsp use default exclusions
-					// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-					// Java target paths are already included in the defaults (target/)
-				},
+				Location:               a.input,
+				AnalysisMode:           provider.AnalysisMode(a.mode),
+				ProviderSpecificConfig: providerSpecificConfig,
 			},
 		},
 	}
