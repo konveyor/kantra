@@ -12,6 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// defaultArchiveName is the expected output filename for dump-rules command
+const defaultArchiveName = "default-rulesets.zip"
+
 // Unit test for dumpRulesCommand.handleOutputFile method
 func TestDumpRulesCommand_HandleOutputFile(t *testing.T) {
 	tests := []struct {
@@ -223,41 +226,36 @@ func TestDumpRulesCommandFlagValidation(t *testing.T) {
 // Unit test for output path handling logic
 func TestOutputPathHandling(t *testing.T) {
 	tests := []struct {
-		name           string
-		outputDir      string
-		expectFilename string
+		name      string
+		outputDir string
 	}{
 		{
-			name:           "should append default filename to directory",
-			outputDir:      "/tmp/output",
-			expectFilename: "default-rulesets.zip",
+			name:      "should append default filename to directory",
+			outputDir: "/tmp/output",
 		},
 		{
-			name:           "should handle relative paths",
-			outputDir:      "./output",
-			expectFilename: "default-rulesets.zip",
+			name:      "should handle relative paths",
+			outputDir: "./output",
 		},
 		{
-			name:           "should handle empty path",
-			outputDir:      "",
-			expectFilename: "default-rulesets.zip",
+			name:      "should handle empty path",
+			outputDir: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// This simulates the logic from line 32 in dump-rules.go
-			result := filepath.Join(tt.outputDir, "default-rulesets.zip")
-			expectedPath := filepath.Join(tt.outputDir, tt.expectFilename)
+			result := filepath.Join(tt.outputDir, defaultArchiveName)
+			expectedPath := filepath.Join(tt.outputDir, defaultArchiveName)
 
 			if result != expectedPath {
 				t.Errorf("expected path '%s', got '%s'", expectedPath, result)
 			}
 
 			// Verify the filename is always present
-			filename := filepath.Base(result)
-			if filename != tt.expectFilename {
-				t.Errorf("expected filename '%s', got '%s'", tt.expectFilename, filename)
+			if filepath.Base(result) != defaultArchiveName {
+				t.Errorf("expected filename '%s', got '%s'", defaultArchiveName, filepath.Base(result))
 			}
 		})
 	}
@@ -451,7 +449,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 			overwrite:   false,
 			expectError: false,
 			verifyFunc: func(t *testing.T, outputDir string) {
-				zipPath := filepath.Join(outputDir, "default-rulesets.zip")
+				zipPath := filepath.Join(outputDir, defaultArchiveName)
 				if _, err := os.Stat(zipPath); os.IsNotExist(err) {
 					t.Error("zip file should be created")
 					return
@@ -512,7 +510,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 			overwrite:   false,
 			expectError: false,
 			verifyFunc: func(t *testing.T, outputDir string) {
-				zipPath := filepath.Join(outputDir, "default-rulesets.zip")
+				zipPath := filepath.Join(outputDir, defaultArchiveName)
 				if _, err := os.Stat(zipPath); os.IsNotExist(err) {
 					t.Error("zip file should be created even when empty")
 					return
@@ -556,7 +554,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 				}
 
 				// Create existing zip file with old content
-				existingZip := filepath.Join(outputDir, "default-rulesets.zip")
+				existingZip := filepath.Join(outputDir, defaultArchiveName)
 				err = os.WriteFile(existingZip, []byte("old zip content"), 0644)
 				if err != nil {
 					t.Fatal(err)
@@ -572,7 +570,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 			overwrite:   true,
 			expectError: false,
 			verifyFunc: func(t *testing.T, outputDir string) {
-				zipPath := filepath.Join(outputDir, "default-rulesets.zip")
+				zipPath := filepath.Join(outputDir, defaultArchiveName)
 
 				// Verify the new zip is valid
 				r, err := zip.OpenReader(zipPath)
@@ -614,7 +612,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 				}
 
 				// Create existing zip file
-				existingZip := filepath.Join(outputDir, "default-rulesets.zip")
+				existingZip := filepath.Join(outputDir, defaultArchiveName)
 				err = os.WriteFile(existingZip, []byte("existing content"), 0644)
 				if err != nil {
 					t.Fatal(err)
@@ -673,7 +671,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 			overwrite:   false,
 			expectError: false,
 			verifyFunc: func(t *testing.T, outputDir string) {
-				zipPath := filepath.Join(outputDir, "default-rulesets.zip")
+				zipPath := filepath.Join(outputDir, defaultArchiveName)
 
 				r, err := zip.OpenReader(zipPath)
 				if err != nil {
@@ -817,7 +815,7 @@ func TestDumpRulesCommand_ZipContentIntegrity(t *testing.T) {
 	}
 
 	// Verify zip content matches original
-	zipPath := filepath.Join(outputDir, "default-rulesets.zip")
+	zipPath := filepath.Join(outputDir, defaultArchiveName)
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
 		t.Fatalf("failed to open zip: %v", err)
@@ -917,98 +915,156 @@ func TestDumpRulesCommand_MissingRulesetsDirectory(t *testing.T) {
 	}
 }
 
-// Test command execution via cobra command interface
+// setupDumpRulesTestEnv creates a kantra directory with required subdirectories,
+// an output directory, and changes to the kantra directory. Returns the output
+// directory path and a cleanup function that restores the original directory
+// and removes temp directories.
+func setupDumpRulesTestEnv(t *testing.T) (outputDir string, cleanup func()) {
+	t.Helper()
+
+	// Create kantra directory
+	kantraDir, err := os.MkdirTemp("", "test-kantra-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create required directories for GetKantraDir to find this as kantra dir
+	for _, dir := range []string{RulesetsLocation, "jdtls", "static-report"} {
+		if err := os.MkdirAll(filepath.Join(kantraDir, dir), 0755); err != nil {
+			os.RemoveAll(kantraDir)
+			t.Fatal(err)
+		}
+	}
+
+	// Create output directory
+	outputDir, err = os.MkdirTemp("", "test-output-")
+	if err != nil {
+		os.RemoveAll(kantraDir)
+		t.Fatal(err)
+	}
+
+	// Save original directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		os.RemoveAll(kantraDir)
+		os.RemoveAll(outputDir)
+		t.Fatal(err)
+	}
+
+	// Change to kantra directory
+	if err := os.Chdir(kantraDir); err != nil {
+		os.RemoveAll(kantraDir)
+		os.RemoveAll(outputDir)
+		t.Fatal(err)
+	}
+
+	cleanup = func() {
+		os.Chdir(originalDir)
+		os.RemoveAll(kantraDir)
+		os.RemoveAll(outputDir)
+	}
+
+	return outputDir, cleanup
+}
+
+// Test command execution via cobra command interface with various flag combinations
 func TestDumpRulesCommand_CobraExecution(t *testing.T) {
 	logrusLog := logrus.New()
 	logrusLog.SetOutput(io.Discard)
 	logger := logrusr.New(logrusLog)
 
-	t.Run("should execute with valid flags", func(t *testing.T) {
-		// Create kantra directory
-		kantraDir, err := os.MkdirTemp("", "test-kantra-cobra-")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.RemoveAll(kantraDir)
+	tests := []struct {
+		name            string
+		args            []string // use "OUTPUT_DIR" as placeholder
+		createExisting  bool     // create existing zip before test
+		expectError     bool
+		expectZipExists bool
+	}{
+		{
+			name:            "long flag --output",
+			args:            []string{"--output", "OUTPUT_DIR"},
+			createExisting:  false,
+			expectError:     false,
+			expectZipExists: true,
+		},
+		{
+			name:            "short flag -o",
+			args:            []string{"-o", "OUTPUT_DIR"},
+			createExisting:  false,
+			expectError:     false,
+			expectZipExists: true,
+		},
+		{
+			name:            "overwrite flag with existing file",
+			args:            []string{"-o", "OUTPUT_DIR", "--overwrite"},
+			createExisting:  true,
+			expectError:     false,
+			expectZipExists: true,
+		},
+		{
+			name:            "no overwrite with existing file should fail",
+			args:            []string{"--output", "OUTPUT_DIR"},
+			createExisting:  true,
+			expectError:     true,
+			expectZipExists: true, // existing file remains
+		},
+	}
 
-		// Create required directories
-		for _, dir := range []string{RulesetsLocation, "jdtls", "static-report"} {
-			err = os.MkdirAll(filepath.Join(kantraDir, dir), 0755)
-			if err != nil {
-				t.Fatal(err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputDir, cleanup := setupDumpRulesTestEnv(t)
+			defer cleanup()
+
+			// Replace OUTPUT_DIR placeholder with actual path
+			args := make([]string, len(tt.args))
+			for i, arg := range tt.args {
+				if arg == "OUTPUT_DIR" {
+					args[i] = outputDir
+				} else {
+					args[i] = arg
+				}
 			}
-		}
 
-		outputDir, err := os.MkdirTemp("", "test-output-cobra-")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.RemoveAll(outputDir)
-
-		// Change to kantra directory
-		originalDir, err := os.Getwd()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Chdir(originalDir)
-
-		err = os.Chdir(kantraDir)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		cmd := NewDumpRulesCommand(logger)
-		cmd.SetArgs([]string{"-o", outputDir})
-		err = cmd.Execute()
-
-		if err != nil {
-			t.Errorf("command execution failed: %v", err)
-		}
-
-		// Verify output file exists
-		zipPath := filepath.Join(outputDir, "default-rulesets.zip")
-		if _, err := os.Stat(zipPath); os.IsNotExist(err) {
-			t.Error("zip file should be created")
-		}
-	})
-
-	t.Run("should handle shorthand flag -o", func(t *testing.T) {
-		kantraDir, err := os.MkdirTemp("", "test-kantra-shorthand-")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.RemoveAll(kantraDir)
-
-		for _, dir := range []string{RulesetsLocation, "jdtls", "static-report"} {
-			err = os.MkdirAll(filepath.Join(kantraDir, dir), 0755)
-			if err != nil {
-				t.Fatal(err)
+			// Create existing zip file if needed for overwrite tests
+			zipPath := filepath.Join(outputDir, defaultArchiveName)
+			if tt.createExisting {
+				if err := os.WriteFile(zipPath, []byte("existing content"), 0644); err != nil {
+					t.Fatal(err)
+				}
 			}
-		}
 
-		outputDir, err := os.MkdirTemp("", "test-output-shorthand-")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.RemoveAll(outputDir)
+			cmd := NewDumpRulesCommand(logger)
+			cmd.SetArgs(args)
+			err := cmd.Execute()
 
-		originalDir, err := os.Getwd()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Chdir(originalDir)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
 
-		err = os.Chdir(kantraDir)
-		if err != nil {
-			t.Fatal(err)
-		}
+			// Verify zip file existence
+			_, statErr := os.Stat(zipPath)
+			zipExists := !os.IsNotExist(statErr)
+			if tt.expectZipExists && !zipExists {
+				t.Error("expected zip file to exist")
+			} else if !tt.expectZipExists && zipExists {
+				t.Error("expected zip file to not exist")
+			}
 
-		cmd := NewDumpRulesCommand(logger)
-		cmd.SetArgs([]string{"-o", outputDir})
-		err = cmd.Execute()
-
-		if err != nil {
-			t.Errorf("command with -o flag failed: %v", err)
-		}
-	})
+			// For successful overwrite, verify it's a valid zip (not the old content)
+			if tt.createExisting && !tt.expectError && zipExists {
+				r, err := zip.OpenReader(zipPath)
+				if err != nil {
+					t.Errorf("overwritten file should be a valid zip: %v", err)
+				} else {
+					r.Close()
+				}
+			}
+		})
+	}
 }
