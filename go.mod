@@ -9,7 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/go-logr/logr v1.4.3
 	github.com/golang-jwt/jwt/v5 v5.2.2
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251206041249-2a753870572f
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251213020027-f8e9c896f69a
 	github.com/konveyor/asset-generation v0.2.2
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
@@ -136,7 +136,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251211203400-1bef9aeca7af
+	github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251213020027-f8e9c896f69a
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.7 // indirect

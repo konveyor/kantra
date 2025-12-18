@@ -41,6 +41,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				ProgressPrinter:  testing.PrintProgress,
 				Log:              log.V(3),
 				Prune:            testCmd.prune,
+				NoCleanup:        noCleanup,
 			})
 			testing.PrintSummary(os.Stdout, results)
 			if err != nil {
