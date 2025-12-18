@@ -140,10 +140,10 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251211203400-1bef9aeca7af h1:kwOFDsvkleMniQDBpVRywh9Qj/ZtozqqlugleUJHMKg=
-github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251211203400-1bef9aeca7af/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251206041249-2a753870572f h1:/eNe0w7O6CQs+eUXzF3TcNK1aoJBzCq2hAMLU8rzFG4=
-github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251206041249-2a753870572f/go.mod h1:+DpIwx2+9oomoBXvE62jk+zyCpI/ozRpW4QQWfi8zOk=
+github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251213020027-f8e9c896f69a h1:KFBeT7N4LtNHEL2XVAApj/S1YlvBKFCQHMZMHO461Ho=
+github.com/konveyor/analyzer-lsp v0.9.0-alpha.1.0.20251213020027-f8e9c896f69a/go.mod h1:tZkfGRokJZqtmNVeEPIFlxltZhZXXMM5g2NNdxmhTXM=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251213020027-f8e9c896f69a h1:kWntdUYs7wKMAwcspdPCyKVres7QvLeG0rCuLYHH64c=
+github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20251213020027-f8e9c896f69a/go.mod h1:40P9Pr9dNMJO3eY9bFmrnZeUizZcR6XviuLEe2HYBxM=
 github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=
 github.com/konveyor/asset-generation v0.2.2/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
