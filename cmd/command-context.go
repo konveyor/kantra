@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/go-logr/logr"
@@ -30,8 +31,8 @@ type AnalyzeCommandContext struct {
 	isFileInput  bool
 	needsBuiltin bool
 	// used for cleanup
-	networkName  string
-	volumeName   string
+	networkName string
+	volumeName  string
 	// mavenCacheVolumeName tracks the persistent Maven cache volume (NOT removed during cleanup)
 	mavenCacheVolumeName   string
 	providerContainerNames []string
@@ -52,18 +53,7 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 		if l.CanBeComponent {
 			c.log.V(5).Info("Got language", "component language", l)
 			if l.Name == "C#" {
-				for _, item := range l.Frameworks {
-					supported, ok := util.DotnetFrameworks[item]
-					if ok {
-						if !supported {
-							err := fmt.Errorf("unsupported .NET Framework version")
-							c.log.Error(err, ".NET Framework version must be greater or equal 'v4.5'")
-							return foundProviders, err
-						}
-						return []string{util.DotnetFrameworkProvider}, nil
-					}
-				}
-				foundProviders = append(foundProviders, util.DotnetProvider)
+				foundProviders = append(foundProviders, util.CsharpProvider)
 				continue
 			}
 
@@ -111,11 +101,11 @@ func (c *AnalyzeCommandContext) setProviderInitInfo(foundProviders []string) err
 				image:    Settings.GenericProviderImage,
 				provider: &provider2.NodeJsProvider{},
 			}
-		case util.DotnetProvider:
-			c.providersMap[util.DotnetProvider] = ProviderInit{
+		case util.CsharpProvider:
+			c.providersMap[util.CsharpProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.DotnetProviderImage,
-				provider: &provider2.DotNetProvider{},
+				image:    Settings.CsharpProviderImage,
+				provider: &provider2.CsharpProvider{},
 			}
 		}
 	}

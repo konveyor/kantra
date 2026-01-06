@@ -194,9 +194,9 @@ func Test_AnalyzeCommandContext_setProviders_CSharpDetection(t *testing.T) {
 		t.Errorf("setProviders() returned %d providers, want 1", len(result))
 	}
 
-	if result[0] != util.DotnetProvider {
+	if result[0] != util.CsharpProvider {
 		t.Errorf("setProviders() returned provider %s for C#, want %s",
-			result[0], util.DotnetProvider)
+			result[0], util.CsharpProvider)
 	}
 }
 
