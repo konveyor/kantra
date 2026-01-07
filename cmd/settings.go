@@ -139,11 +139,11 @@ func (c *Config) loadProviders() error {
 		}
 	}
 
-	if os.Getenv("DOTNET_PROVIDER_IMG") == "" {
+	if os.Getenv("CSHARP_PROVIDER_IMG") == "" {
 		// if version tag is given in image
 		dotnetImg := strings.TrimSuffix(DotnetProviderImage, fmt.Sprintf(":%v", Version))
 		updatedDotnetImg := fmt.Sprintf("%v:%v", dotnetImg, Version)
-		err := os.Setenv("DOTNET_PROVIDER_IMG", updatedDotnetImg)
+		err := os.Setenv("CSHARP_PROVIDER_IMG", updatedDotnetImg)
 		if err != nil {
 			return err
 		}
