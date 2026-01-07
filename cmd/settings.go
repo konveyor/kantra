@@ -18,7 +18,7 @@ var (
 	RulesetsLocation     = "rulesets"
 	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
 	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
-	DotnetProviderImage  = "quay.io/konveyor/dotnet-external-provider"
+	CsharpProviderImage  = "quay.io/konveyor/c-sharp-provider"
 )
 
 var Settings = &Config{}
@@ -141,9 +141,9 @@ func (c *Config) loadProviders() error {
 
 	if os.Getenv("CSHARP_PROVIDER_IMG") == "" {
 		// if version tag is given in image
-		dotnetImg := strings.TrimSuffix(DotnetProviderImage, fmt.Sprintf(":%v", Version))
-		updatedDotnetImg := fmt.Sprintf("%v:%v", dotnetImg, Version)
-		err := os.Setenv("CSHARP_PROVIDER_IMG", updatedDotnetImg)
+		csharpImg := strings.TrimSuffix(CsharpProviderImage, fmt.Sprintf(":%v", Version))
+		updatedCsharpImg := fmt.Sprintf("%v:%v", csharpImg, Version)
+		err := os.Setenv("CSHARP_PROVIDER_IMG", updatedCsharpImg)
 		if err != nil {
 			return err
 		}
