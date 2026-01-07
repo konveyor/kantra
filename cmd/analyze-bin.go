@@ -518,15 +518,16 @@ func (a *analyzeCommand) setKantraDir() error {
 		"static-report",
 	}
 	// check current dir first for reqs
-	dir, err = os.Getwd()
+	execDir, err := os.Executable()
 	if err != nil {
 		return err
 	}
+	dir = filepath.Dir(execDir)
 	for _, v := range reqs {
 		_, err := os.Stat(filepath.Join(dir, v))
 		if err != nil {
 			set = false
-			a.log.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra")
+			a.log.V(7).Info("requirement not found in current dir. Checking $HOME/.kantra", "dir", dir, "requirement", v)
 			break
 		}
 	}
