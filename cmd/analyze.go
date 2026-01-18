@@ -475,6 +475,11 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		a.mode != string(provider.SourceOnlyAnalysisMode) {
 		return fmt.Errorf("mode must be one of 'full' or 'source-only'")
 	}
+	// Disable dependency rules in source-only mode.
+	// Dependencies will be resolved and listed in the static report, but won't be evaluated against dependency rules.
+	if a.mode == string(provider.SourceOnlyAnalysisMode) {
+		a.noDepRules = true
+	}
 	if _, err := os.Stat(a.mavenSettingsFile); a.mavenSettingsFile != "" && err != nil {
 		return fmt.Errorf("%w failed to stat maven settings file at path %s", err, a.mavenSettingsFile)
 	}
