@@ -60,11 +60,12 @@ jobs:
           podman build -t localhost/kantra:latest -f Dockerfile .
           go build -o kantra main.go
 
-      - name: Clone koncur repository
-        run: |
-          git clone https://github.com/shawn-hurley/koncur.git
-          cd koncur
-          git checkout ${{ inputs.koncur_ref || 'main' }}
+      - name: Checkout koncur repository
+        uses: actions/checkout@v4
+        with:
+          repository: konveyor/koncur
+          ref: ${{ inputs.koncur_ref || 'main' }}
+          path: koncur
 
       - name: Create kantra target configuration
         run: |
@@ -80,7 +81,8 @@ jobs:
         run: |
           cd koncur
           TESTS=(
-            "tomcat-legacy"
+           # "tomcat-legacy"
+            "book-server-deps"
             # "another-test"
           )
           
