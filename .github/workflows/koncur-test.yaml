@@ -1,0 +1,114 @@
+name: Koncur Integration Tests
+
+on:
+  push:
+  pull_request:    
+  workflow_call:
+    inputs:
+      koncur_ref:
+        type: string
+        required: false
+        default: 'main'
+        description: Koncur branch/tag/ref to test against
+  workflow_dispatch:
+    inputs:
+      koncur_ref:
+        type: string
+        required: false
+        default: 'main'
+        description: Koncur branch/tag/ref to test against
+
+jobs:
+  koncur-test:
+    name: Set up koncur tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kantra
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Extract pull request number from inputs or PR description
+        run: |
+          echo "${{ github.event.pull_request.body }}"
+          PULL_REQUEST_NUMBER=$(echo "${{ github.event.pull_request.body }}" | grep -oP 'Analyzer PR: \K\d+' || true)
+          if [ -z "$PULL_REQUEST_NUMBER" ]; then
+            echo "ANALYZER_REF=main" >>$GITHUB_ENV
+          else
+            echo "ANALYZER_REF=refs/pull/$PULL_REQUEST_NUMBER/merge" >>$GITHUB_ENV
+          fi
+
+      - name: Checkout analyzer-lsp
+        uses: actions/checkout@v4
+        with:
+          repository: konveyor/analyzer-lsp
+          ref: ${{ env.ANALYZER_REF }}
+          path: analyzer-lsp
+
+      - name: Build analyzer image
+        working-directory: analyzer-lsp
+        run: |
+          podman build -t quay.io/konveyor/analyzer-lsp:latest .
+
+      - name: Build kantra image and binary
+        run: |
+          podman build -t localhost/kantra:latest -f Dockerfile .
+          go build -o kantra main.go
+
+      - name: Checkout koncur repository
+        uses: actions/checkout@v4
+        with:
+          repository: konveyor/koncur
+          ref: ${{ inputs.koncur_ref || 'main' }}
+          path: koncur
+
+      - name: Create kantra target configuration
+        run: |
+          cat > koncur/target-kantra.yaml << 'EOF'
+          type: kantra
+          kantra:
+            binaryPath: ${{ github.workspace }}/kantra
+          EOF
+
+      - name: Run koncur tests
+        env:
+          RUNNER_IMG: localhost/kantra:latest
+        run: |
+          cd koncur
+          TESTS=(
+           # "tomcat-legacy"
+            "book-server-deps"
+            # "another-test"
+          )
+          
+          FAILED=0
+          for test_name in "${TESTS[@]}"; do
+            echo "=========================================="
+            echo "Running test: $test_name"
+            echo "=========================================="
+            set +e
+            OUTPUT=$(go run cmd/koncur/main.go run "tests/$test_name/test.yaml" --target-config target-kantra.yaml 2>&1)
+            EXIT_CODE=$?
+            set -e
+            echo "$OUTPUT"
+            if [ $EXIT_CODE -ne 0 ] || echo "$OUTPUT" | grep -qE "(FAILED|Exit code mismatch)"; then
+              echo "Koncur $test_name test failed (exit code: $EXIT_CODE)"
+              FAILED=1
+            else
+              echo "Koncur $test_name test passed"
+            fi
+          done
+          exit $FAILED
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: koncur-test-logs
+          path: koncur/.koncur/output/
+          retention-days: 7
