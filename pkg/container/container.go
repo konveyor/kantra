@@ -245,7 +245,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		args = append(args, fmt.Sprintf("%s:%s:U,z",
+		args = append(args, fmt.Sprintf("%s:%s:z",
 			filepath.Clean(sourcePath), path.Clean(destPath)))
 	}
 	for _, portMapping := range c.ports {
