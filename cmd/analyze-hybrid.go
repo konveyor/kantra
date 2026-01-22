@@ -226,8 +226,8 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["lspServerName"] = providerName
 		providerSpecificConfig["lspServerPath"] = JDTLSBinLocation
 		providerSpecificConfig["bundles"] = JavaBundlesLocation
-		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
-		providerSpecificConfig["mavenIndexPath"] = "/usr/local/etc/maven-index.txt"
+		providerSpecificConfig["mavenIndexPath"] = MavenIndexPath
+		providerSpecificConfig["depOpenSourceLabelsFile"] = DepOpenSourceLabels
 		if a.mavenSettingsFile != "" {
 			// Use container path where settings.xml is mounted (copied by getConfigVolumes)
 			providerSpecificConfig["mavenSettingsFile"] = path.Join(util.ConfigMountPath, "settings.xml")
@@ -972,6 +972,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		return err
 	}
 	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
+
+	if err := a.getProviderLogs(ctx); err != nil {
+		a.log.Error(err, "failed to get provider logs")
+	}
 
 	// Print results summary (only in progress mode, not in --no-progress mode)
 	progressMode.Println("\nResults:")

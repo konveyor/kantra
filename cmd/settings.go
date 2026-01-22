@@ -15,6 +15,8 @@ var (
 	RootCommandName      = "kantra"
 	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	JDTLSBinLocation     = "/jdtls/bin/jdtls"
+	MavenIndexPath       = "/usr/local/etc/maven-index.txt"
+	DepOpenSourceLabels  = "/usr/local/etc/maven.default.index"
 	RulesetsLocation     = "rulesets"
 	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
 	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
