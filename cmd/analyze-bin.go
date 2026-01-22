@@ -966,7 +966,9 @@ func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.Fi
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context, operationalLog logr.Logger) error {
+// GenerateStaticReport generates a static HTML report from analysis output.
+// This function is used by both containerless and hybrid execution modes.
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
 	if a.skipStaticReport {
 		return nil
 	}

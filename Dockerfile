@@ -87,7 +87,6 @@ COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
 COPY --from=builder /workspace/windows-kantra /usr/local/bin/windows-kantra
 COPY --from=rulesets /rulesets/default/generated /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
-COPY --from=static-report /usr/bin/js-bundle-generator /usr/local/bin
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
 COPY --from=generic-provider /usr/local/bin/generic-external-provider /usr/local/bin/generic-external-provider
