@@ -385,7 +385,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
-	err = a.GenerateStaticReportContainerless(ctx, operationalLog)
+	err = a.GenerateStaticReport(ctx, operationalLog)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err

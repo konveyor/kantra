@@ -32,7 +32,6 @@ import (
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/progress"
 	"github.com/konveyor/analyzer-lsp/provider"
-	"go.lsp.dev/uri"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/maps"

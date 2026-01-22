@@ -1099,7 +1099,7 @@ func TestValidateContainerlessInput(t *testing.T) {
 	}
 }
 
-func TestGenerateStaticReportContainerlessSkipFlag(t *testing.T) {
+func TestGenerateStaticReportSkipFlag(t *testing.T) {
 	log := logr.Discard()
 
 	tests := []struct {
@@ -1154,7 +1154,7 @@ func TestGenerateStaticReportContainerlessSkipFlag(t *testing.T) {
 
 			// Call the method
 			testLog := logr.Discard()
-			err = a.GenerateStaticReportContainerless(context.Background(), testLog)
+			err = a.GenerateStaticReport(context.Background(), testLog)
 
 			if tt.skipStaticReport {
 				// Should return nil immediately without doing anything
@@ -1219,7 +1219,7 @@ func TestSkipStaticReportFlagParsing(t *testing.T) {
 				}
 
 				testLog := logr.Discard()
-				err = a.GenerateStaticReportContainerless(ctx, testLog)
+				err = a.GenerateStaticReport(ctx, testLog)
 
 				if tt.skipStaticReport {
 					// Should return nil immediately
