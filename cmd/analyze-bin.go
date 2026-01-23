@@ -996,11 +996,11 @@ func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLo
 	}
 
 	staticReportAnalyzePath := filepath.Join(a.kantraDir, "static-report")
-	err = a.buildStaticReportFile(ctx, staticReportAnalyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
+	err = a.buildStaticReportOutput(ctx, staticReportLog)
 	if err != nil {
 		return err
 	}
-	err = a.buildStaticReportOutput(ctx, staticReportLog)
+	err = a.buildStaticReportFile(ctx, staticReportAnalyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
 	if err != nil {
 		return err
 	}

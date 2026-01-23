@@ -113,16 +113,14 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if cmd.Flags().Lookup("list-languages").Changed {
 				cmd.MarkFlagRequired("input")
 			}
-			if analyzeCmd.runLocal {
-				kantraDir, err := util.GetKantraDir()
-				if err != nil {
-					analyzeCmd.log.Error(err, "unable to get analyze reqs")
-					return err
-				}
-				analyzeCmd.kantraDir = kantraDir
-				analyzeCmd.log.Info("found kantra dir", "dir", kantraDir)
+			kantraDir, err := util.GetKantraDir()
+			if err != nil {
+				analyzeCmd.log.Error(err, "unable to get analyze reqs")
+				return err
 			}
-			err := analyzeCmd.Validate(cmd.Context(), cmd)
+			analyzeCmd.kantraDir = kantraDir
+			analyzeCmd.log.Info("found kantra dir", "dir", kantraDir)
+			err = analyzeCmd.Validate(cmd.Context(), cmd)
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -1141,7 +1139,6 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 
 	return nil
 }
-
 
 func (a *analyzeCommand) moveResults() error {
 	outputPath := filepath.Join(a.output, "output.yaml")
