@@ -385,7 +385,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
-	err = a.GenerateStaticReportContainerless(ctx, operationalLog)
+	err = a.GenerateStaticReport(ctx, operationalLog)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
@@ -966,7 +966,9 @@ func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.Fi
 	return nil
 }
 
-func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context, operationalLog logr.Logger) error {
+// GenerateStaticReport generates a static HTML report from analysis output.
+// This function is used by both containerless and hybrid execution modes.
+func (a *analyzeCommand) GenerateStaticReport(ctx context.Context, operationalLog logr.Logger) error {
 	if a.skipStaticReport {
 		return nil
 	}
@@ -994,11 +996,11 @@ func (a *analyzeCommand) GenerateStaticReportContainerless(ctx context.Context, 
 	}
 
 	staticReportAnalyzePath := filepath.Join(a.kantraDir, "static-report")
-	err = a.buildStaticReportFile(ctx, staticReportAnalyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
+	err = a.buildStaticReportOutput(ctx, staticReportLog)
 	if err != nil {
 		return err
 	}
-	err = a.buildStaticReportOutput(ctx, staticReportLog)
+	err = a.buildStaticReportFile(ctx, staticReportAnalyzePath, errors.Is(noDepFileErr, os.ErrNotExist))
 	if err != nil {
 		return err
 	}

@@ -337,11 +337,9 @@
   - xml-removed-camel39-00009
   - xml-removed-camel39-00010
   - xml-removed-camel39-00011
-  - xml-removed-camel39-00012
   - xml-removed-camel39-00013
   - xml-removed-camel39-00014
   - xml-removed-camel39-00015
-  - xml-removed-camel39-00016
   - xml-removed-camel39-00017
   - xml-removed-camel39-00018
   - xml-removed-camel39-00019
@@ -483,7 +481,6 @@
   - socket-communication-00001
 - name: discovery-rules
   tags:
-  - EJB XML
   - Java Source
   - Maven XML
   - Properties
@@ -559,81 +556,10 @@
       incidents:
       - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
         message: ""
-    windup-discover-ejb-configuration:
-      description: EJB XML Configuration
-      labels:
-      - discovery
-      - konveyor.io/include=always
-      - konveyor.io/target=discovery
-      - tag=EJB XML
-      incidents:
-      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/pom.xml
-        message: ""
-        codeSnip: "  1  <project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n  2
-          \ \txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n  3  \txsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0
-          https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n  4  \t<modelVersion>4.0.0</modelVersion>\n
-          \ 5  \t<groupId>io.konveyor.demo</groupId>\n  6  \t<artifactId>customers-tomcat</artifactId>\n
-          \ 7  \t<version>0.0.1-SNAPSHOT</version>\n  8  \n  9  \t<name>Order Management</name>\n
-          10  \t<packaging>war</packaging>\n 11  \t<description>Remaining services
-          for the legacy Order Management application</description>\n 12  \n 13  \t<properties>\n
-          14  \t\t<java.version>1.8</java.version>\n 15  \t\t<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n
-          16  \t\t<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>\n
-          17  \t\t<maven.compiler.source>${java.version}</maven.compiler.source>\n
-          18  \t\t<maven.compiler.target>${java.version}</maven.compiler.target>\n
-          19  \t\t<spring-framework.version>5.3.7</spring-framework.version>\n 20
-          \ \t\t<tomcat.version>9.0.46</tomcat.version>\n 21  \t\t<spring-data.version>2021.0.1</spring-data.version>\n
-          22  \t\t<hibernate.version>5.4.32.Final</hibernate.version>\n 23  \t\t<hibernate-validator.version>6.2.0.Final</hibernate-validator.version>\n
-          24  \n 25  \t\t<postgresql-driver.version>42.2.20</postgresql-driver.version>\n
-          26  \t\t<jackson.version>2.12.3</jackson.version>\n 27  \n 28  \t\t<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>\n
-          29  \t\t<maven-war-plugin.version>3.3.1</maven-war-plugin.version>\n 30
-          \ \t\t<maven-resources-plugin.version>3.2.0</maven-resources-plugin.version>\n
-          31  \n 32  \t</properties>\n 33  \n 34  \t<repositories>\n 35  \t\t<repository>\n
-          36  \t\t\t<id>demo-config</id>\n 37  \t\t\t<name>Azure DevOps</name>\n 38
-          \ \t\t\t<url>https://pkgs.dev.azure.com/ShawnHurley21/demo-config-utils/_packaging/demo-config/maven/v1</url>\n
-          39  \t\t</repository>\n 40  \t</repositories>\n 41  \n 42  \t<dependencyManagement>\n
-          43  \t\t<dependencies>\n 44  \t\t\t<dependency>\n 45  \t\t\t\t<groupId>com.fasterxml.jackson</groupId>\n
-          46  \t\t\t\t<artifactId>jackson-bom</artifactId>\n 47  \t\t\t\t<version>${jackson.version}</version>\n
-          48  \t\t\t\t<scope>import</scope>\n 49  \t\t\t\t<type>pom</type>\n 50  \t\t\t</dependency>\n
-          51  \t\t\t<dependency>\n 52  \t\t\t\t<groupId>org.springframework.data</groupId>\n
-          53  \t\t\t\t<artifactId>spring-data-bom</artifactId>\n 54  \t\t\t\t<version>${spring-data.version}</version>\n
-          55  \t\t\t\t<scope>import</scope>\n 56  \t\t\t\t<type>pom</type>\n 57  \t\t\t</dependency>\n
-          58  \t\t</dependencies>\n 59  \t</dependencyManagement>\n 60  \t<dependencies>\n
-          61  \t\t<dependency>\n 62  \t\t\t<groupId>org.apache.tomcat</groupId>\n
-          63  \t\t\t<artifactId>tomcat-servlet-api</artifactId>\n 64  \t\t\t<version>${tomcat.version}</version>\n
-          65  \t\t\t<scope>provided</scope>\n 66  \t\t</dependency>\n 67  \t\t<dependency>\n
-          68  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n 69  \t\t\t<artifactId>jackson-core</artifactId>\n
-          70  \t\t</dependency>\n 71  \t\t<dependency>\n 72  \t\t\t<groupId>com.fasterxml.jackson.core</groupId>\n
-          73  \t\t\t<artifactId>jackson-databind</artifactId>\n 74  \t\t</dependency>\n
-          75  \t\t<dependency>\n 76  \t\t\t<groupId>org.springframework.data</groupId>\n
-          77  \t\t\t<artifactId>spring-data-jpa</artifactId>\n 78  \t\t</dependency>\n
-          79  \n 80  \t\t<dependency>\n 81  \t\t\t<groupId>org.springframework</groupId>\n
-          82  \t\t\t<artifactId>spring-jdbc</artifactId>\n 83  \t\t\t<version>${spring-framework.version}</version>\n
-          84  \t\t</dependency>\n 85  \t\t<dependency>\n 86  \t\t\t<groupId>org.springframework</groupId>\n
-          87  \t\t\t<artifactId>spring-webmvc</artifactId>\n 88  \t\t\t<version>${spring-framework.version}</version>\n
-          89  \t\t</dependency>\n 90  \t\t<dependency>\n 91  \t\t\t<groupId>org.springframework</groupId>\n
-          92  \t\t\t<artifactId>spring-web</artifactId>\n 93  \t\t\t<version>${spring-framework.version}</version>\n
-          94  \t\t</dependency>\n 95  \t\t<dependency>\n 96  \t\t\t<groupId>org.springframework.boot</groupId>\n
-          97  \t\t\t<artifactId>spring-boot-starter-actuator</artifactId>\n 98  \t\t\t<version>2.5.0</version>\n
-          99  \t\t</dependency>\n100  \t\t<dependency>\n101  \t\t\t<groupId>org.apache.tomcat</groupId>\n102
-          \ \t\t\t<artifactId>tomcat-jdbc</artifactId>\n103  \t\t\t<version>${tomcat.version}</version>\n104
-          \ \t\t\t<scope>runtime</scope>\n105  \t\t</dependency>"
-        lineNumber: 4
-        variables:
-          data: ""
-          innerText: "\n\t4.0.0\n\tio.konveyor.demo\n\tcustomers-tomcat\n\t0.0.1-SNAPSHOT\n\n\tOrder
-            Management\n\twar\n\tRemaining services for the legacy Order Management
-            application\n\n\t\n\t\t1.8\n\t\tUTF-8\n\t\tUTF-8\n\t\t${java.version}\n\t\t${java.version}\n\t\t5.3.7\n\t\t9.0.46\n\t\t2021.0.1\n\t\t5.4.32.Final\n\t\t6.2.0.Final\n\n\t\t42.2.20\n\t\t2.12.3\n\n\t\t3.8.1\n\t\t3.3.1\n\t\t3.2.0\n\n\t\n\n\t\n\t\t\n\t\t\tdemo-config\n\t\t\tAzure
-            DevOps\n\t\t\thttps://pkgs.dev.azure.com/ShawnHurley21/demo-config-utils/_packaging/demo-config/maven/v1\n\t\t\n\t\n\n\t\n\t\t\n\t\t\t\n\t\t\t\tcom.fasterxml.jackson\n\t\t\t\tjackson-bom\n\t\t\t\t${jackson.version}\n\t\t\t\timport\n\t\t\t\tpom\n\t\t\t\n\t\t\t\n\t\t\t\torg.springframework.data\n\t\t\t\tspring-data-bom\n\t\t\t\t${spring-data.version}\n\t\t\t\timport\n\t\t\t\tpom\n\t\t\t\n\t\t\n\t\n\t\n\t\t\n\t\t\torg.apache.tomcat\n\t\t\ttomcat-servlet-api\n\t\t\t${tomcat.version}\n\t\t\tprovided\n\t\t\n\t\t\n\t\t\tcom.fasterxml.jackson.core\n\t\t\tjackson-core\n\t\t\n\t\t\n\t\t\tcom.fasterxml.jackson.core\n\t\t\tjackson-databind\n\t\t\n\t\t\n\t\t\torg.springframework.data\n\t\t\tspring-data-jpa\n\t\t\n\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-jdbc\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-webmvc\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework\n\t\t\tspring-web\n\t\t\t${spring-framework.version}\n\t\t\n\t\t\n\t\t\torg.springframework.boot\n\t\t\tspring-boot-starter-actuator\n\t\t\t2.5.0\n\t\t\n\t\t\n\t\t\torg.apache.tomcat\n\t\t\ttomcat-jdbc\n\t\t\t${tomcat.version}\n\t\t\truntime\n\t\t\n\t\t\n\t\t\torg.hibernate\n\t\t\thibernate-entitymanager\n\t\t\t${hibernate.version}\n\t\t\n\t\t\n\t\t\torg.hibernate.validator\n\t\t\thibernate-validator\n\t\t\t${hibernate-validator.version}\n\t\t\n\t\t\n\t\t\tch.qos.logback\n\t\t\tlogback-classic\n\t\t\t1.1.7\n\t\t\n\t\t\n\t\t\tcom.oracle.database.jdbc\n\t\t\tojdbc8\n\t\t\t21.1.0.0\n\t\t\n\t\t\n\t\t\torg.postgresql\n\t\t\tpostgresql\n\t\t\t42.2.23\n\t\t\n\t\t\n\t\t\n\t\t\tio.konveyor.demo\n\t\t\tconfig-utils\n\t\t\t1.0.0\n\t\t\n\n\t\n\t\n\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-compiler-plugin\n\t\t\t\t${maven-compiler-plugin.version}\n\t\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-war-plugin\n\t\t\t\t${maven-war-plugin.version}\n\t\t\t\t\n\t\t\t\t\tfalse\n\t\t\t\t\n\t\t\t\n\t\t\t\n\t\t\t\torg.apache.maven.plugins\n\t\t\t\tmaven-resources-plugin\n\t\t\t\t${maven-resources-plugin.version}\n\t\t\t\t\n\t\t\t\t\tUTF-8\n\t\t\t\t\n\t\t\t\n\t\t\n\t\n\n\n"
-          matchingXML: <?xml version="1.0"?><project xmlns="http://maven.apache.org/POM/4.0.0"
-            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-            https://maven.apache.org/xsd/maven-4.0.0.xsd"><modelVersion>4.0.0</modelVersion><groupId>io.konveyor.demo</groupId><artifactId>customers-tomcat</artifactId><version>0.0.1-SNAPSHOT</version><name>Order
-            Management</name><packaging>war</packaging><description>Remaining services
-            for the legacy Order Management application</description><properties><java.version>1.8</java.version><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding><maven.compiler.source>${java.version}</maven.compiler.source><maven.compiler.target>${java.version}</maven.compiler.target><spring-framework.version>5.3.7</spring-framework.version><tomcat.version>9.0.46</tomcat.version><spring-data.version>2021.0.1</spring-data.version><hibernate.version>5.4.32.Final</hibernate.version><hibernate-validator.version>6.2.0.Final</hibernate-validator.version><postgresql-driver.version>42.2.20</postgresql-driver.version><jackson.version>2.12.3</jackson.version><maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version><maven-war-plugin.version>3.3.1</maven-war-plugin.version><maven-resources-plugin.version>3.2.0</maven-resources-plugin.version></properties><repositories><repository><id>demo-config</id><name>Azure
-            DevOps</name><url>https://pkgs.dev.azure.com/ShawnHurley21/demo-config-utils/_packaging/demo-config/maven/v1</url></repository></repositories><dependencyManagement><dependencies><dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson.version}</version><scope>import</scope><type>pom</type></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-bom</artifactId><version>${spring-data.version}</version><scope>import</scope><type>pom</type></dependency></dependencies></dependencyManagement><dependencies><dependency><groupId>org.apache.tomcat</groupId><artifactId>tomcat-servlet-api</artifactId><version>${tomcat.version}</version><scope>provided</scope></dependency><dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-core</artifactId></dependency><dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency><dependency><groupId>org.springframework.data</groupId><artifactId>spring-data-jpa</artifactId></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><version>${spring-framework.version}</version></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId><version>2.5.0</version></dependency><dependency><groupId>org.apache.tomcat</groupId><artifactId>tomcat-jdbc</artifactId><version>${tomcat.version}</version><scope>runtime</scope></dependency><dependency><groupId>org.hibernate</groupId><artifactId>hibernate-entitymanager</artifactId><version>${hibernate.version}</version></dependency><dependency><groupId>org.hibernate.validator</groupId><artifactId>hibernate-validator</artifactId><version>${hibernate-validator.version}</version></dependency><dependency><groupId>ch.qos.logback</groupId><artifactId>logback-classic</artifactId><version>1.1.7</version></dependency><dependency><groupId>com.oracle.database.jdbc</groupId><artifactId>ojdbc8</artifactId><version>21.1.0.0</version></dependency><dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.2.23</version></dependency><!--
-            Corporate libraries --><dependency><groupId>io.konveyor.demo</groupId><artifactId>config-utils</artifactId><version>1.0.0</version></dependency></dependencies><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>${maven-compiler-plugin.version}</version></plugin><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-war-plugin</artifactId><version>${maven-war-plugin.version}</version><configuration><failOnMissingWebXml>false</failOnMissingWebXml></configuration></plugin><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>${maven-resources-plugin.version}</version><configuration><encoding>UTF-8</encoding></configuration></plugin></plugins></build></project>
   unmatched:
   - discover-license
   - discover-manifest-file
+  - windup-discover-ejb-configuration
   - windup-discover-jpa-configuration
   - windup-discover-spring-configuration
   - windup-discover-web-configuration
@@ -1475,7 +1401,6 @@
   - javaee-to-jakarta-namespaces-00042
   - javaee-to-jakarta-namespaces-00043
   - javaee-to-jakarta-namespaces-00044
-  - javaee-to-jakarta-namespaces-00045
   - javaee-to-jakarta-namespaces-00046
   - javaee-to-jakarta-namespaces-00047
   - javaee-to-jakarta-namespaces-00048
@@ -2218,9 +2143,7 @@
   tags:
   - Application Properties File
   - Application properties file detected
-  - Bean=EJB XML
   - Configuration Management=Application Properties File
-  - Connect=EJB XML
   - Connect=Servlet
   - Embedded Spring Data JPA
   - Embedded framework - Micrometer
@@ -2241,7 +2164,6 @@
   - HTTP=Servlet
   - Integration=Micrometer
   - Inversion of Control=Spring DI
-  - Java EE=EJB XML
   - Java EE=JPA named queries
   - Java EE=Servlet
   - Java Servlet
@@ -2500,20 +2422,6 @@
         variables:
           name: org.springframework.spring-webmvc
           version: 5.3.7
-    non-xml-technology-usage-02000:
-      description: Non-XML EJB
-      labels:
-      - discovery
-      - konveyor.io/include=always
-      - tag=Bean=EJB XML
-      - tag=Connect=EJB XML
-      - tag=Java EE=EJB XML
-      incidents:
-      - uri: ""
-        message: ""
-        variables:
-          tags:
-          - EJB XML
     non-xml-technology-usage-20000:
       description: Properties
       labels:
@@ -3033,6 +2941,7 @@
   - mvc-05800
   - mvc-05900
   - mvc-06000
+  - non-xml-technology-usage-02000
   - non-xml-technology-usage-05000
   - non-xml-technology-usage-06000
   - non-xml-technology-usage-12000

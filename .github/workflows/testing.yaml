@@ -51,7 +51,15 @@ jobs:
         run: |
           podman build -t localhost/kantra:latest -f Dockerfile .
           go build -o kantra main.go
-      
+
+      - name: Extract containerless requirements from container
+        run: |
+          podman create --name kantra-extract localhost/kantra:latest
+          podman cp kantra-extract:/usr/local/static-report .
+          podman cp kantra-extract:/jdtls .
+          podman cp kantra-extract:/opt/rulesets .
+          podman rm kantra-extract
+
       - name: Run unit tests
         run: |
           RUNNER_IMG=localhost/kantra:latest go test ./... -coverprofile=coverage.txt
@@ -108,7 +116,11 @@ jobs:
       - name: download kantra and run test
         run: |
           git clone https://github.com/konveyor/example-applications
-          podman cp $(podman create --name kantra-download quay.io/konveyor/kantra:${{ inputs.tag }}):/usr/local/bin/kantra .
+          podman create --name kantra-download quay.io/konveyor/kantra:${{ inputs.tag }}
+          podman cp kantra-download:/usr/local/bin/kantra .
+          podman cp kantra-download:/usr/local/static-report .
+          podman cp kantra-download:/jdtls .
+          podman cp kantra-download:/opt/rulesets .
           podman rm kantra-download
           ./kantra analyze --input $(pwd)/example-applications/example-1/ \
             --output ./output/ --target cloud-readiness \

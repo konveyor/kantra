@@ -938,15 +938,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startStaticReport := time.Now()
 	a.log.Info("[TIMING] Starting static report generation")
 
-	// Create static report log file for container output
-	staticReportLogPath := filepath.Join(a.output, "static-report.log")
-	staticReportLog, err := os.Create(staticReportLogPath)
-	if err != nil {
-		return fmt.Errorf("failed creating static report log file at %s: %w", staticReportLogPath, err)
-	}
-	defer staticReportLog.Close()
-
-	err = a.GenerateStaticReport(ctx, a.log, staticReportLog)
+	err = a.GenerateStaticReport(ctx, a.log)
 	if err != nil {
 		a.log.Error(err, "failed to generate static report")
 		return err
