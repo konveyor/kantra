@@ -227,6 +227,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["lspServerPath"] = JDTLSBinLocation
 		providerSpecificConfig["bundles"] = JavaBundlesLocation
 		providerSpecificConfig["depOpenSourceLabelsFile"] = "/usr/local/etc/maven.default.index"
+		providerSpecificConfig["mavenIndexPath"] = "/usr/local/etc/maven-index.txt"
 		if a.mavenSettingsFile != "" {
 			// Use container path where settings.xml is mounted (copied by getConfigVolumes)
 			providerSpecificConfig["mavenSettingsFile"] = path.Join(util.ConfigMountPath, "settings.xml")
@@ -417,14 +418,15 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 	}
 
 	builtinConfig := provider.Config{
-		Name: "builtin",
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               a.input,
-				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: providerSpecificConfig,
-			},
-		},
+		Name:       "builtin",
+		InitConfig: []provider.InitConfig{},
+	}
+	if !a.isFileInput {
+		builtinConfig.InitConfig = append(builtinConfig.InitConfig, provider.InitConfig{
+			Location:               a.input,
+			AnalysisMode:           provider.AnalysisMode(a.mode),
+			ProviderSpecificConfig: providerSpecificConfig,
+		})
 	}
 
 	// Set proxy if configured
@@ -592,6 +594,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
 	}
 
+	providerToInputVolName := map[string]string{}
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -643,6 +646,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		type providerHealthResult struct {
 			providerName string
 			err          error
+			volName      string
 		}
 		healthChan := make(chan providerHealthResult, len(a.providersMap))
 
@@ -652,7 +656,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			provInit := provInit
 			go func() {
 				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log)
-				healthChan <- providerHealthResult{providerName: provName, err: err}
+				healthChan <- providerHealthResult{providerName: provName, err: err, volName: volName}
 			}()
 		}
 
@@ -662,6 +666,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			if result.err != nil {
 				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
+			providerToInputVolName[result.providerName] = result.volName
 		}
 
 		a.log.Info("all providers are ready")
@@ -680,6 +685,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	var additionalBuiltinConfigs []provider.InitConfig
 
+	hostRoot := a.input
+	containerRoot := util.SourceMountPath
+	if a.isFileInput {
+		// For binary files, use parent directory as hostRoot
+		hostRoot = filepath.Dir(a.input)
+		containerRoot = path.Dir(util.SourceMountPath)
+	}
 	// Setup network-based provider clients for all configured providers
 	for provName := range a.providersMap {
 		a.log.Info("setting up network provider", "provider", provName)
@@ -699,38 +711,54 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 		providers[provName] = provClient
 		providerLocations = append(providerLocations, locs...)
-		additionalBuiltinConfigs = append(additionalBuiltinConfigs, configs...)
-	}
-
-	// CRITICAL FIX: Transform container paths to host paths
-	// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
-	// The builtin provider runs on the host and needs host paths (a.input).
-	// We must transform these paths or builtin provider won't find any files!
-	hostRoot := a.input
-	containerRoot := util.SourceMountPath
-	if a.isFileInput {
-		// For binary files, use parent directory as hostRoot
-		hostRoot = filepath.Dir(a.input)
-		containerRoot = path.Dir(util.SourceMountPath)
-	}
-
-	transformedConfigs := make([]provider.InitConfig, len(additionalBuiltinConfigs))
-	for i, conf := range additionalBuiltinConfigs {
-		transformedConfigs[i] = conf
-		// Replace container path prefix with host path
-		if strings.HasPrefix(conf.Location, containerRoot) {
-			rel := strings.TrimPrefix(conf.Location, containerRoot)
-			rel = strings.TrimPrefix(rel, "/")
-			if rel == "" {
-				transformedConfigs[i].Location = hostRoot
-			} else {
-				transformedConfigs[i].Location = filepath.Join(hostRoot, rel)
+		// CRITICAL FIX: Transform container paths to host paths
+		// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
+		// The builtin provider runs on the host and needs host paths (a.input).
+		// We must transform these paths or builtin provider won't find any files!
+		providerHostRoot := hostRoot
+		if isBinaryAnalysis {
+			cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "inspect", providerToInputVolName[provName])
+			o, err := cmd.Output()
+			if err == nil {
+				j := []map[string]any{}
+				err = json.Unmarshal(o, &j)
+				if len(j) == 1 {
+					found := false
+					if volPath, ok := j[0]["Mountpoint"]; ok {
+						if _, err := os.Lstat(volPath.(string)); err == nil {
+							providerHostRoot = volPath.(string)
+							found = true
+						}
+					}
+					if opt, ok := j[0]["Options"]; !found && ok {
+						op, ok := opt.(map[string]any)
+						if ok {
+							if volPath, ok := op["device"]; ok {
+								if _, err := os.Lstat(volPath.(string)); err == nil {
+									providerHostRoot = volPath.(string)
+									found = true
+								}
+							}
+						}
+					}
+				}
 			}
+		}
+
+		for _, c := range configs {
+			if rel, err := filepath.Rel(containerRoot, c.Location); err == nil {
+				if rel == "." {
+					c.Location = providerHostRoot
+				} else {
+					c.Location = filepath.Join(providerHostRoot, filepath.FromSlash(rel))
+				}
+			}
+			additionalBuiltinConfigs = append(additionalBuiltinConfigs, c)
 		}
 	}
 
 	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, transformedConfigs, analyzeLog, overrideConfigs, reporter)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, additionalBuiltinConfigs, analyzeLog, overrideConfigs, reporter)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
