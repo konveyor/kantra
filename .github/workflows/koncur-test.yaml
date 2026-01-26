@@ -96,7 +96,7 @@ jobs:
             EXIT_CODE=$?
             set -e
             echo "$OUTPUT"
-            if [ $EXIT_CODE -ne 0 ] || echo "$OUTPUT" | grep -qE "(FAILED|Exit code mismatch)"; then
+            if [ $EXIT_CODE -ne 0 ] || echo "$OUTPUT" | grep -qE "(FAILED|Exit code mismatch|exit code: 1|✗ Error)"; then
               echo "Koncur $test_name test failed (exit code: $EXIT_CODE)"
               FAILED=1
             else
