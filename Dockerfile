@@ -69,7 +69,8 @@ RUN echo -e "[almalinux9-appstream]" \
  "\nenabled = 1" \
  "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
 
-RUN microdnf -y install podman
+RUN microdnf -y install podman nodejs
+RUN npm install -g typescript-language-server typescript
 RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
 RUN echo mta:10000:5000 > /etc/subuid
 RUN echo mta:10000:5000 > /etc/subgid
