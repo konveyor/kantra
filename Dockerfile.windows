@@ -2,7 +2,7 @@ ARG VERSION=latest
 
 FROM quay.io/konveyor/static-report:${VERSION} as static-report
 
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS rulesets
+FROM mcr.microsoft.com/windows/servercore:ltsc2025 AS rulesets
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 ENV GIT_VERSION 2.45.2
@@ -29,7 +29,7 @@ RUN $url = ('https://github.com/git-for-windows/git/releases/download/v{0}.windo
 ARG RULESETS_REF=main
 RUN C:\git\cmd\git.exe clone https://github.com/konveyor/rulesets -b $env:RULESETS_REF C:\rulesets
 
-FROM golang:1.23-windowsservercore-ltsc2022 as builder
+FROM golang:1.25-windowsservercore-ltsc2025 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -49,14 +49,14 @@ ARG VERSION=latest
 ARG BUILD_COMMIT
 RUN go build -o kantra.exe main.go
 
-FROM quay.io/konveyor/analyzer-lsp:${VERSION}
+FROM quay.io/konveyor/analyzer-lsp:${VERSION}-windowsservercore-ltsc2025
 
 ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}
 
 # Set the working directory inside the container
 WORKDIR C:/app
 
-RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\input\rules\custom C:\opt\output C:\tmp\source-app C:\tmp\source-app\input
+RUN md C:\opt\rulesets\input C:\opt\rulesets\convert C:\opt\openrewrite C:\opt\input\rules\custom C:\tmp\source-app C:\tmp\source-app\input
 
 # Copy the executable from the builder stage
 COPY --from=builder /workspace/kantra.exe .
