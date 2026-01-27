@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -728,8 +729,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 						op, ok := opt.(map[string]any)
 						if ok {
 							if volPath, ok := op["device"]; ok {
-								if _, err := os.Lstat(volPath.(string)); err == nil {
-									providerHostRoot = volPath.(string)
+								volPathString := volPath.(string)
+								if strings.Contains(volPathString, "/mnt/c") && runtime.GOOS == "windows" {
+									volPathString = filepath.FromSlash(strings.TrimPrefix(volPathString, "/mnt/c"))
+								}
+
+								if _, err := os.Lstat(volPathString); err == nil {
+									providerHostRoot = volPathString
 									found = true
 								}
 							}
