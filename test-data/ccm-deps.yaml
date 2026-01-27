@@ -1,0 +1,1163 @@
+- fileURI: file:///opt/input/source/pom.xml
+  provider: java
+  dependencies:
+  - name: antlr.antlr
+    version: 2.7.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 52f15b99911ab8b8bc8744675f5cf1994a626fb8
+    extras:
+      artifactId: antlr
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: antlr
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/antlr/antlr/2.7.7
+  - name: ch.qos.logback.logback-classic
+    version: 1.1.7
+    type: compile
+    resolvedIdentifier: 044c01db0f7d7aac366fb952a89c10251ed86f44
+    extras:
+      artifactId: logback-classic
+      groupId: ch.qos.logback
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/ch/qos/logback/logback-classic/1.1.7
+  - name: ch.qos.logback.logback-core
+    version: 1.1.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 6d1bdb1e28c56a8f989366b339f0f62545696e6d
+    extras:
+      artifactId: logback-core
+      baseDep:
+        extras:
+          artifactId: logback-classic
+          groupId: ch.qos.logback
+          pomPath: /opt/input/source/pom.xml
+        name: ch.qos.logback.logback-classic
+        version: 1.1.7
+      groupId: ch.qos.logback
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/ch/qos/logback/logback-core/1.1.7
+  - name: com.fasterxml.classmate
+    version: 1.5.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: d5d564526c142037daead331ee5278c088777858
+    extras:
+      artifactId: classmate
+      baseDep:
+        extras:
+          artifactId: hibernate-validator
+          groupId: org.hibernate.validator
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.validator.hibernate-validator
+        version: 6.2.0.Final
+      groupId: com.fasterxml
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/fasterxml/classmate/1.5.1
+  - name: com.fasterxml.jackson.core.jackson-annotations
+    version: 2.12.3
+    type: compile
+    indirect: true
+    resolvedIdentifier: 87859f29ceebfab7a873c3b4f4b89c9a594b2842
+    extras:
+      artifactId: jackson-annotations
+      baseDep:
+        extras:
+          artifactId: jackson-databind
+          groupId: com.fasterxml.jackson.core
+          pomPath: /opt/input/source/pom.xml
+        name: com.fasterxml.jackson.core.jackson-databind
+        version: 2.12.3
+      groupId: com.fasterxml.jackson.core
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.12.3
+  - name: com.fasterxml.jackson.core.jackson-core
+    version: 2.12.3
+    type: compile
+    resolvedIdentifier: ef6abf067337134089d074f411306a51f11a4d62
+    extras:
+      artifactId: jackson-core
+      groupId: com.fasterxml.jackson.core
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.12.3
+  - name: com.fasterxml.jackson.core.jackson-databind
+    version: 2.12.3
+    type: compile
+    resolvedIdentifier: 2b186d9cc73cfb9272171357d17f0979eac44889
+    extras:
+      artifactId: jackson-databind
+      groupId: com.fasterxml.jackson.core
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.12.3
+  - name: com.fasterxml.jackson.datatype.jackson-datatype-jsr310
+    version: 2.12.3
+    type: runtime
+    indirect: true
+    resolvedIdentifier: db7822a553c167e95bdda25d0d6db44bd3abf847
+    extras:
+      artifactId: jackson-datatype-jsr310
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: com.fasterxml.jackson.datatype
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.12.3
+  - name: com.oracle.database.jdbc.ojdbc8
+    version: 21.1.0.0
+    type: compile
+    resolvedIdentifier: dea0cca54c29d3e44167cd80839692b325ae2daf
+    extras:
+      artifactId: ojdbc8
+      groupId: com.oracle.database.jdbc
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/oracle/database/jdbc/ojdbc8/21.1.0.0
+  - name: com.sun.istack.istack-commons-runtime
+    version: 3.0.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 8eb4c6b0e9b0a1fadf53fce8b3fc8415b00469ef
+    extras:
+      artifactId: istack-commons-runtime
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: com.sun.istack
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/sun/istack/istack-commons-runtime/3.0.7
+  - name: com.sun.xml.fastinfoset.FastInfoset
+    version: 1.2.15
+    type: compile
+    indirect: true
+    resolvedIdentifier: 945cf1f4467c72add88309fb05cdf5e340b569f9
+    extras:
+      artifactId: FastInfoset
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: com.sun.xml.fastinfoset
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/com/sun/xml/fastinfoset/FastInfoset/1.2.15
+  - name: io.konveyor.demo.config-utils
+    version: 1.0.0
+    type: compile
+    resolvedIdentifier: 4010193B2F96CC7B7056C4CD51C3188FBBBC86E0
+    extras:
+      artifactId: config-utils
+      groupId: io.konveyor.demo
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=internal
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/io/konveyor/demo/config-utils/1.0.0
+  - name: io.micrometer.micrometer-core
+    version: 1.7.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: fd50ef746ed294d4e064c0cd3a14ca08543d139c
+    extras:
+      artifactId: micrometer-core
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: io.micrometer
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/io/micrometer/micrometer-core/1.7.0
+  - name: jakarta.annotation.jakarta.annotation-api
+    version: 1.3.5
+    type: compile
+    indirect: true
+    resolvedIdentifier: beb7649988a22ea30a17fcaeba8584323e86df74
+    extras:
+      artifactId: jakarta.annotation-api
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: jakarta.annotation
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/jakarta/annotation/jakarta.annotation-api/1.3.5
+  - name: jakarta.validation.jakarta.validation-api
+    version: 2.0.2
+    type: compile
+    indirect: true
+    resolvedIdentifier: fc029778f5494ed05e5833f8bdb57e36dbda38aa
+    extras:
+      artifactId: jakarta.validation-api
+      baseDep:
+        extras:
+          artifactId: hibernate-validator
+          groupId: org.hibernate.validator
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.validator.hibernate-validator
+        version: 6.2.0.Final
+      groupId: jakarta.validation
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/jakarta/validation/jakarta.validation-api/2.0.2
+  - name: javax.activation.javax.activation-api
+    version: 1.2.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: 1aa9ef58e50ba6868b2e955d61fcd73be5b4cea5
+    extras:
+      artifactId: javax.activation-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: javax.activation
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/javax/activation/javax.activation-api/1.2.0
+  - name: javax.persistence.javax.persistence-api
+    version: "2.2"
+    type: compile
+    indirect: true
+    resolvedIdentifier: ac7080de51fc0596317c15e12ed441f7c0a84d09
+    extras:
+      artifactId: javax.persistence-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: javax.persistence
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/javax/persistence/javax.persistence-api/2.2
+  - name: javax.xml.bind.jaxb-api
+    version: 2.3.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: c42c51ae84892b73ef7de5351188908e673f5c69
+    extras:
+      artifactId: jaxb-api
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: javax.xml.bind
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/javax/xml/bind/jaxb-api/2.3.1
+  - name: net.bytebuddy.byte-buddy
+    version: 1.10.22
+    type: compile
+    indirect: true
+    resolvedIdentifier: 14de25cfee49cd27ae19153674bbb34c04c45d52
+    extras:
+      artifactId: byte-buddy
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: net.bytebuddy
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/net/bytebuddy/byte-buddy/1.10.22
+  - name: org.apache.logging.log4j.log4j-api
+    version: 2.14.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: 9199a73770616b1ca0b00f576db3231aaab4876a
+    extras:
+      artifactId: log4j-api
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.apache.logging.log4j
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/apache/logging/log4j/log4j-api/2.14.1
+  - name: org.apache.logging.log4j.log4j-to-slf4j
+    version: 2.14.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: 4638502177d694ad6f429a122e32f84ceba7db41
+    extras:
+      artifactId: log4j-to-slf4j
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.apache.logging.log4j
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/apache/logging/log4j/log4j-to-slf4j/2.14.1
+  - name: org.apache.tomcat.tomcat-jdbc
+    version: 9.0.46
+    type: runtime
+    resolvedIdentifier: c3b975aba8359ecf35f6fca175c2e843a1d3c107
+    extras:
+      artifactId: tomcat-jdbc
+      groupId: org.apache.tomcat
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/apache/tomcat/tomcat-jdbc/9.0.46
+  - name: org.apache.tomcat.tomcat-juli
+    version: 9.0.46
+    type: runtime
+    indirect: true
+    resolvedIdentifier: 1596051131c8426ebf744e0effed0e0005c87d57
+    extras:
+      artifactId: tomcat-juli
+      baseDep:
+        extras:
+          artifactId: tomcat-jdbc
+          groupId: org.apache.tomcat
+          pomPath: /opt/input/source/pom.xml
+        name: org.apache.tomcat.tomcat-jdbc
+        version: 9.0.46
+      groupId: org.apache.tomcat
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/apache/tomcat/tomcat-juli/9.0.46
+  - name: org.apache.tomcat.tomcat-servlet-api
+    version: 9.0.46
+    type: provided
+    resolvedIdentifier: 1f5ec6292bbca9e6c35172044b5fee0b0a97ef24
+    extras:
+      artifactId: tomcat-servlet-api
+      groupId: org.apache.tomcat
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/apache/tomcat/tomcat-servlet-api/9.0.46
+  - name: org.aspectj.aspectjrt
+    version: 1.9.6
+    type: compile
+    indirect: true
+    resolvedIdentifier: 2c4216b8c0f62edf69ec5cdd68619ba2aac5a4a1
+    extras:
+      artifactId: aspectjrt
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.aspectj
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/aspectj/aspectjrt/1.9.6
+  - name: org.checkerframework.checker-qual
+    version: 3.5.0
+    type: runtime
+    indirect: true
+    resolvedIdentifier: 408a4451ff5bdef60400a49657867db100ea0f83
+    extras:
+      artifactId: checker-qual
+      baseDep:
+        extras:
+          artifactId: postgresql
+          groupId: org.postgresql
+          pomPath: /opt/input/source/pom.xml
+        name: org.postgresql.postgresql
+        version: 42.2.23
+      groupId: org.checkerframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/checkerframework/checker-qual/3.5.0
+  - name: org.dom4j.dom4j
+    version: 2.1.3
+    type: compile
+    indirect: true
+    resolvedIdentifier: 012854caa63db09d82bf973bc37d7226aaaef463
+    extras:
+      artifactId: dom4j
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.dom4j
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/dom4j/dom4j/2.1.3
+  - name: org.glassfish.jaxb.jaxb-runtime
+    version: 2.3.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: 1856da23a80b9b1374d925d6dcb4a21db2144204
+    extras:
+      artifactId: jaxb-runtime
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.glassfish.jaxb
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/glassfish/jaxb/jaxb-runtime/2.3.1
+  - name: org.glassfish.jaxb.txw2
+    version: 2.3.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: c78aa440484eab1a6e2104e4fe69d0945a3cb3da
+    extras:
+      artifactId: txw2
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.glassfish.jaxb
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/glassfish/jaxb/txw2/2.3.1
+  - name: org.hdrhistogram.HdrHistogram
+    version: 2.1.12
+    type: compile
+    indirect: true
+    resolvedIdentifier: 9797702ee3e52e4be6bfbbc9fd20ac5447e7a541
+    extras:
+      artifactId: HdrHistogram
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.hdrhistogram
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/hdrhistogram/HdrHistogram/2.1.12
+  - name: org.hibernate.common.hibernate-commons-annotations
+    version: 5.1.2.Final
+    type: compile
+    indirect: true
+    resolvedIdentifier: 573f22ce360cd7a8bcc0dae4deecbe4e8861007d
+    extras:
+      artifactId: hibernate-commons-annotations
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.hibernate.common
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/hibernate/common/hibernate-commons-annotations/5.1.2.Final
+  - name: org.hibernate.hibernate-core
+    version: 5.4.32.Final
+    type: compile
+    indirect: true
+    resolvedIdentifier: 5be381f7b6f3d4f17ce746e4ff54f4b8cdce40e4
+    extras:
+      artifactId: hibernate-core
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.hibernate
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/hibernate/hibernate-core/5.4.32.Final
+  - name: org.hibernate.hibernate-entitymanager
+    version: 5.4.32.Final
+    type: compile
+    resolvedIdentifier: b315696800e16d33bfb297d66f87a792caa3facc
+    extras:
+      artifactId: hibernate-entitymanager
+      groupId: org.hibernate
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/hibernate/hibernate-entitymanager/5.4.32.Final
+  - name: org.hibernate.validator.hibernate-validator
+    version: 6.2.0.Final
+    type: compile
+    resolvedIdentifier: 7f1beda5229a0c99a175603c18b3c66da44f966e
+    extras:
+      artifactId: hibernate-validator
+      groupId: org.hibernate.validator
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/hibernate/validator/hibernate-validator/6.2.0.Final
+  - name: org.javassist.javassist
+    version: 3.27.0-GA
+    type: compile
+    indirect: true
+    resolvedIdentifier: 0b7565662bc91e9648aab437135f32beb040ac15
+    extras:
+      artifactId: javassist
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.javassist
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/javassist/javassist/3.27.0-GA
+  - name: org.jboss.jandex
+    version: 2.2.3.Final
+    type: compile
+    indirect: true
+    resolvedIdentifier: c70053a1326428ec641be311ccf5551a8ec76a63
+    extras:
+      artifactId: jandex
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.jboss
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/jboss/jandex/2.2.3.Final
+  - name: org.jboss.logging.jboss-logging
+    version: 3.4.1.Final
+    type: compile
+    indirect: true
+    resolvedIdentifier: 9d82f8eea1b5ed484775517d7588e320f9f7797a
+    extras:
+      artifactId: jboss-logging
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.jboss.logging
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/jboss/logging/jboss-logging/3.4.1.Final
+  - name: org.jboss.spec.javax.transaction.jboss-transaction-api_1.2_spec
+    version: 1.1.1.Final
+    type: compile
+    indirect: true
+    resolvedIdentifier: 90823b310c573492696ad7e299b694ca2e70b4c1
+    extras:
+      artifactId: jboss-transaction-api_1.2_spec
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.jboss.spec.javax.transaction
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/jboss/spec/javax/transaction/jboss-transaction-api_1.2_spec/1.1.1.Final
+  - name: org.jvnet.staxex.stax-ex
+    version: "1.8"
+    type: compile
+    indirect: true
+    resolvedIdentifier: cc7022b896125220e51f46fa50f4b68e564ffec1
+    extras:
+      artifactId: stax-ex
+      baseDep:
+        extras:
+          artifactId: hibernate-entitymanager
+          groupId: org.hibernate
+          pomPath: /opt/input/source/pom.xml
+        name: org.hibernate.hibernate-entitymanager
+        version: 5.4.32.Final
+      groupId: org.jvnet.staxex
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/jvnet/staxex/stax-ex/1.8
+  - name: org.latencyutils.LatencyUtils
+    version: 2.0.3
+    type: runtime
+    indirect: true
+    resolvedIdentifier: 5baec26b6f9e5b17fdd200fc20af85eead4287c4
+    extras:
+      artifactId: LatencyUtils
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.latencyutils
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/latencyutils/LatencyUtils/2.0.3
+  - name: org.postgresql.postgresql
+    version: 42.2.23
+    type: compile
+    resolvedIdentifier: cc8565ec39dbfee32c2c87f125162fe8a3010c28
+    extras:
+      artifactId: postgresql
+      groupId: org.postgresql
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/postgresql/postgresql/42.2.23
+  - name: org.slf4j.jul-to-slf4j
+    version: 1.7.30
+    type: compile
+    indirect: true
+    resolvedIdentifier: f09448bdaeee63bc0644abae571b2d17c83d16c1
+    extras:
+      artifactId: jul-to-slf4j
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.slf4j
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/slf4j/jul-to-slf4j/1.7.30
+  - name: org.slf4j.slf4j-api
+    version: 1.7.26
+    type: compile
+    indirect: true
+    resolvedIdentifier: 4d3419a58d77c07f49185aaa556a787d50508d27
+    extras:
+      artifactId: slf4j-api
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.slf4j
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/slf4j/slf4j-api/1.7.26
+  - name: org.springframework.boot.spring-boot
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: 48a6c425a45395e1ccfd99fd815c92d069040e43
+    extras:
+      artifactId: spring-boot
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot/2.5.0
+  - name: org.springframework.boot.spring-boot-actuator
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: ee202daac01b6399b857d187cfdbf6d97d6adc8f
+    extras:
+      artifactId: spring-boot-actuator
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-actuator/2.5.0
+  - name: org.springframework.boot.spring-boot-actuator-autoconfigure
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: c527193b5cc67f7534c27860171e44187746aaf5
+    extras:
+      artifactId: spring-boot-actuator-autoconfigure
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-actuator-autoconfigure/2.5.0
+  - name: org.springframework.boot.spring-boot-autoconfigure
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: da542216009c858c2e8b32cb595578acc19d2df3
+    extras:
+      artifactId: spring-boot-autoconfigure
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-autoconfigure/2.5.0
+  - name: org.springframework.boot.spring-boot-starter
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: 391cbf83221ae09c1c0a471b25ab3221dfe46ef1
+    extras:
+      artifactId: spring-boot-starter
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-starter/2.5.0
+  - name: org.springframework.boot.spring-boot-starter-actuator
+    version: 2.5.0
+    type: compile
+    resolvedIdentifier: 76dd6dea415751e05491337b7ff22bd08ae70c7e
+    extras:
+      artifactId: spring-boot-starter-actuator
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-starter-actuator/2.5.0
+  - name: org.springframework.boot.spring-boot-starter-logging
+    version: 2.5.0
+    type: compile
+    indirect: true
+    resolvedIdentifier: 60f06908ef3b39d8c8780898e749c4c846fabb84
+    extras:
+      artifactId: spring-boot-starter-logging
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.springframework.boot
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/boot/spring-boot-starter-logging/2.5.0
+  - name: org.springframework.data.spring-data-commons
+    version: 2.5.1
+    type: compile
+    indirect: true
+    resolvedIdentifier: bceeabb4ef399ba7ff8511f2931e1924a41cc921
+    extras:
+      artifactId: spring-data-commons
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework.data
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/data/spring-data-commons/2.5.1
+  - name: org.springframework.data.spring-data-jpa
+    version: 2.5.1
+    type: compile
+    resolvedIdentifier: 461ebcc9fc00dca10a754b0e96583ce7d281d312
+    extras:
+      artifactId: spring-data-jpa
+      groupId: org.springframework.data
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/data/spring-data-jpa/2.5.1
+  - name: org.springframework.spring-aop
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 0bf1d9d12108b8ab2d9d71d5fd5fee02d3ee5bde
+    extras:
+      artifactId: spring-aop
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-aop/5.3.7
+  - name: org.springframework.spring-beans
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 654397f55cd4a4734f8b76282e98c88884d0367a
+    extras:
+      artifactId: spring-beans
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-beans/5.3.7
+  - name: org.springframework.spring-context
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 67e3176098c81702c76d20977deec8101b3faf8c
+    extras:
+      artifactId: spring-context
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-context/5.3.7
+  - name: org.springframework.spring-core
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 44ce199d05bb1ce9682621cd18953ea307485fc1
+    extras:
+      artifactId: spring-core
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-core/5.3.7
+  - name: org.springframework.spring-expression
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: 30bd0b3e802e5ba4e4d9fc68e57cc0e755ba9f9f
+    extras:
+      artifactId: spring-expression
+      baseDep:
+        extras:
+          artifactId: spring-webmvc
+          groupId: org.springframework
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.spring-webmvc
+        version: 5.3.7
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-expression/5.3.7
+  - name: org.springframework.spring-jcl
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: e1e7c14c73ae5fc616bb941ce8c1e7e62736cadf
+    extras:
+      artifactId: spring-jcl
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-jcl/5.3.7
+  - name: org.springframework.spring-jdbc
+    version: 5.3.7
+    type: compile
+    resolvedIdentifier: a4f87a03116ecde96213642141eb95da05022f51
+    extras:
+      artifactId: spring-jdbc
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-jdbc/5.3.7
+  - name: org.springframework.spring-orm
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: cc6911f3194cb77d493aa626c661789926027446
+    extras:
+      artifactId: spring-orm
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-orm/5.3.7
+  - name: org.springframework.spring-tx
+    version: 5.3.7
+    type: compile
+    indirect: true
+    resolvedIdentifier: c6df78e1d9b50b7063e4a196127d75ee9321f68b
+    extras:
+      artifactId: spring-tx
+      baseDep:
+        extras:
+          artifactId: spring-data-jpa
+          groupId: org.springframework.data
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.data.spring-data-jpa
+        version: 2.5.1
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-tx/5.3.7
+  - name: org.springframework.spring-web
+    version: 5.3.7
+    type: compile
+    resolvedIdentifier: d9f78e0b045d90dc862cd4a39294a468b3cc6ba9
+    extras:
+      artifactId: spring-web
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-web/5.3.7
+  - name: org.springframework.spring-webmvc
+    version: 5.3.7
+    type: compile
+    resolvedIdentifier: d0f042bff56bb90beabc6ed5d062fb87c69e652a
+    extras:
+      artifactId: spring-webmvc
+      groupId: org.springframework
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/springframework/spring-webmvc/5.3.7
+  - name: org.yaml.snakeyaml
+    version: "1.28"
+    type: compile
+    indirect: true
+    resolvedIdentifier: 3e38757e3eaf549cccd9bbdfa74b2930c177b8af
+    extras:
+      artifactId: snakeyaml
+      baseDep:
+        extras:
+          artifactId: spring-boot-starter-actuator
+          groupId: org.springframework.boot
+          pomPath: /opt/input/source/pom.xml
+        name: org.springframework.boot.spring-boot-starter-actuator
+        version: 2.5.0
+      groupId: org.yaml
+      pomPath: /opt/input/source/pom.xml
+    labels:
+    - konveyor.io/dep-source=open-source
+    - konveyor.io/language=java
+    prefix: file:///root/.m2/repository/org/yaml/snakeyaml/1.28

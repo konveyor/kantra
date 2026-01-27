@@ -330,7 +330,8 @@ func (hc *hubClient) doRequestWithRetry(path, acceptHeader string, log logr.Logg
 	}
 
 	var token string
-	if storedAuth != nil {
+	if storedAuth != nil && storedAuth.Token != "" {
+		// If token is empty, auth is disabled on Hub - don't send Authorization header
 		expired, err := isTokenExpired(storedAuth.Token)
 		if err != nil {
 			return nil, err
@@ -346,7 +347,11 @@ func (hc *hubClient) doRequestWithRetry(path, acceptHeader string, log logr.Logg
 		} else if !expired {
 			token = storedAuth.Token
 		}
-		req.Header.Set("Authorization", "Bearer "+token)
+		// Only set Authorization header if we have a non-empty token
+		// Empty token means auth is disabled on Hub
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
 	resp, err := hc.client.Do(req)
 	if err != nil {

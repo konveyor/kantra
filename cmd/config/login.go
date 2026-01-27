@@ -176,9 +176,8 @@ func (l *loginCommand) performLogin(hubURL, username, password string) (*LoginRe
 	if err := json.Unmarshal(body, &loginResp); err != nil {
 		return nil, err
 	}
-	if loginResp.Token == "" {
-		return nil, fmt.Errorf("login response missing token")
-	}
+	// Empty token is valid when authentication is disabled on Hub
+	// It returns 201 with token="" when auth is disabled
 	loginResp.Host = hubURL
 
 	return &loginResp, nil

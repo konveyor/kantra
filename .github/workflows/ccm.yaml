@@ -1,0 +1,170 @@
+name: Centralized Config Management E2E Test
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-kantra-ccm:
+    name: Test kantra analyze centralized config management
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install kind and kubectl
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          curl -L -o ./kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+      
+      - name: Clone koncur repository
+        run: |
+          git clone https://github.com/konveyor/koncur.git
+      
+      - name: Set up kind cluster and install Hub
+        working-directory: koncur
+        run: |
+          make setup
+      
+      - name: Wait for Hub to be ready
+        run: |
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=tackle-hub -n konveyor-tackle --timeout=600s || true
+          echo "Hub is ready"
+      
+      - name: Set up port-forward to Hub
+        run: |
+          kubectl port-forward -n konveyor-tackle svc/tackle-hub 8081:8080 > /tmp/port-forward.log 2>&1 &
+          echo $! > /tmp/port-forward.pid
+          sleep 5
+      
+      - name: Build kantra binary
+        run: |
+          go build -o kantra main.go
+      
+      # TODO add login step once Hub auth is enabled
+      # - name: Login to Hub
+      #   run: |
+      #     ./kantra config login http://localhost:8081/hub admin admin
+      
+      - name: Create application in Hub
+        run: |
+          curl -X POST http://localhost:8081/hub/applications \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "example-applications",
+              "repository": {
+                "url": "https://github.com/konveyor/example-applications.git"
+              }
+            }' || echo "Application may already exist"
+          sleep 3
+      
+      - name: Create profile in Hub
+        run: |
+          curl -X POST http://localhost:8081/hub/analysis/profiles \
+            -H "Content-Type: application/x-yaml" \
+            -H "Accept: application/json" \
+            --data-binary @- << 'EOF'
+          id: 1
+          name: Profile-1
+          mode:
+            withDeps: true
+          scope:
+            withKnownLibs: true
+          rules:
+            labels:
+              included:
+                - konveyor.io/target=cloud-readiness
+          EOF
+          sleep 2
+      
+      - name: Create archetype to link profile to application
+        run: |
+          APP_RESPONSE=$(curl -s "http://localhost:8081/hub/applications?filter=repository.url='https://github.com/konveyor/example-applications.git'")
+          APP_ID=$(echo $APP_RESPONSE | yq '.[0].id // 1')
+          echo "Linking profile to application ID: $APP_ID"
+          curl -X POST http://localhost:8081/hub/archetypes \
+            -H "Content-Type: application/x-yaml" \
+            -H "Accept: application/json" \
+            --data-binary @- << EOF
+          name: Profile-1-archetype
+          applications:
+            - id: ${APP_ID}
+          profiles:
+            - name: Profile-1
+              analysisProfile:
+                id: 1
+          EOF
+          sleep 2
+      
+      - name: Extract containerless requirements from container
+        run: |
+          podman build -t localhost/kantra:latest -f Dockerfile .
+          podman create --name kantra-extract localhost/kantra:latest
+          podman cp kantra-extract:/usr/local/static-report .
+          podman cp kantra-extract:/jdtls .
+          podman cp kantra-extract:/opt/rulesets .
+          podman rm kantra-extract
+      
+      - name: Clone example-applications repository
+        run: |
+          git clone https://github.com/konveyor/example-applications.git
+      
+      - name: Sync profile from Hub
+        run: |
+          ./kantra config sync --url https://github.com/konveyor/example-applications.git \
+            --application-path example-applications/example-1 \
+            --host http://localhost:8081/hub
+      
+      - name: Verify synced profile
+        run: |
+          echo "Synced profiles:"
+          ls -la example-applications/example-1/.konveyor/profiles/ || (echo "No profiles directory found" && exit 1)
+          if ! find example-applications/example-1/.konveyor/profiles -name "profile.yaml" -exec echo "Found profile:" \; -exec cat {} \; ; then
+            echo "ERROR: No profile.yaml found after syncing from Hub"
+            exit 1
+          fi
+      
+      - name: Run kantra analyze with synced profile
+        run: |
+          KANTRA_SKIP_MAVEN_CACHE=true RUNNER_IMG=localhost/kantra:latest ./kantra analyze \
+            --input example-applications/example-1 \
+            --output ./output \
+            --profile-dir example-applications/example-1/.konveyor/profiles/profile-1 \
+            --enable-default-rulesets \
+            --run-local=false
+    
+      - name: Fail if analysis output does not match expected
+        run: |
+          expected_file=./test-data/ccm-output.yaml
+          actual_file=./output/output.yaml
+          function filter_and_sort() {
+            yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
+              | yq e '.[]?.violations |= (. | to_entries | sort_by(.key) | from_entries)' \
+              | yq e '.[]?.violations[]?.incidents |= sort_by(.uri)' \
+              | yq e '.[] | (.tags // []) |= sort'
+          }
+          filter_and_sort $expected_file > /tmp/expected_file_filtered
+          filter_and_sort $actual_file > /tmp/actual_file_filtered
+          diff /tmp/expected_file_filtered /tmp/actual_file_filtered
+      
+      - name: Fail if dependencies output does not match expected
+        run: |
+          expected_file=./test-data/ccm-deps.yaml
+          actual_file=./output/dependencies.yaml
+          sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
+          sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
+          diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccm-analysis-output
+          path: ./output/
+          retention-days: 7
