@@ -699,7 +699,7 @@ func (a *analyzeCommand) setJavaProvider(config provider.Config, analysisLog log
 		config.InitConfig = inits
 	}
 
-	return java.NewJavaProvider(analysisLog, "java", a.contextLines, config)
+	return java.NewJavaProvider(analysisLog, "java", a.contextLines, int(*a.logLevel), config)
 }
 
 func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger, operationalLog logr.Logger, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
