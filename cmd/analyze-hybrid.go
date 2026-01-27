@@ -724,13 +724,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				err = json.Unmarshal(o, &j)
 				if len(j) == 1 {
 					found := false
-					if volPath, ok := j[0]["Mountpoint"]; ok {
-						if _, err := os.Lstat(volPath.(string)); err == nil {
-							providerHostRoot = volPath.(string)
-							found = true
-						}
-					}
-					if opt, ok := j[0]["Options"]; !found && ok {
+					if opt, ok := j[0]["Options"]; ok {
 						op, ok := opt.(map[string]any)
 						if ok {
 							if volPath, ok := op["device"]; ok {
@@ -739,6 +733,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 									found = true
 								}
 							}
+						}
+					}
+					if volPath, ok := j[0]["Mountpoint"]; !found && ok {
+						if _, err := os.Lstat(volPath.(string)); err == nil {
+							providerHostRoot = volPath.(string)
+							found = true
 						}
 					}
 				}
