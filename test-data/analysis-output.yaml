@@ -666,6 +666,9 @@
   - windup-discover-jpa-configuration
   - windup-discover-spring-configuration
   - windup-discover-web-configuration
+- name: dotnet/dotnetframework
+  description: This ruleset provides analysis with respect to API changes between
+    .NET Framework and newer versions of .NET.
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge
     Is Everything) API in the upgrade from version 5 to 6.
@@ -687,9 +690,6 @@
   - kie-api-01014
   - kie-api-01015
   - kie-api-01016
-- name: dotnet/dotnetframework
-  description: This ruleset provides analysis with respect to API changes between
-    .NET Framework and newer versions of .NET.
 - name: eap6/java-ee/seam
   description: This ruleset provides generic migration knowledge from the Seam 2 UI
     controls to pure JSF 2 UI Controls
