@@ -3,6 +3,7 @@ package container
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +39,7 @@ type container struct {
 	detached         bool
 	log              logr.Logger
 	containerToolBin string
+	rootful          bool
 	reproducerCmd    *string
 }
 
@@ -187,6 +190,43 @@ func RandomName() string {
 }
 
 func NewContainer() *container {
+	// Determine if in rootful or rootless mode.
+	var rootful bool
+	switch runtime.GOOS {
+	case "darwin", "windows":
+		cmd := exec.Command("podman", "machine", "inspect")
+		out, err := cmd.Output()
+		// assume rootless
+		if err == nil {
+			m := []map[string]any{}
+			err := json.Unmarshal(out, &m)
+			if err != nil {
+				break
+			}
+			// This by default will get the default vm
+			if len(m) == 1 {
+				if v, ok := m[0]["Rootful"]; ok {
+					if val, ok := v.(bool); ok && val {
+						rootful = true
+					}
+				}
+			}
+		}
+	default:
+		cmd := exec.Command("podman", "info", "-f", "json")
+		out, err := cmd.Output()
+		// assume rootless
+		if err == nil {
+			m := map[string]any{}
+			err := json.Unmarshal(out, &m)
+			if err == nil {
+				if _, ok := m["rootlessNetworkCmd"]; !ok {
+					rootful = true
+				}
+			}
+		}
+	}
+
 	return &container{
 		image:            "",
 		containerToolBin: "podman",
@@ -197,6 +237,7 @@ func NewContainer() *container {
 		stderr:           []io.Writer{os.Stderr},
 		Name:             "",
 		NetworkName:      "",
+		rootful:          rootful,
 		// by default, remove the container after run()
 		cleanup:  true,
 		cFlag:    false,
@@ -245,8 +286,16 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		args = append(args, fmt.Sprintf("%s:%s:z",
-			filepath.Clean(sourcePath), path.Clean(destPath)))
+		if c.rootful {
+			// Rootful podman machines map your user to the user in the contianer
+			args = append(args, fmt.Sprintf("%s:%s:U,z",
+				filepath.Clean(sourcePath), path.Clean(destPath)))
+		} else {
+			args = append(args, fmt.Sprintf("%s:%s:z",
+				filepath.Clean(sourcePath), path.Clean(destPath)))
+
+		}
+
 	}
 	for _, portMapping := range c.ports {
 		args = append(args, "-p")
