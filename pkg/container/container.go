@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -254,7 +255,11 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.image == "" || c.containerToolBin == "" {
 		return fmt.Errorf("image and containerToolBin must be set")
 	}
-	args := []string{"run"}
+	currentUser, err := user.Current()
+	if err != nil {
+		return err
+	}
+	args := []string{"run", "--userns=keep-id", fmt.Sprintf("--user=%s:0", currentUser.Uid)}
 	if c.detached {
 		args = append(args, "-d")
 	}
@@ -286,15 +291,8 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	for sourcePath, destPath := range c.volumes {
 		args = append(args, "-v")
-		if c.rootful {
-			// Rootful podman machines map your user to the user in the contianer
-			args = append(args, fmt.Sprintf("%s:%s:U,z",
-				filepath.Clean(sourcePath), path.Clean(destPath)))
-		} else {
-			args = append(args, fmt.Sprintf("%s:%s:z",
-				filepath.Clean(sourcePath), path.Clean(destPath)))
-
-		}
+		args = append(args, fmt.Sprintf("%s:%s:z",
+			filepath.Clean(sourcePath), path.Clean(destPath)))
 
 	}
 	for _, portMapping := range c.ports {
