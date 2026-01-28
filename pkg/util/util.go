@@ -219,16 +219,3 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 		fmt.Fprintln(out, tech)
 	}
 }
-
-const ProfilesPath = ".konveyor/profiles"
-
-func GetProfilesExcludedDir(inputPath string, useContainerPath bool) string {
-	profilesDir := filepath.Join(inputPath, ProfilesPath)
-	if _, err := os.Stat(profilesDir); err == nil {
-		if useContainerPath {
-			return path.Join(SourceMountPath, ProfilesPath)
-		}
-		return profilesDir
-	}
-	return ""
-}

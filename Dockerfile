@@ -2,12 +2,12 @@ ARG VERSION=latest
 
 FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
-ARG RULESETS_REF=main
+ARG RULESETS_REF=release-0.8
 RUN microdnf -y install git &&\
     git clone https://github.com/konveyor/rulesets -b ${RULESETS_REF} &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
-FROM quay.io/konveyor/static-report:latest as static-report
+FROM quay.io/konveyor/static-report:${VERSION} as static-report
 
 # Build the manager binary
 FROM golang:1.23.9 as builder
@@ -54,7 +54,6 @@ RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosy
 -X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
 FROM quay.io/konveyor/analyzer-lsp:${VERSION}
-
 
 RUN echo -e "[almalinux9-appstream]" \
  "\nname = almalinux9-appstream" \
