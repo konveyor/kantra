@@ -3,7 +3,6 @@ package container
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -14,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 )
@@ -40,7 +38,6 @@ type container struct {
 	detached         bool
 	log              logr.Logger
 	containerToolBin string
-	rootful          bool
 	reproducerCmd    *string
 }
 
@@ -181,7 +178,6 @@ func WithProxy(httpProxy, httpsProxy, noProxy string) Option {
 }
 
 func RandomName() string {
-	rand.Seed(int64(time.Now().Nanosecond()))
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, 16)
 	for i := range b {
@@ -191,43 +187,6 @@ func RandomName() string {
 }
 
 func NewContainer() *container {
-	// Determine if in rootful or rootless mode.
-	var rootful bool
-	switch runtime.GOOS {
-	case "darwin", "windows":
-		cmd := exec.Command("podman", "machine", "inspect")
-		out, err := cmd.Output()
-		// assume rootless
-		if err == nil {
-			m := []map[string]any{}
-			err := json.Unmarshal(out, &m)
-			if err != nil {
-				break
-			}
-			// This by default will get the default vm
-			if len(m) == 1 {
-				if v, ok := m[0]["Rootful"]; ok {
-					if val, ok := v.(bool); ok && val {
-						rootful = true
-					}
-				}
-			}
-		}
-	default:
-		cmd := exec.Command("podman", "info", "-f", "json")
-		out, err := cmd.Output()
-		// assume rootless
-		if err == nil {
-			m := map[string]any{}
-			err := json.Unmarshal(out, &m)
-			if err == nil {
-				if _, ok := m["rootlessNetworkCmd"]; !ok {
-					rootful = true
-				}
-			}
-		}
-	}
-
 	return &container{
 		image:            "",
 		containerToolBin: "podman",
@@ -238,7 +197,6 @@ func NewContainer() *container {
 		stderr:           []io.Writer{os.Stderr},
 		Name:             "",
 		NetworkName:      "",
-		rootful:          rootful,
 		// by default, remove the container after run()
 		cleanup:  true,
 		cFlag:    false,
@@ -259,7 +217,13 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	args := []string{"run", "--userns=keep-id", fmt.Sprintf("--user=%s:0", currentUser.Uid)}
+	args := []string{"run", "--userns=keep-id"}
+	if runtime.GOOS == "windows" {
+		args = append(args, "--user=1000:0")
+	} else {
+		args = append(args, fmt.Sprintf("--user=%s:0", currentUser.Uid))
+	}
+
 	if c.detached {
 		args = append(args, "-d")
 	}
