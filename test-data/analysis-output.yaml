@@ -1,3 +1,106 @@
+- name: angular-12/angular-13
+  description: This ruleset provides guidance for migrating from angular-12 to angular-13
+  skipped:
+    - angular-12-to-angular-13-debugging-00000
+    - angular-12-to-angular-13-http-00000
+    - angular-12-to-angular-13-http-00010
+    - angular-12-to-angular-13-queries-00000
+    - angular-12-to-angular-13-queries-00010
+    - angular-12-to-angular-13-queries-00020
+    - angular-12-to-angular-13-router-00010
+- name: angular-14/angular-15
+  description: This ruleset provides guidance for migrating from angular-14 to angular-15
+  skipped:
+    - angular-14-to-angular-15-angular-router-upgrade-00000
+- name: angular-16/angular-17
+  description: This ruleset provides guidance for migrating from angular-16 to angular-17
+  skipped:
+    - angular-16-to-angular-17-angular-components-00000
+    - angular-16-to-angular-17-angular-decorators-00000
+    - angular-16-to-angular-17-angular-decorators-00010
+    - angular-16-to-angular-17-angular-decorators-00020
+    - angular-16-to-angular-17-angular-directives-00000
+    - angular-16-to-angular-17-angular-directives-00010
+    - angular-16-to-angular-17-angular-directives-00020
+- name: angular-16/angular-21
+  description: This ruleset provides guidance for migrating from angular-16 to angular-21
+  skipped:
+    - angular-16-to-angular-21-import-path-change-00000
+    - angular-16-to-angular-21-import-path-change-00010
+- name: angular-2/angular-8
+  description: This ruleset provides guidance for migrating from angular-2 to angular-8
+  skipped:
+    - angular-2-to-angular-8-syntax-update-00000
+- name: angular-9/angular-10
+  description: This ruleset provides guidance for migrating from angular-9 to angular-10
+  skipped:
+    - angular-9-to-angular-10-build-optimization-00000
+- name: angularjs/angular
+  description: This ruleset provides guidance for migrating from angularjs to angular
+  skipped:
+    - angularjs-to-angular-bootstrap-00000
+    - angularjs-to-angular-bootstrap-00010
+    - angularjs-to-angular-bootstrap-00020
+    - angularjs-to-angular-components-00000
+    - angularjs-to-angular-dependency-injection-00000
+    - angularjs-to-angular-directives-00000
+    - angularjs-to-angular-events-00000
+    - angularjs-to-angular-events-00010
+    - angularjs-to-angular-events-00020
+    - angularjs-to-angular-http-service-00000
+    - angularjs-to-angular-http-service-00010
+    - angularjs-to-angular-http-service-00020
+    - angularjs-to-angular-http-service-00030
+    - angularjs-to-angular-http-service-00040
+    - angularjs-to-angular-interpolation-00000
+    - angularjs-to-angular-location-service-00000
+    - angularjs-to-angular-location-service-00010
+    - angularjs-to-angular-location-service-00020
+    - angularjs-to-angular-location-service-00030
+    - angularjs-to-angular-module-system-00000
+    - angularjs-to-angular-module-system-00010
+    - angularjs-to-angular-module-system-00020
+    - angularjs-to-angular-module-system-00030
+    - angularjs-to-angular-pipes-00000
+    - angularjs-to-angular-pipes-00010
+    - angularjs-to-angular-promises-00000
+    - angularjs-to-angular-promises-00010
+    - angularjs-to-angular-promises-00020
+    - angularjs-to-angular-promises-00030
+    - angularjs-to-angular-root-scope-00000
+    - angularjs-to-angular-routing-00000
+    - angularjs-to-angular-routing-00010
+    - angularjs-to-angular-routing-00020
+    - angularjs-to-angular-routing-00030
+    - angularjs-to-angular-scope-variables-00000
+    - angularjs-to-angular-services-00000
+    - angularjs-to-angular-services-00010
+    - angularjs-to-angular-template-syntax-00000
+    - angularjs-to-angular-template-syntax-00010
+    - angularjs-to-angular-template-syntax-00020
+    - angularjs-to-angular-template-syntax-00030
+    - angularjs-to-angular-template-syntax-00040
+    - angularjs-to-angular-template-syntax-00050
+    - angularjs-to-angular-template-syntax-00060
+    - angularjs-to-angular-template-syntax-00070
+    - angularjs-to-angular-template-syntax-00080
+    - angularjs-to-angular-template-syntax-00090
+    - angularjs-to-angular-timeout-interval-00000
+    - angularjs-to-angular-timeout-interval-00010
+    - angularjs-to-angular-watch-digest-00000
+    - angularjs-to-angular-watch-digest-00010
+    - angularjs-to-angular-watch-digest-00020
+- name: astro-v4/astro-v5
+  description: This ruleset provides guidance for migrating from Astro v4 to Astro
+    v5
+  skipped:
+    - astro-4-to-astro-5-api-removal-00000
+    - astro-4-to-astro-5-api-removal-00001
+    - astro-4-to-astro-5-api-removal-00002
+    - astro-4-to-astro-5-api-removal-00003
+    - astro-4-to-astro-5-async-changes-00000
+    - astro-4-to-astro-5-css-changes-00000
+    - astro-4-to-astro-5-markdown-00000
 - name: azure/springboot
   description: Recommend OpenFeign instead of Feign.
   skipped:
@@ -584,6 +687,9 @@
   - kie-api-01014
   - kie-api-01015
   - kie-api-01016
+- name: dotnet/dotnetframework
+  description: This ruleset provides analysis with respect to API changes between
+    .NET Framework and newer versions of .NET.
 - name: eap6/java-ee/seam
   description: This ruleset provides generic migration knowledge from the Seam 2 UI
     controls to pure JSF 2 UI Controls
@@ -1820,6 +1926,103 @@
   skipped:
   - os-specific-00001
   - os-specific-00002
+- name: patternfly-v5/patternfly-v6
+  description: This ruleset provides guidance for migrating from patternfly-v5 to
+    patternfly-v6
+  skipped:
+    - patternfly-v5-to-patternfly-v6-breakpoints-00000
+    - patternfly-v5-to-patternfly-v6-breakpoints-00010
+    - patternfly-v5-to-patternfly-v6-breakpoints-00020
+    - patternfly-v5-to-patternfly-v6-breakpoints-00030
+    - patternfly-v5-to-patternfly-v6-breakpoints-00040
+    - patternfly-v5-to-patternfly-v6-breakpoints-00050
+    - patternfly-v5-to-patternfly-v6-breakpoints-00060
+    - patternfly-v5-to-patternfly-v6-breakpoints-00070
+    - patternfly-v5-to-patternfly-v6-breakpoints-00080
+    - patternfly-v5-to-patternfly-v6-breakpoints-00090
+    - patternfly-v5-to-patternfly-v6-breakpoints-00100
+    - patternfly-v5-to-patternfly-v6-charts-00000
+    - patternfly-v5-to-patternfly-v6-chip-00000
+    - patternfly-v5-to-patternfly-v6-chip-00010
+    - patternfly-v5-to-patternfly-v6-cleanup-00000
+    - patternfly-v5-to-patternfly-v6-cleanup-00010
+    - patternfly-v5-to-patternfly-v6-component-groups-00010
+    - patternfly-v5-to-patternfly-v6-component-props-00270
+    - patternfly-v5-to-patternfly-v6-component-props-00280
+    - patternfly-v5-to-patternfly-v6-component-props-00290
+    - patternfly-v5-to-patternfly-v6-component-props-00300
+    - patternfly-v5-to-patternfly-v6-component-props-00310
+    - patternfly-v5-to-patternfly-v6-component-props-00330
+    - patternfly-v5-to-patternfly-v6-component-props-00350
+    - patternfly-v5-to-patternfly-v6-component-props-00380
+    - patternfly-v5-to-patternfly-v6-component-props-00390
+    - patternfly-v5-to-patternfly-v6-component-props-00400
+    - patternfly-v5-to-patternfly-v6-component-renames-00000
+    - patternfly-v5-to-patternfly-v6-component-renames-00010
+    - patternfly-v5-to-patternfly-v6-component-renames-00020
+    - patternfly-v5-to-patternfly-v6-components-00050
+    - patternfly-v5-to-patternfly-v6-css-classes-00000
+    - patternfly-v5-to-patternfly-v6-css-tokens-00000
+    - patternfly-v5-to-patternfly-v6-css-units-00000
+    - patternfly-v5-to-patternfly-v6-css-units-00010
+    - patternfly-v5-to-patternfly-v6-css-units-00020
+    - patternfly-v5-to-patternfly-v6-css-units-00030
+    - patternfly-v5-to-patternfly-v6-css-values-00000
+    - patternfly-v5-to-patternfly-v6-css-values-00010
+    - patternfly-v5-to-patternfly-v6-css-values-00020
+    - patternfly-v5-to-patternfly-v6-css-values-00030
+    - patternfly-v5-to-patternfly-v6-css-values-00040
+    - patternfly-v5-to-patternfly-v6-css-variables-00000
+    - patternfly-v5-to-patternfly-v6-deprecated-components-00000
+    - patternfly-v5-to-patternfly-v6-deprecated-components-00010
+    - patternfly-v5-to-patternfly-v6-deprecated-components-00020
+    - patternfly-v5-to-patternfly-v6-deprecated-components-00030
+    - patternfly-v5-to-patternfly-v6-deprecated-components-00040
+    - patternfly-v5-to-patternfly-v6-drag-drop-00000
+    - patternfly-v5-to-patternfly-v6-drag-drop-00010
+    - patternfly-v5-to-patternfly-v6-drag-drop-00020
+    - patternfly-v5-to-patternfly-v6-drawer-00040
+    - patternfly-v5-to-patternfly-v6-dual-list-selector-00000
+    - patternfly-v5-to-patternfly-v6-dual-list-selector-00010
+    - patternfly-v5-to-patternfly-v6-empty-state-00000
+    - patternfly-v5-to-patternfly-v6-empty-state-00010
+    - patternfly-v5-to-patternfly-v6-import-path-00000
+    - patternfly-v5-to-patternfly-v6-import-path-00010
+    - patternfly-v5-to-patternfly-v6-import-path-00020
+    - patternfly-v5-to-patternfly-v6-import-path-00030
+    - patternfly-v5-to-patternfly-v6-import-paths-00000
+    - patternfly-v5-to-patternfly-v6-imports-00000
+    - patternfly-v5-to-patternfly-v6-interface-renames-00000
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00000
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00010
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00020
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00040
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00050
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00160
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00180
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00190
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00200
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00210
+    - patternfly-v5-to-patternfly-v6-patternfly-v6-00220
+    - patternfly-v5-to-patternfly-v6-promoted-components-00000
+    - patternfly-v5-to-patternfly-v6-removed-components-00000
+    - patternfly-v5-to-patternfly-v6-removed-components-00010
+    - patternfly-v5-to-patternfly-v6-removed-props-00020
+    - patternfly-v5-to-patternfly-v6-removed-props-00030
+    - patternfly-v5-to-patternfly-v6-removed-props-00060
+    - patternfly-v5-to-patternfly-v6-removed-props-00070
+    - patternfly-v5-to-patternfly-v6-removed-props-00080
+    - patternfly-v5-to-patternfly-v6-removed-props-00090
+    - patternfly-v5-to-patternfly-v6-removed-props-00100
+    - patternfly-v5-to-patternfly-v6-renamed-props-00000
+    - patternfly-v5-to-patternfly-v6-renamed-props-00030
+    - patternfly-v5-to-patternfly-v6-renamed-props-00080
+    - patternfly-v5-to-patternfly-v6-toolbar-00040
+    - patternfly-v5-to-patternfly-v6-toolbar-00050
+    - patternfly-v5-to-patternfly-v6-toolbar-00060
+    - patternfly-v5-to-patternfly-v6-toolbar-00070
+    - patternfly-v5-to-patternfly-v6-toolbar-00080
+    - patternfly-v5-to-patternfly-v6-unauthorized-access-00010
 - name: quarkus/springboot
   description: This ruleset gives hints to migrate from SpringBoot devtools to Quarkus
   skipped:
