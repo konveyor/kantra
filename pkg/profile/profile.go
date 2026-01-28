@@ -112,7 +112,11 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 		}
 		if len(profileRules) > 0 {
 			settings.Rules = append(settings.Rules, profileRules...)
-			settings.EnableDefaultRulesets = false
+			targetFlag := cmd.Flags().Lookup("target")
+			sourceFlag := cmd.Flags().Lookup("source")
+			if (targetFlag == nil || !targetFlag.Changed) && (sourceFlag == nil || !sourceFlag.Changed) {
+				settings.EnableDefaultRulesets = false
+			}
 		}
 	}
 
