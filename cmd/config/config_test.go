@@ -379,6 +379,10 @@ func TestNewSyncCmd(t *testing.T) {
 	if appPathFlag == nil {
 		t.Error("Expected --application-path flag to be present")
 	}
+	hostFlag := cmd.Flags().Lookup("host")
+	if hostFlag == nil {
+		t.Error("Expected --host flag to be present")
+	}
 }
 
 func TestSyncCommand_Validate(t *testing.T) {
@@ -563,6 +567,149 @@ func TestNewHubClientWithOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHubClientNoAuth(t *testing.T) {
+	tests := []struct {
+		name     string
+		host     string
+		insecure bool
+	}{
+		{
+			name:     "secure client with http host",
+			host:     "http://test-hub.example.com",
+			insecure: false,
+		},
+		{
+			name:     "secure client with https host",
+			host:     "https://test-hub.example.com",
+			insecure: false,
+		},
+		{
+			name:     "host without scheme should add http",
+			host:     "test-hub.example.com",
+			insecure: false,
+		},
+		{
+			name:     "insecure client",
+			host:     "https://test-hub.example.com",
+			insecure: true,
+		},
+		{
+			name:     "host with trailing slash should be trimmed",
+			host:     "http://test-hub.example.com/",
+			insecure: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := newHubClientNoAuth(tt.host, tt.insecure)
+			if err != nil {
+				t.Fatalf("newHubClientNoAuth() unexpected error: %v", err)
+			}
+
+			if client == nil {
+				t.Fatal("Expected client to be created, got nil")
+			}
+
+			// Verify noAuth is set
+			if !client.noAuth {
+				t.Error("Expected noAuth to be true")
+			}
+
+			// Verify host is set correctly (without trailing slash)
+			if strings.HasSuffix(client.host, "/") {
+				t.Error("Expected host to not have trailing slash")
+			}
+
+			// Verify host has scheme
+			if !strings.HasPrefix(client.host, "http://") && !strings.HasPrefix(client.host, "https://") {
+				t.Error("Expected host to have http:// or https:// prefix")
+			}
+
+			if client.client == nil {
+				t.Error("Expected HTTP client to be initialized")
+			}
+
+			if client.client.Timeout != 10*time.Second {
+				t.Errorf("Expected timeout to be 10s, got %v", client.client.Timeout)
+			}
+
+			// Verify insecure setting affects TLS config
+			if tt.insecure {
+				transport, ok := client.client.Transport.(*http.Transport)
+				if !ok {
+					t.Error("Expected Transport to be *http.Transport for insecure client")
+				} else if transport.TLSClientConfig == nil || !transport.TLSClientConfig.InsecureSkipVerify {
+					t.Error("Expected InsecureSkipVerify to be true for insecure client")
+				}
+			}
+		})
+	}
+}
+
+func TestHubClient_doRequestNoAuth(t *testing.T) {
+	log := logr.Discard()
+
+	t.Run("request without auth header when noAuth is true", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify no Authorization header is sent
+			if auth := r.Header.Get("Authorization"); auth != "" {
+				t.Errorf("Expected no Authorization header, got: %s", auth)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status": "ok"}`))
+		}))
+		defer server.Close()
+
+		client := &hubClient{
+			client: &http.Client{Timeout: 5 * time.Second},
+			host:   server.URL,
+			noAuth: true,
+		}
+
+		resp, err := client.doRequest("/test", "application/json", log)
+		if err != nil {
+			t.Errorf("doRequest() unexpected error = %v", err)
+		}
+		if resp == nil {
+			t.Error("Expected response to be non-nil")
+		} else {
+			resp.Body.Close()
+		}
+	})
+}
+
+func TestSyncCommand_getHubClientWithHost(t *testing.T) {
+	t.Run("getHubClient with host creates noAuth client", func(t *testing.T) {
+		// Don't set up any auth - should still work with --host
+		setupTempAuth(t, nil)
+
+		syncCmd := &syncCommand{
+			host: "http://test-hub.example.com",
+		}
+
+		client, err := syncCmd.getHubClient()
+		if err != nil {
+			t.Fatalf("getHubClient() with host unexpected error: %v", err)
+		}
+
+		if client == nil {
+			t.Fatal("Expected client to be created")
+		}
+
+		if !client.noAuth {
+			t.Error("Expected client.noAuth to be true when host is provided")
+		}
+
+		if client.host != "http://test-hub.example.com" {
+			t.Errorf("Expected host to be 'http://test-hub.example.com', got '%s'", client.host)
+		}
+	})
 }
 
 func TestHubClient_doRequest(t *testing.T) {
@@ -1522,6 +1669,7 @@ func TestSyncCommand_checkAuthentication(t *testing.T) {
 	tests := []struct {
 		name      string
 		setupAuth func(t *testing.T)
+		host      string
 		wantErr   bool
 		errMsg    string
 	}{
@@ -1560,13 +1708,24 @@ func TestSyncCommand_checkAuthentication(t *testing.T) {
 			wantErr: true,
 			errMsg:  "no stored authentication found",
 		},
+		{
+			name: "host flag bypasses authentication",
+			setupAuth: func(t *testing.T) {
+				// Set up temp HOME but don't write any auth file
+				setupTempAuth(t, nil)
+			},
+			host:    "http://test-hub.example.com",
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupAuth(t)
 
-			syncCmd := &syncCommand{}
+			syncCmd := &syncCommand{
+				host: tt.host,
+			}
 			err := syncCmd.checkAuthentication()
 
 			if tt.wantErr {

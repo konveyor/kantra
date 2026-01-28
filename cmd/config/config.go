@@ -35,6 +35,7 @@ type syncCommand struct {
 	log             logr.Logger
 	hubClient       *hubClient
 	insecure        bool
+	host            string
 }
 
 type listCommand struct {
@@ -47,6 +48,7 @@ type hubClient struct {
 	client   *http.Client
 	host     string
 	insecure bool
+	noAuth   bool
 }
 
 func NewConfigCmd(log logr.Logger) *cobra.Command {
@@ -213,6 +215,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository. use url:branch to specify a branch")
 	syncCommand.MarkFlagRequired("url")
 	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "path to the local application for Hub profiles. Default is the current directory")
+	syncCommand.Flags().StringVar(&syncCmd.host, "host", "", "Hub host URL - for Hub instances without auth")
 
 	return syncCommand
 }
@@ -248,12 +251,38 @@ func (s *syncCommand) setDefaultApplicationPath() (string, error) {
 func (s *syncCommand) getHubClient() (*hubClient, error) {
 	var err error
 	if s.hubClient == nil {
-		s.hubClient, err = newHubClientWithOptions(s.insecure)
+		if s.host != "" {
+			s.hubClient, err = newHubClientNoAuth(s.host, s.insecure)
+		} else {
+			s.hubClient, err = newHubClientWithOptions(s.insecure)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 	return s.hubClient, nil
+}
+
+func newHubClientNoAuth(host string, insecure bool) (*hubClient, error) {
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "http://" + host
+	}
+	host = strings.TrimSuffix(host, "/")
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	if insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client.Transport = tr
+	}
+	return &hubClient{
+		client:   client,
+		host:     host,
+		insecure: insecure,
+		noAuth:   true,
+	}, nil
 }
 
 func newHubClientWithOptions(insecure bool) (*hubClient, error) {
@@ -292,6 +321,9 @@ func (hc *hubClient) doRequestWithRetry(path, acceptHeader string, log logr.Logg
 		return nil, err
 	}
 	req.Header.Set("Accept", acceptHeader)
+	if hc.noAuth {
+		return hc.client.Do(req)
+	}
 	storedAuth, err := loadStoredTokens()
 	if err != nil {
 		return nil, err
@@ -347,6 +379,9 @@ func (hc *hubClient) readResponseBody(resp *http.Response) ([]byte, error) {
 }
 
 func (s *syncCommand) checkAuthentication() error {
+	if s.host != "" {
+		return nil
+	}
 	storedAuth, err := loadStoredTokens()
 	if err != nil {
 		return err
