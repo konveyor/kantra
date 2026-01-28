@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -485,7 +486,6 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 //   - Provider isolation and consistency from containers
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
-
 	// Create progress mode to encapsulate progress reporting behavior
 	progressMode := NewProgressMode(a.noProgress)
 
@@ -724,21 +724,26 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				err = json.Unmarshal(o, &j)
 				if len(j) == 1 {
 					found := false
-					if volPath, ok := j[0]["Mountpoint"]; ok {
-						if _, err := os.Lstat(volPath.(string)); err == nil {
-							providerHostRoot = volPath.(string)
-							found = true
-						}
-					}
-					if opt, ok := j[0]["Options"]; !found && ok {
+					if opt, ok := j[0]["Options"]; ok {
 						op, ok := opt.(map[string]any)
 						if ok {
 							if volPath, ok := op["device"]; ok {
-								if _, err := os.Lstat(volPath.(string)); err == nil {
-									providerHostRoot = volPath.(string)
+								volPathString := volPath.(string)
+								if strings.Contains(volPathString, "/mnt/c") && runtime.GOOS == "windows" {
+									volPathString = filepath.FromSlash(strings.TrimPrefix(volPathString, "/mnt/c"))
+								}
+
+								if _, err := os.Lstat(volPathString); err == nil {
+									providerHostRoot = volPathString
 									found = true
 								}
 							}
+						}
+					}
+					if volPath, ok := j[0]["Mountpoint"]; !found && ok {
+						if _, err := os.Lstat(volPath.(string)); err == nil {
+							providerHostRoot = volPath.(string)
+							found = true
 						}
 					}
 				}

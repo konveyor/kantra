@@ -8,10 +8,11 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 )
@@ -177,7 +178,6 @@ func WithProxy(httpProxy, httpsProxy, noProxy string) Option {
 }
 
 func RandomName() string {
-	rand.Seed(int64(time.Now().Nanosecond()))
 	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, 16)
 	for i := range b {
@@ -213,7 +213,17 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.image == "" || c.containerToolBin == "" {
 		return fmt.Errorf("image and containerToolBin must be set")
 	}
-	args := []string{"run"}
+	currentUser, err := user.Current()
+	if err != nil {
+		return err
+	}
+	args := []string{"run", "--userns=keep-id"}
+	if runtime.GOOS == "windows" {
+		args = append(args, "--user=1000:0")
+	} else {
+		args = append(args, fmt.Sprintf("--user=%s:0", currentUser.Uid))
+	}
+
 	if c.detached {
 		args = append(args, "-d")
 	}
@@ -247,6 +257,7 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		args = append(args, "-v")
 		args = append(args, fmt.Sprintf("%s:%s:z",
 			filepath.Clean(sourcePath), path.Clean(destPath)))
+
 	}
 	for _, portMapping := range c.ports {
 		args = append(args, "-p")
