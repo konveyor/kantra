@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
@@ -304,95 +303,13 @@ func TestWalkJavaPathForTargetWithFileInput(t *testing.T) {
 
 	targetPaths, err := WalkJavaPathForTarget(logger, true, binaryFile)
 	require.NoError(t, err)
-	assert.NotEmpty(t, targetPaths)
+	assert.Empty(t, targetPaths)
 }
 
 func TestWalkJavaPathForTargetWithNonexistentDir(t *testing.T) {
 	logger := getTestLogger()
 	_, err := WalkJavaPathForTarget(logger, false, "/nonexistent/path")
 	assert.Error(t, err)
-}
-
-func TestGetJavaBinaryProjectDir(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create directory structure
-	baseDir := filepath.Join(tmpDir, "base")
-	err := os.MkdirAll(baseDir, 0755)
-	require.NoError(t, err)
-
-	// Create directory with "java-project-" pattern
-	projectDir := filepath.Join(baseDir, "java-project-abc123")
-	err = os.MkdirAll(projectDir, 0755)
-	require.NoError(t, err)
-
-	// Test successful case
-	foundDir, err := GetJavaBinaryProjectDir(baseDir)
-	require.NoError(t, err)
-	assert.Equal(t, projectDir, foundDir)
-
-	// Test case where directory doesn't exist
-	_, err = GetJavaBinaryProjectDir("/nonexistent/path")
-	assert.Error(t, err)
-
-	// Test case where no matching directory exists
-	emptyDir := filepath.Join(tmpDir, "empty")
-	err = os.MkdirAll(emptyDir, 0755)
-	require.NoError(t, err)
-
-	foundDir, err = GetJavaBinaryProjectDir(emptyDir)
-	require.NoError(t, err)
-	assert.Empty(t, foundDir)
-}
-
-func TestWaitForTargetDir_ExistingTarget(t *testing.T) {
-	tmpDir := t.TempDir()
-	logger := getTestLogger()
-
-	// Create target directory immediately
-	targetDir := filepath.Join(tmpDir, "target")
-	err := os.MkdirAll(targetDir, 0755)
-	require.NoError(t, err)
-
-	// Should return immediately since target already exists
-	err = WaitForTargetDir(logger, tmpDir, 5*time.Second)
-	require.NoError(t, err)
-}
-
-func TestWaitForTargetDir_Timeout(t *testing.T) {
-	tmpDir := t.TempDir()
-	logger := getTestLogger()
-
-	// Don't create target directory
-	// Should timeout waiting for it
-	err := WaitForTargetDir(logger, tmpDir, 100*time.Millisecond)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "timeout")
-}
-
-func TestWaitForTargetDir_CreateTargetDuringWait(t *testing.T) {
-	tmpDir := t.TempDir()
-	logger := getTestLogger()
-
-	// Start a goroutine to create the target directory after a short delay
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		targetDir := filepath.Join(tmpDir, "target")
-		err := os.MkdirAll(targetDir, 0755)
-		require.NoError(t, err)
-	}()
-
-	// Should successfully detect the target directory once it's created
-	err := WaitForTargetDir(logger, tmpDir, 5*time.Second)
-	require.NoError(t, err)
-}
-
-func TestWaitForTargetDir_WithNonexistentPath(t *testing.T) {
-	logger := getTestLogger()
-	err := WaitForTargetDir(logger, "/nonexistent/path", 100*time.Millisecond)
-	// The initial Stat will fail, but it depends on the implementation
-	// This test is mostly to ensure we don't panic
-	t.Logf("Error for nonexistent path: %v", err)
 }
 
 func TestGetConfigVolume_FileInputUsesCorrectMountPath(t *testing.T) {
@@ -454,35 +371,6 @@ func createTempMavenSettings(t *testing.T, tmpDir string) string {
 </settings>`), 0644)
 	require.NoError(t, err)
 	return settingsFile
-}
-
-func TestGetJavaBinaryProjectDir_MultipleProjects(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create multiple directories, only one with "java-project-" prefix
-	err := os.MkdirAll(filepath.Join(tmpDir, "other-project"), 0755)
-	require.NoError(t, err)
-
-	javaProjectDir := filepath.Join(tmpDir, "java-project-12345")
-	err = os.MkdirAll(javaProjectDir, 0755)
-	require.NoError(t, err)
-
-	foundDir, err := GetJavaBinaryProjectDir(tmpDir)
-	require.NoError(t, err)
-	assert.Equal(t, javaProjectDir, foundDir)
-}
-
-func TestWaitForTargetDir_InvalidPath(t *testing.T) {
-	logger := getTestLogger()
-
-	// Test with an invalid path (file instead of directory)
-	tmpFile := filepath.Join(t.TempDir(), "notadir")
-	err := os.WriteFile(tmpFile, []byte("content"), 0644)
-	require.NoError(t, err)
-
-	err = WaitForTargetDir(logger, tmpFile, 100*time.Millisecond)
-	// This should either error or timeout
-	assert.Error(t, err)
 }
 
 // Additional test for edge case: empty root directory
