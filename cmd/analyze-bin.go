@@ -315,17 +315,15 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	operationalLog.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
-	// start dependency analysis for full analysis mode only
+	// start dependency analysis
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
-	if a.mode == string(provider.FullAnalysisMode) {
-		var depCtx context.Context
-		depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
-		wg.Add(1)
+	var depCtx context.Context
+	depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
+	wg.Add(1)
 
-		operationalLog.Info("running dependency analysis")
-		go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
-	}
+	operationalLog.Info("resolving dependencies")
+	go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
 
 	// This will already wait
 	startRuleExecution := time.Now()
