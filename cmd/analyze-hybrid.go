@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -211,15 +213,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, C#).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
-	provInit, ok := a.providersMap[providerName]
-	if !ok {
-		return nil, nil, nil, fmt.Errorf(
-			"%s provider not found in providersMap\n"+
-				"This indicates a programming error - provider should have been initialized before calling setupNetworkProvider",
-			providerName)
-	}
-
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, client provider.InternalProviderClient, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) ([]string, []provider.InitConfig, error) {
 	// Build provider-specific configuration
 	// Based on working hybrid-provider-settings.json example
 	providerSpecificConfig := map[string]interface{}{}
@@ -279,69 +273,30 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		}
 	}
 
-	providerConfig := provider.Config{
-		Name:       providerName,
-		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
-		BinaryPath: "",                                         // Empty = network mode
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               util.SourceMountPath,
-				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: providerSpecificConfig,
-				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
-			},
+	initConfigs := []provider.InitConfig{
+		{
+			Location:                util.SourceMountPath,
+			AnalysisMode:            provider.AnalysisMode(a.mode),
+			ProviderSpecificConfig:  providerSpecificConfig,
+			Proxy:                   proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
+			PrepareProgressReporter: provider.NewPrepareProgressAdapter(progressReporter),
 		},
 	}
-	providerConfig.ContextLines = a.contextLines
 
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range providerConfig.InitConfig {
-			providerConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
-	}
+	providerLocations := []string{util.SourceMountPath}
 
-	// Apply override provider settings if provided
-	providerConfig = applyProviderOverrides(providerConfig, overrideConfigs)
-
-	providerLocations := []string{}
-	for _, ind := range providerConfig.InitConfig {
-		providerLocations = append(providerLocations, ind.Location)
-	}
-
-	// Create network-based provider client (connects to localhost:PORT)
-	// Use lib.GetProviderClient for all providers in network mode
-	// This creates a gRPC client that connects to the containerized provider
-	var providerClient provider.InternalProviderClient
-	var err error
-	providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf(
-			"failed to create %s provider client: %w\n"+
-				"This usually indicates a configuration error or invalid provider type",
-			providerName, err)
-	}
-
-	a.log.V(1).Info("starting network-based provider", "provider", providerName, "address", providerConfig.Address)
+	a.log.V(1).Info("initializing network-based provider", "provider", providerName)
 	initCtx, initSpan := tracing.StartNewSpan(ctx, "init")
 	defer initSpan.End()
 	// Pass empty slice instead of nil - gRPC might not handle nil properly
-	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, []provider.InitConfig{})
+	additionalBuiltinConfs, err := client.ProviderInit(initCtx, initConfigs)
 	if err != nil {
 		a.log.Error(err, "unable to init the provider", "provider", providerName)
-		return nil, nil, nil, fmt.Errorf(
-			"failed to initialize %s provider at %s: %w\n"+
-				"Troubleshooting:\n"+
-				"  1. Check provider container is running: podman ps | grep %s\n"+
-				"  2. Check provider logs: podman logs <container-name>\n"+
-				"  3. Verify network connectivity: curl localhost:%d\n"+
-				"  4. Check provider health: podman inspect <container-name>\n"+
-				"  5. Try restarting: podman stop <container-name>",
-			providerName, providerConfig.Address, err, providerName, provInit.port)
+		return nil, nil, fmt.Errorf(
+			"failed to initialize %s: %w\n", providerName, err)
 	}
 
-	return providerClient, providerLocations, additionalBuiltinConfs, nil
+	return providerLocations, additionalBuiltinConfs, nil
 }
 
 // runParallelStartupTasks executes independent startup tasks concurrently for better performance.
@@ -600,6 +555,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	providerToInputVolName := map[string]string{}
+	providerToClient := map[string]provider.InternalProviderClient{}
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -650,6 +606,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		// Parallel health checks with proper error handling
 		type providerHealthResult struct {
 			providerName string
+			providerInit ProviderInit
 			err          error
 			volName      string
 		}
@@ -657,11 +614,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 		// Start health checks in parallel
 		for provName, provInit := range a.providersMap {
-			provName := provName // capture loop variable
-			provInit := provInit
 			go func() {
 				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log)
-				healthChan <- providerHealthResult{providerName: provName, err: err, volName: volName}
+				healthChan <- providerHealthResult{providerName: provName, providerInit: provInit, err: err, volName: volName}
 			}()
 		}
 
@@ -672,6 +627,15 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
 			providerToInputVolName[result.providerName] = result.volName
+			client, err := lib.GetProviderClient(provider.Config{
+				Name:    result.providerName,
+				Address: fmt.Sprintf("localhost:%d", result.providerInit.port), // Connect to containerized provider
+			}, a.log.WithName("provider"))
+			if err != nil {
+				return err
+			}
+			providerToClient[result.providerName] = client
+
 		}
 
 		a.log.Info("all providers are ready")
@@ -684,8 +648,91 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		defer progressCancel()
 	}
 
-	// Setup provider clients
-	providers := map[string]provider.InternalProviderClient{}
+	// Setup rule parser
+	ruleParser := parser.RuleParser{
+		ProviderNameToClient: providerToClient,
+		Log:                  analyzeLog.WithName("parser"),
+		NoDependencyRules:    a.noDepRules,
+		DepLabelSelector:     dependencyLabelSelector,
+	}
+
+	// Load rules in parallel for better performance
+	ruleSets := []engine.RuleSet{}
+	needProviders := map[string]provider.InternalProviderClient{}
+
+	// Note: Default rulesets extraction now happens earlier in parallel with
+	// volume creation and config validation for better performance
+
+	startRuleLoading := time.Now()
+	a.log.Info("[TIMING] Starting rule loading")
+
+	// Parallelize rule loading across multiple rulesets
+	type ruleLoadResult struct {
+		rulePath       string
+		ruleSets       []engine.RuleSet
+		providers      map[string]provider.InternalProviderClient
+		provConditions map[string][]provider.ConditionsByCap
+		err            error
+	}
+
+	var ruleWg sync.WaitGroup
+	resultChan := make(chan ruleLoadResult, len(a.rules))
+	providerConditions := map[string][]provider.ConditionsByCap{}
+	// Load each ruleset in parallel
+	for _, f := range a.rules {
+		ruleWg.Add(1)
+		go func(rulePath string) {
+			defer ruleWg.Done()
+			a.log.Info("parsing rules for analysis", "rules", rulePath)
+
+			internRuleSet, internNeedProviders, provConditions, err := ruleParser.LoadRules(rulePath)
+			if err != nil {
+				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
+			}
+
+			resultChan <- ruleLoadResult{
+				rulePath:       rulePath,
+				ruleSets:       internRuleSet,
+				providers:      internNeedProviders,
+				provConditions: provConditions,
+				err:            err,
+			}
+		}(f)
+	}
+
+	// Wait for all rule loading to complete
+	ruleWg.Wait()
+	close(resultChan)
+
+	// Collect and merge results
+	var ruleLoadErrors []error
+	for result := range resultChan {
+		if result.err != nil {
+			ruleLoadErrors = append(ruleLoadErrors, fmt.Errorf("failed to load ruleset %s: %w", result.rulePath, result.err))
+			continue
+		}
+		ruleSets = append(ruleSets, result.ruleSets...)
+		maps.Copy(needProviders, result.providers)
+		maps.Copy(providerConditions, result.provConditions)
+	}
+
+	// Check if we have at least one ruleset loaded successfully
+	if len(ruleSets) == 0 {
+		if len(ruleLoadErrors) > 0 {
+			return fmt.Errorf("failed to load any rulesets: %v", ruleLoadErrors)
+		}
+		return fmt.Errorf("no rulesets loaded")
+	}
+
+	// Log warnings for any failed rulesets (if we have at least one successful load)
+	if len(ruleLoadErrors) > 0 {
+		for _, err := range ruleLoadErrors {
+			a.log.Error(err, "ruleset load failed but continuing with other rulesets")
+		}
+	}
+
+	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+	// TODO: Stop providers that are not needed.
 	providerLocations := []string{}
 
 	var additionalBuiltinConfigs []provider.InitConfig
@@ -698,23 +745,19 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		containerRoot = path.Dir(util.SourceMountPath)
 	}
 	// Setup network-based provider clients for all configured providers
-	for provName := range a.providersMap {
+	for provName, client := range needProviders {
 		a.log.Info("setting up network provider", "provider", provName)
-		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs, reporter)
+		locs, configs, err := a.setupNetworkProvider(ctx, provName, client, analyzeLog, overrideConfigs, reporter)
 		if err != nil {
 			errLog.Error(err, "unable to start provider", "provider", provName)
 			// Clean up any providers that were started before this failure
 			// to prevent resource leaks (containers left running)
-			for _, prov := range providers {
-				prov.Stop()
-			}
 			// Remove provider containers
 			if cleanupErr := a.RmProviderContainers(ctx); cleanupErr != nil {
 				errLog.Error(cleanupErr, "failed to cleanup providers after setup failure")
 			}
 			return fmt.Errorf("unable to start provider %s: %w", provName, err)
 		}
-		providers[provName] = provClient
 		providerLocations = append(providerLocations, locs...)
 		// CRITICAL FIX: Transform container paths to host paths
 		// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
@@ -778,17 +821,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
 	}
-	providers["builtin"] = builtinProvider
+	needProviders["builtin"] = builtinProvider
 	providerLocations = append(providerLocations, builtinLocations...)
 
-	// Show provider initialization completion in progress mode
-	// Build provider names dynamically from the providers map
-	providerNames := make([]string, 0, len(providers))
-	for name := range providers {
-		providerNames = append(providerNames, name)
-	}
-	sort.Strings(providerNames) // Sort for consistent output
-	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
+	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(slices.Sorted(maps.Keys(needProviders)), ", "))
 
 	// Create rule engine
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
@@ -800,99 +836,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		engine.WithLocationPrefixes(providerLocations),
 	)
 
-	// Setup rule parser
-	ruleParser := parser.RuleParser{
-		ProviderNameToClient: providers,
-		Log:                  analyzeLog.WithName("parser"),
-		NoDependencyRules:    a.noDepRules,
-		DepLabelSelector:     dependencyLabelSelector,
-	}
-
 	progressMode.Printf("  ✓ Started rules engine\n")
-
-	// Load rules in parallel for better performance
-	ruleSets := []engine.RuleSet{}
-	needProviders := map[string]provider.InternalProviderClient{}
-
-	// Note: Default rulesets extraction now happens earlier in parallel with
-	// volume creation and config validation for better performance
-
-	startRuleLoading := time.Now()
-	a.log.Info("[TIMING] Starting rule loading")
-
-	// Parallelize rule loading across multiple rulesets
-	type ruleLoadResult struct {
-		rulePath       string
-		ruleSets       []engine.RuleSet
-		providers      map[string]provider.InternalProviderClient
-		provConditions map[string][]provider.ConditionsByCap
-		err            error
-	}
-
-	var ruleWg sync.WaitGroup
-	resultChan := make(chan ruleLoadResult, len(a.rules))
-	providerConditions := map[string][]provider.ConditionsByCap{}
-	// Load each ruleset in parallel
-	for _, f := range a.rules {
-		ruleWg.Add(1)
-		go func(rulePath string) {
-			defer ruleWg.Done()
-			a.log.Info("parsing rules for analysis", "rules", rulePath)
-
-			internRuleSet, internNeedProviders, provConditions, err := ruleParser.LoadRules(rulePath)
-			if err != nil {
-				a.log.Error(err, "unable to parse all the rules for ruleset", "file", rulePath)
-			}
-
-			resultChan <- ruleLoadResult{
-				rulePath:       rulePath,
-				ruleSets:       internRuleSet,
-				providers:      internNeedProviders,
-				provConditions: provConditions,
-				err:            err,
-			}
-		}(f)
-	}
-
-	// Wait for all rule loading to complete
-	ruleWg.Wait()
-	close(resultChan)
-
-	// Collect and merge results
-	var ruleLoadErrors []error
-	for result := range resultChan {
-		if result.err != nil {
-			ruleLoadErrors = append(ruleLoadErrors, fmt.Errorf("failed to load ruleset %s: %w", result.rulePath, result.err))
-			continue
-		}
-		ruleSets = append(ruleSets, result.ruleSets...)
-		for k, v := range result.providers {
-			needProviders[k] = v
-		}
-		for k, v := range result.provConditions {
-			if _, ok := providerConditions[k]; !ok {
-				providerConditions[k] = []provider.ConditionsByCap{}
-			}
-			providerConditions[k] = append(providerConditions[k], v...)
-		}
-	}
-
-	// Check if we have at least one ruleset loaded successfully
-	if len(ruleSets) == 0 {
-		if len(ruleLoadErrors) > 0 {
-			return fmt.Errorf("failed to load any rulesets: %v", ruleLoadErrors)
-		}
-		return fmt.Errorf("no rulesets loaded")
-	}
-
-	// Log warnings for any failed rulesets (if we have at least one successful load)
-	if len(ruleLoadErrors) > 0 {
-		for _, err := range ruleLoadErrors {
-			a.log.Error(err, "ruleset load failed but continuing with other rulesets")
-		}
-	}
-
-	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
 
 	// prepare the providers
 	for name, conditions := range providerConditions {
@@ -914,7 +858,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			wg.Add(1)
 
 			a.log.Info("running dependency analysis")
-			go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
+			go a.DependencyOutputContainerless(depCtx, needProviders, "dependencies.yaml", wg)
 		}
 	}
 
