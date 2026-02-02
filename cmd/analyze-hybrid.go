@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -30,6 +31,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/yaml.v2"
+)
+
+var (
+	windowsMountRegex = regexp.MustCompile("/mnt/[a-z]/")
 )
 
 // validateProviderConfig validates hybrid-mode-specific configuration before starting provider containers.
@@ -729,8 +734,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 						if ok {
 							if volPath, ok := op["device"]; ok {
 								volPathString := volPath.(string)
-								if strings.Contains(volPathString, "/mnt/c") && runtime.GOOS == "windows" {
-									volPathString = filepath.FromSlash(strings.TrimPrefix(volPathString, "/mnt/c"))
+								if runtime.GOOS == "windows" && windowsMountRegex.MatchString(volPathString) {
+									volPathString = filepath.FromSlash(windowsMountRegex.ReplaceAllLiteralString(volPathString, "/"))
 								}
 
 								if _, err := os.Lstat(volPathString); err == nil {
