@@ -323,7 +323,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	wg.Add(1)
 
 	operationalLog.Info("resolving dependencies")
-	go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
+	go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg, reporter)
 
 	// This will already wait
 	startRuleExecution := time.Now()
@@ -846,21 +846,23 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 	return nil
 }
 
-func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, providers map[string]provider.InternalProviderClient, depOutputFile string, wg *sync.WaitGroup) {
+func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, providers map[string]provider.InternalProviderClient, depOutputFile string, wg *sync.WaitGroup, reporter progress.ProgressReporter) {
 	defer wg.Done()
 	var depsFlat []konveyor.DepsFlatItem
 	var depsTree []konveyor.DepsTreeItem
 	var err error
+	totalDeps := 0
 
-	for _, prov := range providers {
+	for providerKey, prov := range providers {
 		deps, err := prov.GetDependencies(ctx)
 		if err != nil {
-			a.log.Error(err, "failed to get list of dependencies for provider", "provider", "java")
+			a.log.Error(err, "failed to get list of dependencies for provider", "provider", providerKey)
 		}
 		for u, ds := range deps {
 			newDeps := ds
+			totalDeps += len(newDeps)
 			depsFlat = append(depsFlat, konveyor.DepsFlatItem{
-				Provider:     "java",
+				Provider:     providerKey,
 				FileURI:      string(u),
 				Dependencies: newDeps,
 			})
@@ -871,6 +873,12 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 			return
 		}
 	}
+
+	// Report dependency resolution completion with count
+	reporter.Report(progress.ProgressEvent{
+		Stage:   progress.StageDependencyResolution,
+		Total: totalDeps,
+	})
 
 	var by []byte
 	// Sort depsFlat
