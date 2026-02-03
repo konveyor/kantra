@@ -468,7 +468,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 		return nil, nil, err
 	}
 
-	a.log.V(1).Info("starting provider", "provider", "builtin")
+	analysisLog.V(1).Info("starting provider", "provider", "builtin", "config", builtinConfig, "additionalConfigs", additionalConfigs, "locations", providerLocations)
 	if _, err := builtinProvider.ProviderInit(ctx, additionalConfigs); err != nil {
 		a.log.Error(err, "unable to init the builtin provider")
 		return nil, nil, err
