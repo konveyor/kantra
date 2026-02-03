@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -102,8 +103,23 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	if !cmd.Flags().Lookup("label-selector").Changed {
 		settings.LabelSelector = buildLabelSelector(profile.Rules.Labels)
 	}
+	// prioritize user-set enable-default-rulesets
+	if cmd.Flags().Lookup("enable-default-rulesets") != nil && cmd.Flags().Lookup("enable-default-rulesets").Changed {
+		useDefaultRules, err := cmd.Flags().GetBool("enable-default-rulesets")
+		if err != nil {
+			return fmt.Errorf("error reading enable-default-rulesets: %w", err)
+		}
+		settings.EnableDefaultRulesets = useDefaultRules
 
-	// add rules from profile directory if not explicitly set via command line
+		// use default rulesets if default sources/targets are used
+	} else {
+		targetSet := cmd.Flags().Lookup("target") != nil && cmd.Flags().Lookup("target").Changed
+		sourceSet := cmd.Flags().Lookup("source") != nil && cmd.Flags().Lookup("source").Changed
+		hasDefaultLabels := profileHasDefaultKonveyorLabels(profile)
+		settings.EnableDefaultRulesets = targetSet || sourceSet || hasDefaultLabels
+	}
+
+	// add rules from profile directory if not set via command line
 	if !cmd.Flags().Lookup("rules").Changed {
 		profileDir := filepath.Dir(path)
 		profileRules, err := GetRulesInProfile(profileDir)
@@ -112,11 +128,6 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 		}
 		if len(profileRules) > 0 {
 			settings.Rules = append(settings.Rules, profileRules...)
-			targetFlag := cmd.Flags().Lookup("target")
-			sourceFlag := cmd.Flags().Lookup("source")
-			if (targetFlag == nil || !targetFlag.Changed) && (sourceFlag == nil || !sourceFlag.Changed) {
-				settings.EnableDefaultRulesets = false
-			}
 		}
 	}
 
@@ -276,4 +287,22 @@ func FindSingleProfile(profilesDir string) (string, error) {
 
 	profilePath := filepath.Join(profilesDir, profileDirs[0], "profile.yaml")
 	return profilePath, nil
+}
+
+func profileHasDefaultKonveyorLabels(profile *AnalysisProfile) bool {
+	if profile == nil {
+		return false
+	}
+	targetPrefix := outputv1.TargetTechnologyLabel + "="
+	sourcePrefix := outputv1.SourceTechnologyLabel + "="
+	for _, label := range profile.Rules.Labels.Included {
+		label = strings.TrimSpace(label)
+		if label == outputv1.TargetTechnologyLabel || strings.HasPrefix(label, targetPrefix) {
+			return true
+		}
+		if label == outputv1.SourceTechnologyLabel || strings.HasPrefix(label, sourcePrefix) {
+			return true
+		}
+	}
+	return false
 }
