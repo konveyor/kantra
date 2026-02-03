@@ -853,15 +853,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// Start dependency analysis
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
-	_, hasJava := a.providersMap[util.JavaProvider]
-	if hasJava {
-		var depCtx context.Context
-		depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
-		wg.Add(1)
+	var depCtx context.Context
+	depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
+	wg.Add(1)
 
-		a.log.Info("resolving dependencies")
-		go a.DependencyOutputContainerless(depCtx, needProviders, "dependencies.yaml", wg)
-	}
+	a.log.Info("resolving dependencies")
+	go a.DependencyOutputContainerless(depCtx, needProviders, "dependencies.yaml", wg, reporter)
 
 	// Run rules with progress reporting
 	startRuleExecution := time.Now()
