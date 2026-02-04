@@ -1459,6 +1459,8 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 							fmt.Fprintf(os.Stderr, "\n")
 						}
 					}
+				case progress.StageDependencyResolution:
+					fmt.Fprintf(os.Stderr, "  ✓ Resolved %d dependencies\n", event.Total)
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
