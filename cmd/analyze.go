@@ -490,8 +490,11 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
 		a.mavenSettingsFile = absPath
 	}
-	if !a.enableDefaultRulesets && len(a.rules) == 0 && foundProfile == nil {
-		return fmt.Errorf("must specify rules if default rulesets are not enabled")
+	if !a.enableDefaultRulesets && len(a.rules) == 0 {
+		profileHasRules := foundProfile != nil && profile.ProfileHasRules(a.profilePath)
+		if !profileHasRules {
+			return fmt.Errorf("must specify rules if default rulesets are not enabled")
+		}
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +44,29 @@ type LabelSelector struct {
 
 type AnalysisRules struct {
 	Labels LabelSelector `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+func ProfileHasRules(profilePath string) bool {
+	if profilePath == "" {
+		return false
+	}
+	rulesDir := filepath.Join(filepath.Dir(profilePath), "rules")
+	stat, err := os.Stat(rulesDir)
+	if err != nil || !stat.IsDir() {
+		return false
+	}
+	var found bool
+	_ = filepath.WalkDir(rulesDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".yaml") {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
 }
 
 type ProfileSettings struct {
