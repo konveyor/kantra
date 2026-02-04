@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	windowsMountRegex = regexp.MustCompile("/mnt/[a-z]/")
+	windowsMountRegex = regexp.MustCompile("/mnt/([a-z])/")
 )
 
 // validateProviderConfig validates hybrid-mode-specific configuration before starting provider containers.
@@ -735,7 +735,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 							if volPath, ok := op["device"]; ok {
 								volPathString := volPath.(string)
 								if runtime.GOOS == "windows" && windowsMountRegex.MatchString(volPathString) {
-									volPathString = filepath.FromSlash(windowsMountRegex.ReplaceAllLiteralString(volPathString, "/"))
+									drive := windowsMountRegex.FindStringSubmatch(volPathString)
+									if len(drive) == 2 {
+										volPathString = filepath.FromSlash(windowsMountRegex.ReplaceAllString(volPathString, ""))
+										volPathString = fmt.Sprintf("%s:\\%s", strings.ToUpper(drive[1]), volPathString)
+									}
 								}
 
 								if _, err := os.Lstat(volPathString); err == nil {
@@ -762,6 +766,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				} else {
 					c.Location = filepath.Join(providerHostRoot, filepath.FromSlash(rel))
 				}
+				a.log.V(3).Info("new provider host root for builtin configuration", "location", c.Location)
 			}
 			additionalBuiltinConfigs = append(additionalBuiltinConfigs, c)
 		}
