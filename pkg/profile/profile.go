@@ -46,13 +46,8 @@ type AnalysisRules struct {
 	Labels LabelSelector `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
-func ProfileHasRules(profilePath string) bool {
-	if profilePath == "" {
-		return false
-	}
-	rulesDir := filepath.Join(filepath.Dir(profilePath), "rules")
-	stat, err := os.Stat(rulesDir)
-	if err != nil || !stat.IsDir() {
+func ProfileHasRules(rulesDir string) bool {
+	if rulesDir == "" {
 		return false
 	}
 	var found bool
@@ -60,7 +55,8 @@ func ProfileHasRules(profilePath string) bool {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".yaml") {
+		name := strings.ToLower(d.Name())
+		if !d.IsDir() && (strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 			found = true
 			return filepath.SkipAll
 		}
@@ -256,6 +252,10 @@ func GetRulesInProfile(profileDir string) ([]string, error) {
 
 	if !stat.IsDir() {
 		return nil, fmt.Errorf("rules path %s is not a directory", rulesDir)
+	}
+
+	if !ProfileHasRules(rulesDir) {
+		return nil, nil
 	}
 	entries, err := os.ReadDir(rulesDir)
 	if err != nil {

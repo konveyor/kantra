@@ -129,6 +129,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.profileDir == "" && foundProfile == nil {
 				analyzeCmd.log.V(7).Info("did not find profile in default path")
 			}
+			if analyzeCmd.profilePath != "" {
+				analyzeCmd.log.Info("using profile", "profile", analyzeCmd.profilePath)
+				if err := analyzeCmd.applyProfileSettings(analyzeCmd.profilePath, cmd); err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
+			}
 
 			err = analyzeCmd.Validate(cmd.Context(), cmd, foundProfile)
 			if err != nil {
@@ -155,15 +162,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
-			}
-
-			// apply profile settings if a profile found
-			if analyzeCmd.profilePath != "" {
-				analyzeCmd.log.Info("using profile", "profile", analyzeCmd.profilePath)
-				if err := analyzeCmd.applyProfileSettings(analyzeCmd.profilePath, cmd); err != nil {
-					analyzeCmd.log.Error(err, "failed to get settings from profile")
-					return err
-				}
 			}
 
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -491,10 +489,7 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		a.mavenSettingsFile = absPath
 	}
 	if !a.enableDefaultRulesets && len(a.rules) == 0 {
-		profileHasRules := foundProfile != nil && profile.ProfileHasRules(a.profilePath)
-		if !profileHasRules {
-			return fmt.Errorf("must specify rules if default rulesets are not enabled")
-		}
+		return fmt.Errorf("must specify rules if default rulesets are not enabled")
 	}
 	return nil
 }
@@ -544,8 +539,7 @@ func (a *analyzeCommand) ValidateAndLoadProfile() (*profile.AnalysisProfile, err
 		profilesDir := filepath.Join(a.input, profile.Profiles)
 		foundPath, err := profile.FindSingleProfile(profilesDir)
 		if err != nil {
-			// do not error if no profile is found
-			return nil, nil
+			return nil, err
 		}
 		if foundPath != "" {
 			a.profilePath = foundPath
