@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,63 +29,6 @@ func Test_analyzeCommand_setupJavaProviderHybrid_MissingProvider(t *testing.T) {
 	_, ok := a.providersMap[util.JavaProvider]
 	if ok {
 		t.Fatal("Java provider should not be in providersMap")
-	}
-}
-
-func Test_analyzeCommand_setupBuiltinProviderHybrid(t *testing.T) {
-	a := &analyzeCommand{
-		input: "/test/input",
-		mode:  "full",
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log:          logr.Discard(),
-			providersMap: map[string]ProviderInit{},
-		},
-	}
-
-	ctx := context.Background()
-
-	builtinProvider, locations, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard(), nil, nil)
-
-	if err != nil {
-		t.Fatalf("setupBuiltinProviderHybrid() error = %v", err)
-	}
-
-	if builtinProvider == nil {
-		t.Fatal("Builtin provider should not be nil")
-	}
-
-	if len(locations) == 0 {
-		t.Error("Expected at least one provider location")
-	}
-
-	if locations[0] != "/test/input" {
-		t.Errorf("Provider location = %v, want /test/input", locations[0])
-	}
-}
-
-func Test_analyzeCommand_setupBuiltinProviderHybrid_WithProxy(t *testing.T) {
-	a := &analyzeCommand{
-		input:      "/test/input",
-		mode:       "full",
-		httpProxy:  "http://proxy.example.com:8080",
-		httpsProxy: "https://proxy.example.com:8443",
-		noProxy:    "localhost,127.0.0.1",
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log:          logr.Discard(),
-			providersMap: map[string]ProviderInit{},
-		},
-	}
-
-	ctx := context.Background()
-
-	builtinProvider, _, err := a.setupBuiltinProviderHybrid(ctx, nil, logr.Discard(), nil, nil)
-
-	if err != nil {
-		t.Fatalf("setupBuiltinProviderHybrid() error = %v", err)
-	}
-
-	if builtinProvider == nil {
-		t.Fatal("Builtin provider should not be nil")
 	}
 }
 
@@ -161,9 +103,9 @@ func Test_mergeProviderSpecificConfig(t *testing.T) {
 
 func Test_applyProviderOverrides(t *testing.T) {
 	tests := []struct {
-		name            string
-		baseConfig      provider.Config
-		overrideConfigs []provider.Config
+		name             string
+		baseConfig       provider.Config
+		overrideConfigs  []provider.Config
 		wantContextLines int
 	}{
 		{
@@ -172,7 +114,7 @@ func Test_applyProviderOverrides(t *testing.T) {
 				Name:         "java",
 				ContextLines: 100,
 			},
-			overrideConfigs: nil,
+			overrideConfigs:  nil,
 			wantContextLines: 100,
 		},
 		{

@@ -35,7 +35,7 @@ type AnalyzeCommandContext struct {
 	volumeName  string
 	// mavenCacheVolumeName tracks the persistent Maven cache volume (NOT removed during cleanup)
 	mavenCacheVolumeName   string
-	providerContainerNames []string
+	providerContainerNames map[string]string
 
 	// for containerless cmd
 	reqMap    map[string]string

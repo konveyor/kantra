@@ -365,71 +365,40 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, builtinProvider provider.InternalProviderClient, progressReporter progress.ProgressReporter, log logr.Logger) error {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
-	providerSpecificConfig := map[string]interface{}{
-		// Don't set excludedDirs - let analyzer-lsp use default exclusions
-		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-	}
-
 	// Check if profiles directory exists in input and add to excludedDirs
-	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
-		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
-	}
+	excludedDir := util.GetProfilesExcludedDir(a.input, false)
 
-	builtinConfig := provider.Config{
-		Name:       "builtin",
-		InitConfig: []provider.InitConfig{},
-	}
+	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 	if !a.isFileInput {
-		builtinConfig.InitConfig = append(builtinConfig.InitConfig, provider.InitConfig{
-			Location:               a.input,
-			AnalysisMode:           provider.AnalysisMode(a.mode),
-			ProviderSpecificConfig: providerSpecificConfig,
+		additionalConfigs = append(additionalConfigs, provider.InitConfig{
+			Location:     a.input,
+			AnalysisMode: provider.AnalysisMode(a.mode),
 		})
 	}
-
-	// Set proxy if configured
-	if a.httpProxy != "" || a.httpsProxy != "" {
-		proxy := provider.Proxy{
-			HTTPProxy:  a.httpProxy,
-			HTTPSProxy: a.httpsProxy,
-			NoProxy:    a.noProxy,
+	for i := range additionalConfigs {
+		if progressReporter != nil {
+			additionalConfigs[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
 		}
-		builtinConfig.Proxy = &proxy
-	}
-	builtinConfig.ContextLines = a.contextLines
-
-	// Apply override settings (same as containerized providers)
-	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
-
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range builtinConfig.InitConfig {
-			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		if excludedDir != "" {
+			if additionalConfigs[i].ProviderSpecificConfig == nil {
+				additionalConfigs[i].ProviderSpecificConfig = map[string]any{
+					"excludedDirs": []any{excludedDir},
+				}
+			} else {
+				dirs := additionalConfigs[i].ProviderSpecificConfig["excludedDirs"].([]any)
+				additionalConfigs[i].ProviderSpecificConfig["excludedDirs"] = append(dirs, excludedDir)
+			}
 		}
 	}
 
-	providerLocations := []string{}
-	for _, ind := range builtinConfig.InitConfig {
-		providerLocations = append(providerLocations, ind.Location)
-	}
+	builtinProvider.ProviderInit(ctx, additionalConfigs)
 
-	// Use lib.GetProviderClient to create builtin provider (public API)
-	builtinProvider, err := lib.GetProviderClient(builtinConfig, analysisLog)
-	if err != nil {
-		return nil, nil, err
-	}
+	a.log.V(1).Info("setup builtin provider for hybrid mode")
 
-	analysisLog.V(1).Info("starting provider", "provider", "builtin", "locations", providerLocations)
-	if _, err := builtinProvider.ProviderInit(ctx, additionalConfigs); err != nil {
-		a.log.Error(err, "unable to init the builtin provider")
-		return nil, nil, err
-	}
-
-	return builtinProvider, providerLocations, nil
+	return nil
 }
 
 // RunAnalysisHybridInProcess runs analysis in hybrid mode with the analyzer running in-process
@@ -556,6 +525,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	providerToInputVolName := map[string]string{}
 	providerToClient := map[string]provider.InternalProviderClient{}
+
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -641,6 +611,17 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		a.log.Info("all providers are ready")
 		a.log.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
 	}
+	// Add builtinProvider if not in the providersMap.
+	if _, ok := providerToClient["builtin"]; !ok {
+		builtinProvider, err := lib.GetProviderClient(provider.Config{
+			Name:         "builtin",
+			ContextLines: a.contextLines,
+		}, analyzeLog)
+		if err != nil {
+			return err
+		}
+		providerToClient["builtin"] = builtinProvider
+	}
 
 	// Create progress reporter early (before provider preparation)
 	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
@@ -713,7 +694,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 		ruleSets = append(ruleSets, result.ruleSets...)
 		maps.Copy(needProviders, result.providers)
-		maps.Copy(providerConditions, result.provConditions)
+		for k, v := range result.provConditions {
+			if val, ok := providerConditions[k]; ok {
+				providerConditions[k] = append(val, v...)
+			} else {
+				providerConditions[k] = v
+			}
+		}
 	}
 
 	// Check if we have at least one ruleset loaded successfully
@@ -746,6 +733,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 	// Setup network-based provider clients for all configured providers
 	for provName, client := range needProviders {
+		if provName == "builtin" {
+			continue
+		}
 		a.log.Info("setting up network provider", "provider", provName)
 		locs, configs, err := a.setupNetworkProvider(ctx, provName, client, analyzeLog, overrideConfigs, reporter)
 		if err != nil {
@@ -815,14 +805,21 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 	}
 
-	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, additionalBuiltinConfigs, analyzeLog, overrideConfigs, reporter)
-	if err != nil {
-		errLog.Error(err, "unable to start builtin provider")
-		return fmt.Errorf("unable to start builtin provider: %w", err)
+	builtinProvider, ok := needProviders["builtin"]
+	if ok {
+		// Setup builtin provider (always in-process)
+		err := a.setupBuiltinProviderHybrid(ctx, additionalBuiltinConfigs, builtinProvider, reporter, analyzeLog)
+		if err != nil {
+			errLog.Error(err, "unable to start builtin provider")
+			return fmt.Errorf("unable to start builtin provider: %w", err)
+		}
 	}
-	needProviders["builtin"] = builtinProvider
-	providerLocations = append(providerLocations, builtinLocations...)
+	// Stop providers that are not being used
+	for name, _ := range a.providersMap {
+		if _, ok := needProviders[name]; !ok {
+			a.StopProvider(ctx, name)
+		}
+	}
 
 	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(slices.Sorted(maps.Keys(needProviders)), ", "))
 

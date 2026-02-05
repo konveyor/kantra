@@ -79,10 +79,7 @@ func (c *AnalyzeCommandContext) RmVolumes(ctx context.Context) error {
 
 func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error {
 	// if multiple provider containers, we need to remove the first created provider container last
-	for i := len(c.providerContainerNames) - 1; i >= 0; i-- {
-		con := c.providerContainerNames[i]
-		// because we are using the --rm option when we start the provider container,
-		// it will immediately be removed after it stops
+	for _, con := range c.providerContainerNames {
 		cmd := exec.CommandContext(
 			ctx,
 			Settings.ContainerBinary,
@@ -105,6 +102,36 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 				"container", con)
 			continue
 		}
+	}
+	return nil
+}
+
+func (c *AnalyzeCommandContext) StopProvider(ctx context.Context, provider string) error {
+	con, ok := c.providerContainerNames[provider]
+	if !ok {
+		return nil
+	}
+	cmd := exec.CommandContext(
+		ctx,
+		Settings.ContainerBinary,
+		"stop", con)
+	c.log.V(1).Info("stopping provider container", "container", con)
+	err := cmd.Run()
+	if err != nil {
+		c.log.V(1).Error(err, "failed to stop container",
+			"container", con)
+		return err
+	}
+	cmd = exec.CommandContext(
+		ctx,
+		Settings.ContainerBinary,
+		"rm", con)
+	c.log.V(1).Info("removing provider container", "container", con)
+	err = cmd.Run()
+	if err != nil {
+		c.log.V(1).Error(err, "failed to remove container",
+			"container", con)
+		return err
 	}
 	return nil
 }

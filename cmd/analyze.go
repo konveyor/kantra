@@ -984,6 +984,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 	volumes := map[string]string{
 		volName: util.SourceMountPath,
 	}
+	a.providerContainerNames = map[string]string{}
 
 	if a.mavenSettingsFile != "" {
 		configVols, err := a.getConfigVolumes()
@@ -1041,7 +1042,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 			return fmt.Errorf("failed to start provider %s: %w", prov, err)
 		}
 
-		a.providerContainerNames = append(a.providerContainerNames, con.Name)
+		a.providerContainerNames[prov] = con.Name
 		a.log.V(1).Info("provider started", "provider", prov, "container", con.Name)
 	}
 
@@ -1363,7 +1364,7 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 		return fmt.Errorf("failed creating provider log file at %s", providerLogFilePath)
 	}
 	defer providerLog.Close()
-	for i := range a.providerContainerNames {
+	for _, i := range a.providerContainerNames {
 		a.log.V(1).Info("getting provider container logs",
 			"container", a.providerContainerNames[i])
 
