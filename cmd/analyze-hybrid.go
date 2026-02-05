@@ -371,7 +371,6 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 	// Check if profiles directory exists in input and add to excludedDirs
 	excludedDir := util.GetProfilesExcludedDir(a.input, false)
 
-	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 	if !a.isFileInput {
 		additionalConfigs = append(additionalConfigs, provider.InitConfig{
 			Location:     a.input,
@@ -837,6 +836,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		analyzeLog,
 		engine.WithContextLines(a.contextLines),
 		engine.WithIncidentSelector(a.incidentSelector),
+		engine.WithLocationPrefixes(slices.Sorted(maps.Keys(providerLocations))),
 	)
 
 	progressMode.Printf("  ✓ Started rules engine\n")
@@ -888,6 +888,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 	eng.Stop()
 
+	if err := a.getProviderLogs(ctx); err != nil {
+		a.log.Error(err, "failed to get provider logs")
+	}
+
 	// Stop providers
 	for _, provider := range needProviders {
 		provider.Stop()
@@ -934,10 +938,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		return err
 	}
 	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
-
-	if err := a.getProviderLogs(ctx); err != nil {
-		a.log.Error(err, "failed to get provider logs")
-	}
 
 	// Print results summary (only in progress mode, not in --no-progress mode)
 	progressMode.Println("\nResults:")

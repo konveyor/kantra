@@ -1364,15 +1364,15 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 		return fmt.Errorf("failed creating provider log file at %s", providerLogFilePath)
 	}
 	defer providerLog.Close()
-	for _, i := range a.providerContainerNames {
+	for _, conName := range a.providerContainerNames {
 		a.log.V(1).Info("getting provider container logs",
-			"container", a.providerContainerNames[i])
+			"container", conName)
 
 		cmd := exec.CommandContext(
 			ctx,
 			Settings.ContainerBinary,
 			"logs",
-			a.providerContainerNames[i])
+			conName)
 
 		cmd.Stdout = providerLog
 		cmd.Stderr = providerLog

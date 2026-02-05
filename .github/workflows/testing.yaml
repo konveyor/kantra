@@ -103,6 +103,14 @@ jobs:
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
           diff /tmp/expected_file /tmp/actual_file || diff $expected_file $actual_file
 
+      - name: Upload output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kantra-output
+          path: ./output
+          include-hidden-files: true
+
   # run tests using conainer image / binary already published to quay
   test-published:
     name: Build & test with published images
