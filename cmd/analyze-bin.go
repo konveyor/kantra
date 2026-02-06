@@ -854,7 +854,10 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 	var depsTree []konveyor.DepsTreeItem
 	var err error
 
-	for _, prov := range providers {
+	for name, prov := range providers {
+		if name == "builtin" {
+			continue
+		}
 		deps, err := prov.GetDependencies(ctx)
 		if err != nil {
 			a.log.Error(err, "failed to get list of dependencies for provider", "provider", "java")

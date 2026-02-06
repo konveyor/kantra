@@ -146,6 +146,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konveyor/analyzer-lsp v0.9.0-alpha.5.0.20260127135215-d9fff7c61a62 h1:wj5D2Vb2Dv/Pdo4ailDQLatqMhMM/LdTec493S4jnnM=
 github.com/konveyor/analyzer-lsp v0.9.0-alpha.5.0.20260127135215-d9fff7c61a62/go.mod h1:V97MK7UPGXzFJaM1pXs887+5sB7Yuu3moR58Xl9j1N0=
+github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260205154347-8faae37dc727 h1:80HgYKEeZIbH3jqbhkMjyReOug3GhdE/qemA8hpkUmE=
+github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260205154347-8faae37dc727/go.mod h1:V97MK7UPGXzFJaM1pXs887+5sB7Yuu3moR58Xl9j1N0=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20260127135215-d9fff7c61a62 h1:UZpmr6JGUdetBGDCM1FGpq8RPiWKj9sGJy9K2txHGdg=
 github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20260127135215-d9fff7c61a62/go.mod h1:40P9Pr9dNMJO3eY9bFmrnZeUizZcR6XviuLEe2HYBxM=
 github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=

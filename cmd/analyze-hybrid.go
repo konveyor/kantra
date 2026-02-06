@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -211,15 +213,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, C#).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
-	provInit, ok := a.providersMap[providerName]
-	if !ok {
-		return nil, nil, nil, fmt.Errorf(
-			"%s provider not found in providersMap\n"+
-				"This indicates a programming error - provider should have been initialized before calling setupNetworkProvider",
-			providerName)
-	}
-
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, client provider.InternalProviderClient, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) ([]string, []provider.InitConfig, error) {
 	// Build provider-specific configuration
 	// Based on working hybrid-provider-settings.json example
 	providerSpecificConfig := map[string]interface{}{}
@@ -279,69 +273,30 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		}
 	}
 
-	providerConfig := provider.Config{
-		Name:       providerName,
-		Address:    fmt.Sprintf("localhost:%d", provInit.port), // Connect to containerized provider
-		BinaryPath: "",                                         // Empty = network mode
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               util.SourceMountPath,
-				AnalysisMode:           provider.AnalysisMode(a.mode),
-				ProviderSpecificConfig: providerSpecificConfig,
-				Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
-			},
+	initConfigs := []provider.InitConfig{
+		{
+			Location:                util.SourceMountPath,
+			AnalysisMode:            provider.AnalysisMode(a.mode),
+			ProviderSpecificConfig:  providerSpecificConfig,
+			Proxy:                   proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
+			PrepareProgressReporter: provider.NewPrepareProgressAdapter(progressReporter),
 		},
 	}
-	providerConfig.ContextLines = a.contextLines
 
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range providerConfig.InitConfig {
-			providerConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
-	}
+	providerLocations := []string{util.SourceMountPath}
 
-	// Apply override provider settings if provided
-	providerConfig = applyProviderOverrides(providerConfig, overrideConfigs)
-
-	providerLocations := []string{}
-	for _, ind := range providerConfig.InitConfig {
-		providerLocations = append(providerLocations, ind.Location)
-	}
-
-	// Create network-based provider client (connects to localhost:PORT)
-	// Use lib.GetProviderClient for all providers in network mode
-	// This creates a gRPC client that connects to the containerized provider
-	var providerClient provider.InternalProviderClient
-	var err error
-	providerClient, err = lib.GetProviderClient(providerConfig, analysisLog)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf(
-			"failed to create %s provider client: %w\n"+
-				"This usually indicates a configuration error or invalid provider type",
-			providerName, err)
-	}
-
-	a.log.V(1).Info("starting network-based provider", "provider", providerName, "address", providerConfig.Address)
+	a.log.V(1).Info("initializing network-based provider", "provider", providerName)
 	initCtx, initSpan := tracing.StartNewSpan(ctx, "init")
 	defer initSpan.End()
 	// Pass empty slice instead of nil - gRPC might not handle nil properly
-	additionalBuiltinConfs, err := providerClient.ProviderInit(initCtx, []provider.InitConfig{})
+	additionalBuiltinConfs, err := client.ProviderInit(initCtx, initConfigs)
 	if err != nil {
 		a.log.Error(err, "unable to init the provider", "provider", providerName)
-		return nil, nil, nil, fmt.Errorf(
-			"failed to initialize %s provider at %s: %w\n"+
-				"Troubleshooting:\n"+
-				"  1. Check provider container is running: podman ps | grep %s\n"+
-				"  2. Check provider logs: podman logs <container-name>\n"+
-				"  3. Verify network connectivity: curl localhost:%d\n"+
-				"  4. Check provider health: podman inspect <container-name>\n"+
-				"  5. Try restarting: podman stop <container-name>",
-			providerName, providerConfig.Address, err, providerName, provInit.port)
+		return nil, nil, fmt.Errorf(
+			"failed to initialize %s: %w\n", providerName, err)
 	}
 
-	return providerClient, providerLocations, additionalBuiltinConfs, nil
+	return providerLocations, additionalBuiltinConfs, nil
 }
 
 // runParallelStartupTasks executes independent startup tasks concurrently for better performance.
@@ -410,71 +365,41 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, builtinProvider provider.InternalProviderClient, progressReporter progress.ProgressReporter) ([]string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
-	providerSpecificConfig := map[string]interface{}{
-		// Don't set excludedDirs - let analyzer-lsp use default exclusions
-		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-	}
-
 	// Check if profiles directory exists in input and add to excludedDirs
-	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
-		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
-	}
+	excludedDir := util.GetProfilesExcludedDir(a.input, false)
 
-	builtinConfig := provider.Config{
-		Name:       "builtin",
-		InitConfig: []provider.InitConfig{},
-	}
 	if !a.isFileInput {
-		builtinConfig.InitConfig = append(builtinConfig.InitConfig, provider.InitConfig{
-			Location:               a.input,
-			AnalysisMode:           provider.AnalysisMode(a.mode),
-			ProviderSpecificConfig: providerSpecificConfig,
+		additionalConfigs = append(additionalConfigs, provider.InitConfig{
+			Location:     a.input,
+			AnalysisMode: provider.AnalysisMode(a.mode),
 		})
 	}
-
-	// Set proxy if configured
-	if a.httpProxy != "" || a.httpsProxy != "" {
-		proxy := provider.Proxy{
-			HTTPProxy:  a.httpProxy,
-			HTTPSProxy: a.httpsProxy,
-			NoProxy:    a.noProxy,
-		}
-		builtinConfig.Proxy = &proxy
-	}
-	builtinConfig.ContextLines = a.contextLines
-
-	// Apply override settings (same as containerized providers)
-	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
-
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range builtinConfig.InitConfig {
-			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
-	}
-
 	providerLocations := []string{}
-	for _, ind := range builtinConfig.InitConfig {
-		providerLocations = append(providerLocations, ind.Location)
+	for i := range additionalConfigs {
+		if progressReporter != nil {
+			additionalConfigs[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
+		}
+		if excludedDir != "" {
+			if additionalConfigs[i].ProviderSpecificConfig == nil {
+				additionalConfigs[i].ProviderSpecificConfig = map[string]any{
+					"excludedDirs": []any{excludedDir},
+				}
+			} else {
+				dirs := additionalConfigs[i].ProviderSpecificConfig["excludedDirs"].([]any)
+				additionalConfigs[i].ProviderSpecificConfig["excludedDirs"] = append(dirs, excludedDir)
+			}
+		}
+		providerLocations = append(providerLocations, additionalConfigs[i].Location)
 	}
 
-	// Use lib.GetProviderClient to create builtin provider (public API)
-	builtinProvider, err := lib.GetProviderClient(builtinConfig, analysisLog)
-	if err != nil {
-		return nil, nil, err
-	}
+	builtinProvider.ProviderInit(ctx, additionalConfigs)
 
-	analysisLog.V(1).Info("starting provider", "provider", "builtin", "locations", providerLocations)
-	if _, err := builtinProvider.ProviderInit(ctx, additionalConfigs); err != nil {
-		a.log.Error(err, "unable to init the builtin provider")
-		return nil, nil, err
-	}
+	a.log.V(1).Info("setup builtin provider for hybrid mode")
 
-	return builtinProvider, providerLocations, nil
+	return providerLocations, nil
 }
 
 // RunAnalysisHybridInProcess runs analysis in hybrid mode with the analyzer running in-process
@@ -600,6 +525,8 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	providerToInputVolName := map[string]string{}
+	providerToClient := map[string]provider.InternalProviderClient{}
+
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -650,6 +577,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		// Parallel health checks with proper error handling
 		type providerHealthResult struct {
 			providerName string
+			providerInit ProviderInit
 			err          error
 			volName      string
 		}
@@ -657,11 +585,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 		// Start health checks in parallel
 		for provName, provInit := range a.providersMap {
-			provName := provName // capture loop variable
-			provInit := provInit
 			go func() {
 				err := waitForProvider(ctx, provName, provInit.port, 30*time.Second, a.log)
-				healthChan <- providerHealthResult{providerName: provName, err: err, volName: volName}
+				healthChan <- providerHealthResult{providerName: provName, providerInit: provInit, err: err, volName: volName}
 			}()
 		}
 
@@ -672,10 +598,30 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 				return fmt.Errorf("provider %s health check failed: %w", result.providerName, result.err)
 			}
 			providerToInputVolName[result.providerName] = result.volName
+			client, err := lib.GetProviderClient(provider.Config{
+				Name:    result.providerName,
+				Address: fmt.Sprintf("localhost:%d", result.providerInit.port), // Connect to containerized provider
+			}, a.log.WithName("provider"))
+			if err != nil {
+				return err
+			}
+			providerToClient[result.providerName] = client
+
 		}
 
 		a.log.Info("all providers are ready")
 		a.log.Info("[TIMING] Provider container setup complete", "duration_ms", time.Since(startProviderSetup).Milliseconds())
+	}
+	// Add builtinProvider if not in the providersMap.
+	if _, ok := providerToClient["builtin"]; !ok {
+		builtinProvider, err := lib.GetProviderClient(provider.Config{
+			Name:         "builtin",
+			ContextLines: a.contextLines,
+		}, analyzeLog)
+		if err != nil {
+			return err
+		}
+		providerToClient["builtin"] = builtinProvider
 	}
 
 	// Create progress reporter early (before provider preparation)
@@ -684,131 +630,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		defer progressCancel()
 	}
 
-	// Setup provider clients
-	providers := map[string]provider.InternalProviderClient{}
-	providerLocations := []string{}
-
-	var additionalBuiltinConfigs []provider.InitConfig
-
-	hostRoot := a.input
-	containerRoot := util.SourceMountPath
-	if a.isFileInput {
-		// For binary files, use parent directory as hostRoot
-		hostRoot = filepath.Dir(a.input)
-		containerRoot = path.Dir(util.SourceMountPath)
-	}
-	// Setup network-based provider clients for all configured providers
-	for provName := range a.providersMap {
-		a.log.Info("setting up network provider", "provider", provName)
-		provClient, locs, configs, err := a.setupNetworkProvider(ctx, provName, analyzeLog, overrideConfigs, reporter)
-		if err != nil {
-			errLog.Error(err, "unable to start provider", "provider", provName)
-			// Clean up any providers that were started before this failure
-			// to prevent resource leaks (containers left running)
-			for _, prov := range providers {
-				prov.Stop()
-			}
-			// Remove provider containers
-			if cleanupErr := a.RmProviderContainers(ctx); cleanupErr != nil {
-				errLog.Error(cleanupErr, "failed to cleanup providers after setup failure")
-			}
-			return fmt.Errorf("unable to start provider %s: %w", provName, err)
-		}
-		providers[provName] = provClient
-		providerLocations = append(providerLocations, locs...)
-		// CRITICAL FIX: Transform container paths to host paths
-		// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
-		// The builtin provider runs on the host and needs host paths (a.input).
-		// We must transform these paths or builtin provider won't find any files!
-		providerHostRoot := hostRoot
-		if isBinaryAnalysis {
-			cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "inspect", providerToInputVolName[provName])
-			o, err := cmd.Output()
-			if err == nil {
-				j := []map[string]any{}
-				err = json.Unmarshal(o, &j)
-				if len(j) == 1 {
-					found := false
-					if opt, ok := j[0]["Options"]; ok {
-						op, ok := opt.(map[string]any)
-						if ok {
-							if volPath, ok := op["device"]; ok {
-								volPathString := volPath.(string)
-								if runtime.GOOS == "windows" && windowsMountRegex.MatchString(volPathString) {
-									drive := windowsMountRegex.FindStringSubmatch(volPathString)
-									if len(drive) == 2 {
-										volPathString = filepath.FromSlash(windowsMountRegex.ReplaceAllString(volPathString, ""))
-										volPathString = fmt.Sprintf("%s:\\%s", strings.ToUpper(drive[1]), volPathString)
-									}
-								}
-
-								if _, err := os.Lstat(volPathString); err == nil {
-									providerHostRoot = volPathString
-									found = true
-								}
-							}
-						}
-					}
-					if volPath, ok := j[0]["Mountpoint"]; !found && ok {
-						if _, err := os.Lstat(volPath.(string)); err == nil {
-							providerHostRoot = volPath.(string)
-							found = true
-						}
-					}
-				}
-			}
-		}
-
-		for _, c := range configs {
-			if rel, err := filepath.Rel(containerRoot, c.Location); err == nil {
-				if rel == "." {
-					c.Location = providerHostRoot
-				} else {
-					c.Location = filepath.Join(providerHostRoot, filepath.FromSlash(rel))
-				}
-				a.log.V(3).Info("new provider host root for builtin configuration", "location", c.Location)
-			}
-			additionalBuiltinConfigs = append(additionalBuiltinConfigs, c)
-		}
-	}
-
-	// Setup builtin provider (always in-process)
-	builtinProvider, builtinLocations, err := a.setupBuiltinProviderHybrid(ctx, additionalBuiltinConfigs, analyzeLog, overrideConfigs, reporter)
-	if err != nil {
-		errLog.Error(err, "unable to start builtin provider")
-		return fmt.Errorf("unable to start builtin provider: %w", err)
-	}
-	providers["builtin"] = builtinProvider
-	providerLocations = append(providerLocations, builtinLocations...)
-
-	// Show provider initialization completion in progress mode
-	// Build provider names dynamically from the providers map
-	providerNames := make([]string, 0, len(providers))
-	for name := range providers {
-		providerNames = append(providerNames, name)
-	}
-	sort.Strings(providerNames) // Sort for consistent output
-	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(providerNames, ", "))
-
-	// Create rule engine
-	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
-	eng := engine.CreateRuleEngine(engineCtx,
-		10,
-		analyzeLog,
-		engine.WithContextLines(a.contextLines),
-		engine.WithIncidentSelector(a.incidentSelector),
-		engine.WithLocationPrefixes(providerLocations),
-	)
-
 	// Setup rule parser
 	ruleParser := parser.RuleParser{
-		ProviderNameToClient: providers,
+		ProviderNameToClient: providerToClient,
 		Log:                  analyzeLog.WithName("parser"),
 		NoDependencyRules:    a.noDepRules,
 		DepLabelSelector:     dependencyLabelSelector,
 	}
-
-	progressMode.Printf("  ✓ Started rules engine\n")
 
 	// Load rules in parallel for better performance
 	ruleSets := []engine.RuleSet{}
@@ -866,14 +694,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			continue
 		}
 		ruleSets = append(ruleSets, result.ruleSets...)
-		for k, v := range result.providers {
-			needProviders[k] = v
-		}
+		maps.Copy(needProviders, result.providers)
 		for k, v := range result.provConditions {
-			if _, ok := providerConditions[k]; !ok {
-				providerConditions[k] = []provider.ConditionsByCap{}
+			if val, ok := providerConditions[k]; ok {
+				providerConditions[k] = append(val, v...)
+			} else {
+				providerConditions[k] = v
 			}
-			providerConditions[k] = append(providerConditions[k], v...)
 		}
 	}
 
@@ -893,6 +720,126 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 
 	a.log.Info("[TIMING] Rule loading complete", "duration_ms", time.Since(startRuleLoading).Milliseconds())
+	// TODO: Stop providers that are not needed.
+	providerLocations := map[string]any{}
+
+	var additionalBuiltinConfigs []provider.InitConfig
+
+	hostRoot := a.input
+	containerRoot := util.SourceMountPath
+	if a.isFileInput {
+		// For binary files, use parent directory as hostRoot
+		hostRoot = filepath.Dir(a.input)
+		containerRoot = path.Dir(util.SourceMountPath)
+	}
+	// Setup network-based provider clients for all configured providers
+	for provName, client := range needProviders {
+		if provName == "builtin" {
+			continue
+		}
+		a.log.Info("setting up network provider", "provider", provName)
+		locs, configs, err := a.setupNetworkProvider(ctx, provName, client, analyzeLog, overrideConfigs, reporter)
+		if err != nil {
+			errLog.Error(err, "unable to start provider", "provider", provName)
+			// Clean up any providers that were started before this failure
+			// to prevent resource leaks (containers left running)
+			// Remove provider containers
+			if cleanupErr := a.RmProviderContainers(ctx); cleanupErr != nil {
+				errLog.Error(cleanupErr, "failed to cleanup providers after setup failure")
+			}
+			return fmt.Errorf("unable to start provider %s: %w", provName, err)
+		}
+		for _, l := range locs {
+			providerLocations[l] = nil
+		}
+		// CRITICAL FIX: Transform container paths to host paths
+		// The Java provider runs in a container and returns configs with container paths (/opt/input/source).
+		// The builtin provider runs on the host and needs host paths (a.input).
+		// We must transform these paths or builtin provider won't find any files!
+		providerHostRoot := hostRoot
+		if isBinaryAnalysis {
+			cmd := exec.CommandContext(ctx, Settings.ContainerBinary, "volume", "inspect", providerToInputVolName[provName])
+			o, err := cmd.Output()
+			if err == nil {
+				j := []map[string]any{}
+				err = json.Unmarshal(o, &j)
+				if len(j) == 1 {
+					found := false
+					if opt, ok := j[0]["Options"]; ok {
+						op, ok := opt.(map[string]any)
+						if ok {
+							if volPath, ok := op["device"]; ok {
+								volPathString := volPath.(string)
+								if runtime.GOOS == "windows" && windowsMountRegex.MatchString(volPathString) {
+									drive := windowsMountRegex.FindStringSubmatch(volPathString)
+									if len(drive) == 2 {
+										volPathString = filepath.FromSlash(windowsMountRegex.ReplaceAllString(volPathString, ""))
+										volPathString = fmt.Sprintf("%s:\\%s", strings.ToUpper(drive[1]), volPathString)
+									}
+								}
+
+								if _, err := os.Lstat(volPathString); err == nil {
+									providerHostRoot = volPathString
+									found = true
+								}
+							}
+						}
+					}
+					if volPath, ok := j[0]["Mountpoint"]; !found && ok {
+						if _, err := os.Lstat(volPath.(string)); err == nil {
+							providerHostRoot = volPath.(string)
+							found = true
+						}
+					}
+				}
+			}
+		}
+
+		for _, c := range configs {
+			if rel, err := filepath.Rel(containerRoot, c.Location); err == nil {
+				if rel == "." {
+					c.Location = providerHostRoot
+				} else {
+					c.Location = filepath.Join(providerHostRoot, filepath.FromSlash(rel))
+				}
+				a.log.V(3).Info("new provider host root for builtin configuration", "location", c.Location)
+			}
+			additionalBuiltinConfigs = append(additionalBuiltinConfigs, c)
+		}
+	}
+
+	builtinProvider, ok := needProviders["builtin"]
+	if ok {
+		// Setup builtin provider (always in-process)
+		locations, err := a.setupBuiltinProviderHybrid(ctx, additionalBuiltinConfigs, builtinProvider, reporter)
+		if err != nil {
+			errLog.Error(err, "unable to start builtin provider")
+			return fmt.Errorf("unable to start builtin provider: %w", err)
+		}
+		for _, l := range locations {
+			providerLocations[l] = nil
+		}
+	}
+	// Stop providers that are not being used
+	for name := range a.providersMap {
+		if _, ok := needProviders[name]; !ok {
+			a.StopProvider(ctx, name)
+		}
+	}
+
+	progressMode.Printf("  ✓ Initialized providers (%s)\n", strings.Join(slices.Sorted(maps.Keys(needProviders)), ", "))
+
+	// Create rule engine
+	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
+	eng := engine.CreateRuleEngine(engineCtx,
+		10,
+		analyzeLog,
+		engine.WithContextLines(a.contextLines),
+		engine.WithIncidentSelector(a.incidentSelector),
+		engine.WithLocationPrefixes(slices.Sorted(maps.Keys(providerLocations))),
+	)
+
+	progressMode.Printf("  ✓ Started rules engine\n")
 
 	// prepare the providers
 	for name, conditions := range providerConditions {
@@ -914,7 +861,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			wg.Add(1)
 
 			a.log.Info("running dependency analysis")
-			go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
+			go a.DependencyOutputContainerless(depCtx, needProviders, "dependencies.yaml", wg)
 		}
 	}
 
@@ -940,6 +887,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		depSpan.End()
 	}
 	eng.Stop()
+
+	if err := a.getProviderLogs(ctx); err != nil {
+		a.log.Error(err, "failed to get provider logs")
+	}
 
 	// Stop providers
 	for _, provider := range needProviders {
@@ -987,10 +938,6 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		return err
 	}
 	a.log.Info("[TIMING] Static report generation complete", "duration_ms", time.Since(startStaticReport).Milliseconds())
-
-	if err := a.getProviderLogs(ctx); err != nil {
-		a.log.Error(err, "failed to get provider logs")
-	}
 
 	// Print results summary (only in progress mode, not in --no-progress mode)
 	progressMode.Println("\nResults:")

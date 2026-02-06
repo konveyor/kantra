@@ -13,28 +13,28 @@ func TestAnalyzeCommand_CleanAnalysisResources(t *testing.T) {
 	logger := logrusr.New(testLogger)
 
 	tests := []struct {
-		name        string
-		cleanup     bool
+		name         string
+		cleanup      bool
 		needsBuiltin bool
-		expectError bool
+		expectError  bool
 	}{
 		{
-			name:        "cleanup disabled",
-			cleanup:     false,
+			name:         "cleanup disabled",
+			cleanup:      false,
 			needsBuiltin: false,
-			expectError: false,
+			expectError:  false,
 		},
 		{
-			name:        "needs builtin",
-			cleanup:     true,
+			name:         "needs builtin",
+			cleanup:      true,
 			needsBuiltin: true,
-			expectError: false,
+			expectError:  false,
 		},
 		{
-			name:        "cleanup enabled",
-			cleanup:     true,
+			name:         "cleanup enabled",
+			cleanup:      true,
 			needsBuiltin: false,
-			expectError: false,
+			expectError:  false,
 		},
 	}
 
@@ -153,17 +153,17 @@ func TestAnalyzeCommandContext_RmProviderContainers(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		containerNames []string
+		containerNames map[string]string
 		expectError    bool
 	}{
 		{
 			name:           "empty container names",
-			containerNames: []string{},
+			containerNames: map[string]string{},
 			expectError:    false,
 		},
 		{
 			name:           "with container names",
-			containerNames: []string{"container1", "container2"},
+			containerNames: map[string]string{"prov1": "container1", "prov2": "container2"},
 			expectError:    false, // Function doesn't return error even if commands fail
 		},
 	}
@@ -172,7 +172,7 @@ func TestAnalyzeCommandContext_RmProviderContainers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &AnalyzeCommandContext{
 				providerContainerNames: tt.containerNames,
-				log:                   logger,
+				log:                    logger,
 			}
 
 			ctx := context.Background()
@@ -208,14 +208,14 @@ func TestAnalyzeCommand_cleanlsDirs(t *testing.T) {
 func TestAnalyzeCommandContext_Structure(t *testing.T) {
 	c := &AnalyzeCommandContext{
 		providersMap:           make(map[string]ProviderInit),
-		tempDirs:              []string{},
-		isFileInput:           false,
-		needsBuiltin:          false,
-		networkName:           "test-network",
-		volumeName:            "test-volume",
-		providerContainerNames: []string{"container1"},
-		reqMap:                make(map[string]string),
-		kantraDir:             "/test/dir",
+		tempDirs:               []string{},
+		isFileInput:            false,
+		needsBuiltin:           false,
+		networkName:            "test-network",
+		volumeName:             "test-volume",
+		providerContainerNames: map[string]string{"prov1": "container1"},
+		reqMap:                 make(map[string]string),
+		kantraDir:              "/test/dir",
 	}
 
 	// Test that structure is properly initialized
