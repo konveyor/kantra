@@ -185,15 +185,17 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.providersMap == nil {
 				analyzeCmd.providersMap = make(map[string]ProviderInit)
 			}
-			components, err := recognizer.DetectComponentsInRoot(analyzeCmd.input)
-			if err != nil {
-				log.Error(err, "Could not determine programming language components")
-				return err
-			}
 			languages := map[string]model.Language{}
-			for _, c := range components {
-				for _, l := range c.Languages {
-					languages[l.Name] = l
+			if !analyzeCmd.isFileInput {
+				components, err := recognizer.DetectComponents(analyzeCmd.input)
+				if err != nil {
+					log.Error(err, "Could not determine programming language components")
+					return err
+				}
+				for _, c := range components {
+					for _, l := range c.Languages {
+						languages[l.Name] = l
+					}
 				}
 			}
 			if analyzeCmd.listLanguages {
@@ -214,6 +216,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.isFileInput {
 				foundProviders = append(foundProviders, util.JavaProvider)
 			} else {
+				var err error
 				foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, maps.Values(languages), foundProviders)
 				if err != nil {
 					log.Error(err, "failed to set provider info")
@@ -277,7 +280,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				// (providersMap will be empty, hybrid mode handles this)
 			}
 
-			err = analyzeCmd.setProviderInitInfo(foundProviders)
+			err := analyzeCmd.setProviderInitInfo(foundProviders)
 			if err != nil {
 				log.Error(err, "failed to set provider init info")
 				return err
