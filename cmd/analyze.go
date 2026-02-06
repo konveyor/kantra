@@ -84,6 +84,7 @@ type analyzeCommand struct {
 	noProgress               bool
 	overrideProviderSettings string
 	profileDir               string
+	profilePath              string
 	AnalyzeCommandContext
 }
 
@@ -120,7 +121,23 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			analyzeCmd.kantraDir = kantraDir
 			analyzeCmd.log.Info("found kantra dir", "dir", kantraDir)
-			err = analyzeCmd.Validate(cmd.Context(), cmd)
+
+			foundProfile, err := analyzeCmd.ValidateAndLoadProfile()
+			if err != nil {
+				return err
+			}
+			if analyzeCmd.profileDir == "" && foundProfile == nil {
+				analyzeCmd.log.V(7).Info("did not find profile in default path")
+			}
+			if analyzeCmd.profilePath != "" {
+				analyzeCmd.log.Info("using profile", "profile", analyzeCmd.profilePath)
+				if err := analyzeCmd.applyProfileSettings(analyzeCmd.profilePath, cmd); err != nil {
+					analyzeCmd.log.Error(err, "failed to get settings from profile")
+					return err
+				}
+			}
+
+			err = analyzeCmd.Validate(cmd.Context(), cmd, foundProfile)
 			if err != nil {
 				log.Error(err, "failed to validate flags")
 				return err
@@ -145,39 +162,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
-			}
-
-			// get profile options for analysis
-			if analyzeCmd.profileDir != "" {
-				stat, err := os.Stat(analyzeCmd.profileDir)
-				if err != nil {
-					return fmt.Errorf("failed to stat profiles directory %s: %w", analyzeCmd.profileDir, err)
-				}
-
-				if !stat.IsDir() {
-					return fmt.Errorf("found profiles path %s is not a directory", analyzeCmd.profileDir)
-				}
-				profilePath := filepath.Join(analyzeCmd.profileDir, "profile.yaml")
-				err = analyzeCmd.applyProfileSettings(profilePath, cmd)
-				if err != nil {
-					analyzeCmd.log.Error(err, "failed to get settings from profile")
-					return err
-				}
-			} else {
-				// check for a single profile in default path
-				profilesDir := filepath.Join(analyzeCmd.input, profile.Profiles)
-				profilePath, err := profile.FindSingleProfile(profilesDir)
-				if err != nil {
-					analyzeCmd.log.Error(err, "did not find valid profile in default path")
-				}
-				if profilePath != "" {
-					analyzeCmd.log.Info("using found profile", "profile", profilePath)
-					err = analyzeCmd.applyProfileSettings(profilePath, cmd)
-					if err != nil {
-						analyzeCmd.log.Error(err, "failed to get settings from profile")
-						return err
-					}
-				}
 			}
 
 			if analyzeCmd.listSources || analyzeCmd.listTargets {
@@ -349,7 +333,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	return analyzeCommand
 }
 
-func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command) error {
+func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, foundProfile *profile.AnalysisProfile) error {
 	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
@@ -539,6 +523,37 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 		}
 	}
 	return nil
+}
+
+func (a *analyzeCommand) ValidateAndLoadProfile() (*profile.AnalysisProfile, error) {
+	if a.profileDir != "" {
+		stat, err := os.Stat(a.profileDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat profiles directory %s: %w", a.profileDir, err)
+		}
+		if !stat.IsDir() {
+			return nil, fmt.Errorf("found profiles path %s is not a directory", a.profileDir)
+		}
+		a.profilePath = filepath.Join(a.profileDir, "profile.yaml")
+	} else if a.input != "" {
+		profilesDir := filepath.Join(a.input, profile.Profiles)
+		foundPath, err := profile.FindSingleProfile(profilesDir)
+		if err != nil {
+			return nil, err
+		}
+		if foundPath != "" {
+			a.profilePath = foundPath
+		}
+	}
+	if a.profilePath == "" {
+		return nil, nil
+	}
+	foundProfile, err := profile.UnmarshalProfile(a.profilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load profile %s: %w", a.profilePath, err)
+	}
+
+	return foundProfile, nil
 }
 
 func (a *analyzeCommand) validateProviders(providers []string) error {

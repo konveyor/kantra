@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )
@@ -298,6 +299,10 @@ func TestSetSettingsFromProfile(t *testing.T) {
 					os.RemoveAll(tmpDir)
 					return "", nil, nil, err
 				}
+				if err := os.WriteFile(filepath.Join(rulesDir, "rule.yaml"), []byte("rule: test"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
 
 				profileContent := `
 mode:
@@ -387,6 +392,308 @@ rules:
 	}
 }
 
+func TestProfileHasRules(t *testing.T) {
+	// ProfileHasRules(rulesDir) expects the rules directory path, not the profile file path.
+	tests := []struct {
+		name         string
+		setupFunc    func() (rulesDir string, cleanup func(), err error)
+		wantHasRules bool
+	}{
+		{
+			name: "empty path returns false",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantHasRules: false,
+		},
+		{
+			name: "path to profile with no rules dir returns false",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				_ = os.WriteFile(filepath.Join(tmpDir, "profile.yaml"), []byte("mode: {}"), 0644)
+				rulesDir := filepath.Join(tmpDir, "rules") // does not exist
+				return rulesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantHasRules: false,
+		},
+		{
+			name: "path to profile with rules dir but no yaml returns false",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				rulesDir := filepath.Join(tmpDir, "rules")
+				if err := os.MkdirAll(rulesDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				_ = os.WriteFile(filepath.Join(rulesDir, "readme.txt"), []byte("text"), 0644)
+				return rulesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantHasRules: false,
+		},
+		{
+			name: "path to profile with rules dir containing yaml returns true",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				rulesDir := filepath.Join(tmpDir, "rules")
+				if err := os.MkdirAll(rulesDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				if err := os.WriteFile(filepath.Join(rulesDir, "rule.yaml"), []byte("rule: test"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return rulesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantHasRules: true,
+		},
+		{
+			name: "path to profile with rules dir containing yml returns true",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				rulesDir := filepath.Join(tmpDir, "rules")
+				if err := os.MkdirAll(rulesDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				if err := os.WriteFile(filepath.Join(rulesDir, "rule.yml"), []byte("rule: test"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return rulesDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantHasRules: true,
+		},
+		{
+			name: "path to profile with rules subdir containing yaml returns true",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				subDir := filepath.Join(tmpDir, "rules", "files")
+				if err := os.MkdirAll(subDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				if err := os.WriteFile(filepath.Join(subDir, "rule.yaml"), []byte("rule: test"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return filepath.Join(tmpDir, "rules"), func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantHasRules: true,
+		},
+		{
+			name: "rules dir with subdir that causes WalkDir error returns false",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				rulesDir := filepath.Join(tmpDir, "rules")
+				if err := os.MkdirAll(rulesDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				noAccessDir := filepath.Join(rulesDir, "noaccess")
+				if err := os.Mkdir(noAccessDir, 0000); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				cleanup := func() {
+					_ = os.Chmod(noAccessDir, 0755)
+					os.RemoveAll(tmpDir)
+				}
+				return rulesDir, cleanup, nil
+			},
+			wantHasRules: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rulesDir, cleanup, err := tt.setupFunc()
+			if err != nil {
+				t.Fatalf("Setup failed: %v", err)
+			}
+			defer cleanup()
+			got := ProfileHasRules(rulesDir)
+			if got != tt.wantHasRules {
+				t.Errorf("ProfileHasRules(%q) = %v, want %v", rulesDir, got, tt.wantHasRules)
+			}
+		})
+	}
+}
+
+func TestSetSettingsFromProfile_EnableDefaultRulesets(t *testing.T) {
+	makeProfileWithKonveyorPath := func(t *testing.T, profileYAML string) (profilePath string, cleanup func()) {
+		t.Helper()
+		tmpDir, err := os.MkdirTemp("", "test-profile-")
+		if err != nil {
+			t.Fatalf("MkdirTemp: %v", err)
+		}
+		// Path must contain ".konveyor" for SetSettingsFromProfile to accept it
+		konveyorDir := filepath.Join(tmpDir, "app", ".konveyor", "profiles", "p")
+		if err := os.MkdirAll(konveyorDir, 0755); err != nil {
+			os.RemoveAll(tmpDir)
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		profilePath = filepath.Join(konveyorDir, "profile.yaml")
+		if err := os.WriteFile(profilePath, []byte(profileYAML), 0644); err != nil {
+			os.RemoveAll(tmpDir)
+			t.Fatalf("WriteFile: %v", err)
+		}
+		return profilePath, func() { os.RemoveAll(tmpDir) }
+	}
+
+	tests := []struct {
+		name                      string
+		profileYAML               string
+		setupFlags                func(*cobra.Command)
+		wantEnableDefaultRulesets bool
+		wantErr                   bool
+	}{
+		{
+			name:        "enable-default-rulesets flag set to true",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included: []",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", false, "")
+				_ = cmd.Flags().Set("enable-default-rulesets", "true")
+				cmd.Flags().Lookup("enable-default-rulesets").Changed = true
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "enable-default-rulesets flag set to false",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included: []",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				_ = cmd.Flags().Set("enable-default-rulesets", "false")
+				cmd.Flags().Lookup("enable-default-rulesets").Changed = true
+			},
+			wantEnableDefaultRulesets: false,
+		},
+		{
+			name:        "no enable-default-rulesets flag; target flag set",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included: []",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+				_ = cmd.Flags().Set("target", "eap8")
+				cmd.Flags().Lookup("target").Changed = true
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets flag; source flag set",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included: []",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+				_ = cmd.Flags().Set("source", "java")
+				cmd.Flags().Lookup("source").Changed = true
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets flag; profile has default konveyor target label",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included:\n      - \"" + outputv1.TargetTechnologyLabel + "=eap8\"",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets flag; profile has exact konveyor target label (no value)",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included:\n      - \"" + outputv1.TargetTechnologyLabel + "\"",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets flag; profile has default konveyor source label",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included:\n      - \"" + outputv1.SourceTechnologyLabel + "=java\"",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets flag; profile has exact konveyor source label (no value)",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included:\n      - \"" + outputv1.SourceTechnologyLabel + "\"",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+			},
+			wantEnableDefaultRulesets: true,
+		},
+		{
+			name:        "no enable-default-rulesets/target/source; profile has no default labels",
+			profileYAML: "mode: {}\nrules:\n  labels:\n    included:\n      - \"custom-label\"",
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("enable-default-rulesets", true, "")
+				cmd.Flags().String("target", "", "")
+				cmd.Flags().String("source", "", "")
+			},
+			wantEnableDefaultRulesets: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profilePath, cleanup := makeProfileWithKonveyorPath(t, tt.profileYAML)
+			defer cleanup()
+
+			cmd := &cobra.Command{}
+			cmd.Flags().String("input", "", "")
+			cmd.Flags().String("mode", "", "")
+			cmd.Flags().Bool("analyze-known-libraries", false, "")
+			cmd.Flags().String("incident-selector", "", "")
+			cmd.Flags().String("label-selector", "", "")
+			cmd.Flags().StringSlice("rules", nil, "")
+			tt.setupFlags(cmd)
+
+			settings := &ProfileSettings{
+				EnableDefaultRulesets: true,
+			}
+			err := SetSettingsFromProfile(profilePath, cmd, settings)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("SetSettingsFromProfile expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("SetSettingsFromProfile: %v", err)
+			}
+			if settings.EnableDefaultRulesets != tt.wantEnableDefaultRulesets {
+				t.Errorf("EnableDefaultRulesets = %v, want %v", settings.EnableDefaultRulesets, tt.wantEnableDefaultRulesets)
+			}
+		})
+	}
+}
+
 func TestGetRulesInProfile(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -417,6 +724,11 @@ func TestGetRulesInProfile(t *testing.T) {
 					os.RemoveAll(tmpDir)
 					return "", nil, err
 				}
+				// At least one .yaml file required for GetRulesInProfile to return rule paths
+				if err := os.WriteFile(filepath.Join(rulesDir, "ruleset.yaml"), []byte("rules: []"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
 
 				rule1Dir := filepath.Join(rulesDir, "rule1")
 				rule2Dir := filepath.Join(rulesDir, "rule2")
@@ -435,6 +747,31 @@ func TestGetRulesInProfile(t *testing.T) {
 				return tmpDir, cleanup, nil
 			},
 			wantRules: []string{"rule1", "rule2"}, // Should return the rule directories
+			wantErr:   false,
+		},
+		{
+			name: "rules directory with subdirs but no yaml returns nil",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, err
+				}
+				rulesDir := filepath.Join(tmpDir, "rules")
+				if err := os.MkdirAll(rulesDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				if err := os.Mkdir(filepath.Join(rulesDir, "rule1"), 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				if err := os.WriteFile(filepath.Join(rulesDir, "readme.txt"), []byte("no yaml"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantRules: nil,
 			wantErr:   false,
 		},
 		{
@@ -549,9 +886,9 @@ func TestGetRulesInProfile(t *testing.T) {
 				}
 				return tmpDir, cleanup, nil
 			},
+			// When rules dir has no read permission, ProfileHasRules fails and GetRulesInProfile returns nil, nil
 			wantRules: nil,
-			wantErr:   true,
-			errMsg:    "permission denied",
+			wantErr:   false,
 		},
 	}
 
@@ -1152,7 +1489,7 @@ func TestSetSettingsFromProfile_ErrorHandling(t *testing.T) {
 			errMsg:  "mapping values are not allowed",
 		},
 		{
-			name: "GetRulesInProfile error should be handled",
+			name: "GetRulesInProfile with rules as file returns error",
 			setupFunc: func() (string, *cobra.Command, func(), error) {
 				tmpDir, err := os.MkdirTemp("", "test-profile-")
 				if err != nil {
@@ -1166,7 +1503,6 @@ func TestSetSettingsFromProfile_ErrorHandling(t *testing.T) {
 					return "", nil, nil, err
 				}
 
-				// Create valid profile
 				profileContent := `
 mode:
   withDeps: true
@@ -1178,7 +1514,7 @@ mode:
 					return "", nil, nil, err
 				}
 
-				// Create a file named "rules" instead of directory to cause error
+				// Create a file named "rules" instead of directory; GetRulesInProfile returns error
 				rulesFile := filepath.Join(konveyorDir, "rules")
 				err = os.WriteFile(rulesFile, []byte("content"), 0644)
 				if err != nil {
@@ -1199,6 +1535,39 @@ mode:
 			},
 			wantErr: true,
 			errMsg:  "is not a directory",
+		},
+		{
+			name: "enable-default-rulesets GetBool error when flag has wrong type",
+			setupFunc: func() (string, *cobra.Command, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-profile-")
+				if err != nil {
+					return "", nil, nil, err
+				}
+				konveyorDir := filepath.Join(tmpDir, ".konveyor", "profiles", "test-profile")
+				if err := os.MkdirAll(konveyorDir, 0755); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+				profilePath := filepath.Join(konveyorDir, "profile.yaml")
+				if err := os.WriteFile(profilePath, []byte("mode: {}\nrules:\n  labels:\n    included: []"), 0644); err != nil {
+					os.RemoveAll(tmpDir)
+					return "", nil, nil, err
+				}
+				cmd := &cobra.Command{}
+				cmd.Flags().String("input", "", "")
+				cmd.Flags().String("mode", "", "")
+				cmd.Flags().Bool("analyze-known-libraries", false, "")
+				cmd.Flags().String("incident-selector", "", "")
+				cmd.Flags().String("label-selector", "", "")
+				cmd.Flags().StringSlice("rules", []string{}, "")
+				// Use String flag so GetBool("enable-default-rulesets") returns an error
+				cmd.Flags().String("enable-default-rulesets", "", "")
+				_ = cmd.Flags().Set("enable-default-rulesets", "true")
+				cmd.Flags().Lookup("enable-default-rulesets").Changed = true
+				return profilePath, cmd, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: true,
+			errMsg:  "error reading enable-default-rulesets",
 		},
 	}
 
