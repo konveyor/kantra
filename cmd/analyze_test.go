@@ -737,6 +737,22 @@ func Test_analyzeCommand_ValidateAndLoadProfile(t *testing.T) {
 			wantErr:        true,
 			errContains:    "not a directory",
 		},
+		{
+			name: "input is not directory",
+			setup: func(t *testing.T) *analyzeCommand {
+				tmpDir, err := os.MkdirTemp("", "test-input-")
+				if err != nil {
+					t.Fatalf("MkdirTemp: %v", err)
+				}
+				t.Cleanup(func() { os.RemoveAll(tmpDir) })
+				if err := os.WriteFile(filepath.Join(tmpDir, "file_input"), []byte("not a dir"), 0644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+				return &analyzeCommand{input: filepath.Join(tmpDir, "file_input")}
+			},
+			wantProfileNil: true,
+			wantErr:        false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
