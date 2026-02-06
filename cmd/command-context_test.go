@@ -76,10 +76,12 @@ func Test_AnalyzeCommandContext_setProviders_EmptyProvidersUsesLanguages(t *test
 		{
 			Name:           "Java",
 			CanBeComponent: true,
+			Weight:         0.2,
 		},
 		{
 			Name:           "Go",
 			CanBeComponent: true,
+			Weight:         0.01,
 		},
 	}
 	foundProviders := []string{}
@@ -104,6 +106,43 @@ func Test_AnalyzeCommandContext_setProviders_EmptyProvidersUsesLanguages(t *test
 	}
 	if !providerMap["go"] {
 		t.Error("setProviders() missing go provider from language detection")
+	}
+}
+
+func Test_AnalyzeCommandContext_setProviders_NonDefaultLanguage(t *testing.T) {
+	ctx := &AnalyzeCommandContext{
+		log:          logr.Discard(),
+		providersMap: make(map[string]ProviderInit),
+	}
+
+	providers := []string{}
+	languages := []model.Language{
+		{
+			Name:           "Rust",
+			CanBeComponent: true,
+			Weight:         .3,
+		},
+		{
+			Name:           "PHP",
+			CanBeComponent: true,
+			Weight:         .03,
+		},
+	}
+	foundProviders := []string{}
+
+	result, err := ctx.setProviders(providers, languages, foundProviders)
+	if err != nil {
+		t.Fatalf("setProviders() error = %v", err)
+	}
+
+	// Rust should be the only provider
+	if len(result) != 1 {
+		t.Errorf("setProviders() returned %d providers, want 1", len(result))
+	}
+
+	if result[0] != "rust" {
+		t.Errorf("setProviders() returned provider %s for non default Rust, want %s",
+			result[0], "Rust")
 	}
 }
 

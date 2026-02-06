@@ -49,6 +49,13 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 		}
 		return foundProviders, nil
 	}
+	validProvs := map[string]any{
+		util.JavaProvider:   nil,
+		util.PythonProvider: nil,
+		util.GoProvider:     nil,
+		util.NodeJSProvider: nil,
+		util.CsharpProvider: nil,
+	}
 	for _, l := range languages {
 		if l.CanBeComponent {
 			c.log.V(5).Info("Got language", "component language", l)
@@ -61,7 +68,11 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 			if l.Name == "JavaScript" || l.Name == "TypeScript" {
 				foundProviders = append(foundProviders, util.NodeJSProvider)
 
-			} else {
+			} else if _, ok := validProvs[strings.ToLower(l.Name)]; ok && l.Weight > .001 {
+				foundProviders = append(foundProviders, strings.ToLower(l.Name))
+			} else if l.Weight > .1 {
+				// Because we have control of the weight, if there is not a default
+				// provider for this language, lets make it have a higher level to clear.
 				foundProviders = append(foundProviders, strings.ToLower(l.Name))
 			}
 		}
