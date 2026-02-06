@@ -185,10 +185,16 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.providersMap == nil {
 				analyzeCmd.providersMap = make(map[string]ProviderInit)
 			}
-			languages, err := recognizer.Analyze(analyzeCmd.input)
+			components, err := recognizer.DetectComponentsInRoot(analyzeCmd.input)
 			if err != nil {
-				log.Error(err, "Failed to determine languages for input")
+				log.Error(err, "Could not determine programming language components")
 				return err
+			}
+			languages := map[string]model.Language{}
+			for _, c := range components {
+				for _, l := range c.Languages {
+					languages[l.Name] = l
+				}
 			}
 			if analyzeCmd.listLanguages {
 				// for binaries, assume Java application
@@ -196,7 +202,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					fmt.Fprintln(os.Stdout, "found languages for input application:", util.JavaProvider)
 					return nil
 				}
-				err := listLanguages(languages, analyzeCmd.input)
+				err := listLanguages(maps.Values(languages), analyzeCmd.input)
 				if err != nil {
 					return err
 				}
@@ -208,7 +214,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if analyzeCmd.isFileInput {
 				foundProviders = append(foundProviders, util.JavaProvider)
 			} else {
-				foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, languages, foundProviders)
+				foundProviders, err = analyzeCmd.setProviders(analyzeCmd.provider, maps.Values(languages), foundProviders)
 				if err != nil {
 					log.Error(err, "failed to set provider info")
 					return err
@@ -1543,7 +1549,11 @@ func listLanguages(languages []model.Language, input string) error {
 	default:
 		fmt.Fprintln(os.Stdout, "found languages for input application:", input)
 		for _, l := range languages {
-			fmt.Fprintln(os.Stdout, l.Name)
+			// This what alizer uses to determine languages today
+			// This will allow this to continue having the same behavior
+			if l.Weight > .02 {
+				fmt.Fprintln(os.Stdout, l.Name)
+			}
 		}
 		fmt.Fprintln(os.Stdout, "run --list-providers to view supported language providers")
 	}
