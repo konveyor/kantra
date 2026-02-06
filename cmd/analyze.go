@@ -536,6 +536,13 @@ func (a *analyzeCommand) ValidateAndLoadProfile() (*profile.AnalysisProfile, err
 		}
 		a.profilePath = filepath.Join(a.profileDir, "profile.yaml")
 	} else if a.input != "" {
+		stat, err := os.Stat(a.input)
+		if err != nil {
+			return nil, err
+		}
+		if !stat.IsDir() {
+			return nil, nil
+		}
 		profilesDir := filepath.Join(a.input, profile.Profiles)
 		foundPath, err := profile.FindSingleProfile(profilesDir)
 		if err != nil {
