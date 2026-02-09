@@ -878,9 +878,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	engineSpan.End()
 	wg.Wait()
-	if depSpan != nil {
-		depSpan.End()
-	}
+	depSpan.End()
 	eng.Stop()
 
 	if err := a.getProviderLogs(ctx); err != nil {

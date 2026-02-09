@@ -343,9 +343,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	engineSpan.End()
 	wg.Wait()
-	if depSpan != nil {
-		depSpan.End()
-	}
+	depSpan.End()
 	eng.Stop()
 
 	for _, provider := range needProviders {
