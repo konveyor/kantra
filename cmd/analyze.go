@@ -1185,9 +1185,6 @@ func (a *analyzeCommand) moveResults() error {
 	}
 	// dependencies.yaml is optional
 	_, noDepFileErr := os.Stat(depsPath)
-	if errors.Is(noDepFileErr, os.ErrNotExist) && a.mode == string(provider.FullAnalysisMode) {
-		return noDepFileErr
-	}
 	if noDepFileErr == nil {
 		err = util.CopyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 		if err != nil {
@@ -1482,6 +1479,8 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 							fmt.Fprintf(os.Stderr, "\n")
 						}
 					}
+				case progress.StageDependencyResolution:
+					fmt.Fprintf(os.Stderr, "  ✓ Resolved %d dependencies\n", event.Total)
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
