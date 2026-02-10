@@ -1185,9 +1185,6 @@ func (a *analyzeCommand) moveResults() error {
 	}
 	// dependencies.yaml is optional
 	_, noDepFileErr := os.Stat(depsPath)
-	if errors.Is(noDepFileErr, os.ErrNotExist) && a.mode == string(provider.FullAnalysisMode) {
-		return noDepFileErr
-	}
 	if noDepFileErr == nil {
 		err = util.CopyFileContents(depsPath, fmt.Sprintf("%s.%s", depsPath, a.inputShortName()))
 		if err != nil {
