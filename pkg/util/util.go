@@ -214,15 +214,29 @@ func GetProfilesExcludedDir(inputPath string, useContainerPath bool) string {
 	return ""
 }
 
+// KantraDirEnv is the environment variable that can override the kantra directory
+// (e.g. when the binary is invoked with a different working directory, as in runLocal).
+const KantraDirEnv = "KANTRA_DIR"
+
 func GetKantraDir() (string, error) {
 	var dir string
 	var err error
-	set := true
 	reqs := []string{
 		"rulesets",
 		"jdtls",
 		"static-report",
 	}
+
+	// Allow explicit override (e.g. from parent process when running kantra with cmd.Dir set)
+	if envDir := os.Getenv(KantraDirEnv); envDir != "" {
+		if _, err := os.Stat(envDir); err == nil {
+			return filepath.Clean(envDir), nil
+		}
+		// env set but path missing: still use it so callers get a consistent error
+		return filepath.Clean(envDir), nil
+	}
+
+	set := true
 	// check current dir first for reqs
 	dir, err = os.Getwd()
 	if err != nil {
