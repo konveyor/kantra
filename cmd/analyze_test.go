@@ -1375,7 +1375,7 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "successful move with all files present",
+			name: "full mode - successful move with all files present",
 			setupFunc: func() (*analyzeCommand, func(), error) {
 				tmpDir, err := os.MkdirTemp("", "test-move-")
 				if err != nil {
@@ -1405,7 +1405,7 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 				return &analyzeCommand{
 						input:  inputDir,
 						output: tmpDir,
-						mode:   "full",
+						mode:   string(provider.FullAnalysisMode),
 					}, func() {
 						os.RemoveAll(tmpDir)
 						os.RemoveAll(inputDir)
@@ -1414,7 +1414,7 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "move without dependencies.yaml should succeed",
+			name: "source-only mode - successful move with all files present",
 			setupFunc: func() (*analyzeCommand, func(), error) {
 				tmpDir, err := os.MkdirTemp("", "test-move-")
 				if err != nil {
@@ -1426,10 +1426,10 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 					return nil, nil, err
 				}
 
-				// Create only output.yaml and analysis.log
 				files := map[string]string{
 					"output.yaml":  "test output",
 					"analysis.log": "test log",
+					"dependencies.yaml": "test deps",
 				}
 				for filename, content := range files {
 					filePath := filepath.Join(tmpDir, filename)
@@ -1444,7 +1444,7 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 				return &analyzeCommand{
 						input:  inputDir,
 						output: tmpDir,
-						mode:   "source-only",
+						mode:   string(provider.SourceOnlyAnalysisMode),
 					}, func() {
 						os.RemoveAll(tmpDir)
 						os.RemoveAll(inputDir)
