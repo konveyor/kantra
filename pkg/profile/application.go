@@ -5,6 +5,7 @@ type Application struct {
 	ID         uint        `json:"id" yaml:"id"`
 	Name       string      `json:"name" yaml:"name"`
 	Repository *Repository `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Binary     string      `json:"binary,omitempty" yaml:"binary,omitempty"`
 }
 
 type Resource struct {

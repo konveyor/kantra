@@ -30,7 +30,9 @@ type configCommand struct {
 type syncCommand struct {
 	url             string
 	branch          string
+	binary          string
 	applicationPath string
+	profilePath     string
 	logLevel        *uint32
 	log             logr.Logger
 	hubClient       *hubClient
@@ -191,9 +193,9 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 			if insecure, err := cmd.Parent().PersistentFlags().GetBool("insecure"); err == nil {
 				syncCmd.insecure = insecure
 			}
-			application, err := syncCmd.getApplicationFromHub(syncCmd.url)
+			application, err := syncCmd.getApplicationFromHub()
 			if err != nil {
-				log.Error(err, "failed to get applications from Hub")
+				log.Error(err, "failed to get application from Hub")
 				return err
 			}
 			profiles, err := syncCmd.getProfilesFromHubApplication(int(application.ID))
@@ -212,29 +214,59 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 		},
 	}
 
-	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository. use url:branch to specify a branch")
-	syncCommand.MarkFlagRequired("url")
-	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "path to the local application for Hub profiles. Default is the current directory")
+	syncCommand.Flags().StringVar(&syncCmd.url, "url", "", "url of the remote application repository (use with repository-based applications). use url:branch to specify a branch")
+	syncCommand.Flags().StringVar(&syncCmd.binary, "binary", "", "identifier of the application binary in the Hub")
+	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "directory where Hub profiles are downloaded (required when using --url). Default is the current directory")
+	syncCommand.Flags().StringVar(&syncCmd.profilePath, "profile-path", "", "directory where Hub profiles are downloaded (required when using --binary)")
 	syncCommand.Flags().StringVar(&syncCmd.host, "host", "", "Hub host URL - for Hub instances without auth")
 
 	return syncCommand
 }
 
 func (s *syncCommand) Validate(ctx context.Context) error {
-	s.url, s.branch = parseURLWithBranch(s.url)
-	if s.applicationPath == "" {
-		defaultPath, err := s.setDefaultApplicationPath()
-		if err != nil {
+	if s.binary == "" && s.url == "" {
+		return fmt.Errorf("either --url (repository-based application) or --binary (binary application) must be set")
+	}
+	if s.binary != "" && s.url != "" {
+		return fmt.Errorf("cannot set both --url and --binary; use one for repository-based or binary application lookup")
+	}
+
+	if s.binary != "" {
+		if s.profilePath == "" {
+			return fmt.Errorf("--profile-path is required when syncing a binary application")
+		}
+	} else {
+		s.url, s.branch = parseURLWithBranch(s.url)
+		if s.applicationPath == "" {
+			defaultPath, err := s.setDefaultApplicationPath()
+			if err != nil {
+				return err
+			}
+			s.applicationPath = defaultPath
+		}
+	}
+
+	// Validate the directory used for profile download (application-path for --url, profile-path for --binary).
+	downloadDir := s.applicationPath
+	if s.binary != "" {
+		downloadDir = s.profilePath
+	}
+	stat, err := os.Stat(downloadDir)
+	if err != nil {
+		if s.binary != "" && os.IsNotExist(err) {
+			if err := os.MkdirAll(downloadDir, 0755); err != nil {
+				return err
+			}
+			stat, err = os.Stat(downloadDir)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-		s.applicationPath = defaultPath
-	}
-	stat, err := os.Stat(s.applicationPath)
-	if err != nil {
-		return err
 	}
 	if !stat.IsDir() {
-		return fmt.Errorf("application path %s is not a directory", s.applicationPath)
+		return fmt.Errorf("path %s is not a directory", downloadDir)
 	}
 
 	return nil
@@ -393,7 +425,7 @@ func (s *syncCommand) checkAuthentication() error {
 	return nil
 }
 
-func (s *syncCommand) getApplicationFromHub(urlRepo string) (profile.Application, error) {
+func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
 	if err := s.checkAuthentication(); err != nil {
 		return profile.Application{}, err
 	}
@@ -401,7 +433,13 @@ func (s *syncCommand) getApplicationFromHub(urlRepo string) (profile.Application
 	if err != nil {
 		return profile.Application{}, err
 	}
-	path := fmt.Sprintf("/applications?filter=repository.url='%s'", urlRepo)
+
+	var path string
+	if s.binary != "" {
+		path = "/applications"
+	} else {
+		path = fmt.Sprintf("/applications?filter=repository.url='%s'", s.url)
+	}
 
 	resp, err := hubClient.doRequest(path, "application/json", s.log)
 	if err != nil {
@@ -416,23 +454,46 @@ func (s *syncCommand) getApplicationFromHub(urlRepo string) (profile.Application
 	if err != nil {
 		return profile.Application{}, err
 	}
-	if len(apps) == 0 {
-		return profile.Application{}, fmt.Errorf("no applications found in Hub for URL: %s", urlRepo)
 
-		// TODO handle multiple applications later
-	} else if len(apps) > 1 {
-		return profile.Application{}, fmt.Errorf("multiple applications found in Hub for URL: %s", urlRepo)
+	if s.binary != "" {
+		var matched []profile.Application
+		for _, app := range apps {
+			if app.Binary == s.binary {
+				matched = append(matched, app)
+			}
+		}
+		apps = matched
 	}
-	var application profile.Application
-	if apps[0].Repository != nil && apps[0].Repository.URL == s.url {
+
+	if len(apps) == 0 {
+		return profile.Application{}, fmt.Errorf("no applications found in Hub for given input")
+	}
+	// TODO support multiple applications later
+	if len(apps) > 1 {
+		lookup := s.url
+		if s.binary != "" {
+			lookup = s.binary
+		}
+		return profile.Application{}, fmt.Errorf("multiple applications found in Hub: %s", lookup)
+	}
+	application := apps[0]
+	if s.binary == "" {
+		// Only validate repository URL and branch when lookup was by --url.
+		if apps[0].Repository == nil || apps[0].Repository.URL != s.url {
+			gotURL := ""
+			if apps[0].Repository != nil {
+				gotURL = apps[0].Repository.URL
+			}
+			return profile.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, gotURL)
+		}
 		if s.branch != "" && apps[0].Repository.Branch != "" && apps[0].Repository.Branch != s.branch {
 			return profile.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, apps[0].Repository.Branch)
 		}
-		application = apps[0]
 	} else {
-		return profile.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, apps[0].Repository.URL)
+		if apps[0].Binary != s.binary {
+			return profile.Application{}, fmt.Errorf("binary mismatch: expected %s, got %s", s.binary, apps[0].Binary)
+		}
 	}
-
 	return application, nil
 }
 
@@ -487,9 +548,13 @@ func (s *syncCommand) downloadProfileBundle(profileID int) error {
 	if err != nil {
 		return err
 	}
+	downloadDir := s.applicationPath
+	if s.binary != "" {
+		downloadDir = s.profilePath
+	}
 	filename := fmt.Sprintf("profile-%d.tar", profileID)
-	downloadPath := filepath.Join(s.applicationPath, profile.Profiles, filename)
-	err = os.MkdirAll(filepath.Join(s.applicationPath, profile.Profiles), 0755)
+	downloadPath := filepath.Join(downloadDir, profile.Profiles, filename)
+	err = os.MkdirAll(filepath.Join(downloadDir, profile.Profiles), 0755)
 	if err != nil {
 		return err
 	}
