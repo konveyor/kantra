@@ -372,12 +372,13 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		} else {
 			a.fetchLabels(ctx, true, false, &sourcesRaw)
 		}
-		knownSources := strings.Split(sourcesRaw.String(), "\n")
+		knownSources := parseLabelLines(sourcesRaw.String())
 		for _, source := range a.sources {
 			found := false
 			for _, knownSource := range knownSources {
 				if source == knownSource {
 					found = true
+					break
 				}
 			}
 			if !found {
@@ -393,16 +394,17 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		} else {
 			a.fetchLabels(ctx, false, true, &targetRaw)
 		}
-		knownTargets := strings.Split(targetRaw.String(), "\n")
-		for _, source := range a.targets {
+		knownTargets := parseLabelLines(targetRaw.String())
+		for _, target := range a.targets {
 			found := false
 			for _, knownTarget := range knownTargets {
-				if source == knownTarget {
+				if target == knownTarget {
 					found = true
+					break
 				}
 			}
 			if !found {
-				return fmt.Errorf("unknown target: \"%s\"", source)
+				return fmt.Errorf("unknown target: \"%s\"", target)
 			}
 		}
 	}
@@ -638,6 +640,21 @@ func (a *analyzeCommand) ListAllProviders() {
 	for _, prov := range supportedProvsContainerless {
 		fmt.Fprintln(os.Stdout, prov)
 	}
+}
+
+// parseLabelLines splits container output into label lines, trimming whitespace
+// and skipping empty lines so comparison works across Docker/Podman
+func parseLabelLines(raw string) []string {
+	lines := strings.Split(raw, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		s := strings.TrimSpace(line)
+		if s == "" {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 func (a *analyzeCommand) ListLabels(ctx context.Context) error {
