@@ -2344,9 +2344,6 @@
 - name: technology-usage
   description: This ruleset provides analysis of logging libraries.
   tags:
-  - Application Properties File
-  - Application properties file detected
-  - Configuration Management=Application Properties File
   - Connect=Servlet
   - Embedded Spring Data JPA
   - Embedded framework - Micrometer
@@ -2354,7 +2351,6 @@
   - Embedded framework - Spring MVC
   - Embedded framework - Spring Web
   - Embedded library - Spring Boot Actuator
-  - Embedded=Application Properties File
   - Embedded=Micrometer
   - Embedded=Properties
   - Embedded=Spring Boot Actuator
@@ -2384,37 +2380,12 @@
   - Spring Web
   - Store=JPA named queries
   - Store=Spring Data JPA
-  - Sustain=Application Properties File
   - Sustain=Properties
   - Sustain=Spring Boot Actuator
   - View=Spring MVC
   - View=Spring Web
   - Web=Spring Web
   insights:
-    configuration-management-0200:
-      description: Application properties file detected
-      labels:
-      - discovery
-      - konveyor.io/include=always
-      - tag=Application Properties File
-      - tag=Application properties file detected
-      incidents:
-      - uri: file:///home/runner/work/kantra/kantra/example-applications/example-1/src/main/resources/persistence.properties
-        message: ""
-    configuration-management-technology-usage-0200:
-      description: Application Properties File
-      labels:
-      - discovery
-      - konveyor.io/include=always
-      - tag=Configuration Management=Application Properties File
-      - tag=Embedded=Application Properties File
-      - tag=Sustain=Application Properties File
-      incidents:
-      - uri: ""
-        message: ""
-        variables:
-          tags:
-          - Application Properties File
     database-03000:
       description: Embedded Spring Data JPA
       labels:
