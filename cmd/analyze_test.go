@@ -278,6 +278,177 @@ func Test_analyzeCommand_validateRulesPath(t *testing.T) {
 	}
 }
 
+func Test_analyzeCommand_Validate_sourceAndTargetLabels(t *testing.T) {
+	ctx := context.Background()
+	cmd := &cobra.Command{}
+
+	// Setup: temp kantra dir with rulesets containing source and target labels
+	mkKantraDirWithRules := func(t *testing.T, sourceLabel, targetLabel string) string {
+		t.Helper()
+		tmpDir, err := os.MkdirTemp("", "kantra-validate-labels-")
+		if err != nil {
+			t.Fatalf("MkdirTemp: %v", err)
+		}
+		t.Cleanup(func() { os.RemoveAll(tmpDir) })
+		rulesetsDir := filepath.Join(tmpDir, "rulesets", "java")
+		if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		ruleContent := fmt.Sprintf(`
+- category: mandatory
+  labels:
+  - konveyor.io/source=%s
+  - konveyor.io/target=%s
+  ruleID: test-rule-01
+`, sourceLabel, targetLabel)
+		if err := os.WriteFile(filepath.Join(rulesetsDir, "rules.yaml"), []byte(ruleContent), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+		return tmpDir
+	}
+
+	t.Run("runLocal true with valid source and target passes", func(t *testing.T) {
+		kantraDir := mkKantraDirWithRules(t, "java-ee", "quarkus")
+		outDir := filepath.Join(os.TempDir(), fmt.Sprintf("kantra-validate-out-%d", time.Now().UnixNano()))
+		t.Cleanup(func() { _ = os.RemoveAll(outDir) })
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			t.Fatalf("MkdirAll output: %v", err)
+		}
+
+		a := &analyzeCommand{
+			output:                outDir,
+			input:                 "",
+			mode:                  string(provider.FullAnalysisMode),
+			runLocal:              true,
+			sources:               []string{"java-ee"},
+			targets:               []string{"quarkus"},
+			enableDefaultRulesets: true,
+			overwrite:             true,
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+			},
+		}
+		err := a.Validate(ctx, cmd, nil)
+		if err != nil {
+			t.Errorf("Validate with valid source and target: %v", err)
+		}
+	})
+
+	t.Run("runLocal true with unknown source returns error", func(t *testing.T) {
+		kantraDir := mkKantraDirWithRules(t, "java-ee", "quarkus")
+		outDir := filepath.Join(os.TempDir(), fmt.Sprintf("kantra-validate-out-%d", time.Now().UnixNano()))
+		t.Cleanup(func() { _ = os.RemoveAll(outDir) })
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			t.Fatalf("MkdirAll output: %v", err)
+		}
+
+		a := &analyzeCommand{
+			output:                outDir,
+			input:                 "",
+			mode:                  string(provider.FullAnalysisMode),
+			runLocal:              true,
+			sources:               []string{"unknown-source"},
+			enableDefaultRulesets:  true,
+			overwrite:             true,
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+			},
+		}
+		err := a.Validate(ctx, cmd, nil)
+		if err == nil {
+			t.Fatal("Validate expected error for unknown source")
+		}
+		if !strings.Contains(err.Error(), "unknown source") || !strings.Contains(err.Error(), "unknown-source") {
+			t.Errorf("error = %v, want 'unknown source' and 'unknown-source'", err)
+		}
+	})
+
+	t.Run("runLocal true with unknown target returns error", func(t *testing.T) {
+		kantraDir := mkKantraDirWithRules(t, "java-ee", "quarkus")
+		outDir := filepath.Join(os.TempDir(), fmt.Sprintf("kantra-validate-out-%d", time.Now().UnixNano()))
+		t.Cleanup(func() { _ = os.RemoveAll(outDir) })
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			t.Fatalf("MkdirAll output: %v", err)
+		}
+
+		a := &analyzeCommand{
+			output:                outDir,
+			input:                 "",
+			mode:                  string(provider.FullAnalysisMode),
+			runLocal:              true,
+			targets:               []string{"unknown-target"},
+			enableDefaultRulesets:  true,
+			overwrite:             true,
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+			},
+		}
+		err := a.Validate(ctx, cmd, nil)
+		if err == nil {
+			t.Fatal("Validate expected error for unknown target")
+		}
+		if !strings.Contains(err.Error(), "unknown target") || !strings.Contains(err.Error(), "unknown-target") {
+			t.Errorf("error = %v, want 'unknown target' and 'unknown-target'", err)
+		}
+	})
+
+}
+
+func TestParseLabelLines(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		expected []string
+	}{
+		{
+			name:     "empty string returns empty slice",
+			raw:      "",
+			expected: []string{},
+		},
+		{
+			name:     "single line no newline",
+			raw:      "java-ee",
+			expected: []string{"java-ee"},
+		},
+		{
+			name:     "multiple lines",
+			raw:      "available source technologies:\njava-ee\nquarkus\n",
+			expected: []string{"available source technologies:", "java-ee", "quarkus"},
+		},
+		{
+			name:     "trims leading and trailing whitespace",
+			raw:      "  java-ee  \n  quarkus  ",
+			expected: []string{"java-ee", "quarkus"},
+		},
+		{
+			name:     "skips empty lines",
+			raw:      "java-ee\n\nquarkus\n\n",
+			expected: []string{"java-ee", "quarkus"},
+		},
+		{
+			name:     "handles Windows line endings",
+			raw:      "java-ee\r\nquarkus\r\n",
+			expected: []string{"java-ee", "quarkus"},
+		},
+		{
+			name:     "mixed content with header",
+			raw:      "available target technologies:\ncloud-readiness\nquarkus\n",
+			expected: []string{"available target technologies:", "cloud-readiness", "quarkus"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseLabelLines(tt.raw)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("parseLabelLines() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)

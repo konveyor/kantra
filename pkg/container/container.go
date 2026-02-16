@@ -213,15 +213,21 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	if c.image == "" || c.containerToolBin == "" {
 		return fmt.Errorf("image and containerToolBin must be set")
 	}
-	currentUser, err := user.Current()
-	if err != nil {
-		return err
-	}
-	args := []string{"run", "--userns=keep-id"}
-	if runtime.GOOS == "windows" {
-		args = append(args, "--user=1000:0")
-	} else {
-		args = append(args, fmt.Sprintf("--user=%s:0", currentUser.Uid))
+	args := []string{"run"}
+	// --userns=keep-id and --user are Podman-specific; Docker does not support --userns=keep-id
+	// and can behave differently with --user, so only add them when using Podman.
+	isPodman := filepath.Base(c.containerToolBin) == "podman"
+	if isPodman {
+		currentUser, err := user.Current()
+		if err != nil {
+			return err
+		}
+		args = append(args, "--userns=keep-id")
+		if runtime.GOOS == "windows" {
+			args = append(args, "--user=1000:0")
+		} else {
+			args = append(args, fmt.Sprintf("--user=%s:0", currentUser.Uid))
+		}
 	}
 
 	if c.detached {
@@ -257,7 +263,6 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 		args = append(args, "-v")
 		args = append(args, fmt.Sprintf("%s:%s:z",
 			filepath.Clean(sourcePath), path.Clean(destPath)))
-
 	}
 	for _, portMapping := range c.ports {
 		args = append(args, "-p")
