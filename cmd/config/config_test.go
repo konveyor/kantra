@@ -383,6 +383,14 @@ func TestNewSyncCmd(t *testing.T) {
 	if hostFlag == nil {
 		t.Error("Expected --host flag to be present")
 	}
+	binaryFlag := cmd.Flags().Lookup("binary")
+	if binaryFlag == nil {
+		t.Error("Expected --binary flag to be present")
+	}
+	profilePathFlag := cmd.Flags().Lookup("profile-path")
+	if profilePathFlag == nil {
+		t.Error("Expected --profile-path flag to be present")
+	}
 }
 
 func TestSyncCommand_Validate(t *testing.T) {
@@ -390,12 +398,15 @@ func TestSyncCommand_Validate(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		url       string
+		binary    string
 		setupFunc func() (string, func(), error)
 		wantErr   bool
 		errMsg    string
 	}{
 		{
 			name: "empty application path should use default (current directory)",
+			url:  "https://example.com/repo",
 			setupFunc: func() (string, func(), error) {
 				return "", func() {}, nil
 			},
@@ -403,6 +414,7 @@ func TestSyncCommand_Validate(t *testing.T) {
 		},
 		{
 			name: "valid directory should pass",
+			url:  "https://example.com/repo",
 			setupFunc: func() (string, func(), error) {
 				tmpDir, err := os.MkdirTemp("", "test-sync-")
 				if err != nil {
@@ -414,6 +426,7 @@ func TestSyncCommand_Validate(t *testing.T) {
 		},
 		{
 			name: "non-existent directory should fail",
+			url:  "https://example.com/repo",
 			setupFunc: func() (string, func(), error) {
 				return "/non/existent/path", func() {}, nil
 			},
@@ -421,7 +434,8 @@ func TestSyncCommand_Validate(t *testing.T) {
 			errMsg:  "no such file or directory",
 		},
 		{
-			name: "file instead of directory should fail",
+			name: "file instead of directory should fail (repository mode)",
+			url:  "https://example.com/repo",
 			setupFunc: func() (string, func(), error) {
 				tmpDir, err := os.MkdirTemp("", "test-sync-")
 				if err != nil {
@@ -438,6 +452,35 @@ func TestSyncCommand_Validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "is not a directory",
 		},
+		{
+			name:   "neither url nor binary should fail",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "either --url",
+		},
+		{
+			name:   "binary with empty profile path should fail",
+			binary: "/path/to/app.war",
+			setupFunc: func() (string, func(), error) {
+				return "", func() {}, nil
+			},
+			wantErr: true,
+			errMsg:  "--profile-path is required when syncing a binary",
+		},
+		{
+			name:   "binary with directory path should pass",
+			binary: "app.war",
+			setupFunc: func() (string, func(), error) {
+				tmpDir, err := os.MkdirTemp("", "test-sync-")
+				if err != nil {
+					return "", nil, err
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -449,7 +492,15 @@ func TestSyncCommand_Validate(t *testing.T) {
 			defer cleanup()
 
 			syncCmd := &syncCommand{
+				url:             tt.url,
+				binary:          tt.binary,
 				applicationPath: path,
+				profilePath:     path,
+			}
+			if tt.binary != "" {
+				syncCmd.applicationPath = ""
+			} else {
+				syncCmd.profilePath = ""
 			}
 
 			err = syncCmd.Validate(ctx)
@@ -1049,7 +1100,7 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 				},
 			}
 
-			app, err := syncCmd.getApplicationFromHub(tt.url)
+			app, err := syncCmd.getApplicationFromHub()
 
 			if tt.wantErr {
 				if err == nil {
