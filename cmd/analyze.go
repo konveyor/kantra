@@ -349,10 +349,6 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		return nil
 	}
 
-	if a.labelSelector != "" && (len(a.sources) > 0 || len(a.targets) > 0) {
-		return fmt.Errorf("must not specify label-selector and sources or targets")
-	}
-
 	for _, rulePath := range a.rules {
 		if _, err := os.Stat(rulePath); rulePath != "" && err != nil {
 			return fmt.Errorf("%w failed to stat rules at path %s", err, rulePath)
