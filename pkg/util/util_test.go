@@ -25,12 +25,12 @@ func TestGetKantraDir_KANTRA_DIR_set(t *testing.T) {
 		{
 			name:    "existing absolute path",
 			envDir:  os.TempDir(),
-			wantDir: os.TempDir(),
+			wantDir: filepath.Clean(os.TempDir()),
 		},
 		{
 			name:    "path with trailing slash returns cleaned",
 			envDir:  os.TempDir() + string(filepath.Separator),
-			wantDir: os.TempDir(),
+			wantDir: filepath.Clean(os.TempDir()),
 		},
 		{
 			name:    "non-existing path still returned",
