@@ -843,14 +843,16 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	// attempt to create a .m2 directory we can use to speed things a bit
 	// this will be shared between analyze and dep command containers
 	// TODO: when this is fixed on mac and windows for podman machine volume access remove this check.
-	if runtime.GOOS == "linux" {
-		m2Dir, err := os.MkdirTemp("", "m2-repo-")
-		if err != nil {
-			a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
-		} else {
-			settingsVols[m2Dir] = util.M2Dir
-			a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
-			a.tempDirs = append(a.tempDirs, m2Dir)
+	if _, hasJava := a.providersMap[util.JavaProvider]; hasJava {
+		if runtime.GOOS == "linux" {
+			m2Dir, err := os.MkdirTemp("", "m2-repo-")
+			if err != nil {
+				a.log.V(1).Error(err, "failed to create m2 repo", "dir", m2Dir)
+			} else {
+				settingsVols[m2Dir] = util.M2Dir
+				a.log.V(1).Info("created directory for maven repo", "dir", m2Dir)
+				a.tempDirs = append(a.tempDirs, m2Dir)
+			}
 		}
 	}
 
@@ -1035,19 +1037,21 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 		maps.Copy(volumes, vols)
 	}
 
-	// Add Maven cache volume for persistent dependency caching
+	// Only create Maven cache volume when Java provider is active.
 	// The maven-cache-volume maps to the host's ~/.m2/repository and persists
 	// across analysis runs to avoid re-downloading dependencies. This significantly
 	// improves performance for subsequent analyses. If volume creation fails or
 	// caching is disabled (KANTRA_SKIP_MAVEN_CACHE=true), we continue without
 	// caching (graceful degradation).
-	mavenCacheVolName, err := a.createMavenCacheVolume()
-	if err != nil {
-		a.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
-	} else if mavenCacheVolName != "" {
-		mavenCacheDir := path.Join(util.M2Dir, "repository")
-		volumes[mavenCacheVolName] = mavenCacheDir
-		a.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
+	if _, hasJava := a.providersMap[util.JavaProvider]; hasJava {
+		mavenCacheVolName, err := a.createMavenCacheVolume()
+		if err != nil {
+			a.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
+		} else if mavenCacheVolName != "" {
+			mavenCacheDir := path.Join(util.M2Dir, "repository")
+			volumes[mavenCacheVolName] = mavenCacheDir
+			a.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
+		}
 	}
 
 	for prov, init := range a.providersMap {
