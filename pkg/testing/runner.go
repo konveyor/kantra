@@ -15,6 +15,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/sirupsen/logrus"
@@ -336,12 +337,31 @@ func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams, inpu
 	if err != nil {
 		return "", fmt.Errorf("failed to get executable path: %w", err)
 	}
+	kantraDir, err := util.GetKantraDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get kantra dir for run-local subprocess: %w", err)
+	}
 	cmd := exec.Command(execPath, args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Dir = dir
+	// Pass parent's kantra dir so the subprocess does not rely on cwd (which is dir) or ~/.kantra
+	cmd.Env = append(envWithoutKantraDir(os.Environ()), util.KantraDirEnv+"="+kantraDir)
 	err = cmd.Run()
 	return fmt.Sprintf("kantra %s", strings.Join(args, " ")), err
+}
+
+// envWithoutKantraDir returns a copy of env with any KANTRA_DIR entry removed.
+// This is so that no duplicate KANTRA_DIRs are present in the env vars.
+func envWithoutKantraDir(env []string) []string {
+	prefix := util.KantraDirEnv + "="
+	out := make([]string, 0, len(env))
+	for _, e := range env {
+		if !strings.HasPrefix(e, prefix) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams, prune bool) (string, error) {
