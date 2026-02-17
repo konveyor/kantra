@@ -214,15 +214,33 @@ func GetProfilesExcludedDir(inputPath string, useContainerPath bool) string {
 	return ""
 }
 
+// KantraDirEnv is the environment variable that can override the kantra directory
+// (e.g. when the binary is invoked with a different working directory, as in runLocal).
+const KantraDirEnv = "KANTRA_DIR"
+
+// GetKantraDir returns the directory used for rulesets, jdtls, and static-report.
+// Resolution order: 1) KANTRA_DIR env var (if set), 2) current directory if it
+// contains "rulesets", "jdtls", and "static-report", 3) $HOME/.kantra (or
+// $XDG_CONFIG_HOME/.kantra on Linux when set).
 func GetKantraDir() (string, error) {
 	var dir string
 	var err error
-	set := true
 	reqs := []string{
 		"rulesets",
 		"jdtls",
 		"static-report",
 	}
+
+	// Allow explicit override (e.g. from parent process when running kantra with cmd.Dir set)
+	if envDir := os.Getenv(KantraDirEnv); envDir != "" {
+		if _, err := os.Stat(envDir); err == nil {
+			return filepath.Clean(envDir), nil
+		}
+		// env set but path missing: still use it so callers get a consistent error
+		return filepath.Clean(envDir), nil
+	}
+
+	set := true
 	// check current dir first for reqs
 	dir, err = os.Getwd()
 	if err != nil {
