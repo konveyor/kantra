@@ -1,8 +1,6 @@
 .vscode/
 .idea/
 
-CLAUDE.md
-
 *.out
 
 .metadata/
