@@ -3,9 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -1890,6 +1892,228 @@ func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
 			if disableMavenSearchValue != tt.expectedDisableMavenSearch {
 				t.Errorf("ProviderSpecificConfig[\"disableMavenSearch\"] = %v, want %v",
 					disableMavenSearchValue, tt.expectedDisableMavenSearch)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_getConfigVolumes_m2SkippedForNonJava(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name         string
+		providersMap map[string]ProviderInit
+		expectM2Vol  bool
+	}{
+		{
+			name: "no Java provider should not create M2 volume",
+			providersMap: map[string]ProviderInit{
+				util.PythonProvider: {},
+			},
+			expectM2Vol: false,
+		},
+		{
+			name: "Go provider only should not create M2 volume",
+			providersMap: map[string]ProviderInit{
+				util.GoProvider: {},
+			},
+			expectM2Vol: false,
+		},
+		{
+			name:         "empty providersMap should not create M2 volume",
+			providersMap: map[string]ProviderInit{},
+			expectM2Vol:  false,
+		},
+		{
+			name: "Java provider should create M2 volume on linux",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectM2Vol: runtime.GOOS == "linux",
+		},
+		{
+			name: "Java with other providers should create M2 volume on linux",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider:   {},
+				util.PythonProvider: {},
+			},
+			expectM2Vol: runtime.GOOS == "linux",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "test-input-")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			outputDir, err := os.MkdirTemp("", "test-output-")
+			if err != nil {
+				t.Fatalf("Failed to create output dir: %v", err)
+			}
+			defer os.RemoveAll(outputDir)
+
+			a := &analyzeCommand{
+				input:  tmpDir,
+				output: outputDir,
+				mode:   "source-only",
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					isFileInput:  false,
+					needsBuiltin: true,
+					providersMap: tt.providersMap,
+				},
+			}
+
+			originalSettings := Settings
+			Settings = &Config{
+				JvmMaxMem: "1g",
+			}
+			defer func() { Settings = originalSettings }()
+
+			configVols, err := a.getConfigVolumes()
+			if err != nil {
+				t.Fatalf("getConfigVolumes() error = %v", err)
+			}
+
+			hasM2Vol := false
+			for _, mountPath := range configVols {
+				if mountPath == util.M2Dir {
+					hasM2Vol = true
+					break
+				}
+			}
+
+			if hasM2Vol != tt.expectM2Vol {
+				t.Errorf("getConfigVolumes() M2 volume present = %v, want %v", hasM2Vol, tt.expectM2Vol)
+			}
+		})
+	}
+}
+
+func Test_analyzeCommand_RunProvidersHostNetwork_mavenCacheSkippedForNonJava(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name                   string
+		providersMap           map[string]ProviderInit
+		expectMavenCacheVolume bool
+		expectError            bool
+		needsContainerRuntime  bool
+		skipMavenCache         bool
+	}{
+		{
+			name:                   "empty providersMap should not create maven cache volume",
+			providersMap:           map[string]ProviderInit{},
+			expectMavenCacheVolume: false,
+			expectError:            false,
+			needsContainerRuntime:  false,
+		},
+		{
+			name: "Go provider only should not create maven cache volume",
+			providersMap: map[string]ProviderInit{
+				util.GoProvider: {},
+			},
+			expectMavenCacheVolume: false,
+			expectError:            true,
+			needsContainerRuntime:  false,
+		},
+		{
+			name: "Python provider only should not create maven cache volume",
+			providersMap: map[string]ProviderInit{
+				util.PythonProvider: {},
+			},
+			expectMavenCacheVolume: false,
+			expectError:            true,
+			needsContainerRuntime:  false,
+		},
+		{
+			name: "Java provider with fake binary should fail maven cache volume creation",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectMavenCacheVolume: false,
+			expectError:            true,
+			needsContainerRuntime:  false,
+		},
+		{
+			name: "Java provider with KANTRA_SKIP_MAVEN_CACHE should skip maven cache volume",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectMavenCacheVolume: false,
+			expectError:            true,
+			needsContainerRuntime:  false,
+			skipMavenCache:         true,
+		},
+		{
+			name: "Java provider should create maven cache volume",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+			},
+			expectMavenCacheVolume: true,
+			expectError:            true,
+			needsContainerRuntime:  true,
+		},
+		{
+			name: "Java with Go provider should create maven cache volume",
+			providersMap: map[string]ProviderInit{
+				util.JavaProvider: {},
+				util.GoProvider:   {},
+			},
+			expectMavenCacheVolume: true,
+			expectError:            true,
+			needsContainerRuntime:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.needsContainerRuntime {
+				binary := getContainerBinary()
+				if binary == "" {
+					t.Skip("Container runtime not available")
+				}
+				cleanupMavenCacheVolume(t)
+				defer cleanupMavenCacheVolume(t)
+			}
+
+			if tt.skipMavenCache {
+				t.Setenv("KANTRA_SKIP_MAVEN_CACHE", "true")
+			}
+
+			originalSettings := Settings
+			containerBinary := "fake-binary"
+			if tt.needsContainerRuntime {
+				containerBinary = getContainerBinary()
+			}
+			Settings = &Config{
+				ContainerBinary: containerBinary,
+			}
+			defer func() { Settings = originalSettings }()
+
+			a := &analyzeCommand{
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:          log,
+					providersMap: tt.providersMap,
+				},
+			}
+
+			err := a.RunProvidersHostNetwork(context.Background(), "test-vol", 0, io.Discard)
+
+			if tt.expectError && err == nil {
+				t.Errorf("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			hasMavenCache := a.mavenCacheVolumeName != ""
+			if hasMavenCache != tt.expectMavenCacheVolume {
+				t.Errorf("mavenCacheVolumeName present = %v (value: %q), want present = %v",
+					hasMavenCache, a.mavenCacheVolumeName, tt.expectMavenCacheVolume)
 			}
 		})
 	}
