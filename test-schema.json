@@ -55,6 +55,7 @@
 											"type": "integer"
 										},
 										"codeSnipMatches": {
+											"nullable": true,
 											"type": "string"
 										},
 										"exactly": {
@@ -65,15 +66,19 @@
 											"items": {
 												"properties": {
 													"codeSnipMatches": {
+														"nullable": true,
 														"type": "string"
 													},
 													"fileURI": {
+														"nullable": true,
 														"type": "string"
 													},
 													"lineNumber": {
+														"nullable": true,
 														"type": "integer"
 													},
 													"messageMatches": {
+														"nullable": true,
 														"type": "string"
 													}
 												},
@@ -87,6 +92,7 @@
 											"type": "array"
 										},
 										"messageMatches": {
+											"nullable": true,
 											"type": "string"
 										}
 									},

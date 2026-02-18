@@ -3,6 +3,7 @@ package testing
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -22,7 +23,7 @@ func TestGenerateTestsSchema(t *testing.T) {
 		t.Errorf("failed unmarshaling expected schema file ../../test-schema.json")
 		return
 	}
-	if string(gotContent) != string(wantContent) {
-		t.Errorf("GenerateTestsSchema() want schema \n%v, got \n%v", string(gotContent), string(wantContent))
+	if strings.TrimSpace(string(gotContent)) != strings.TrimSpace(string(wantContent)) {
+		t.Errorf("GenerateTestsSchema() want schema \n%v, got \n%v", string(wantContent), string(gotContent))
 	}
 }

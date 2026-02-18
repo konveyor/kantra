@@ -23,15 +23,15 @@ func GenerateTestsSchema() (*openapi3.SchemaRef, error) {
 func testsSchemaCustomizer(name string, t reflect.Type, tag reflect.StructTag, schema *openapi3.Schema) error {
 	switch name {
 	case "tests":
-		if schema.Type == "object" {
+		if schema.Type.Is(openapi3.TypeObject) {
 			schema.Required = append(schema.Required, "ruleID")
 		}
 	case "testCases":
-		if schema.Type == "object" {
+		if schema.Type.Is(openapi3.TypeObject) {
 			schema.Required = append(schema.Required, "name")
 		}
 	case "providers":
-		if schema.Type == "object" {
+		if schema.Type.Is(openapi3.TypeObject) {
 			schema.Required = append(schema.Required, "name")
 			schema.Required = append(schema.Required, "dataPath")
 		} else {
@@ -56,7 +56,7 @@ func testsSchemaCustomizer(name string, t reflect.Type, tag reflect.StructTag, s
 		merge(schema.Properties, countBasedSchema.Value.Properties)
 		schema.Nullable = true
 	case "locations":
-		if schema.Type == "object" {
+		if schema.Type.Is(openapi3.TypeObject) {
 			schema.Required = append(schema.Required, "lineNumber")
 			schema.Required = append(schema.Required, "fileURI")
 		} else {
