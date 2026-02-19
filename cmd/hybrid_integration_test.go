@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
 // TestWaitForProviderTimeout tests that waitForProvider correctly times out
@@ -245,69 +244,56 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	}
 }
 
-func TestAnalyzeCommand_copyJavaProviderMetadata(t *testing.T) {
-	ctx := context.Background()
-
+func TestProviderEntrypointArgs(t *testing.T) {
+	buildArgs := func(port int, logLevel *uint32) []string {
+		args := []string{fmt.Sprintf("--port=%v", port)}
+		if logLevel != nil {
+			args = append(args, fmt.Sprintf("--log-level=%v", *logLevel))
+		}
+		return args
+	}
 	tests := []struct {
-		name               string
-		providersMap       map[string]ProviderInit
-		providerContainers map[string]string
-		output             string
-		expectNil          bool // true: must return nil (short-circuit); false: may return nil or cp error
+		name     string
+		port     int
+		logLevel *uint32
+		wantArgs []string
 	}{
 		{
-			name:               "Java not in providersMap returns nil",
-			providersMap:       map[string]ProviderInit{},
-			providerContainers: map[string]string{},
-			output:             "/tmp/out",
-			expectNil:          true,
+			name:     "port and log level set",
+			port:     14651,
+			logLevel: uint32Ptr(1),
+			wantArgs: []string{"--port=14651", "--log-level=1"},
 		},
 		{
-			name:               "Java in providersMap but no container name returns nil",
-			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
-			providerContainers: map[string]string{},
-			output:             "/tmp/out",
-			expectNil:          true,
+			name:     "port set with default log level",
+			port:     14651,
+			logLevel: uint32Ptr(4),
+			wantArgs: []string{"--port=14651", "--log-level=4"},
 		},
 		{
-			name:               "Java in providersMap but empty container name returns nil",
-			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
-			providerContainers: map[string]string{util.JavaProvider: ""},
-			output:             "/tmp/out",
-			expectNil:          true,
-		},
-		{
-			name:               "Java in providersMap with container name attempts copy",
-			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
-			providerContainers: map[string]string{util.JavaProvider: "nonexistent-container-12345"},
-			output:             "/tmp/out",
-			expectNil:          false, // cp may fail in test env; we only check no panic
+			name:     "port set log level nil omits flag",
+			port:     14651,
+			logLevel: nil,
+			wantArgs: []string{"--port=14651"},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &analyzeCommand{
-				output: tt.output,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:                    logr.Discard(),
-					providersMap:           tt.providersMap,
-					providerContainerNames: tt.providerContainers,
-				},
+			args := buildArgs(tt.port, tt.logLevel)
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("expected %d args, got %d: %v", len(tt.wantArgs), len(args), args)
 			}
-			err := a.copyJavaProviderMetadata(ctx)
-			if tt.expectNil {
-				if err != nil {
-					t.Errorf("expected nil, got error: %v", err)
+			for i := range tt.wantArgs {
+				if args[i] != tt.wantArgs[i] {
+					t.Errorf("args[%d] = %q, want %q", i, args[i], tt.wantArgs[i])
 				}
-				return
-			}
-			// When copy is attempted, cp may fail (no container in test env); just ensure no panic
-			if err != nil {
-				t.Logf("copyJavaProviderMetadata returned error (expected when no container): %v", err)
 			}
 		})
 	}
+}
+
+func uint32Ptr(u uint32) *uint32 {
+	return &u
 }
 
 // Helper function to check if a container image exists locally

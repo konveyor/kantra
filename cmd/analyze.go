@@ -85,7 +85,6 @@ type analyzeCommand struct {
 	overrideProviderSettings string
 	profileDir               string
 	profilePath              string
-	copyJavaMetadata         bool
 	AnalyzeCommandContext
 }
 
@@ -331,7 +330,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.copyJavaMetadata, "copy-java-metadata", false, "copy .metadata from the Java provider container into the output directory (hybrid mode only)")
 	return analyzeCommand
 }
 
@@ -1053,7 +1051,10 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 	}
 
 	for prov, init := range a.providersMap {
-		args := []string{fmt.Sprintf("--port=%v", init.port), fmt.Sprintf("--log-level=%v", a.logLevel)}
+		args := []string{fmt.Sprintf("--port=%v", init.port)}
+		if a.logLevel != nil {
+			args = append(args, fmt.Sprintf("--log-level=%v", *a.logLevel))
+		}
 
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)

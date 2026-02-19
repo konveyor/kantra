@@ -941,29 +941,5 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	a.log.Info("[TIMING] Hybrid analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	a.log.Info("hybrid analysis completed successfully")
-
-	if a.copyJavaMetadata {
-		if err := a.copyJavaProviderMetadata(context.Background()); err != nil {
-			a.log.Info("could not copy .metadata from Java provider container", "error", err)
-		}
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) copyJavaProviderMetadata(ctx context.Context) error {
-	if _, inMap := a.providersMap[util.JavaProvider]; !inMap {
-		return nil
-	}
-	con, ok := a.providerContainerNames[util.JavaProvider]
-	if !ok || con == "" {
-		return nil
-	}
-	cpCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
-		"cp", fmt.Sprintf("%s:%s", con, util.JavaProviderMetadataPath), a.output)
-	a.log.V(1).Info("copying .metadata from Java provider container", "path", util.JavaProviderMetadataPath, "output", a.output)
-	if err := cpCmd.Run(); err != nil {
-		return err
-	}
 	return nil
 }

@@ -42,12 +42,11 @@ var (
 
 // analyzer container paths
 const (
-	RulesetPath                 = "/opt/rulesets"
-	OpenRewriteRecipesPath      = "/opt/openrewrite"
-	InputPath                   = "/opt/input"
-	OutputPath                  = "/opt/output"
-	CustomRulePath              = "/opt/input/rules"
-	JavaProviderMetadataPath    = "/addon/.metadata" // JDT workspace root in java-external-provider image
+	RulesetPath            = "/opt/rulesets"
+	OpenRewriteRecipesPath = "/opt/openrewrite"
+	InputPath              = "/opt/input"
+	OutputPath             = "/opt/output"
+	CustomRulePath         = "/opt/input/rules"
 )
 
 // supported providers
