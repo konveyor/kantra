@@ -85,6 +85,7 @@ type analyzeCommand struct {
 	overrideProviderSettings string
 	profileDir               string
 	profilePath              string
+	copyJavaMetadata         bool
 	AnalyzeCommandContext
 }
 
@@ -330,6 +331,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.copyJavaMetadata, "copy-java-metadata", false, "copy .metadata from the Java provider container into the output directory (hybrid mode only)")
 	return analyzeCommand
 }
 

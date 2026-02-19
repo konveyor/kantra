@@ -18,6 +18,7 @@ func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
 			continue
 		}
 	}
+
 	err := a.RmProviderContainers(ctx)
 	if err != nil {
 		a.log.Error(err, "failed to remove provider container")

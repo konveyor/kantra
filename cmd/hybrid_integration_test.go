@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
 // TestWaitForProviderTimeout tests that waitForProvider correctly times out
@@ -163,7 +164,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: true,
 	}
 
@@ -221,7 +222,7 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: false, // Disabled!
 	}
 
@@ -241,6 +242,71 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", Version))
 	if _, err := os.Stat(expectedDir); !os.IsNotExist(err) {
 		t.Error("expected .rulesets directory NOT to be created when disabled")
+	}
+}
+
+func TestAnalyzeCommand_copyJavaProviderMetadata(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name               string
+		providersMap       map[string]ProviderInit
+		providerContainers map[string]string
+		output             string
+		expectNil          bool // true: must return nil (short-circuit); false: may return nil or cp error
+	}{
+		{
+			name:               "Java not in providersMap returns nil",
+			providersMap:       map[string]ProviderInit{},
+			providerContainers: map[string]string{},
+			output:             "/tmp/out",
+			expectNil:          true,
+		},
+		{
+			name:               "Java in providersMap but no container name returns nil",
+			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
+			providerContainers: map[string]string{},
+			output:             "/tmp/out",
+			expectNil:          true,
+		},
+		{
+			name:               "Java in providersMap but empty container name returns nil",
+			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
+			providerContainers: map[string]string{util.JavaProvider: ""},
+			output:             "/tmp/out",
+			expectNil:          true,
+		},
+		{
+			name:               "Java in providersMap with container name attempts copy",
+			providersMap:       map[string]ProviderInit{util.JavaProvider: {}},
+			providerContainers: map[string]string{util.JavaProvider: "nonexistent-container-12345"},
+			output:             "/tmp/out",
+			expectNil:          false, // cp may fail in test env; we only check no panic
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &analyzeCommand{
+				output: tt.output,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:                    logr.Discard(),
+					providersMap:           tt.providersMap,
+					providerContainerNames: tt.providerContainers,
+				},
+			}
+			err := a.copyJavaProviderMetadata(ctx)
+			if tt.expectNil {
+				if err != nil {
+					t.Errorf("expected nil, got error: %v", err)
+				}
+				return
+			}
+			// When copy is attempted, cp may fail (no container in test env); just ensure no panic
+			if err != nil {
+				t.Logf("copyJavaProviderMetadata returned error (expected when no container): %v", err)
+			}
+		})
 	}
 }
 
