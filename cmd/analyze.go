@@ -1053,7 +1053,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 	}
 
 	for prov, init := range a.providersMap {
-		args := []string{fmt.Sprintf("--port=%v", init.port)}
+		args := []string{fmt.Sprintf("--port=%v", init.port), fmt.Sprintf("--log-level=%v", a.logLevel)}
 
 		// Publish port so it's accessible on macOS host (podman runs in VM)
 		portMapping := fmt.Sprintf("%d:%d", init.port, init.port)
