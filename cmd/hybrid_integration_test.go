@@ -163,7 +163,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: true,
 	}
 
@@ -221,7 +221,7 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: false, // Disabled!
 	}
 
@@ -242,6 +242,58 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	if _, err := os.Stat(expectedDir); !os.IsNotExist(err) {
 		t.Error("expected .rulesets directory NOT to be created when disabled")
 	}
+}
+
+func TestProviderEntrypointArgs(t *testing.T) {
+	buildArgs := func(port int, logLevel *uint32) []string {
+		args := []string{fmt.Sprintf("--port=%v", port)}
+		if logLevel != nil {
+			args = append(args, fmt.Sprintf("--log-level=%v", *logLevel))
+		}
+		return args
+	}
+	tests := []struct {
+		name     string
+		port     int
+		logLevel *uint32
+		wantArgs []string
+	}{
+		{
+			name:     "port and log level set",
+			port:     14651,
+			logLevel: uint32Ptr(1),
+			wantArgs: []string{"--port=14651", "--log-level=1"},
+		},
+		{
+			name:     "port set with default log level",
+			port:     14651,
+			logLevel: uint32Ptr(4),
+			wantArgs: []string{"--port=14651", "--log-level=4"},
+		},
+		{
+			name:     "port set log level nil omits flag",
+			port:     14651,
+			logLevel: nil,
+			wantArgs: []string{"--port=14651"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := buildArgs(tt.port, tt.logLevel)
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("expected %d args, got %d: %v", len(tt.wantArgs), len(args), args)
+			}
+			for i := range tt.wantArgs {
+				if args[i] != tt.wantArgs[i] {
+					t.Errorf("args[%d] = %q, want %q", i, args[i], tt.wantArgs[i])
+				}
+			}
+		})
+	}
+}
+
+func uint32Ptr(u uint32) *uint32 {
+	return &u
 }
 
 // Helper function to check if a container image exists locally
