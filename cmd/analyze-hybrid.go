@@ -903,20 +903,15 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		}
 	}
 
-	// Start dependency analysis for full analysis mode
+	// Start dependency analysis
 	wg := &sync.WaitGroup{}
 	var depSpan trace.Span
-	if a.mode == string(provider.FullAnalysisMode) {
-		_, hasJava := a.providersMap[util.JavaProvider]
-		if hasJava {
-			var depCtx context.Context
-			depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
-			wg.Add(1)
+	var depCtx context.Context
+	depCtx, depSpan = tracing.StartNewSpan(ctx, "dep")
+	wg.Add(1)
 
-			a.log.Info("running dependency analysis")
-			go a.DependencyOutputContainerless(depCtx, providers, "dependencies.yaml", wg)
-		}
-	}
+	a.log.Info("resolving dependencies")
+	go a.DependencyOutputContainerless(depCtx, needProviders, "dependencies.yaml", wg, reporter)
 
 	// Run rules with progress reporting
 	startRuleExecution := time.Now()
@@ -936,9 +931,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	engineSpan.End()
 	wg.Wait()
-	if depSpan != nil {
-		depSpan.End()
-	}
+	depSpan.End()
 	eng.Stop()
 
 	// Stop providers
