@@ -8,6 +8,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+  - [Kantra directory (rulesets and assets)](#kantra-directory-rulesets-and-assets)
 - [Setup (For Mac and Windows Only)](#setup-for-mac-and-windows-only)
 - [Usage](#usage)
   - [Analyze an application](#analyze)
@@ -75,6 +76,22 @@ ${CONTAINER_TOOL:-podman} cp $(${CONTAINER_TOOL:-podman} create --name kantra-do
 ```
 
 > Ensure that you add the executable to the `PATH`.
+
+### Kantra directory (rulesets and assets)
+
+Commands like `analyze` and `dump-rules` need a **kantra directory** that contains `rulesets`, `jdtls`, and `static-report`. Kantra resolves it in this order:
+
+1. **`KANTRA_DIR`** — if set, that path is used (useful when running from a different working directory or in scripts).
+2. **Current working directory** — if it contains the `rulesets`, `jdtls`, and `static-report` subdirectories.
+3. **Config directory** — otherwise `$HOME/.kantra` (or `$XDG_CONFIG_HOME/.kantra` on Linux when set).
+
+Example:
+
+```sh
+export KANTRA_DIR=/path/to/your/kantra/assets
+```
+
+See [developer.md](docs/developer.md) for more details.
 
 ## Setup (For Mac and Windows Only)
 
