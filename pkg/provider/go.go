@@ -8,6 +8,7 @@ import (
 )
 
 type GoProvider struct {
+	baseProvider
 	config provider.Config
 }
 

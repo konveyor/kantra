@@ -13,6 +13,7 @@ import (
 )
 
 type JavaProvider struct {
+	baseProvider
 	config provider.Config
 }
 

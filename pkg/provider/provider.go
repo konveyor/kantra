@@ -24,4 +24,11 @@ type ConfigInput struct {
 
 type Provider interface {
 	GetConfigVolume(input ConfigInput) (provider.Config, error)
+	SupportsLogLevel() bool
+}
+
+type baseProvider struct{}
+
+func (b *baseProvider) SupportsLogLevel() bool {
+	return true
 }

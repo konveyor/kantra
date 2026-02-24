@@ -8,6 +8,7 @@ import (
 )
 
 type NodeJsProvider struct {
+	baseProvider
 	config provider.Config
 }
 

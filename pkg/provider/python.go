@@ -8,6 +8,7 @@ import (
 )
 
 type PythonProvider struct {
+	baseProvider
 	config provider.Config
 }
 

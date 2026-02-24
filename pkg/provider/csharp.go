@@ -8,7 +8,12 @@ import (
 )
 
 type CsharpProvider struct {
+	baseProvider
 	config provider.Config
+}
+
+func (p *CsharpProvider) SupportsLogLevel() bool {
+	return false
 }
 
 func (p *CsharpProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {

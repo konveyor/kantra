@@ -1056,7 +1056,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 
 	for prov, init := range a.providersMap {
 		args := []string{fmt.Sprintf("--port=%v", init.port)}
-		if a.logLevel != nil {
+		if a.logLevel != nil && init.provider.SupportsLogLevel() {
 			args = append(args, fmt.Sprintf("--log-level=%v", *a.logLevel))
 		}
 
