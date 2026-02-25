@@ -8,7 +8,7 @@ require (
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-logr/logr v1.4.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20260213173018-c6c045b2bec9
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider v0.0.0-20260224234059-0510bae1a6e9
 	github.com/konveyor/asset-generation v0.2.2
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
