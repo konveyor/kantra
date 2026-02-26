@@ -295,6 +295,49 @@ func TestRunAnalysisContainerless_EngineCreationPath(t *testing.T) {
 	}
 }
 
+func TestDefaultRulesetPathContainerless(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableDefaultRulesets bool
+		kantraDir             string
+		wantPath              string
+	}{
+		{
+			name:                  "enabled returns kantraDir/rulesets/java",
+			enableDefaultRulesets: true,
+			kantraDir:             "/.kantra",
+			wantPath:              "/.kantra/rulesets/java",
+		},
+		{
+			name:                  "disabled returns empty",
+			enableDefaultRulesets: false,
+			kantraDir:             "/.kantra",
+			wantPath:              "",
+		},
+		{
+			name:                  "enabled with custom kantra dir",
+			enableDefaultRulesets: true,
+			kantraDir:             "/home/user/.kantra",
+			wantPath:              "/home/user/.kantra/rulesets/java",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &analyzeCommand{
+				enableDefaultRulesets: tt.enableDefaultRulesets,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					kantraDir: tt.kantraDir,
+				},
+			}
+			got := a.defaultRulesetPathContainerless()
+			assert.Equal(t, tt.wantPath, filepath.ToSlash(got), "path should use java ruleset subdir (DefaultRulesetDir mapping)")
+			if tt.wantPath != "" {
+				assert.Equal(t, util.JavaProvider, filepath.Base(got))
+			}
+		})
+	}
+}
+
 func TestGradleSourcesTaskFileConfiguration(t *testing.T) {
 	a := analyzeCommand{}
 	a.AnalyzeCommandContext.kantraDir = "kantraDir"
