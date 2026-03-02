@@ -2,7 +2,6 @@ package analyze
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -25,126 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
-
-// validateProviderConfig validates hybrid-mode-specific configuration before starting provider containers.
-// This catches configuration errors early and provides helpful error messages.
-// Note: Maven settings and input path are already validated in the PreRunE Validate() function.
-func (a *analyzeCommand) validateProviderConfig() error {
-	// Validate override provider settings file if specified
-	if a.overrideProviderSettings != "" {
-		if _, err := os.Stat(a.overrideProviderSettings); err != nil {
-			return fmt.Errorf(
-				"Override provider settings file not found: %s\n"+
-					"Specified with --override-provider-settings flag but file does not exist",
-				a.overrideProviderSettings)
-		}
-		a.log.V(1).Info("Override provider settings file validated", "path", a.overrideProviderSettings)
-	}
-
-	// Check if any provider ports are already in use
-	for provName, provInit := range a.providersMap {
-		address := fmt.Sprintf("localhost:%d", provInit.port)
-		listener, err := net.Listen("tcp", address)
-		if err != nil {
-			// Port is already in use
-			return fmt.Errorf(
-				"port %d required for %s provider is already in use\n"+
-					"Troubleshooting:\n"+
-					"  1. Check what's using the port: lsof -i :%d\n"+
-					"  2. Stop old provider containers: podman stop $(podman ps -a | grep provider | awk '{print $1}')\n"+
-					"  3. Kill the process using the port, or restart your system",
-				provInit.port, provName, provInit.port)
-		}
-		listener.Close()
-		a.log.V(2).Info("port is available", "provider", provName, "port", provInit.port)
-	}
-
-	a.log.V(1).Info("provider configuration validated successfully")
-	return nil
-}
-
-// loadOverrideProviderSettings loads provider configuration overrides from a JSON file.
-// Returns a slice of provider.Config objects that will be merged with default configs.
-func (a *analyzeCommand) loadOverrideProviderSettings() ([]provider.Config, error) {
-	if a.overrideProviderSettings == "" {
-		return nil, nil
-	}
-
-	a.log.V(1).Info("loading override provider settings", "file", a.overrideProviderSettings)
-
-	data, err := os.ReadFile(a.overrideProviderSettings)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read override provider settings file: %w", err)
-	}
-
-	var overrideConfigs []provider.Config
-	if err := json.Unmarshal(data, &overrideConfigs); err != nil {
-		return nil, fmt.Errorf("failed to parse override provider settings JSON: %w", err)
-	}
-
-	a.log.V(1).Info("loaded override provider settings", "providers", len(overrideConfigs))
-	return overrideConfigs, nil
-}
-
-// mergeProviderSpecificConfig merges override config into base config.
-// Override values take precedence over base values.
-func mergeProviderSpecificConfig(base, override map[string]interface{}) map[string]interface{} {
-	if override == nil {
-		return base
-	}
-
-	result := make(map[string]interface{})
-	// Copy base config
-	for k, v := range base {
-		result[k] = v
-	}
-	// Apply overrides
-	for k, v := range override {
-		result[k] = v
-	}
-	return result
-}
-
-// applyProviderOverrides applies override settings to a provider config.
-// Returns the modified config with overrides applied.
-func applyProviderOverrides(baseConfig provider.Config, overrideConfigs []provider.Config) provider.Config {
-	if overrideConfigs == nil {
-		return baseConfig
-	}
-
-	// Find matching override config by provider name
-	for _, override := range overrideConfigs {
-		if override.Name != baseConfig.Name {
-			continue
-		}
-
-		// Apply top-level config overrides
-		if override.ContextLines != 0 {
-			baseConfig.ContextLines = override.ContextLines
-		}
-		if override.Proxy != nil {
-			baseConfig.Proxy = override.Proxy
-		}
-
-		// Merge InitConfig settings
-		if len(override.InitConfig) > 0 && len(baseConfig.InitConfig) > 0 {
-			// Merge ProviderSpecificConfig from first InitConfig
-			if override.InitConfig[0].ProviderSpecificConfig != nil {
-				baseConfig.InitConfig[0].ProviderSpecificConfig = mergeProviderSpecificConfig(
-					baseConfig.InitConfig[0].ProviderSpecificConfig,
-					override.InitConfig[0].ProviderSpecificConfig,
-				)
-			}
-			// Apply other InitConfig fields
-			if override.InitConfig[0].AnalysisMode != "" {
-				baseConfig.InitConfig[0].AnalysisMode = override.InitConfig[0].AnalysisMode
-			}
-		}
-		break
-	}
-
-	return baseConfig
-}
 
 // waitForProvider polls a provider's port until it's ready or timeout is reached.
 // This replaces the hardcoded 4-second sleep with proper health checking.
