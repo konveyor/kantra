@@ -133,6 +133,11 @@ require (
 	sigs.k8s.io/yaml v1.5.0 // indirect
 )
 
+replace (
+	github.com/konveyor/analyzer-lsp => ../analyzer-lsp
+	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider => ../analyzer-lsp/external-providers/java-external-provider
+)
+
 require (
 	github.com/PaesslerAG/gval v1.2.4 // indirect
 	github.com/antchfx/jsonquery v1.3.5 // indirect
