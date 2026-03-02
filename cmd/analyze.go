@@ -473,7 +473,7 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 				return fmt.Errorf("%w failed to stat dependency folder %v", err, a.depFolders[i])
 			}
 			if stat != nil && !stat.IsDir() {
-				return fmt.Errorf("depdendecy folder %v is not a directory", a.depFolders[i])
+				return fmt.Errorf("dependency folder %v is not a directory", a.depFolders[i])
 			}
 		}
 	}

@@ -111,7 +111,7 @@ func CopyFolderContents(src string, dst string) error {
 func CopyFileContents(src string, dst string) (err error) {
 	source, err := os.Open(src)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer source.Close()
 	destination, err := os.Create(dst)
