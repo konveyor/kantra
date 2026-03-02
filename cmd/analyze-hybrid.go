@@ -254,7 +254,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["lspServerArgs"] = []interface{}{"--stdio"}
 		// Set workspaceFolders for nodejs provider (used alongside Location)
 		// Fix merged in analyzer-lsp#1036 prevents duplicate file counting
-		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)}
+		providerSpecificConfig["workspaceFolders"] = []interface{}{fmt.Sprintf("file://%s", a.sourceLocationPath)}
 
 	case util.CsharpProvider:
 		providerSpecificConfig["ilspy_cmd"] = "/usr/local/bin/ilspycmd"
@@ -277,7 +277,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 
 	initConfigs := []provider.InitConfig{
 		{
-			Location:                util.SourceMountPath,
+			Location:                a.sourceLocationPath,
 			AnalysisMode:            provider.AnalysisMode(a.mode),
 			ProviderSpecificConfig:  providerSpecificConfig,
 			Proxy:                   proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
@@ -285,7 +285,7 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		},
 	}
 
-	providerLocations := []string{util.SourceMountPath}
+	providerLocations := []string{a.sourceLocationPath}
 
 	a.log.V(1).Info("initializing network-based provider", "provider", providerName)
 	initCtx, initSpan := tracing.StartNewSpan(ctx, "init")
@@ -389,7 +389,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
 	// Check if profiles directory exists in input and add to excludedDirs
-	excludedDir := util.GetProfilesExcludedDir(a.input, false)
+	excludedDir := util.GetProfilesExcludedDir(a.input, "", false)
 
 	if !a.isFileInput {
 		additionalConfigs = append(additionalConfigs, provider.InitConfig{
@@ -565,28 +565,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			}
 		}
 
-		// For binary files, util.SourceMountPath includes the filename (e.g., /opt/input/source/app.war)
-		// But volume mounts need the parent directory. Save and restore it.
-		originalMountPath := util.SourceMountPath
-		if a.isFileInput {
-			// Temporarily set to parent directory for volume mounting
-			util.SourceMountPath = path.Dir(util.SourceMountPath)
-			a.log.V(1).Info("adjusted mount path for binary file",
-				"original", originalMountPath,
-				"adjusted", util.SourceMountPath)
-		}
-
 		progressMode.Printf("  ✓ Created volume\n")
 
-		// Start providers with port publishing
+		// Start providers with port publishing.
+		// util.SourceMountPath is the constant directory mount path (/opt/input/source),
+		// which is what volume mounting needs. The file-specific path (e.g. /opt/input/source/app.war)
+		// is carried in a.sourceLocationPath and passed to providers via ConfigInput.ContainerSourcePath.
 		err = a.RunProvidersHostNetwork(ctx, volName, 5, analysisLog)
-
-		// Restore original mount path for provider configuration
-		if a.isFileInput {
-			util.SourceMountPath = originalMountPath
-			a.log.V(1).Info("restored mount path", "path", util.SourceMountPath)
-		}
-
 		if err != nil {
 			return fmt.Errorf("failed to start providers: %w", err)
 		}
@@ -748,11 +733,12 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	var additionalBuiltinConfigs []provider.InitConfig
 
 	hostRoot := a.input
+	// containerRoot is the constant directory mount path inside the container.
+	// util.SourceMountPath is no longer mutated, so no path.Dir() adjustment needed.
 	containerRoot := util.SourceMountPath
 	if a.isFileInput {
 		// For binary files, use parent directory as hostRoot
 		hostRoot = filepath.Dir(a.input)
-		containerRoot = path.Dir(util.SourceMountPath)
 	}
 	// Setup network-based provider clients for all configured providers
 	for provName, client := range needProviders {

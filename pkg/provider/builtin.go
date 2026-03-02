@@ -16,7 +16,7 @@ func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error
 		// Java target paths are already included in the defaults (target/)
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 
@@ -24,7 +24,7 @@ func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error
 		Name: "builtin",
 		InitConfig: []provider.InitConfig{
 			{
-				Location:               util.SourceMountPath,
+				Location:               c.ContainerSourcePath,
 				AnalysisMode:           provider.AnalysisMode(c.Mode),
 				ProviderSpecificConfig: providerSpecificConfig,
 			},
