@@ -355,7 +355,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	// --- Build analyzer options ---
 	analyzerOpts := []konveyorAnalyzer.AnalyzerOption{
 		konveyorAnalyzer.WithRuleFilepaths(a.rules),
-		konveyorAnalyzer.WithLabelSelector(a.labelSelector),
+		konveyorAnalyzer.WithLabelSelector(a.getLabelSelector()),
 		konveyorAnalyzer.WithContextLinesLimit(a.contextLines),
 		konveyorAnalyzer.WithLogger(analyzeLog),
 		konveyorAnalyzer.WithContext(ctx),
