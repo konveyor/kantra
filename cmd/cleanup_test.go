@@ -214,7 +214,6 @@ func TestAnalyzeCommandContext_Structure(t *testing.T) {
 		networkName:            "test-network",
 		volumeName:             "test-volume",
 		providerContainerNames: map[string]string{"prov1": "container1"},
-		reqMap:                 make(map[string]string),
 		kantraDir:              "/test/dir",
 	}
 

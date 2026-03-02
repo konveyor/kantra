@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/spf13/cobra"
 )
@@ -181,11 +182,11 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 
 	err := container.NewContainer().Run(
 		ctx,
-		container.WithImage(Settings.RunnerImage),
+		container.WithImage(settings.Settings.RunnerImage),
 		container.WithLog(o.log.V(1)),
 		container.WithEntrypointArgs(args...),
 		container.WithEntrypointBin("/usr/bin/openrewrite_entrypoint.sh"),
-		container.WithContainerToolBin(Settings.ContainerBinary),
+		container.WithContainerToolBin(settings.Settings.ContainerBinary),
 		container.WithVolumes(volumes),
 		container.WithWorkDir("/tmp/source-app/input"),
 		container.WithCleanup(o.cleanup),

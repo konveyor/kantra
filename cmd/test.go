@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/testing"
 	"github.com/spf13/cobra"
 )
@@ -35,9 +36,9 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				return nil
 			}
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
-				RunLocal:         Settings.RunLocal,
-				ContainerImage:   Settings.RunnerImage,
-				ContainerToolBin: Settings.ContainerBinary,
+				RunLocal:         settings.Settings.RunLocal,
+				ContainerImage:   settings.Settings.RunnerImage,
+				ContainerToolBin: settings.Settings.ContainerBinary,
 				ProgressPrinter:  testing.PrintProgress,
 				Log:              log.V(3),
 				Prune:            testCmd.prune,

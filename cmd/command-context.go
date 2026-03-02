@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
@@ -38,7 +39,6 @@ type AnalyzeCommandContext struct {
 	providerContainerNames map[string]string
 
 	// for containerless cmd
-	reqMap    map[string]string
 	kantraDir string
 
 	// StopHook, if set, is called when RunAnalysisContainerless deferred cleanup runs.
@@ -84,31 +84,31 @@ func (c *AnalyzeCommandContext) setProviderInitInfo(foundProviders []string) err
 		case util.JavaProvider:
 			c.providersMap[util.JavaProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.JavaProviderImage,
+				image:    settings.Settings.JavaProviderImage,
 				provider: &provider2.JavaProvider{},
 			}
 		case util.GoProvider:
 			c.providersMap[util.GoProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.GenericProviderImage,
+				image:    settings.Settings.GenericProviderImage,
 				provider: &provider2.GoProvider{},
 			}
 		case util.PythonProvider:
 			c.providersMap[util.PythonProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.GenericProviderImage,
+				image:    settings.Settings.GenericProviderImage,
 				provider: &provider2.PythonProvider{},
 			}
 		case util.NodeJSProvider:
 			c.providersMap[util.NodeJSProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.GenericProviderImage,
+				image:    settings.Settings.GenericProviderImage,
 				provider: &provider2.NodeJsProvider{},
 			}
 		case util.CsharpProvider:
 			c.providersMap[util.CsharpProvider] = ProviderInit{
 				port:     port,
-				image:    Settings.CsharpProviderImage,
+				image:    settings.Settings.CsharpProviderImage,
 				provider: &provider2.CsharpProvider{},
 			}
 		}
@@ -198,7 +198,7 @@ func (c *AnalyzeCommandContext) createContainerNetwork() (string, error) {
 		networkName,
 	}
 
-	cmd := exec.Command(Settings.ContainerBinary, args...)
+	cmd := exec.Command(settings.Settings.ContainerBinary, args...)
 	stdout, stderr := c.setupCommandOutput(cmd)
 	err := cmd.Run()
 	c.logCommandOutput("network create", stdout, stderr)
@@ -264,7 +264,7 @@ func (c *AnalyzeCommandContext) createContainerVolume(inputPath string) (string,
 		"o=bind",
 		volName,
 	}
-	cmd := exec.Command(Settings.ContainerBinary, args...)
+	cmd := exec.Command(settings.Settings.ContainerBinary, args...)
 	stdout, stderr := c.setupCommandOutput(cmd)
 	err = cmd.Run()
 	c.logCommandOutput("volume create", stdout, stderr)
@@ -342,7 +342,7 @@ func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
 		volName,
 	}
 
-	cmd := exec.Command(Settings.ContainerBinary, args...)
+	cmd := exec.Command(settings.Settings.ContainerBinary, args...)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -351,7 +351,7 @@ func (c *AnalyzeCommandContext) createMavenCacheVolume() (string, error) {
 		errMsg := string(output)
 		if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "volume name") {
 			// Volume exists, verify it and reuse it
-			checkCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", volName)
+			checkCmd := exec.Command(settings.Settings.ContainerBinary, "volume", "inspect", volName)
 			if checkErr := checkCmd.Run(); checkErr == nil {
 				c.log.V(1).Info("reusing existing maven cache volume (created by concurrent process)", "volume", volName)
 				c.mavenCacheVolumeName = volName

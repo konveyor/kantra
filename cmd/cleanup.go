@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"os/exec"
+
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 )
 
 func (a *analyzeCommand) CleanAnalysisResources(ctx context.Context) error {
@@ -39,7 +41,7 @@ func (c *AnalyzeCommandContext) RmNetwork(ctx context.Context) error {
 	}
 	cmd := exec.CommandContext(
 		ctx,
-		Settings.ContainerBinary,
+		settings.Settings.ContainerBinary,
 		"network",
 		"rm", c.networkName)
 	c.log.V(1).Info("removing container network",
@@ -52,7 +54,7 @@ func (c *AnalyzeCommandContext) RmVolumes(ctx context.Context) error {
 	if c.volumeName != "" {
 		cmd := exec.CommandContext(
 			ctx,
-			Settings.ContainerBinary,
+			settings.Settings.ContainerBinary,
 			"volume",
 			"rm", c.volumeName)
 		c.log.V(1).Info("removing created volume",
@@ -82,7 +84,7 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 	for _, con := range c.providerContainerNames {
 		cmd := exec.CommandContext(
 			ctx,
-			Settings.ContainerBinary,
+			settings.Settings.ContainerBinary,
 			"stop", con)
 		c.log.V(1).Info("stopping provider container", "container", con)
 		err := cmd.Run()
@@ -93,7 +95,7 @@ func (c *AnalyzeCommandContext) RmProviderContainers(ctx context.Context) error 
 		}
 		cmd = exec.CommandContext(
 			ctx,
-			Settings.ContainerBinary,
+			settings.Settings.ContainerBinary,
 			"rm", con)
 		c.log.V(1).Info("removing provider container", "container", con)
 		err = cmd.Run()
@@ -113,7 +115,7 @@ func (c *AnalyzeCommandContext) StopProvider(ctx context.Context, provider strin
 	}
 	cmd := exec.CommandContext(
 		ctx,
-		Settings.ContainerBinary,
+		settings.Settings.ContainerBinary,
 		"stop", con)
 	c.log.V(1).Info("stopping provider container", "container", con)
 	err := cmd.Run()
@@ -124,7 +126,7 @@ func (c *AnalyzeCommandContext) StopProvider(ctx context.Context, provider strin
 	}
 	cmd = exec.CommandContext(
 		ctx,
-		Settings.ContainerBinary,
+		settings.Settings.ContainerBinary,
 		"rm", con)
 	c.log.V(1).Info("removing provider container", "container", con)
 	err = cmd.Run()

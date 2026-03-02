@@ -3,27 +3,19 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/spf13/cobra"
 )
 
-var (
-	BuildCommit = ""
-	Version     = "latest"
-	RunnerImage = "quay.io/konveyor/kantra"
-)
-
-// Use build flags to set correct Version and BuildCommit
-// e.g.:
-// --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=1.2.3' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$(git rev-parse HEAD)'"
 func NewVersionCommand() *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print the tool version",
 		Long:  "Print this tool version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("version: %s\n", Version)
-			fmt.Printf("SHA: %s\n", BuildCommit)
-			fmt.Printf("image: %s\n", RunnerImage)
+			fmt.Printf("version: %s\n", settings.Version)
+			fmt.Printf("SHA: %s\n", settings.BuildCommit)
+			fmt.Printf("image: %s\n", settings.RunnerImage)
 		},
 	}
 	return versionCmd

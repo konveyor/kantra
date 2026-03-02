@@ -9,6 +9,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/discover"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/generate"
 	"github.com/konveyor-ecosystem/kantra/cmd/config"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -65,7 +66,7 @@ func init() {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := Settings.Load()
+	err := settings.Settings.Load()
 	if err != nil {
 		log.Fatal(err, "failed to load global settings")
 	}
@@ -73,7 +74,7 @@ func Execute() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	rootCmd.Use = Settings.RootCommandName
+	rootCmd.Use = settings.Settings.RootCommandName
 	err = rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)
