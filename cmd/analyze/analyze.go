@@ -1,4 +1,4 @@
-package cmd
+package analyze
 
 import (
 	"bytes"
@@ -151,10 +151,10 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if val, err := cmd.Flags().GetUint32(logLevelFlag); err == nil {
+			if val, err := cmd.Flags().GetUint32("log-level"); err == nil {
 				analyzeCmd.logLevel = &val
 			}
-			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
+			if val, err := cmd.Flags().GetBool("no-cleanup"); err == nil {
 				analyzeCmd.cleanup = !val
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

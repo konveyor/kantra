@@ -18,7 +18,7 @@ Key metrics:
 |-------|-------------|--------|
 | [Phase 1](phase1-quick-wins.md) | Quick wins -- bug fixes and cleanup | Done |
 | [Phase 2](phase2-global-state.md) | Eliminate mutable global state | Done |
-| [Phase 3](phase3-god-object.md) | Break up the `analyzeCommand` God Object (3a: adopt `konveyor.Analyzer`, 3b: reorganize into `cmd/analyze/`) | 3a Done, 3b In Progress |
+| [Phase 3](phase3-god-object.md) | Break up the `analyzeCommand` God Object (3a: adopt `konveyor.Analyzer`, 3b: reorganize into `cmd/analyze/`) | 3a Done, 3b: package move Done, struct decomposition Planned |
 | [Phase 4](phase4-developer-experience.md) | Developer experience -- Makefile + test organization | Planned |
 
 Notes:
