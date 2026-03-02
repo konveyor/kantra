@@ -5,13 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +18,6 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
 	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/konveyor"
-	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
@@ -374,110 +369,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	operationalLog.Info("[TIMING] Containerless analysis complete", "total_duration_ms", time.Since(startTotal).Milliseconds())
 	return nil
-}
-
-func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
-	// validate input app is not the current dir
-	// .metadata cannot initialize in the app root
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	if a.input == currentDir {
-		return fmt.Errorf("input path %s cannot be the current directory", a.input)
-	}
-
-	// validate mvn and openjdk install
-	_, mvnErr := exec.LookPath("mvn")
-	if mvnErr != nil {
-		return fmt.Errorf("%w cannot find requirement maven; ensure maven is installed", mvnErr)
-
-	}
-	cmd := exec.Command("java", "-version")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w cannot execute required command java; ensure java is installed", err)
-	}
-	if strings.Contains(string(output), "openjdk") {
-		re := regexp.MustCompile(`openjdk version "(.*?)"`)
-		match := re.FindStringSubmatch(string(output))
-		jdkVersionStr := strings.Split(match[1], ".")
-		jdkVersionInt, err := strconv.Atoi(jdkVersionStr[0])
-		if err != nil {
-			return fmt.Errorf("%w cannot parse java version", err)
-		}
-		if jdkVersionInt < 17 {
-			return fmt.Errorf("cannot find requirement openjdk17+; ensure openjdk17+ is installed")
-		}
-	}
-	if os.Getenv("JAVA_HOME") == "" {
-		return fmt.Errorf("JAVA_HOME is not set; ensure JAVA_HOME is set")
-	}
-
-	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, settings.RulesetsLocation), filepath.Join(a.kantraDir, settings.JavaBundlesLocation),
-		filepath.Join(a.kantraDir, settings.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
-	for _, path := range requiredDirs {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) listLabelsContainerless(ctx context.Context) error {
-	return a.fetchLabelsContainerless(ctx, a.listSources, a.listTargets, os.Stdout)
-}
-
-func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSources, listTargets bool, out io.Writer) error {
-	// reserved labels
-	sourceLabel := outputv1.SourceTechnologyLabel
-	targetLabel := outputv1.TargetTechnologyLabel
-
-	if listSources {
-		sourceSlice, err := a.walkRuleFilesForLabelsContainerless(sourceLabel)
-		if err != nil {
-			a.log.Error(err, "failed to read rule labels")
-			return err
-		}
-		util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
-		return nil
-	}
-	if listTargets {
-		targetsSlice, err := a.walkRuleFilesForLabelsContainerless(targetLabel)
-		if err != nil {
-			a.log.Error(err, "failed to read rule labels")
-			return err
-		}
-		util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
-		return nil
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]string, error) {
-	labelsSlice := []string{}
-	path := filepath.Join(a.kantraDir, settings.RulesetsLocation)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		a.log.Error(err, "cannot open provided path")
-		return nil, err
-	}
-	err := filepath.WalkDir(path, util.WalkRuleSets(path, label, &labelsSlice))
-	if err != nil {
-		return nil, err
-	}
-	if len(a.rules) > 0 {
-		for _, p := range a.rules {
-			err := filepath.WalkDir(p, util.WalkRuleSets(p, label, &labelsSlice))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	return labelsSlice, nil
 }
 
 func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReportPath string, depsErr bool) error {
