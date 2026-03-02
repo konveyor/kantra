@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 )
 
 // TestMavenCacheVolumeCreation tests that createMavenCacheVolume creates
@@ -21,8 +22,8 @@ func TestMavenCacheVolumeCreation(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	ctx := &AnalyzeCommandContext{
@@ -72,8 +73,8 @@ func TestMavenCacheVolumeReuse(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	ctx := &AnalyzeCommandContext{
@@ -119,8 +120,8 @@ func TestMavenCacheVolumeCleanup(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	ctx := &AnalyzeCommandContext{
@@ -162,8 +163,8 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	ctx := &AnalyzeCommandContext{
@@ -181,7 +182,7 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 	}
 
 	// Inspect the volume to verify the mount point
-	cmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Mountpoint}}")
+	cmd := exec.Command(settings.Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Mountpoint}}")
 	output, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("failed to inspect volume: %v", err)
@@ -207,7 +208,7 @@ func TestMavenCacheVolumeHostPathMapping(t *testing.T) {
 	// For bind-mounted volumes, verify the volume options contain the correct device path
 	// The Mountpoint field shows podman's internal storage, but we need to check the
 	// bind mount source which is in the Options.Device field
-	inspectCmd := exec.Command(Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Options.device}}")
+	inspectCmd := exec.Command(settings.Settings.ContainerBinary, "volume", "inspect", "maven-cache-volume", "--format", "{{.Options.device}}")
 	deviceOutput, err := inspectCmd.Output()
 	if err != nil {
 		t.Fatalf("failed to inspect volume device: %v", err)
@@ -235,8 +236,8 @@ func TestMavenCacheVolumeConcurrentCreation(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	// Clean up any existing test volume
@@ -305,8 +306,8 @@ func TestMavenCacheVolumeSkipped(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	// Set environment variable to skip Maven cache
@@ -336,9 +337,9 @@ func TestMavenCacheVolumeSkipped(t *testing.T) {
 
 // Helper function to get container binary (podman or docker)
 func getContainerBinary() string {
-	// Try Settings.ContainerBinary first (if initialized)
-	if Settings.ContainerBinary != "" {
-		return Settings.ContainerBinary
+	// Try settings.Settings.ContainerBinary first (if initialized)
+	if settings.Settings.ContainerBinary != "" {
+		return settings.Settings.ContainerBinary
 	}
 
 	// Fall back to checking for podman or docker

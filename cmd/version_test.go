@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -41,19 +42,19 @@ func TestNewVersionCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up test values
-			originalVersion := Version
-			originalBuildCommit := BuildCommit
-			originalRunnerImage := RunnerImage
+			originalVersion := settings.Version
+			originalBuildCommit := settings.BuildCommit
+			originalRunnerImage := settings.RunnerImage
 
-			Version = tt.version
-			BuildCommit = tt.buildCommit
-			RunnerImage = tt.runnerImage
+			settings.Version = tt.version
+			settings.BuildCommit = tt.buildCommit
+			settings.RunnerImage = tt.runnerImage
 
 			// Restore original values after test
 			defer func() {
-				Version = originalVersion
-				BuildCommit = originalBuildCommit
-				RunnerImage = originalRunnerImage
+				settings.Version = originalVersion
+				settings.BuildCommit = originalBuildCommit
+				settings.RunnerImage = originalRunnerImage
 			}()
 
 			// Create command and capture output
@@ -74,7 +75,7 @@ func TestNewVersionCommand(t *testing.T) {
 			buf := &bytes.Buffer{}
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
-			
+
 			// Clear any inherited command-line arguments to avoid test flag conflicts
 			cmd.SetArgs([]string{})
 
@@ -144,25 +145,25 @@ func TestVersionCommand_WithRootCommand(t *testing.T) {
 
 func TestVersionCommand_OutputFormat(t *testing.T) {
 	// Test that output format is consistent
-	originalVersion := Version
-	originalBuildCommit := BuildCommit
-	originalRunnerImage := RunnerImage
+	originalVersion := settings.Version
+	originalBuildCommit := settings.BuildCommit
+	originalRunnerImage := settings.RunnerImage
 
-	Version = "test-version"
-	BuildCommit = "test-commit"
-	RunnerImage = "test-image"
+	settings.Version = "test-version"
+	settings.BuildCommit = "test-commit"
+	settings.RunnerImage = "test-image"
 
 	defer func() {
-		Version = originalVersion
-		BuildCommit = originalBuildCommit
-		RunnerImage = originalRunnerImage
+		settings.Version = originalVersion
+		settings.BuildCommit = originalBuildCommit
+		settings.RunnerImage = originalRunnerImage
 	}()
 
 	cmd := NewVersionCommand()
 	buf := &bytes.Buffer{}
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
-	
+
 	// Clear any inherited command-line arguments to avoid test flag conflicts
 	cmd.SetArgs([]string{})
 
@@ -178,17 +179,17 @@ func TestVersionCommand_OutputFormat(t *testing.T) {
 
 func TestVersionGlobalVariables(t *testing.T) {
 	// Test that global variables have reasonable defaults
-	if Version == "" {
+	if settings.Version == "" {
 		t.Error("Version should not be empty")
 	}
 
-	if RunnerImage == "" {
+	if settings.RunnerImage == "" {
 		t.Error("RunnerImage should not be empty")
 	}
 
 	// BuildCommit can be empty (it's set during build)
 	// but it should be a string
-	if BuildCommit != "" && len(BuildCommit) < 7 {
-		t.Logf("BuildCommit is shorter than typical git SHA: %s", BuildCommit)
+	if settings.BuildCommit != "" && len(settings.BuildCommit) < 7 {
+		t.Logf("BuildCommit is shorter than typical git SHA: %s", settings.BuildCommit)
 	}
 }

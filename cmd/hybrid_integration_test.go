@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 )
 
 // TestWaitForProviderTimeout tests that waitForProvider correctly times out
@@ -77,8 +77,8 @@ func TestHybridProviderValidation(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	tests := []struct {
@@ -144,13 +144,13 @@ func TestExtractDefaultRulesets(t *testing.T) {
 
 	// Skip if runner image is not available
 	// This test requires the actual kantra runner image to exist
-	if !containerImageExists(Settings.RunnerImage) {
-		t.Skipf("Runner image %s not available, skipping integration test", Settings.RunnerImage)
+	if !containerImageExists(settings.Settings.RunnerImage) {
+		t.Skipf("Runner image %s not available, skipping integration test", settings.Settings.RunnerImage)
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	// Create a temporary output directory
@@ -177,7 +177,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 		t.Fatalf("extractDefaultRulesets() failed: %v", err)
 	}
 
-	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", Version))
+	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", settings.Version))
 	if rulesetsDir != expectedDir {
 		t.Errorf("expected rulesets dir %s, got %s", expectedDir, rulesetsDir)
 	}
@@ -208,8 +208,8 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	}
 
 	// Initialize Settings for tests
-	if Settings.ContainerBinary == "" {
-		Settings.ContainerBinary = binary
+	if settings.Settings.ContainerBinary == "" {
+		settings.Settings.ContainerBinary = binary
 	}
 
 	tempDir, err := os.MkdirTemp("", "test-extract-disabled-")
@@ -239,7 +239,7 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 	}
 
 	// Verify no directory was created
-	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", Version))
+	expectedDir := filepath.Join(tempDir, fmt.Sprintf(".rulesets-%s", settings.Version))
 	if _, err := os.Stat(expectedDir); !os.IsNotExist(err) {
 		t.Error("expected .rulesets directory NOT to be created when disabled")
 	}
@@ -295,141 +295,6 @@ func TestProviderEntrypointArgs(t *testing.T) {
 
 func uint32Ptr(u uint32) *uint32 {
 	return &u
-}
-
-func TestDefaultRulesetPathsForHybrid(t *testing.T) {
-	// Create temp dir with default ruleset subdirs: java, nodejs, dotnet (no go/python)
-	tmpDir, err := os.MkdirTemp("", "test-hybrid-rulesets-")
-	if err != nil {
-		t.Fatalf("MkdirTemp: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	for _, subdir := range []string{"java", "nodejs", "dotnet", "input"} {
-		if err := os.MkdirAll(filepath.Join(tmpDir, subdir), 0755); err != nil {
-			t.Fatalf("MkdirAll %s: %v", subdir, err)
-		}
-	}
-
-	tests := []struct {
-		name         string
-		providersMap map[string]ProviderInit
-		wantPaths    []string
-	}{
-		{
-			name: "java provider adds java ruleset",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			wantPaths: []string{filepath.Join(tmpDir, "java")},
-		},
-		{
-			name: "csharp provider maps to dotnet ruleset",
-			providersMap: map[string]ProviderInit{
-				util.CsharpProvider: {},
-			},
-			wantPaths: []string{filepath.Join(tmpDir, "dotnet")},
-		},
-		{
-			name: "java and nodejs add both rulesets",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.NodeJSProvider: {},
-			},
-			wantPaths: []string{filepath.Join(tmpDir, "java"), filepath.Join(tmpDir, "nodejs")},
-		},
-		{
-			name: "go and python have no default ruleset dir",
-			providersMap: map[string]ProviderInit{
-				util.GoProvider:     {},
-				util.PythonProvider: {},
-			},
-			wantPaths: nil,
-		},
-		{
-			name: "mixed: java and go only adds java",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-				util.GoProvider:   {},
-			},
-			wantPaths: []string{filepath.Join(tmpDir, "java")},
-		},
-		{
-			name:         "empty providersMap returns nil",
-			providersMap: map[string]ProviderInit{},
-			wantPaths:    nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &analyzeCommand{
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          logr.Discard(),
-					providersMap: tt.providersMap,
-				},
-			}
-			got := a.defaultRulesetPathsForHybrid(tmpDir)
-			if len(tt.wantPaths) == 0 && len(got) == 0 {
-				return
-			}
-			if len(tt.wantPaths) != len(got) {
-				t.Errorf("defaultRulesetPathsForHybrid() returned %d paths, want %d: got %v", len(got), len(tt.wantPaths), got)
-				return
-			}
-			gotSet := make(map[string]struct{})
-			for _, p := range got {
-				gotSet[p] = struct{}{}
-			}
-			for _, want := range tt.wantPaths {
-				if _, ok := gotSet[want]; !ok {
-					t.Errorf("defaultRulesetPathsForHybrid() missing path %q, got %v", want, got)
-				}
-			}
-		})
-	}
-}
-
-// TestDefaultRulesetPathsForHybridEmptyDir verifies that empty rulesetsDir returns nil.
-func TestDefaultRulesetPathsForHybridEmptyDir(t *testing.T) {
-	a := &analyzeCommand{
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log: logr.Discard(),
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-		},
-	}
-	got := a.defaultRulesetPathsForHybrid("")
-	if got != nil {
-		t.Errorf("defaultRulesetPathsForHybrid(%q) = %v, want nil", "", got)
-	}
-}
-
-// TestDefaultRulesetPathsForHybridMissingSubdir verifies that when a provider has a
-// DefaultRulesetDir mapping but the subdir does not exist, that path is not included.
-func TestDefaultRulesetPathsForHybridMissingSubdir(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "test-hybrid-rulesets-missing-")
-	if err != nil {
-		t.Fatalf("MkdirTemp: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	// Only create "java", not "nodejs"
-	if err := os.MkdirAll(filepath.Join(tmpDir, "java"), 0755); err != nil {
-		t.Fatalf("MkdirAll java: %v", err)
-	}
-	a := &analyzeCommand{
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log: logr.Discard(),
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.NodeJSProvider: {},
-			},
-		},
-	}
-	got := a.defaultRulesetPathsForHybrid(tmpDir)
-	want := []string{filepath.Join(tmpDir, "java")}
-	if len(got) != 1 || got[0] != want[0] {
-		t.Errorf("defaultRulesetPathsForHybrid() = %v, want %v (nodejs subdir missing so not added)", got, want)
-	}
 }
 
 // Helper function to check if a container image exists locally

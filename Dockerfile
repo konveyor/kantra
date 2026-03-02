@@ -35,23 +35,23 @@ ARG JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider
 ARG GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider
 ARG DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider
 
-RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd.JavaProviderImage=$JAVA_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o kantra main.go
+RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o kantra main.go
 
-RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd.JavaProviderImage=$JAVA_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o darwin-kantra main.go
+RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o darwin-kantra main.go
 
-RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd.Version=$VERSION' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd.JavaProviderImage=$JAVA_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'" -a -o windows-kantra main.go
+RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.DotnetProviderImage=$DOTNET_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
 FROM jaegertracing/all-in-one:latest AS jaeger-builder
 FROM quay.io/konveyor/generic-external-provider:${VERSION} as generic-provider

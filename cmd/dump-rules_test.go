@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/sirupsen/logrus"
 )
 
@@ -404,7 +405,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 				}
 
 				// Create rulesets directory with test files
-				rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+				rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 				err = os.MkdirAll(rulesetsDir, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -489,7 +490,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 				}
 
 				// Create empty rulesets directory
-				rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+				rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 				err = os.MkdirAll(rulesetsDir, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -536,7 +537,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+				rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 				err = os.MkdirAll(rulesetsDir, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -600,7 +601,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+				rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 				err = os.MkdirAll(rulesetsDir, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -637,7 +638,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+				rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 
 				// Create deeply nested structure
 				nestedDir := filepath.Join(rulesetsDir, "level1", "level2", "level3")
@@ -680,7 +681,7 @@ func TestDumpRulesCommand_Execute(t *testing.T) {
 				defer r.Close()
 
 				expectedFiles := map[string]bool{
-					"level1/rule1.yaml":                  false,
+					"level1/rule1.yaml":                   false,
 					"level1/level2/level3/deep-rule.yaml": false,
 				}
 
@@ -768,7 +769,7 @@ func TestDumpRulesCommand_ZipContentIntegrity(t *testing.T) {
 	defer os.RemoveAll(kantraDir)
 
 	// Create required directories for GetKantraDir
-	for _, dir := range []string{RulesetsLocation, "jdtls", "static-report"} {
+	for _, dir := range []string{settings.RulesetsLocation, "jdtls", "static-report"} {
 		err = os.MkdirAll(filepath.Join(kantraDir, dir), 0755)
 		if err != nil {
 			t.Fatal(err)
@@ -782,7 +783,7 @@ func TestDumpRulesCommand_ZipContentIntegrity(t *testing.T) {
   labels:
   - konveyor.io/target=test
 `
-	rulesetsDir := filepath.Join(kantraDir, RulesetsLocation)
+	rulesetsDir := filepath.Join(kantraDir, settings.RulesetsLocation)
 	err = os.WriteFile(filepath.Join(rulesetsDir, "integrity-test.yaml"), []byte(expectedContent), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -929,7 +930,7 @@ func setupDumpRulesTestEnv(t *testing.T) (outputDir string, cleanup func()) {
 	}
 
 	// Create required directories for GetKantraDir to find this as kantra dir
-	for _, dir := range []string{RulesetsLocation, "jdtls", "static-report"} {
+	for _, dir := range []string{settings.RulesetsLocation, "jdtls", "static-report"} {
 		if err := os.MkdirAll(filepath.Join(kantraDir, dir), 0755); err != nil {
 			os.RemoveAll(kantraDir)
 			t.Fatal(err)

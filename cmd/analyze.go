@@ -26,6 +26,7 @@ import (
 	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/hiddenfile"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
@@ -722,13 +723,13 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		}
 		err = container.NewContainer().Run(
 			ctx,
-			container.WithImage(Settings.RunnerImage),
+			container.WithImage(settings.Settings.RunnerImage),
 			container.WithLog(a.log.V(1)),
 			container.WithEnv(runMode, runModeContainer),
 			container.WithEnv(rulePath, customRulePath),
 			container.WithVolumes(volumes),
-			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", Settings.RootCommandName)),
-			container.WithContainerToolBin(Settings.ContainerBinary),
+			container.WithEntrypointBin(fmt.Sprintf("/usr/local/bin/%s", settings.Settings.RootCommandName)),
+			container.WithContainerToolBin(settings.Settings.ContainerBinary),
 			container.WithEntrypointArgs(args...),
 			container.WithStdout(out),
 			container.WithCleanup(a.cleanup),
@@ -799,11 +800,11 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		Mode:                    a.mode,
 		Port:                    6734,
 		TmpDir:                  tempDir,
-		JvmMaxMem:               Settings.JvmMaxMem,
+		JvmMaxMem:               settings.Settings.JvmMaxMem,
 		DepsFolders:             depsFolders,
 		JavaExcludedTargetPaths: javaTargetPaths,
 		DisableMavenSearch:      a.disableMavenSearch,
-		JavaBundleLocation:      JavaBundlesLocation,
+		JavaBundleLocation:      settings.JavaBundlesLocation,
 		ContainerSourcePath:     a.sourceLocationPath,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
@@ -972,16 +973,16 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLo
 		return "", nil
 	}
 
-	rulesetsDir := filepath.Join(a.output, fmt.Sprintf(".rulesets-%s", Version))
+	rulesetsDir := filepath.Join(a.output, fmt.Sprintf(".rulesets-%s", settings.Version))
 
 	// Check if rulesets already extracted (cached from previous run)
 	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		a.log.Info("extracting default rulesets from container to host", "version", Version, "dir", rulesetsDir)
+		a.log.Info("extracting default rulesets from container to host", "version", settings.Version, "dir", rulesetsDir)
 
 		// Create temp container to extract rulesets
 		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
-		createCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
-			"create", "--name", tempName, Settings.RunnerImage)
+		createCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary,
+			"create", "--name", tempName, settings.Settings.RunnerImage)
 		// Send container output to log file instead of console
 		createCmd.Stdout = containerLogWriter
 		createCmd.Stderr = containerLogWriter
@@ -991,12 +992,12 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLo
 
 		// Ensure temp container is removed
 		defer func() {
-			rmCmd := exec.CommandContext(ctx, Settings.ContainerBinary, "rm", tempName)
+			rmCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary, "rm", tempName)
 			rmCmd.Run()
 		}()
 
 		// Copy rulesets from container to host
-		copyCmd := exec.CommandContext(ctx, Settings.ContainerBinary,
+		copyCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary,
 			"cp", fmt.Sprintf("%s:/opt/rulesets", tempName), rulesetsDir)
 		// Send container output to log file instead of console
 		copyCmd.Stdout = containerLogWriter
@@ -1005,9 +1006,9 @@ func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLo
 			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
 		}
 
-		a.log.Info("extracted default rulesets to host", "version", Version, "dir", rulesetsDir)
+		a.log.Info("extracted default rulesets to host", "version", settings.Version, "dir", rulesetsDir)
 	} else {
-		a.log.V(1).Info("using cached default rulesets", "version", Version, "dir", rulesetsDir)
+		a.log.V(1).Info("using cached default rulesets", "version", settings.Version, "dir", rulesetsDir)
 	}
 
 	return rulesetsDir, nil
@@ -1090,7 +1091,7 @@ func (a *analyzeCommand) RunProvidersHostNetwork(ctx context.Context, volName st
 			container.WithImage(init.image),
 			container.WithLog(a.log.V(1)),
 			container.WithVolumes(volumes),
-			container.WithContainerToolBin(Settings.ContainerBinary),
+			container.WithContainerToolBin(settings.Settings.ContainerBinary),
 			container.WithEntrypointArgs(args...),
 			container.WithPortPublish(portMapping),
 			container.WithDetachedMode(true),
@@ -1429,7 +1430,7 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 
 		cmd := exec.CommandContext(
 			ctx,
-			Settings.ContainerBinary,
+			settings.Settings.ContainerBinary,
 			"logs",
 			conName)
 

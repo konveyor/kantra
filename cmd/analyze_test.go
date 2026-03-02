@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
@@ -351,7 +352,7 @@ func Test_analyzeCommand_Validate_sourceAndTargetLabels(t *testing.T) {
 			mode:                  string(provider.FullAnalysisMode),
 			runLocal:              true,
 			sources:               []string{"unknown-source"},
-			enableDefaultRulesets:  true,
+			enableDefaultRulesets: true,
 			overwrite:             true,
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -381,7 +382,7 @@ func Test_analyzeCommand_Validate_sourceAndTargetLabels(t *testing.T) {
 			mode:                  string(provider.FullAnalysisMode),
 			runLocal:              true,
 			targets:               []string{"unknown-target"},
-			enableDefaultRulesets:  true,
+			enableDefaultRulesets: true,
 			overwrite:             true,
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -1600,8 +1601,8 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 				}
 
 				files := map[string]string{
-					"output.yaml":  "test output",
-					"analysis.log": "test log",
+					"output.yaml":       "test output",
+					"analysis.log":      "test log",
 					"dependencies.yaml": "test deps",
 				}
 				for filename, content := range files {
@@ -1785,11 +1786,11 @@ func Test_analyzeCommand_getConfigVolumes_disableMavenSearch(t *testing.T) {
 			}
 
 			// Mock Settings to avoid nil pointer
-			originalSettings := Settings
-			Settings = &Config{
+			originalSettings := settings.Settings
+			settings.Settings = &settings.Config{
 				JvmMaxMem: "1g",
 			}
-			defer func() { Settings = originalSettings }()
+			defer func() { settings.Settings = originalSettings }()
 			configVols, err := a.getConfigVolumes()
 			if err != nil {
 				t.Fatalf("getConfigVolumes() error = %v", err)
@@ -1967,11 +1968,11 @@ func Test_analyzeCommand_getConfigVolumes_m2SkippedForNonJava(t *testing.T) {
 				},
 			}
 
-			originalSettings := Settings
-			Settings = &Config{
+			originalSettings := settings.Settings
+			settings.Settings = &settings.Config{
 				JvmMaxMem: "1g",
 			}
-			defer func() { Settings = originalSettings }()
+			defer func() { settings.Settings = originalSettings }()
 
 			configVols, err := a.getConfigVolumes()
 			if err != nil {
@@ -2084,15 +2085,15 @@ func Test_analyzeCommand_RunProvidersHostNetwork_mavenCacheSkippedForNonJava(t *
 				t.Setenv("KANTRA_SKIP_MAVEN_CACHE", "true")
 			}
 
-			originalSettings := Settings
+			originalSettings := settings.Settings
 			containerBinary := "fake-binary"
 			if tt.needsContainerRuntime {
 				containerBinary = getContainerBinary()
 			}
-			Settings = &Config{
+			settings.Settings = &settings.Config{
 				ContainerBinary: containerBinary,
 			}
-			defer func() { Settings = originalSettings }()
+			defer func() { settings.Settings = originalSettings }()
 
 			a := &analyzeCommand{
 				AnalyzeCommandContext: AnalyzeCommandContext{

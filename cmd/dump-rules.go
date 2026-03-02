@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -41,7 +42,7 @@ func NewDumpRulesCommand(log logr.Logger) *cobra.Command {
 				return err
 			}
 
-			rulesPath := filepath.Join(kantraDir, RulesetsLocation)
+			rulesPath := filepath.Join(kantraDir, settings.RulesetsLocation)
 			if _, err := os.Stat(rulesPath); os.IsNotExist(err) {
 				log.Error(err, "cannot open rulesets path")
 				return fmt.Errorf("rulesets directory not found at %s", rulesPath)

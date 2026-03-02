@@ -1,4 +1,4 @@
-package cmd
+package settings
 
 import (
 	"errors"
@@ -10,8 +10,16 @@ import (
 	"github.com/codingconcepts/env"
 )
 
-// build args
+// Build-time variables set via ldflags.
+//
+// Example:
+//
+//	--ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=1.2.3' \
+//	           -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$(git rev-parse HEAD)'"
 var (
+	BuildCommit = ""
+	Version     = "latest"
+
 	RootCommandName      = "kantra"
 	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	JDTLSBinLocation     = "/jdtls/bin/jdtls"
@@ -21,10 +29,13 @@ var (
 	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
 	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
 	CsharpProviderImage  = "quay.io/konveyor/c-sharp-provider"
+	RunnerImage          = "quay.io/konveyor/kantra"
 )
 
+// Settings is the global configuration instance, loaded once at startup.
 var Settings = &Config{}
 
+// Config holds runtime configuration populated from environment variables and build-time defaults.
 type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
 	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`

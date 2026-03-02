@@ -1,4 +1,4 @@
-package cmd
+package settings
 
 import (
 	"os"
@@ -27,10 +27,10 @@ func TestRunnerImgCustom(t *testing.T) {
 
 func TestConfig_loadDefaultPodmanBin(t *testing.T) {
 	tests := []struct {
-		name                 string
-		containerTool        string
+		name                string
+		containerTool       string
 		podmanBin           string
-		expectContainerTool  string
+		expectContainerTool string
 		expectError         bool
 	}{
 		{
@@ -42,15 +42,15 @@ func TestConfig_loadDefaultPodmanBin(t *testing.T) {
 		{
 			name:                "PODMAN_BIN is used when CONTAINER_TOOL is empty",
 			containerTool:       "",
-			podmanBin:          "/usr/local/bin/podman",
+			podmanBin:           "/usr/local/bin/podman",
 			expectContainerTool: "/usr/local/bin/podman",
 			expectError:         false,
 		},
 		{
-			name:                "fallback to podman in PATH",
-			containerTool:       "",
-			podmanBin:          "",
-			expectError:         false,
+			name:          "fallback to podman in PATH",
+			containerTool: "",
+			podmanBin:     "",
+			expectError:   false,
 		},
 	}
 
@@ -59,7 +59,7 @@ func TestConfig_loadDefaultPodmanBin(t *testing.T) {
 			// Clean up environment
 			os.Unsetenv("CONTAINER_TOOL")
 			os.Unsetenv("PODMAN_BIN")
-			
+
 			// Set up test environment
 			if tt.containerTool != "" {
 				os.Setenv("CONTAINER_TOOL", tt.containerTool)
@@ -118,7 +118,7 @@ func TestConfig_trySetDefaultPodmanBin(t *testing.T) {
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			// Check that the method behaves consistently with exec.LookPath
 			_, lookErr := exec.LookPath(tt.file)
 			if lookErr == nil {
@@ -162,7 +162,7 @@ func TestConfig_loadRunnerImg(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clean up environment
 			os.Unsetenv("RUNNER_IMG")
-			
+
 			// Set up test environment
 			if tt.existingRunnerImg != "" {
 				os.Setenv("RUNNER_IMG", tt.existingRunnerImg)
@@ -190,34 +190,29 @@ func TestConfig_loadRunnerImg(t *testing.T) {
 }
 
 func TestConfig_loadCommandName(t *testing.T) {
-	// Note: This function depends on util.RootCommandName which is typically a constant
-	// We can only test that the function executes without error since we can't easily mock the util package
+	// Note: This function depends on RootCommandName which is a package-level var
 	c := &Config{}
 	err := c.loadCommandName()
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
-	// The function should complete without error regardless of util.RootCommandName value
-	// If util.RootCommandName != "kantra", it will set CMD_NAME environment variable
-	// but we can't easily test this without modifying the util package
 }
 
 func TestConfig_loadProviders(t *testing.T) {
 	tests := []struct {
-		name                   string
-		existingJavaProvider   string
+		name                    string
+		existingJavaProvider    string
 		existingGenericProvider string
-		existingDotnetProvider string
-		version                string
-		expectError            bool
+		existingDotnetProvider  string
+		version                 string
+		expectError             bool
 	}{
 		{
-			name:                   "existing provider images are respected",
-			existingJavaProvider:   "custom/java:tag",
+			name:                    "existing provider images are respected",
+			existingJavaProvider:    "custom/java:tag",
 			existingGenericProvider: "custom/generic:tag",
-			existingDotnetProvider: "custom/dotnet:tag",
-			expectError:            false,
+			existingDotnetProvider:  "custom/dotnet:tag",
+			expectError:             false,
 		},
 		{
 			name:        "generates versioned providers when empty",
@@ -232,7 +227,7 @@ func TestConfig_loadProviders(t *testing.T) {
 			os.Unsetenv("JAVA_PROVIDER_IMG")
 			os.Unsetenv("GENERIC_PROVIDER_IMG")
 			os.Unsetenv("DOTNET_PROVIDER_IMG")
-			
+
 			// Set up test environment
 			if tt.existingJavaProvider != "" {
 				os.Setenv("JAVA_PROVIDER_IMG", tt.existingJavaProvider)
@@ -258,7 +253,7 @@ func TestConfig_loadProviders(t *testing.T) {
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			// Check that environment variables are set appropriately
 			if tt.existingJavaProvider != "" && os.Getenv("JAVA_PROVIDER_IMG") != tt.existingJavaProvider {
 				t.Errorf("Expected JAVA_PROVIDER_IMG=%s, got %s", tt.existingJavaProvider, os.Getenv("JAVA_PROVIDER_IMG"))
