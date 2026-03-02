@@ -20,6 +20,11 @@ type ConfigInput struct {
 	JavaExcludedTargetPaths []interface{}
 	DisableMavenSearch      bool
 	JavaBundleLocation      string
+	// ContainerSourcePath is the resolved path to the source inside the container.
+	// For directory inputs: /opt/input/source
+	// For file inputs:      /opt/input/source/app.war
+	// This replaces direct reads of util.SourceMountPath in provider implementations.
+	ContainerSourcePath string
 }
 
 type Provider interface {

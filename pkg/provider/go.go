@@ -15,12 +15,12 @@ type GoProvider struct {
 func (p *GoProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 	providerSpecificConfig := map[string]interface{}{
 		"lspServerName":                 "generic",
-		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
+		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", c.ContainerSourcePath)},
 		"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
 		provider.LspServerPathConfigKey: "/usr/local/bin/gopls",
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 

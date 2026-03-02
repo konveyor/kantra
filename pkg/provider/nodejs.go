@@ -15,12 +15,12 @@ type NodeJsProvider struct {
 func (p *NodeJsProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 	providerSpecificConfig := map[string]interface{}{
 		"lspServerName":                 "nodejs",
-		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
+		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", c.ContainerSourcePath)},
 		provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
 		"lspServerArgs":                 []interface{}{"--stdio"},
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 

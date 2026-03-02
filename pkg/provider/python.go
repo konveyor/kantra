@@ -21,7 +21,7 @@ func (p *PythonProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 		"dependencyProviderPath":        "",
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 	depFolders := []string{filepath.Join(util.SourceMountPath, "_pycache_")}

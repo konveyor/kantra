@@ -22,7 +22,7 @@ func (p *CsharpProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
 		InitConfig: []provider.InitConfig{
 			{
-				Location:     util.SourceMountPath,
+				Location:     c.ContainerSourcePath,
 				AnalysisMode: provider.SourceOnlyAnalysisMode,
 				ProviderSpecificConfig: map[string]interface{}{
 					"ilspy_cmd": "/usr/local/bin/ilspycmd",

@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -19,13 +18,7 @@ type JavaProvider struct {
 
 func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 
-	var mountPath = util.SourceMountPath
-	// when input is a file, it means it's probably a binary
-	// only java provider can work with binaries, all others
-	// continue pointing to the directory instead of file
-	if c.IsFileInput {
-		mountPath = path.Join(util.SourceMountPath, filepath.Base(c.InputPath))
-	}
+	mountPath := c.ContainerSourcePath
 
 	providerSpecificConfig := map[string]interface{}{
 		"lspServerName":                 util.JavaProvider,
@@ -35,7 +28,7 @@ func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
 		provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
 		"disableMavenSearch":            c.DisableMavenSearch,
 	}
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 

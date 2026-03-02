@@ -85,6 +85,10 @@ type analyzeCommand struct {
 	overrideProviderSettings string
 	profileDir               string
 	profilePath              string
+	// sourceLocationPath is the resolved path to the source inside the container.
+	// For directory inputs: /opt/input/source
+	// For file inputs:      /opt/input/source/app.war
+	sourceLocationPath string
 	AnalyzeCommandContext
 }
 
@@ -443,10 +447,16 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 			if err != nil {
 				return fmt.Errorf("%w failed to get absolute path for input file %s", err, a.input)
 			}
-			// make sure we mount a file and not a dir
-			util.SourceMountPath = path.Join(util.SourceMountPath, filepath.Base(a.input))
 			a.isFileInput = true
 		}
+	}
+	// Compute the resolved source path inside the container.
+	// For directory inputs this is the standard mount path; for file inputs
+	// (binaries) it includes the filename so the provider sees the file.
+	if a.isFileInput {
+		a.sourceLocationPath = path.Join(util.SourceMountPath, filepath.Base(a.input))
+	} else {
+		a.sourceLocationPath = util.SourceMountPath
 	}
 	err := a.CheckOverwriteOutput()
 	if err != nil {
@@ -793,6 +803,7 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 		JavaExcludedTargetPaths: javaTargetPaths,
 		DisableMavenSearch:      a.disableMavenSearch,
 		JavaBundleLocation:      JavaBundlesLocation,
+		ContainerSourcePath:     a.sourceLocationPath,
 	}
 	var builtinProvider = kantraProvider.BuiltinProvider{}
 	var config, _ = builtinProvider.GetConfigVolume(configInput)

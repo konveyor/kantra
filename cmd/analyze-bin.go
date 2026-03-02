@@ -548,7 +548,7 @@ func (a *analyzeCommand) setBinMapContainerless() error {
 
 func (a *analyzeCommand) makeBuiltinProviderConfig() provider.Config {
 	providerSpecificConfig := map[string]interface{}{}
-	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(a.input, "", false); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 
@@ -578,7 +578,7 @@ func (a *analyzeCommand) makeJavaProviderConfig() provider.Config {
 		"gradleSourcesTaskFile":         filepath.Join(a.kantraDir, "task.gradle"),
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(a.input, false); excludedDir != "" {
+	if excludedDir := util.GetProfilesExcludedDir(a.input, "", false); excludedDir != "" {
 		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 	}
 
