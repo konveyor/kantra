@@ -1,4 +1,4 @@
-package cmd
+package analyze
 
 import (
 	"context"
@@ -332,7 +332,9 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	logrusAnalyzerLog := logrus.New()
 	logrusAnalyzerLog.SetOutput(analysisLogFile)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
-	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
+	if a.logLevel != nil {
+		logrusAnalyzerLog.SetLevel(logrus.Level(*a.logLevel))
+	}
 
 	// Add console hook for rule processing messages
 	// but only if progress is disabled (to avoid interfering with progress bar)

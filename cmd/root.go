@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/konveyor-ecosystem/kantra/cmd/analyze"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/discover"
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/generate"
 	"github.com/konveyor-ecosystem/kantra/cmd/config"
@@ -54,7 +55,7 @@ func init() {
 
 	logger := logrusr.New(logrusLog)
 	rootCmd.AddCommand(NewTransformCommand(logger))
-	rootCmd.AddCommand(NewAnalyzeCmd(logger))
+	rootCmd.AddCommand(analyze.NewAnalyzeCmd(logger))
 	rootCmd.AddCommand(NewTestCommand(logger))
 	rootCmd.AddCommand(NewDumpRulesCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())

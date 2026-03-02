@@ -1,4 +1,4 @@
-package cmd
+package analyze
 
 import (
 	"context"
@@ -144,7 +144,9 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	logrusAnalyzerLog := logrus.New()
 	logrusAnalyzerLog.SetOutput(analysisLogFile)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
-	logrusAnalyzerLog.SetLevel(logrus.Level(logLevel))
+	if a.logLevel != nil {
+		logrusAnalyzerLog.SetLevel(logrus.Level(*a.logLevel))
+	}
 
 	// add log hook, print the rule processing to the console
 	// but only if progress is disabled (to avoid interfering with progress bar)
