@@ -145,7 +145,7 @@ func WithReproduceCmd(r *string) Option {
 	}
 }
 
-// WithProxy adds proxy environment variables to the container
+// WithPortPublish publishes container ports to the host
 func WithPortPublish(ports ...string) Option {
 	return func(c *container) {
 		c.ports = ports

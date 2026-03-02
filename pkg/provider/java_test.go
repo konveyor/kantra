@@ -201,13 +201,9 @@ func TestJavaProvider_GetConfigVolumeWithNonExistentMavenSettings(t *testing.T) 
 	}
 
 	p := &JavaProvider{}
-	// CopyFileContents returns nil for non-existent files, so the check passes
-	// and the maven settings file is still added to config
-	config, err := p.GetConfigVolume(configInput)
-	require.NoError(t, err)
-	// Even though the file doesn't exist, CopyFileContents returns nil
-	// so the config still includes mavenSettingsFile
-	assert.Contains(t, config.InitConfig[0].ProviderSpecificConfig, "mavenSettingsFile")
+	// CopyFileContents correctly returns an error for non-existent files
+	_, err := p.GetConfigVolume(configInput)
+	require.Error(t, err)
 }
 
 func TestWalkJavaPathForTarget(t *testing.T) {
