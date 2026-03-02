@@ -213,7 +213,7 @@ func waitForProvider(ctx context.Context, providerName string, port int, timeout
 // setupNetworkProvider creates a network-based provider client for hybrid mode.
 // The provider runs in a container and this client connects via network (localhost:PORT).
 // This function works for all provider types (Java, Go, Python, NodeJS, C#).
-func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, client provider.InternalProviderClient, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) ([]string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName string, client provider.InternalProviderClient, analysisLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.Reporter) ([]string, []provider.InitConfig, error) {
 	// Build provider-specific configuration
 	// Based on working hybrid-provider-settings.json example
 	providerSpecificConfig := map[string]interface{}{}
@@ -277,11 +277,10 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 
 	initConfigs := []provider.InitConfig{
 		{
-			Location:                a.sourceLocationPath,
-			AnalysisMode:            provider.AnalysisMode(a.mode),
-			ProviderSpecificConfig:  providerSpecificConfig,
-			Proxy:                   proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
-			PrepareProgressReporter: provider.NewPrepareProgressAdapter(progressReporter),
+			Location:               a.sourceLocationPath,
+			AnalysisMode:           provider.AnalysisMode(a.mode),
+			ProviderSpecificConfig: providerSpecificConfig,
+			Proxy:                  proxyConfig, // Keep as pointer - InitConfig.Proxy is *Proxy!
 		},
 	}
 
@@ -385,7 +384,7 @@ func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerL
 
 // setupBuiltinProviderHybrid creates a builtin provider for hybrid mode.
 // This is the same as containerless mode since builtin always runs in-process.
-func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, builtinProvider provider.InternalProviderClient, progressReporter progress.ProgressReporter) ([]string, error) {
+func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additionalConfigs []provider.InitConfig, builtinProvider provider.InternalProviderClient, progressReporter progress.Reporter) ([]string, error) {
 	a.log.V(1).Info("setting up builtin provider for hybrid mode")
 
 	// Check if profiles directory exists in input and add to excludedDirs
@@ -399,9 +398,6 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 	}
 	providerLocations := []string{}
 	for i := range additionalConfigs {
-		if progressReporter != nil {
-			additionalConfigs[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
 		if excludedDir != "" {
 			if additionalConfigs[i].ProviderSpecificConfig == nil {
 				additionalConfigs[i].ProviderSpecificConfig = map[string]any{
@@ -547,6 +543,13 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	providerToInputVolName := map[string]string{}
 	providerToClient := map[string]provider.InternalProviderClient{}
 
+	// Create a progress.Progress instance for provider clients.
+	// This is created early so it can be passed to lib.GetProviderClient.
+	prog, err := progress.New()
+	if err != nil {
+		return fmt.Errorf("failed to create progress: %w", err)
+	}
+
 	// Start containerized providers if any
 	if len(a.providersMap) > 0 {
 		startProviderSetup := time.Now()
@@ -608,7 +611,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			client, err := lib.GetProviderClient(provider.Config{
 				Name:    result.providerName,
 				Address: fmt.Sprintf("localhost:%d", result.providerInit.port), // Connect to containerized provider
-			}, a.log.WithName("provider"))
+			}, a.log.WithName("provider"), prog)
 			if err != nil {
 				return err
 			}
@@ -624,7 +627,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 		builtinProvider, err := lib.GetProviderClient(provider.Config{
 			Name:         "builtin",
 			ContextLines: a.contextLines,
-		}, analyzeLog)
+		}, analyzeLog, prog)
 		if err != nil {
 			return err
 		}

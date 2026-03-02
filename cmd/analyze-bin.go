@@ -221,7 +221,12 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		defer progressCancel()
 	}
 
-	var eng engine.RuleEngine
+	// Create a progress.Progress instance for provider clients
+	prog, err := progress.New(progress.WithReporters(reporter))
+	if err != nil {
+		return fmt.Errorf("failed to create progress: %w", err)
+	}
+
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
 
@@ -266,7 +271,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	startBuiltinProvider := time.Now()
 	operationalLog.Info("[TIMING] Starting builtin provider setup")
-	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, overrideConfigs, reporter)
+	builtinProvider, builtinLocations, err := a.setupBuiltinProvider(ctx, additionalBuiltinConfigs, analyzeLog, operationalLog, overrideConfigs, reporter, prog)
 	if err != nil {
 		errLog.Error(err, "unable to start builtin provider")
 		return fmt.Errorf("unable to start builtin provider: %w", err)
@@ -685,7 +690,7 @@ func (a *analyzeCommand) setConfigsContainerless(configs []provider.Config) []pr
 	return finalConfigs
 }
 
-func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog logr.Logger, operationalLog logr.Logger) (provider.InternalProviderClient, error) {
+func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog logr.Logger, operationalLog logr.Logger, prog *progress.Progress) (provider.InternalProviderClient, error) {
 	operationalLog.Info("setting provider from provider config", "provider", config.Name)
 	config.ContextLines = a.contextLines
 
@@ -699,7 +704,7 @@ func (a *analyzeCommand) setBuiltinProvider(config provider.Config, analysisLog 
 		config.InitConfig = inits
 	}
 
-	prov, err := lib.GetProviderClient(config, analysisLog)
+	prov, err := lib.GetProviderClient(config, analysisLog, prog)
 	if err != nil {
 		a.log.Error(err, "failed to create builtin provider")
 		return nil, err
@@ -725,7 +730,7 @@ func (a *analyzeCommand) setJavaProvider(config provider.Config, analysisLog log
 	return java.NewJavaProvider(analysisLog, "java", a.contextLines, int(*a.logLevel), config)
 }
 
-func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger, operationalLog logr.Logger, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
+func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr.Logger, operationalLog logr.Logger, progressReporter progress.Reporter) (provider.InternalProviderClient, []string, []provider.InitConfig, error) {
 	javaConfig := a.makeJavaProviderConfig()
 	if a.httpProxy != "" || a.httpsProxy != "" {
 		proxy := provider.Proxy{
@@ -736,14 +741,6 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 		javaConfig.Proxy = &proxy
 	}
 	javaConfig.ContextLines = a.contextLines
-
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range javaConfig.InitConfig {
-			javaConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
-	}
 
 	providerLocations := []string{}
 	for _, ind := range javaConfig.InitConfig {
@@ -766,7 +763,7 @@ func (a *analyzeCommand) setupJavaProvider(ctx context.Context, analysisLog logr
 	return javaProvider, providerLocations, additionalBuiltinConfs, nil
 }
 
-func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.ProgressReporter) (provider.InternalProviderClient, []string, error) {
+func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalConfigs []provider.InitConfig, analysisLog logr.Logger, operationalLog logr.Logger, overrideConfigs []provider.Config, progressReporter progress.Reporter, prog *progress.Progress) (provider.InternalProviderClient, []string, error) {
 	operationalLog.Info("setting up builtin provider")
 	builtinConfig := a.makeBuiltinProviderConfig()
 
@@ -784,20 +781,12 @@ func (a *analyzeCommand) setupBuiltinProvider(ctx context.Context, additionalCon
 	// Apply override settings (same as containerized providers)
 	builtinConfig = applyProviderOverrides(builtinConfig, overrideConfigs)
 
-	// Add prepare progress reporter if available
-	// Note: Only set on InitConfig level to avoid duplicate progress events
-	if progressReporter != nil {
-		for i := range builtinConfig.InitConfig {
-			builtinConfig.InitConfig[i].PrepareProgressReporter = provider.NewPrepareProgressAdapter(progressReporter)
-		}
-	}
-
 	providerLocations := []string{}
 	for _, ind := range builtinConfig.InitConfig {
 		providerLocations = append(providerLocations, ind.Location)
 	}
 
-	builtinProvider, err := a.setBuiltinProvider(builtinConfig, analysisLog, operationalLog)
+	builtinProvider, err := a.setBuiltinProvider(builtinConfig, analysisLog, operationalLog, prog)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -827,7 +816,7 @@ func (a *analyzeCommand) setInternalProviders(finalConfigs []provider.Config, an
 		if config.Name == util.JavaProvider {
 			prov = a.setJavaProvider(config, analysisLog, logr.Discard())
 		} else if config.Name == "builtin" {
-			prov, err = a.setBuiltinProvider(config, analysisLog, logr.Discard())
+			prov, err = a.setBuiltinProvider(config, analysisLog, logr.Discard(), nil)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to set builtin provider: %w", err)
 			}
@@ -871,7 +860,7 @@ func (a *analyzeCommand) startProvidersContainerless(ctx context.Context, needPr
 	return nil
 }
 
-func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, providers map[string]provider.InternalProviderClient, depOutputFile string, wg *sync.WaitGroup, reporter progress.ProgressReporter) {
+func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, providers map[string]provider.InternalProviderClient, depOutputFile string, wg *sync.WaitGroup, reporter progress.Reporter) {
 	defer wg.Done()
 	var depsFlat []konveyor.DepsFlatItem
 	var depsTree []konveyor.DepsTreeItem
@@ -903,7 +892,7 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 	}
 
 	// Report dependency resolution completion with count
-	reporter.Report(progress.ProgressEvent{
+	reporter.Report(progress.Event{
 		Stage: progress.StageDependencyResolution,
 		Total: totalDeps,
 	})

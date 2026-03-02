@@ -31,6 +31,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/progress"
+	progressReporterPkg "github.com/konveyor/analyzer-lsp/progress/reporter"
 	"github.com/konveyor/analyzer-lsp/provider"
 
 	"github.com/spf13/cobra"
@@ -1474,7 +1475,7 @@ func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 // Returns the reporter, done channel, and cancel function.
 // If noProgress is true, returns a noop reporter with nil channel and cancel func.
 func setupProgressReporter(ctx context.Context, noProgress bool) (
-	reporter progress.ProgressReporter,
+	progressReporter progress.Reporter,
 	progressDone chan struct{},
 	progressCancel context.CancelFunc,
 ) {
@@ -1482,8 +1483,8 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 		// Create channel-based progress reporter
 		var progressCtx context.Context
 		progressCtx, progressCancel = context.WithCancel(ctx)
-		channelReporter := progress.NewChannelReporter(progressCtx)
-		reporter = channelReporter
+		channelReporter := progressReporterPkg.NewChannelReporter(progressCtx)
+		progressReporter = channelReporter
 
 		// Start goroutine to consume progress events and render progress bar
 		progressDone = make(chan struct{})
@@ -1568,10 +1569,10 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 		}()
 	} else {
 		// Use noop reporter when progress is disabled
-		reporter = progress.NewNoopReporter()
+		progressReporter = progress.NewNoopReporter()
 	}
 
-	return reporter, progressDone, progressCancel
+	return progressReporter, progressDone, progressCancel
 }
 
 func listLanguages(languages []model.Language, input string) error {
