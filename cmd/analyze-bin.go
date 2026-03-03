@@ -205,8 +205,19 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		defer progressCancel()
 	}
 
+	var eng engine.RuleEngine
 	providers := map[string]provider.InternalProviderClient{}
 	providerLocations := []string{}
+
+	// ensure engine and providers are always stopped
+	defer func() {
+		if eng != nil {
+			eng.Stop()
+		}
+		for _, p := range providers {
+			p.Stop()
+		}
+	}()
 
 	// Load override provider settings if specified
 	overrideConfigs, err := a.loadOverrideProviderSettings()
@@ -260,7 +271,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 
 	engineCtx, engineSpan := tracing.StartNewSpan(ctx, "rule-engine")
 	//start up the rule eng
-	eng := engine.CreateRuleEngine(engineCtx,
+	eng = engine.CreateRuleEngine(engineCtx,
 		10,
 		analyzeLog,
 		engine.WithContextLines(a.contextLines),
@@ -344,11 +355,6 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	engineSpan.End()
 	wg.Wait()
 	depSpan.End()
-	eng.Stop()
-
-	for _, provider := range needProviders {
-		provider.Stop()
-	}
 	operationalLog.Info("[TIMING] Rule execution complete", "duration_ms", time.Since(startRuleExecution).Milliseconds())
 
 	sort.SliceStable(rulesets, func(i, j int) bool {
@@ -877,7 +883,7 @@ func (a *analyzeCommand) DependencyOutputContainerless(ctx context.Context, prov
 
 	// Report dependency resolution completion with count
 	reporter.Report(progress.ProgressEvent{
-		Stage:   progress.StageDependencyResolution,
+		Stage: progress.StageDependencyResolution,
 		Total: totalDeps,
 	})
 
