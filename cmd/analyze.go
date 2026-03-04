@@ -236,7 +236,9 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					}
 					return nil
 				}
-				cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
+				// Use signal context (ctx) so Ctrl+C cancels the run and the deferred cleanup in
+				// RunAnalysisContainerless runs, stopping the engine and providers (e.g. JDTLS).
+				cmdCtx, cancelFunc := context.WithCancel(ctx)
 				err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
 				defer cancelFunc()
 				if err != nil {
