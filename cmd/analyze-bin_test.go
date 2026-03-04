@@ -114,24 +114,48 @@ func TestRunAnalysisContainerless_DeferRunsOnEarlyReturn(t *testing.T) {
 		require.NoError(t, os.WriteFile(full, []byte("x"), 0644))
 	}
 
-	a := &analyzeCommand{
-		input:  inputDir,
-		output: outputDir,
-		// Cause loadOverrideProviderSettings to return error after the defer is registered
-		overrideProviderSettings: "/nonexistent/override-settings.json",
-		AnalyzeCommandContext: AnalyzeCommandContext{
-			log:       logr.Discard(),
-			kantraDir: kantraDir,
-		},
-	}
-	// Ensure input is absolute for ValidateContainerless
-	absInput, err := filepath.Abs(inputDir)
-	require.NoError(t, err)
-	a.input = absInput
+	t.Run("with StopHook asserts deferred cleanup ran", func(t *testing.T) {
+		var cleanupRan bool
+		a := &analyzeCommand{
+			input:  inputDir,
+			output: outputDir,
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+				StopHook:  func() { cleanupRan = true },
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
 
-	err = a.RunAnalysisContainerless(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "override provider settings")
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+		assert.True(t, cleanupRan, "deferred cleanup should have run (StopHook should have been called)")
+	})
+
+	t.Run("without StopHook still runs deferred cleanup", func(t *testing.T) {
+		a := &analyzeCommand{
+			input:  inputDir,
+			output: outputDir,
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+				StopHook:  nil, // production path: no hook set
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+		// Defer ran (stopEngineAndProviders + nil hook); no panic means cleanup path executed.
+	})
 }
 
 func TestGradleSourcesTaskFileConfiguration(t *testing.T) {

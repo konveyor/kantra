@@ -226,7 +226,12 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations := []string{}
 
 	// ensure engine and providers are always stopped
-	defer stopEngineAndProviders(eng, providers)
+	defer func() {
+		stopEngineAndProviders(eng, providers)
+		if a.StopHook != nil {
+			a.StopHook()
+		}
+	}()
 
 	// Load override provider settings if specified
 	overrideConfigs, err := a.loadOverrideProviderSettings()

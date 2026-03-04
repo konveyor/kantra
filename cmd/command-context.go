@@ -40,6 +40,10 @@ type AnalyzeCommandContext struct {
 	// for containerless cmd
 	reqMap    map[string]string
 	kantraDir string
+
+	// StopHook, if set, is called when RunAnalysisContainerless deferred cleanup runs.
+	// Used by tests to assert that cleanup executed (e.g. on early return).
+	StopHook func()
 }
 
 func (c *AnalyzeCommandContext) setProviders(providers []string, languages []model.Language, foundProviders []string) ([]string, error) {
