@@ -37,6 +37,22 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// engineStopper allows testing cleanup; engine.RuleEngine implements it.
+type engineStopper interface {
+	Stop()
+}
+
+// stopEngineAndProviders stops the rule engine and all providers.
+// It is called from a defer in RunAnalysisContainerless so cleanup runs on every exit path.
+func stopEngineAndProviders(eng engineStopper, providers map[string]provider.InternalProviderClient) {
+	if eng != nil {
+		eng.Stop()
+	}
+	for _, p := range providers {
+		p.Stop()
+	}
+}
+
 type ConsoleHook struct {
 	Level logrus.Level
 	Log   logr.Logger
@@ -210,14 +226,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	providerLocations := []string{}
 
 	// ensure engine and providers are always stopped
-	defer func() {
-		if eng != nil {
-			eng.Stop()
-		}
-		for _, p := range providers {
-			p.Stop()
-		}
-	}()
+	defer stopEngineAndProviders(eng, providers)
 
 	// Load override provider settings if specified
 	overrideConfigs, err := a.loadOverrideProviderSettings()
