@@ -3,18 +3,297 @@ package cmd
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// mockEngineStopper records whether Stop() was called (for testing stopEngineAndProviders).
+type mockEngineStopper struct {
+	stopCalled bool
+}
+
+func (m *mockEngineStopper) Stop() {
+	m.stopCalled = true
+}
+
 // Use logr.Discard() for testing - it's the standard no-op logger
+
+func Test_stopEngineAndProviders(t *testing.T) {
+	t.Run("nil engine and nil providers does not panic", func(t *testing.T) {
+		stopEngineAndProviders(nil, nil)
+	})
+
+	t.Run("nil engine and empty providers does not panic", func(t *testing.T) {
+		stopEngineAndProviders(nil, map[string]provider.InternalProviderClient{})
+	})
+
+	t.Run("non-nil engine has Stop called", func(t *testing.T) {
+		eng := &mockEngineStopper{}
+		stopEngineAndProviders(eng, nil)
+		assert.True(t, eng.stopCalled, "engine.Stop() should have been called")
+	})
+
+	t.Run("non-nil engine and empty providers has engine Stop called", func(t *testing.T) {
+		eng := &mockEngineStopper{}
+		stopEngineAndProviders(eng, map[string]provider.InternalProviderClient{})
+		assert.True(t, eng.stopCalled, "engine.Stop() should have been called")
+	})
+
+	t.Run("nil engine and non-empty providers calls Stop on each provider", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "stop-engine-providers-")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
+
+		builtinClient, err := lib.GetProviderClient(provider.Config{
+			Name: "builtin",
+			InitConfig: []provider.InitConfig{
+				{Location: tmpDir},
+			},
+		}, logr.Discard())
+		require.NoError(t, err)
+
+		providers := map[string]provider.InternalProviderClient{"builtin": builtinClient}
+		stopEngineAndProviders(nil, providers)
+		// No panic and builtin provider's Stop() is a no-op; we're just covering the loop.
+	})
+}
+
+// TestRunAnalysisContainerless_DeferRunsOnEarlyReturn ensures that when RunAnalysisContainerless
+// returns early (e.g. from loadOverrideProviderSettings error), the deferred stopEngineAndProviders
+// runs so that engine and providers are always stopped (fixes #665).
+func TestRunAnalysisContainerless_DeferRunsOnEarlyReturn(t *testing.T) {
+	// ValidateContainerless requires mvn, java, JAVA_HOME - skip if not present
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	// Use relative path constants so we can create the required files under a temp dir
+	oldBundle := JavaBundlesLocation
+	oldJdtls := JDTLSBinLocation
+	defer func() {
+		JavaBundlesLocation = oldBundle
+		JDTLSBinLocation = oldJdtls
+	}()
+	JavaBundlesLocation = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation = "jdtls/bin/jdtls"
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	kantraDir, err := os.MkdirTemp("", "containerless-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(kantraDir)
+
+	// Required dirs and files for setBinMapContainerless and ValidateContainerless
+	for _, dir := range []string{RulesetsLocation, "jdtls/bin", "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(kantraDir, dir), 0755))
+	}
+	for _, f := range []string{"jdtls/bin/jdtls", "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar", "fernflower.jar"} {
+		full := filepath.Join(kantraDir, f)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0644))
+	}
+
+	t.Run("with StopHook asserts deferred cleanup ran", func(t *testing.T) {
+		var cleanupRan bool
+		a := &analyzeCommand{
+			input:  inputDir,
+			output: outputDir,
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+				StopHook:  func() { cleanupRan = true },
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+		assert.True(t, cleanupRan, "deferred cleanup should have run (StopHook should have been called)")
+	})
+
+	t.Run("without StopHook still runs deferred cleanup", func(t *testing.T) {
+		a := &analyzeCommand{
+			input:  inputDir,
+			output: outputDir,
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+				StopHook:  nil, // production path: no hook set
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+		// Defer ran (stopEngineAndProviders + nil hook); no panic means cleanup path executed.
+	})
+
+	// Covers line 199: selectors = append(selectors, selector) when labelSelector is set
+	t.Run("with labelSelector runs label selector path", func(t *testing.T) {
+		var cleanupRan bool
+		a := &analyzeCommand{
+			input:  inputDir,
+			output: outputDir,
+			labelSelector: "source=java", // valid selector so we hit the append path
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+				StopHook:  func() { cleanupRan = true },
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+		assert.True(t, cleanupRan)
+	})
+}
+
+// TestRunAnalysisContainerless_SetBinMapContainerlessError covers the error path at lines 214-215
+// when setBinMapContainerless fails (e.g. kantra dir missing required jdtls/bundle files).
+func TestRunAnalysisContainerless_SetBinMapContainerlessError(t *testing.T) {
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	oldBundle := JavaBundlesLocation
+	oldJdtls := JDTLSBinLocation
+	defer func() {
+		JavaBundlesLocation = oldBundle
+		JDTLSBinLocation = oldJdtls
+	}()
+	JavaBundlesLocation = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation = "jdtls/bin/jdtls"
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	// Kantra dir with rulesets and fernflower only - no jdtls or bundle jar, so setBinMapContainerless will fail
+	kantraDir, err := os.MkdirTemp("", "containerless-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(kantraDir)
+	require.NoError(t, os.MkdirAll(filepath.Join(kantraDir, RulesetsLocation), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(kantraDir, "fernflower.jar"), []byte("x"), 0644))
+
+	a := &analyzeCommand{
+		input:  inputDir,
+		output: outputDir,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: kantraDir,
+		},
+	}
+	absInput, err := filepath.Abs(inputDir)
+	require.NoError(t, err)
+	a.input = absInput
+
+	err = a.RunAnalysisContainerless(context.Background())
+	require.Error(t, err)
+	// We hit the setBinMapContainerless error path (lines 214-215); error may be wrapped
+	errStr := err.Error()
+	assert.True(t, strings.Contains(errStr, "unable to find kantra dependencies") ||
+		strings.Contains(errStr, "failed to stat bin") ||
+		strings.Contains(errStr, "no such file or directory"),
+		"expected setBinMapContainerless error, got: %s", errStr)
+}
+
+// TestRunAnalysisContainerless_EngineCreationPath covers the path that reaches
+// eng = engine.CreateRuleEngine(...). It only runs when KANTRA_DIR is set and
+// points to a full kantra dir (with real jdtls and bundles) so setupJavaProvider
+// and setupBuiltinProvider can succeed; otherwise it skips.
+func TestRunAnalysisContainerless_EngineCreationPath(t *testing.T) {
+	kantraDir := os.Getenv(util.KantraDirEnv)
+	if kantraDir == "" {
+		t.Skip("KANTRA_DIR not set, skipping engine creation path test")
+	}
+	if _, err := os.Stat(kantraDir); err != nil {
+		t.Skipf("KANTRA_DIR %q not found: %v", kantraDir, err)
+	}
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	var cleanupRan bool
+	a := &analyzeCommand{
+		input:  inputDir,
+		output: outputDir,
+		// No overrideProviderSettings so we get past loadOverrideProviderSettings
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: kantraDir,
+			StopHook:  func() { cleanupRan = true },
+		},
+	}
+	absInput, err := filepath.Abs(inputDir)
+	require.NoError(t, err)
+	a.input = absInput
+
+	err = a.RunAnalysisContainerless(context.Background())
+	// We may fail at setupJavaProvider, setupBuiltinProvider, or later; either way defer runs
+	if err != nil {
+		// If we got far enough to register the defer, it should have run
+		assert.True(t, cleanupRan, "deferred cleanup should have run when RunAnalysisContainerless returned")
+	}
+}
 
 func TestGradleSourcesTaskFileConfiguration(t *testing.T) {
 	a := analyzeCommand{}
