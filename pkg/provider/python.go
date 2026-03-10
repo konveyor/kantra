@@ -18,6 +18,7 @@ func (p *PythonProvider) GetConfigVolume(c ConfigInput) (provider.Config, error)
 		"lspServerName":                 "pylsp",
 		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
 		provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
+		"dependencyProviderPath":        "",
 	}
 
 	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
