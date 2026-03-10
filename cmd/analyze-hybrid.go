@@ -247,8 +247,10 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 		providerSpecificConfig["dependencyProviderPath"] = "/usr/local/bin/golang-dependency-provider"
 
 	case util.PythonProvider:
-		providerSpecificConfig["lspServerName"] = "generic"
+		providerSpecificConfig["lspServerName"] = "pylsp"
 		providerSpecificConfig[provider.LspServerPathConfigKey] = "/usr/local/bin/pylsp"
+		providerSpecificConfig["dependencyProviderPath"] = ""
+
 		// Note: Don't set workspaceFolders - the generic Init method will use Location
 		// Setting both would cause duplicate file counting in GetDocumentUris
 
