@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -11,52 +10,68 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
+// JavaProvider generates configuration for the Java analyzer provider.
+// Java-specific options (maven settings, JVM memory, bundles) are
+// passed through BaseOptions, keeping the provider struct stateless.
 type JavaProvider struct {
 	baseProvider
-	config provider.Config
 }
 
-func (p *JavaProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
+func (p *JavaProvider) Name() string {
+	return util.JavaProvider
+}
 
-	mountPath := c.ContainerSourcePath
+func (p *JavaProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
+	javaOpts, _ := FindOption[JavaOptions](extra)
 
-	providerSpecificConfig := map[string]interface{}{
-		"lspServerName":                 util.JavaProvider,
-		"bundles":                       c.JavaBundleLocation,
-		"mavenIndexPath":                "/usr/local/etc/maven-index.txt",
-		"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
-		provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
-		"disableMavenSearch":            c.DisableMavenSearch,
-	}
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, util.SourceMountPath, true); excludedDir != "" {
-		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
-	}
-
-	p.config = provider.Config{
-		Name:    util.JavaProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               mountPath,
-				AnalysisMode:           provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: providerSpecificConfig,
-			},
-		},
+	// Resolve binary path based on mode
+	switch mode {
+	case ModeContainer:
+		opts.BinaryPath = ContainerJavaProviderBin
+	case ModeLocal:
+		opts.BinaryPath = filepath.Join(opts.KantraDir, "java-external-provider")
 	}
 
-	if c.MavenSettingsFile != "" {
-		err := util.CopyFileContents(c.MavenSettingsFile, filepath.Join(c.TmpDir, "settings.xml"))
-		if err != nil {
-			c.Log.V(1).Error(err, "failed copying maven settings file", "path", c.MavenSettingsFile)
-			return provider.Config{}, err
-		}
-		p.config.InitConfig[0].ProviderSpecificConfig["mavenSettingsFile"] = fmt.Sprintf("%s/%s", util.ConfigMountPath, "settings.xml")
-	}
-	if c.JvmMaxMem != "" {
-		p.config.InitConfig[0].ProviderSpecificConfig["jvmMaxMem"] = c.JvmMaxMem
+	cfg := NewBaseConfig(util.JavaProvider, mode, opts)
+	psc := cfg.InitConfig[0].ProviderSpecificConfig
+
+	// Java-specific config varies by mode
+	switch mode {
+	case ModeContainer:
+		psc["lspServerName"] = util.JavaProvider
+		psc["bundles"] = ContainerJavaBundlePath
+		psc["depOpenSourceLabelsFile"] = ContainerDepOpenSourceLabels
+		psc[provider.LspServerPathConfigKey] = ContainerJDTLSPath
+
+	case ModeLocal:
+		kantraDir := opts.KantraDir
+		psc["lspServerName"] = util.JavaProvider
+		psc["bundles"] = filepath.Join(kantraDir, LocalJavaBundlePath)
+		psc[provider.LspServerPathConfigKey] = filepath.Join(kantraDir, LocalJDTLSPath)
+		psc["depOpenSourceLabelsFile"] = filepath.Join(kantraDir, "maven.default.index")
+		psc["mavenIndexPath"] = kantraDir
+		psc["cleanExplodedBin"] = true
+		psc["fernFlowerPath"] = filepath.Join(kantraDir, "fernflower.jar")
+		psc["gradleSourcesTaskFile"] = filepath.Join(kantraDir, "task.gradle")
+		psc["disableMavenSearch"] = javaOpts.DisableMavenSearch
+
+	case ModeNetwork:
+		psc["lspServerName"] = util.JavaProvider
+		psc[provider.LspServerPathConfigKey] = ContainerJDTLSPath
+		psc["bundles"] = ContainerJavaBundlePath
+		psc["mavenIndexPath"] = ContainerMavenIndexPath
+		psc["depOpenSourceLabelsFile"] = ContainerDepOpenSourceLabels
 	}
 
-	return p.config, nil
+	// Apply Java-specific overrides from options
+	if javaOpts.MavenSettingsFile != "" {
+		psc["mavenSettingsFile"] = javaOpts.MavenSettingsFile
+	}
+	if javaOpts.JvmMaxMem != "" {
+		psc["jvmMaxMem"] = javaOpts.JvmMaxMem
+	}
+
+	return cfg, nil
 }
 
 // assume we always want to exclude /target/ in Java projects to avoid duplicate incidents

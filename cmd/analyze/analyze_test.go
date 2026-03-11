@@ -1799,40 +1799,17 @@ func Test_analyzeCommand_getConfigVolumes_disableMavenSearch(t *testing.T) {
 				t.Fatal("Expected config volumes to be created")
 			}
 
-			tempDir, err := os.MkdirTemp("", "analyze-config-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tempDir)
-
-			javaTargetPaths, _ := kantraProvider.WalkJavaPathForTarget(log, false, tmpDir)
-
-			configInput := kantraProvider.ConfigInput{
-				IsFileInput:             false,
-				InputPath:               tmpDir,
-				OutputPath:              outputDir,
-				MavenSettingsFile:       "",
-				Log:                     log,
-				Mode:                    "source-only",
-				Port:                    6734,
-				TmpDir:                  tempDir,
-				JvmMaxMem:               "1g",
-				DepsFolders:             []string{},
-				JavaExcludedTargetPaths: javaTargetPaths,
-				DisableMavenSearch:      tt.disableMavenSearch,
-			}
-
-			if configInput.DisableMavenSearch != tt.expectedDisableMavenSearch {
-				t.Errorf("ConfigInput.DisableMavenSearch = %v, want %v",
-					configInput.DisableMavenSearch, tt.expectedDisableMavenSearch)
+			// Verify that the disableMavenSearch flag is correctly set
+			// on the analyzeCommand and would be passed to the provider.
+			if a.disableMavenSearch != tt.expectedDisableMavenSearch {
+				t.Errorf("analyzeCommand.disableMavenSearch = %v, want %v",
+					a.disableMavenSearch, tt.expectedDisableMavenSearch)
 			}
 		})
 	}
 }
 
-func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
-	log := logr.Discard()
-
+func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 	tests := []struct {
 		name                       string
 		disableMavenSearch         bool
@@ -1852,32 +1829,18 @@ func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a temporary directory for testing
-			tmpDir, err := os.MkdirTemp("", "test-java-config-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			configInput := kantraProvider.ConfigInput{
-				IsFileInput:             false,
-				InputPath:               tmpDir,
-				OutputPath:              tmpDir,
-				MavenSettingsFile:       "",
-				Log:                     log,
-				Mode:                    "source-only",
-				Port:                    6734,
-				TmpDir:                  tmpDir,
-				JvmMaxMem:               "1g",
-				DepsFolders:             []string{},
-				JavaExcludedTargetPaths: []interface{}{},
-				DisableMavenSearch:      tt.disableMavenSearch,
-			}
-
 			javaProvider := &kantraProvider.JavaProvider{}
-			config, err := javaProvider.GetConfigVolume(configInput)
+
+			// disableMavenSearch is only set in local mode
+			config, err := javaProvider.GetConfig(kantraProvider.ModeLocal, kantraProvider.BaseOptions{
+				Location:     "/tmp/project",
+				AnalysisMode: "source-only",
+				KantraDir:    "/home/user/.kantra",
+			}, kantraProvider.JavaOptions{
+				DisableMavenSearch: tt.disableMavenSearch,
+			})
 			if err != nil {
-				t.Fatalf("JavaProvider.GetConfigVolume() error = %v", err)
+				t.Fatalf("JavaProvider.GetConfig() error = %v", err)
 			}
 
 			if len(config.InitConfig) == 0 {

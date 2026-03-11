@@ -41,7 +41,11 @@ func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
 
 		cmd.Stdout = providerLog
 		cmd.Stderr = providerLog
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			a.log.V(1).Error(err, "failed to get provider container logs",
+				"container", conName)
+			continue
+		}
 	}
 
 	return nil

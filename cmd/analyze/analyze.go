@@ -213,14 +213,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// ***** RUN CONTAINERLESS MODE *****
 			if analyzeCmd.runLocal {
 				log.V(1).Info("\n --run-local set. running analysis in containerless mode")
-				if analyzeCmd.listSources || analyzeCmd.listTargets {
-					err := analyzeCmd.listLabelsContainerless(ctx)
-					if err != nil {
-						analyzeCmd.log.Error(err, "failed to list rule labels")
-						return err
-					}
-					return nil
-				}
 				// Use signal context (ctx) so Ctrl+C cancels the run and the deferred cleanup in
 				// RunAnalysisContainerless runs, stopping the engine and providers (e.g. JDTLS).
 				cmdCtx, cancelFunc := context.WithCancel(ctx)

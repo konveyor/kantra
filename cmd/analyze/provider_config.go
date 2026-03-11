@@ -27,62 +27,61 @@ func (a *analyzeCommand) getConfigVolumes() (map[string]string, error) {
 	a.log.V(1).Info("created directory for provider settings", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 
-	javaTargetPaths, err := kantraProvider.WalkJavaPathForTarget(a.log, a.isFileInput, a.input)
-	if err != nil {
-		// allow for duplicate incidents rather than failing analysis
-		a.log.Error(err, "error getting target subdir in Java project - some duplicate incidents may occur")
-	}
-
-	var provConfig []provider.Config
-	_, depsFolders := a.getDepsFolders()
-	configInput := kantraProvider.ConfigInput{
-		IsFileInput:             a.isFileInput,
-		InputPath:               a.input,
-		OutputPath:              a.output,
-		MavenSettingsFile:       a.mavenSettingsFile,
-		Log:                     a.log,
-		Mode:                    a.mode,
-		Port:                    6734,
-		TmpDir:                  tempDir,
-		JvmMaxMem:               settings.Settings.JvmMaxMem,
-		DepsFolders:             depsFolders,
-		JavaExcludedTargetPaths: javaTargetPaths,
-		DisableMavenSearch:      a.disableMavenSearch,
-		JavaBundleLocation:      settings.JavaBundlesLocation,
-		ContainerSourcePath:     a.sourceLocationPath,
-	}
-	var builtinProvider = kantraProvider.BuiltinProvider{}
-	var config, _ = builtinProvider.GetConfigVolume(configInput)
-	provConfig = append(provConfig, config)
-
 	settingsVols := map[string]string{
 		tempDir: util.ConfigMountPath,
 	}
+
+	// Maven settings: mount the file directly into the container (no copy needed)
+	mavenSettingsPath := ""
+	if a.mavenSettingsFile != "" {
+		mavenSettingsPath = fmt.Sprintf("%s/%s", util.ConfigMountPath, "settings.xml")
+		settingsVols[a.mavenSettingsFile] = mavenSettingsPath
+	}
+
+	// Build provider configs using GetConfig
+	baseOpts := kantraProvider.BaseOptions{
+		Location:     a.sourceLocationPath,
+		AnalysisMode: a.mode,
+		InputPath:    a.input,
+		HTTPProxy:    a.httpProxy,
+		HTTPSProxy:   a.httpsProxy,
+		NoProxy:      a.noProxy,
+	}
+
+	// Builtin provider always runs
+	builtinProvider := &kantraProvider.BuiltinProvider{}
+	builtinCfg, err := builtinProvider.GetConfig(kantraProvider.ModeContainer, baseOpts)
+	if err != nil {
+		a.log.V(1).Error(err, "failed to get builtin provider config")
+		return nil, err
+	}
+	provConfig := []provider.Config{builtinCfg}
+
 	if !a.needsBuiltin {
 		vols, _ := a.getDepsFolders()
 		if len(vols) != 0 {
 			maps.Copy(settingsVols, vols)
 		}
 		for provName, provInfo := range a.providersMap {
-			configInput.Port = a.providersMap[provName].port
-			var volConfig, err = provInfo.provider.GetConfigVolume(configInput)
+			provOpts := baseOpts
+			provOpts.Address = fmt.Sprintf("0.0.0.0:%v", a.providersMap[provName].port)
+
+			// Pass provider-specific options via variadic ProviderOption
+			var extraOpts []kantraProvider.ProviderOption
+			if provName == util.JavaProvider {
+				extraOpts = append(extraOpts, kantraProvider.JavaOptions{
+					MavenSettingsFile:  mavenSettingsPath,
+					JvmMaxMem:          settings.Settings.JvmMaxMem,
+					DisableMavenSearch: a.disableMavenSearch,
+				})
+			}
+
+			cfg, err := provInfo.provider.GetConfig(kantraProvider.ModeContainer, provOpts, extraOpts...)
 			if err != nil {
-				a.log.V(1).Error(err, "failed creating volume configs")
+				a.log.V(1).Error(err, "failed creating provider config")
 				return nil, err
 			}
-			provConfig = append(provConfig, volConfig)
-		}
-
-		// Set proxy to providers
-		if a.httpProxy != "" || a.httpsProxy != "" {
-			proxy := provider.Proxy{
-				HTTPProxy:  a.httpProxy,
-				HTTPSProxy: a.httpsProxy,
-				NoProxy:    a.noProxy,
-			}
-			for i := range provConfig {
-				provConfig[i].Proxy = &proxy
-			}
+			provConfig = append(provConfig, cfg)
 		}
 
 		for prov := range a.providersMap {
@@ -246,6 +245,9 @@ func (a *analyzeCommand) mergeProviderConfig(defaultConf, optionsConf []provider
 		}
 		// set init config options
 		for i, init := range conf.InitConfig {
+			if i >= len(seen[conf.Name].InitConfig) {
+				break
+			}
 			if len(init.AnalysisMode) != 0 {
 				seen[conf.Name].InitConfig[i].AnalysisMode = init.AnalysisMode
 			}
