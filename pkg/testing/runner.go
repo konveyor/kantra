@@ -16,7 +16,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	kantraprovider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
-	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/konveyor"
+	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/sirupsen/logrus"
