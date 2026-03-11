@@ -4,7 +4,7 @@ FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
 ARG RULESETS_REF=main
 RUN microdnf -y install git &&\
-    git clone https://github.com/konveyor/rulesets -b ${RULESETS_REF} &&\
+    git clone https://github.com/konveyor/tackle2-seed -b ${RULESETS_REF} &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
 FROM quay.io/konveyor/static-report:${VERSION} as static-report
@@ -86,7 +86,7 @@ RUN chown -R 0:1001 /usr/local/static-report
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
 COPY --from=builder /workspace/windows-kantra /usr/local/bin/windows-kantra
-COPY --from=rulesets /rulesets/stable /opt/rulesets
+COPY --from=rulesets /tackle2-seed/resources/rulesets /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
