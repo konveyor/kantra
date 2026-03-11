@@ -1,8 +1,6 @@
 package provider
 
 import (
-	"path/filepath"
-
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -36,11 +34,15 @@ const (
 	ContainerGenericProviderBin = "/usr/local/bin/generic-external-provider"
 	ContainerYqProviderBin      = "/usr/local/bin/yq-external-provider"
 
-	// Java provider resources
+	// Java provider resources (container absolute paths)
 	ContainerJDTLSPath           = "/jdtls/bin/jdtls"
 	ContainerJavaBundlePath      = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	ContainerMavenIndexPath      = "/usr/local/etc/maven-index.txt"
 	ContainerDepOpenSourceLabels = "/usr/local/etc/maven.default.index"
+
+	// Java provider resources (local relative paths for ModeLocal, relative to KantraDir)
+	LocalJDTLSPath      = "jdtls/bin/jdtls"
+	LocalJavaBundlePath = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 
 	// Go provider resources
 	ContainerGoplsPath     = "/usr/local/bin/gopls"
@@ -75,6 +77,18 @@ var AllNetworkProviders = []string{
 	util.PythonProvider, util.NodeJSProvider, util.CsharpProvider,
 }
 
+// providerRegistry maps provider names to their Provider implementation.
+// Each provider owns its own configuration logic via GetConfig.
+var providerRegistry = map[string]Provider{
+	util.JavaProvider:   &JavaProvider{},
+	"builtin":           &BuiltinProvider{},
+	util.GoProvider:     &GoProvider{},
+	util.PythonProvider: &PythonProvider{},
+	util.NodeJSProvider: &NodeJsProvider{},
+	"yaml":              &YamlProvider{},
+	util.CsharpProvider: &CsharpProvider{},
+}
+
 // DefaultOptions configures provider config generation.
 type DefaultOptions struct {
 	// Providers filters which providers to include.
@@ -91,6 +105,9 @@ type DefaultOptions struct {
 
 	// AnalysisMode (e.g., "full", "source-only"). Empty uses provider defaults.
 	AnalysisMode string
+
+	// InputPath is the original host-side input path (used for excluded dirs).
+	InputPath string
 
 	// -- ModeLocal fields --
 
@@ -126,10 +143,14 @@ type DefaultOptions struct {
 // This is the single source of truth for provider configuration across
 // the analyze, test, and hybrid commands.
 //
+// Each provider's GetConfig method handles its own provider-specific config
+// and delegates common concerns (excluded dirs, proxy, analysis mode) to
+// NewBaseConfig.
+//
 // The returned configs can be:
 //   - Serialized to JSON for konveyor.NewAnalyzer (via WithProviderConfigFilePath)
 //   - Used directly by the test runner
-//   - Customized by the caller (e.g., adding excludedDirs, merging overrides)
+//   - Customized by the caller (e.g., merging overrides)
 func DefaultProviderConfig(mode ExecutionMode, opts DefaultOptions) []provider.Config {
 	providers := opts.Providers
 	if len(providers) == 0 {
@@ -145,288 +166,46 @@ func DefaultProviderConfig(mode ExecutionMode, opts DefaultOptions) []provider.C
 
 	configs := make([]provider.Config, 0, len(providers))
 	for _, name := range providers {
-		var cfg provider.Config
-		switch mode {
-		case ModeContainer:
-			cfg = containerConfig(name, opts)
-		case ModeLocal:
-			cfg = localConfig(name, opts)
-		case ModeNetwork:
-			cfg = networkConfig(name, opts)
-		}
-		if cfg.Name == "" {
+		p, ok := providerRegistry[name]
+		if !ok {
 			continue
 		}
-		if opts.ContextLines > 0 {
-			cfg.ContextLines = opts.ContextLines
+
+		// Build BaseOptions from DefaultOptions
+		baseOpts := BaseOptions{
+			Location:      opts.Location,
+			LocalLocation: opts.LocalLocation,
+			AnalysisMode:  opts.AnalysisMode,
+			InputPath:     opts.InputPath,
+			KantraDir:     opts.KantraDir,
+			ContextLines:  opts.ContextLines,
+			HTTPProxy:     opts.HTTPProxy,
+			HTTPSProxy:    opts.HTTPSProxy,
+			NoProxy:       opts.NoProxy,
 		}
-		applyProxy(&cfg, opts)
+
+		// Set network address if available
+		if mode == ModeNetwork && opts.ProviderAddresses != nil {
+			baseOpts.Address = opts.ProviderAddresses[name]
+		}
+
+		// Build provider-specific options
+		extraOpts := []ProviderOption{
+			JavaOptions{
+				MavenSettingsFile:  opts.MavenSettingsFile,
+				JvmMaxMem:          opts.JvmMaxMem,
+				DisableMavenSearch: opts.DisableMavenSearch,
+			},
+		}
+
+		cfg, err := p.GetConfig(mode, baseOpts, extraOpts...)
+		if err != nil || cfg.Name == "" {
+			continue
+		}
+
 		configs = append(configs, cfg)
 	}
 	return configs
-}
-
-// applyProxy sets proxy configuration on a provider config if any proxy is specified.
-func applyProxy(cfg *provider.Config, opts DefaultOptions) {
-	if opts.HTTPProxy != "" || opts.HTTPSProxy != "" {
-		cfg.Proxy = &provider.Proxy{
-			HTTPProxy:  opts.HTTPProxy,
-			HTTPSProxy: opts.HTTPSProxy,
-			NoProxy:    opts.NoProxy,
-		}
-	}
-}
-
-// containerConfig returns a provider config for running inside a container.
-// Providers are started as local binaries within the container.
-func containerConfig(name string, opts DefaultOptions) provider.Config {
-	analysisMode := resolveAnalysisMode(opts.AnalysisMode, provider.FullAnalysisMode)
-
-	switch name {
-	case util.JavaProvider:
-		cfg := provider.Config{
-			Name:       util.JavaProvider,
-			BinaryPath: ContainerJavaProviderBin,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 util.JavaProvider,
-					"bundles":                       ContainerJavaBundlePath,
-					"depOpenSourceLabelsFile":       ContainerDepOpenSourceLabels,
-					provider.LspServerPathConfigKey: ContainerJDTLSPath,
-				},
-			}},
-		}
-		applyJavaOverrides(&cfg, opts)
-		return cfg
-
-	case "builtin":
-		return provider.Config{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{{
-				Location: opts.LocalLocation,
-			}},
-		}
-
-	case util.GoProvider:
-		return provider.Config{
-			Name:       util.GoProvider,
-			BinaryPath: ContainerGenericProviderBin,
-			InitConfig: []provider.InitConfig{{
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: ContainerGoplsPath,
-					"lspServerArgs":                 []string{},
-					"dependencyProviderPath":        ContainerGolangDepPath,
-				},
-			}},
-		}
-
-	case util.PythonProvider:
-		return provider.Config{
-			Name:       util.PythonProvider,
-			BinaryPath: ContainerGenericProviderBin,
-			InitConfig: []provider.InitConfig{{
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: ContainerPylspPath,
-					"lspServerArgs":                 []string{},
-					"workspaceFolders":              []string{},
-					"dependencyFolders":             []string{},
-				},
-			}},
-		}
-
-	case util.NodeJSProvider:
-		return provider.Config{
-			Name:       util.NodeJSProvider,
-			BinaryPath: ContainerGenericProviderBin,
-			InitConfig: []provider.InitConfig{{
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "nodejs",
-					provider.LspServerPathConfigKey: ContainerTSLangServerPath,
-					"lspServerArgs":                 []string{"--stdio"},
-					"workspaceFolders":              []string{},
-					"dependencyFolders":             []string{},
-				},
-			}},
-		}
-
-	case "yaml":
-		return provider.Config{
-			Name:       "yaml",
-			BinaryPath: ContainerYqProviderBin,
-			InitConfig: []provider.InitConfig{{
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"name":                          "yq",
-					provider.LspServerPathConfigKey: ContainerYqPath,
-				},
-			}},
-		}
-
-	case util.CsharpProvider:
-		return provider.Config{
-			Name: util.CsharpProvider,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"ilspy_cmd": ContainerIlspyCmdPath,
-					"paket_cmd": ContainerPaketCmdPath,
-				},
-			}},
-		}
-	}
-	return provider.Config{}
-}
-
-// localConfig returns a provider config for containerless (local) execution.
-// Provider binaries and resources are located relative to KantraDir.
-func localConfig(name string, opts DefaultOptions) provider.Config {
-	analysisMode := resolveAnalysisMode(opts.AnalysisMode, provider.FullAnalysisMode)
-	kantraDir := opts.KantraDir
-
-	switch name {
-	case util.JavaProvider:
-		cfg := provider.Config{
-			Name:       util.JavaProvider,
-			BinaryPath: filepath.Join(kantraDir, "java-external-provider"),
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 util.JavaProvider,
-					"bundles":                       filepath.Join(kantraDir, ContainerJavaBundlePath),
-					provider.LspServerPathConfigKey: filepath.Join(kantraDir, ContainerJDTLSPath),
-					"depOpenSourceLabelsFile":       filepath.Join(kantraDir, "maven.default.index"),
-					"mavenIndexPath":                kantraDir,
-					"cleanExplodedBin":              true,
-					"fernFlowerPath":                filepath.Join(kantraDir, "fernflower.jar"),
-					"gradleSourcesTaskFile":         filepath.Join(kantraDir, "task.gradle"),
-					"disableMavenSearch":            opts.DisableMavenSearch,
-				},
-			}},
-		}
-		applyJavaOverrides(&cfg, opts)
-		return cfg
-
-	case "builtin":
-		// In ModeLocal, Location IS the local path -- no distinction needed.
-		return provider.Config{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{{
-				Location:               opts.Location,
-				AnalysisMode:           analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{},
-			}},
-		}
-	}
-	return provider.Config{}
-}
-
-// networkConfig returns a provider config for hybrid/network execution.
-// Providers run in containers and are reached via network addresses.
-// The ProviderSpecificConfig uses container-internal paths since the
-// provider processes run inside containers.
-func networkConfig(name string, opts DefaultOptions) provider.Config {
-	analysisMode := resolveAnalysisMode(opts.AnalysisMode, provider.FullAnalysisMode)
-	address := opts.ProviderAddresses[name]
-
-	switch name {
-	case util.JavaProvider:
-		cfg := provider.Config{
-			Name:    util.JavaProvider,
-			Address: address,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 util.JavaProvider,
-					provider.LspServerPathConfigKey: ContainerJDTLSPath,
-					"bundles":                       ContainerJavaBundlePath,
-					"mavenIndexPath":                ContainerMavenIndexPath,
-					"depOpenSourceLabelsFile":       ContainerDepOpenSourceLabels,
-				},
-			}},
-		}
-		applyJavaOverrides(&cfg, opts)
-		return cfg
-
-	case "builtin":
-		// Builtin provider always runs in-process, even in hybrid mode.
-		return provider.Config{
-			Name: "builtin",
-			InitConfig: []provider.InitConfig{{
-				Location:               opts.LocalLocation,
-				AnalysisMode:           analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{},
-			}},
-		}
-
-	case util.GoProvider:
-		return provider.Config{
-			Name:    util.GoProvider,
-			Address: address,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: ContainerGoplsPath,
-					"dependencyProviderPath":        ContainerGolangDepPath,
-				},
-			}},
-		}
-
-	case util.PythonProvider:
-		return provider.Config{
-			Name:    util.PythonProvider,
-			Address: address,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: ContainerPylspPath,
-				},
-			}},
-		}
-
-	case util.NodeJSProvider:
-		return provider.Config{
-			Name:    util.NodeJSProvider,
-			Address: address,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: analysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "nodejs",
-					provider.LspServerPathConfigKey: ContainerTSLangServerPath,
-					"lspServerArgs":                 []string{"--stdio"},
-				},
-			}},
-		}
-
-	case util.CsharpProvider:
-		return provider.Config{
-			Name:    util.CsharpProvider,
-			Address: address,
-			InitConfig: []provider.InitConfig{{
-				Location:     opts.Location,
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"ilspy_cmd": ContainerIlspyCmdPath,
-					"paket_cmd": ContainerPaketCmdPath,
-				},
-			}},
-		}
-	}
-	return provider.Config{}
 }
 
 // resolveAnalysisMode returns the specified mode, or the fallback if empty.
@@ -435,21 +214,4 @@ func resolveAnalysisMode(mode string, fallback provider.AnalysisMode) provider.A
 		return provider.AnalysisMode(mode)
 	}
 	return fallback
-}
-
-// applyJavaOverrides applies optional Java-specific settings to a config.
-func applyJavaOverrides(cfg *provider.Config, opts DefaultOptions) {
-	if len(cfg.InitConfig) == 0 {
-		return
-	}
-	psc := cfg.InitConfig[0].ProviderSpecificConfig
-	if psc == nil {
-		return
-	}
-	if opts.MavenSettingsFile != "" {
-		psc["mavenSettingsFile"] = opts.MavenSettingsFile
-	}
-	if opts.JvmMaxMem != "" {
-		psc["jvmMaxMem"] = opts.JvmMaxMem
-	}
 }

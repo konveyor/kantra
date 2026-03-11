@@ -37,7 +37,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 		a.log.V(1).Error(err, "failed to marshal output file to json")
 		return err
 	}
-	err = os.WriteFile(filepath.Join(a.output, "output.json"), jsonData, os.ModePerm)
+	err = os.WriteFile(filepath.Join(a.output, "output.json"), jsonData, 0644)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to write json output", "dir", a.output, "file", "output.json")
 		return err
@@ -65,7 +65,7 @@ func (a *analyzeCommand) CreateJSONOutput() error {
 		a.log.V(1).Error(err, "failed to marshal dependencies file to json")
 		return err
 	}
-	err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, os.ModePerm)
+	err = os.WriteFile(filepath.Join(a.output, "dependencies.json"), jsonDataDep, 0644)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to write json dependencies output", "dir", a.output, "file", "dependencies.json")
 		return err

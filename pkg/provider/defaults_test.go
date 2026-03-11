@@ -44,7 +44,7 @@ func TestDefaultProviderConfig_ModeContainer_AllProviders(t *testing.T) {
 	python := byName[util.PythonProvider]
 	assert.Equal(t, ContainerGenericProviderBin, python.BinaryPath)
 	require.Len(t, python.InitConfig, 1)
-	assert.Equal(t, "generic", python.InitConfig[0].ProviderSpecificConfig["lspServerName"])
+	assert.Equal(t, "pylsp", python.InitConfig[0].ProviderSpecificConfig["lspServerName"])
 	assert.Equal(t, ContainerPylspPath, python.InitConfig[0].ProviderSpecificConfig[provider.LspServerPathConfigKey])
 
 	// NodeJS provider

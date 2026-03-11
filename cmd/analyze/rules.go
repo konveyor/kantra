@@ -25,11 +25,11 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	}
 	rulesVolumes := make(map[string]string)
 	tempDir, err := os.MkdirTemp("", "analyze-rules-")
-	a.tempRuleDir = filepath.Base(tempDir)
 	if err != nil {
 		a.log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
 		return nil, err
 	}
+	a.tempRuleDir = filepath.Base(tempDir)
 	a.log.V(1).Info("created directory for rules", "dir", tempDir)
 	a.tempDirs = append(a.tempDirs, tempDir)
 	for i, r := range a.rules {
@@ -59,7 +59,9 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 				}
 				if d.IsDir() {
 					// This will create the new dir
-					a.handleDir(path, tempDir, r)
+					if err := a.handleDir(path, tempDir, r); err != nil {
+						return err
+					}
 				} else {
 					// If we are unable to get the file attributes, probably safe to assume this is not a
 					// valid rule or ruleset and lets skip it for now.

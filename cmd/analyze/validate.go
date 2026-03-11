@@ -338,6 +338,9 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	if strings.Contains(string(output), "openjdk") {
 		re := regexp.MustCompile(`openjdk version "(.*?)"`)
 		match := re.FindStringSubmatch(string(output))
+		if len(match) < 2 {
+			return fmt.Errorf("cannot parse openjdk version from output: %s", string(output))
+		}
 		jdkVersionStr := strings.Split(match[1], ".")
 		jdkVersionInt, err := strconv.Atoi(jdkVersionStr[0])
 		if err != nil {
