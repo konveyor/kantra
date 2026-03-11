@@ -17,7 +17,7 @@ import (
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
-	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/konveyor"
+	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"

@@ -128,11 +128,6 @@ require (
 	sigs.k8s.io/yaml v1.5.0 // indirect
 )
 
-replace (
-	github.com/konveyor/analyzer-lsp => github.com/shawn-hurley/analyzer-lsp v0.0.0-20260227172226-9d84a4196e70
-	github.com/konveyor/analyzer-lsp/external-providers/java-external-provider => github.com/shawn-hurley/analyzer-lsp/external-providers/java-external-provider v0.0.0-20260227172226-9d84a4196e70
-)
-
 require (
 	github.com/PaesslerAG/gval v1.2.4 // indirect
 	github.com/antchfx/jsonquery v1.3.5 // indirect
@@ -146,3 +141,5 @@ require (
 	github.com/spf13/pflag v1.0.7 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
+
+replace github.com/konveyor/analyzer-lsp => github.com/shawn-hurley/analyzer-lsp v0.0.0-20260311165113-301f830fe3a5
