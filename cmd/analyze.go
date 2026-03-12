@@ -252,12 +252,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Info("--run-local set to false. Running analysis in hybrid mode")
 			}
 
-			// default rulesets are only java rules
-			// may want to change this in the future
-			if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-				return fmt.Errorf("no providers found with default rules. Use --rules option")
-			}
-
 			// alizer does not detect certain files such as xml
 			// in this case, we can first check for a java project
 			// if not found, only start builtin provider in hybrid mode
@@ -606,15 +600,8 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 }
 
 func (a *analyzeCommand) needDefaultRules() {
-	needDefaultRulesets := false
-	for prov := range a.providersMap {
-		// default rulesets may have been disabled by user
-		if prov == util.JavaProvider && a.enableDefaultRulesets {
-			needDefaultRulesets = true
-			break
-		}
-	}
-	if !needDefaultRulesets {
+	// Only disable default rulesets when there are no providers to analyze.
+	if a.enableDefaultRulesets && len(a.providersMap) == 0 {
 		a.enableDefaultRulesets = false
 	}
 }

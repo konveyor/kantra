@@ -675,13 +675,13 @@ func Test_analyzeCommand_needDefaultRules(t *testing.T) {
 			expectedEnableDefaultRulesets: false,
 		},
 		{
-			name:                         "non-java providers only should disable default rulesets",
+			name:                         "multiple providers with enabled rulesets should keep rulesets enabled",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
 				util.PythonProvider: {},
 				util.GoProvider:     {},
 			},
-			expectedEnableDefaultRulesets: false,
+			expectedEnableDefaultRulesets: true,
 		},
 		{
 			name:                         "mixed providers including java with enabled rulesets should keep rulesets enabled",
@@ -704,36 +704,36 @@ func Test_analyzeCommand_needDefaultRules(t *testing.T) {
 			expectedEnableDefaultRulesets: false,
 		},
 		{
-			name:                         "python provider only should disable default rulesets",
+			name:                         "python provider only with enabled rulesets should keep rulesets enabled",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
 				util.PythonProvider: {},
 			},
-			expectedEnableDefaultRulesets: false,
+			expectedEnableDefaultRulesets: true,
 		},
 		{
-			name:                         "go provider only should disable default rulesets",
+			name:                         "go provider only with enabled rulesets should keep rulesets enabled",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
 				util.GoProvider: {},
 			},
-			expectedEnableDefaultRulesets: false,
+			expectedEnableDefaultRulesets: true,
 		},
 		{
-			name:                         "nodejs provider only should disable default rulesets",
+			name:                         "nodejs provider only with enabled rulesets should keep rulesets enabled",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
 				util.NodeJSProvider: {},
 			},
-			expectedEnableDefaultRulesets: false,
+			expectedEnableDefaultRulesets: true,
 		},
 		{
-			name:                         "dotnet provider only should disable default rulesets",
+			name:                         "dotnet provider only with enabled rulesets should keep rulesets enabled",
 			initialEnableDefaultRulesets: true,
 			providersMap: map[string]ProviderInit{
 				util.CsharpProvider: {},
 			},
-			expectedEnableDefaultRulesets: false,
+			expectedEnableDefaultRulesets: true,
 		},
 		{
 			name:                         "already disabled rulesets with non-java providers should remain disabled",
@@ -1243,7 +1243,7 @@ func Test_analyzeCommand_needDefaultRules_StateChanges(t *testing.T) {
 		expectedOnlyChanged []string
 	}{
 		{
-			name: "should only modify enableDefaultRulesets when disabling",
+			name: "should only modify enableDefaultRulesets when no providers",
 			initialState: &analyzeCommand{
 				enableDefaultRulesets: true,
 				output:                "/test/output",
@@ -1251,7 +1251,7 @@ func Test_analyzeCommand_needDefaultRules_StateChanges(t *testing.T) {
 				sources:               []string{"test"},
 				AnalyzeCommandContext: AnalyzeCommandContext{
 					log:          log,
-					providersMap: map[string]ProviderInit{util.PythonProvider: {}},
+					providersMap: map[string]ProviderInit{},
 				},
 			},
 			expectedOnlyChanged: []string{"enableDefaultRulesets"},
@@ -1350,48 +1350,33 @@ func Test_analyzeCommand_needDefaultRules_EdgeCases(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty string key in providersMap should not match java",
+			name: "non-empty providersMap keeps rulesets enabled",
 			setup: func() *analyzeCommand {
 				return &analyzeCommand{
 					enableDefaultRulesets: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						providersMap: map[string]ProviderInit{
-							"": {},
+							util.GoProvider: {},
 						},
 					},
 				}
 			},
-			expected: false,
+			expected: true,
 		},
 		{
-			name: "whitespace in provider name should not match java",
+			name: "providersMap with multiple providers keeps rulesets enabled",
 			setup: func() *analyzeCommand {
 				return &analyzeCommand{
 					enableDefaultRulesets: true,
 					AnalyzeCommandContext: AnalyzeCommandContext{
 						providersMap: map[string]ProviderInit{
-							" java ": {},
+							util.JavaProvider:   {},
+							util.PythonProvider: {},
 						},
 					},
 				}
 			},
-			expected: false,
-		},
-		{
-			name: "java with different casing should not match",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					enableDefaultRulesets: true,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						providersMap: map[string]ProviderInit{
-							"JAVA": {},
-							"Java": {},
-							"jAvA": {},
-						},
-					},
-				}
-			},
-			expected: false,
+			expected: true,
 		},
 	}
 
