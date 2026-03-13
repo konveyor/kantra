@@ -940,8 +940,10 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	}
 	a.log.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
-	// Close analysis log before generating static report
-	analysisLog.Close()
+	err = analysisLog.Sync()
+	if err != nil {
+		a.log.Error(err, "failed to sync analysis log")
+	}
 
 	// Generate static report
 	startStaticReport := time.Now()
