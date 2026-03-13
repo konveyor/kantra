@@ -100,6 +100,34 @@ func mergeProviderSpecificConfig(base, override map[string]interface{}) map[stri
 	return result
 }
 
+// applyAllProviderOverrides merges override configs into the base provider config list.
+// Overrides matching an existing provider name are merged into that config.
+// Overrides for providers not in the base list (e.g., user-managed external providers)
+// are appended as-is — the user is responsible for starting those providers and
+// setting the Address field so the analyzer can connect.
+func applyAllProviderOverrides(baseConfigs []provider.Config, overrideConfigs []provider.Config) []provider.Config {
+	if overrideConfigs == nil {
+		return baseConfigs
+	}
+
+	// Merge overrides into matching base configs
+	knownProviders := make(map[string]bool, len(baseConfigs))
+	for i := range baseConfigs {
+		knownProviders[baseConfigs[i].Name] = true
+		baseConfigs[i] = applyProviderOverrides(baseConfigs[i], overrideConfigs)
+	}
+
+	// Append override configs for providers not already in the base list.
+	// These are external providers the user is managing themselves.
+	for _, override := range overrideConfigs {
+		if !knownProviders[override.Name] {
+			baseConfigs = append(baseConfigs, override)
+		}
+	}
+
+	return baseConfigs
+}
+
 // applyProviderOverrides applies override settings to a provider config.
 // Returns the modified config with overrides applied.
 func applyProviderOverrides(baseConfig provider.Config, overrideConfigs []provider.Config) provider.Config {

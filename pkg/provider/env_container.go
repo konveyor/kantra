@@ -103,9 +103,18 @@ func (e *containerEnvironment) Start(ctx context.Context) error {
 		mavenSettingsPath = path.Join(util.ConfigMountPath, "settings.xml")
 	}
 
+	// For file inputs (e.g., .war/.jar), the Location must include the
+	// filename so the Java provider knows it's analyzing a binary file.
+	// The volume mounts the parent directory at SourceMountPath, so the
+	// file appears at SourceMountPath/filename inside the container.
+	containerLocation := util.SourceMountPath
+	if e.cfg.IsFileInput {
+		containerLocation = path.Join(util.SourceMountPath, filepath.Base(e.cfg.Input))
+	}
+
 	e.configs = DefaultProviderConfig(ModeNetwork, DefaultOptions{
 		Providers:         providerNames,
-		Location:          util.SourceMountPath,
+		Location:          containerLocation,
 		LocalLocation:     e.cfg.Input,
 		AnalysisMode:      e.cfg.AnalysisMode,
 		ProviderAddresses: e.addresses,

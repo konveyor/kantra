@@ -139,7 +139,6 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/pflag v1.0.7 // indirect
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
 
-replace github.com/konveyor/analyzer-lsp => github.com/shawn-hurley/analyzer-lsp v0.0.0-20260311165113-301f830fe3a5
+replace github.com/konveyor/analyzer-lsp => github.com/shawn-hurley/analyzer-lsp v0.0.0-20260313193026-0d2b9cfbee4b
