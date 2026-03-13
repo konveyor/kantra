@@ -58,6 +58,12 @@ const (
 	CsharpProvider = "csharp"
 )
 
+var DefaultRulesetDir = map[string]string{
+	JavaProvider:   "java",
+	NodeJSProvider: "nodejs",
+	CsharpProvider: "dotnet",
+}
+
 // valid java file extensions
 const (
 	JavaArchive       = ".jar"
