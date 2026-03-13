@@ -346,6 +346,24 @@ func (a *analyzeCommand) setupNetworkProvider(ctx context.Context, providerName 
 	return providerClient, providerLocations, additionalBuiltinConfs, nil
 }
 
+func (a *analyzeCommand) defaultRulesetPathsForHybrid(rulesetsDir string) []string {
+	if rulesetsDir == "" {
+		return nil
+	}
+	var out []string
+	for provName := range a.providersMap {
+		rulesetSubdir, ok := util.DefaultRulesetDir[provName]
+		if !ok {
+			continue
+		}
+		p := filepath.Join(rulesetsDir, rulesetSubdir)
+		if _, err := os.Stat(p); err == nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // runParallelStartupTasks executes independent startup tasks concurrently for better performance.
 // Returns the volume name and rulesets directory on success.
 func (a *analyzeCommand) runParallelStartupTasks(ctx context.Context, containerLogWriter io.Writer) (volName string, rulesetsDir string, err error) {
@@ -613,9 +631,11 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 			return err
 		}
 
-		// Add extracted rulesets to rules list if we got any
+		// add rulesets for each running provider
 		if rulesetsDir != "" {
-			a.rules = append(a.rules, rulesetsDir)
+			for _, p := range a.defaultRulesetPathsForHybrid(rulesetsDir) {
+				a.rules = append(a.rules, p)
+			}
 		}
 
 		// For binary files, util.SourceMountPath includes the filename (e.g., /opt/input/source/app.war)

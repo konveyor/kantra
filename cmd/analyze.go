@@ -250,9 +250,15 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				log.Info("--run-local set to false. Running analysis in hybrid mode")
 			}
 
-			// default rulesets are only java rules
-			// may want to change this in the future
-			if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+			// default rulesets exist for java, nodejs, and csharp
+			hasProviderWithDefaultRules := false
+			for _, p := range foundProviders {
+				if _, ok := util.DefaultRulesetDir[p]; ok {
+					hasProviderWithDefaultRules = true
+					break
+				}
+			}
+			if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !hasProviderWithDefaultRules {
 				return fmt.Errorf("no providers found with default rules. Use --rules option")
 			}
 

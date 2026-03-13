@@ -3,18 +3,255 @@ package cmd
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Use logr.Discard() for testing - it's the standard no-op logger
+
+// TestRunAnalysisContainerless_OverrideSettingsError ensures RunAnalysisContainerless returns a
+// clear error when override provider settings cannot be loaded.
+func TestRunAnalysisContainerless_OverrideSettingsError(t *testing.T) {
+	// ValidateContainerless requires mvn, java, JAVA_HOME - skip if not present
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	// Use relative path constants so we can create the required files under a temp dir
+	oldBundle := JavaBundlesLocation
+	oldJdtls := JDTLSBinLocation
+	defer func() {
+		JavaBundlesLocation = oldBundle
+		JDTLSBinLocation = oldJdtls
+	}()
+	JavaBundlesLocation = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation = "jdtls/bin/jdtls"
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	kantraDir, err := os.MkdirTemp("", "containerless-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(kantraDir)
+
+	// Required dirs and files for setBinMapContainerless and ValidateContainerless
+	for _, dir := range []string{RulesetsLocation, "jdtls/bin", "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(kantraDir, dir), 0755))
+	}
+	for _, f := range []string{"jdtls/bin/jdtls", "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar", "fernflower.jar"} {
+		full := filepath.Join(kantraDir, f)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0644))
+	}
+
+	t.Run("missing override settings returns error", func(t *testing.T) {
+		a := &analyzeCommand{
+			input:                    inputDir,
+			output:                   outputDir,
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+	})
+
+	// Covers label selector path before override settings load fails
+	t.Run("with labelSelector still errors on override settings", func(t *testing.T) {
+		a := &analyzeCommand{
+			input:                    inputDir,
+			output:                   outputDir,
+			labelSelector:            "source=java",
+			overrideProviderSettings: "/nonexistent/override-settings.json",
+			AnalyzeCommandContext: AnalyzeCommandContext{
+				log:       logr.Discard(),
+				kantraDir: kantraDir,
+			},
+		}
+		absInput, err := filepath.Abs(inputDir)
+		require.NoError(t, err)
+		a.input = absInput
+
+		err = a.RunAnalysisContainerless(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "override provider settings")
+	})
+}
+
+func TestRunAnalysisContainerless_SetBinMapContainerlessError(t *testing.T) {
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	oldBundle := JavaBundlesLocation
+	oldJdtls := JDTLSBinLocation
+	defer func() {
+		JavaBundlesLocation = oldBundle
+		JDTLSBinLocation = oldJdtls
+	}()
+	JavaBundlesLocation = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation = "jdtls/bin/jdtls"
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	// Kantra dir with rulesets and fernflower only - no jdtls or bundle jar, so setBinMapContainerless will fail
+	kantraDir, err := os.MkdirTemp("", "containerless-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(kantraDir)
+	require.NoError(t, os.MkdirAll(filepath.Join(kantraDir, RulesetsLocation), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(kantraDir, "fernflower.jar"), []byte("x"), 0644))
+
+	a := &analyzeCommand{
+		input:  inputDir,
+		output: outputDir,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: kantraDir,
+		},
+	}
+	absInput, err := filepath.Abs(inputDir)
+	require.NoError(t, err)
+	a.input = absInput
+
+	err = a.RunAnalysisContainerless(context.Background())
+	require.Error(t, err)
+	// We hit the setBinMapContainerless error path (lines 214-215); error may be wrapped
+	errStr := err.Error()
+	assert.True(t, strings.Contains(errStr, "unable to find kantra dependencies") ||
+		strings.Contains(errStr, "failed to stat bin") ||
+		strings.Contains(errStr, "no such file or directory"),
+		"expected setBinMapContainerless error, got: %s", errStr)
+}
+
+// TestRunAnalysisContainerless_EngineCreationPath covers the path that reaches
+// eng = engine.CreateRuleEngine(...). It only runs when KANTRA_DIR is set and
+// points to a full kantra dir (with real jdtls and bundles) so setupJavaProvider
+// and setupBuiltinProvider can succeed; otherwise it skips.
+func TestRunAnalysisContainerless_EngineCreationPath(t *testing.T) {
+	kantraDir := os.Getenv(util.KantraDirEnv)
+	if kantraDir == "" {
+		t.Skip("KANTRA_DIR not set, skipping engine creation path test")
+	}
+	if _, err := os.Stat(kantraDir); err != nil {
+		t.Skipf("KANTRA_DIR %q not found: %v", kantraDir, err)
+	}
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless test")
+	}
+
+	inputDir, err := os.MkdirTemp("", "containerless-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(inputDir)
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	a := &analyzeCommand{
+		input:  inputDir,
+		output: outputDir,
+		// No overrideProviderSettings so we get past loadOverrideProviderSettings
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: kantraDir,
+		},
+	}
+	absInput, err := filepath.Abs(inputDir)
+	require.NoError(t, err)
+	a.input = absInput
+
+	err = a.RunAnalysisContainerless(context.Background())
+	// May succeed or fail depending on environment; must not panic
+	_ = err
+}
+
+func TestDefaultRulesetPathContainerless(t *testing.T) {
+	tests := []struct {
+		name                  string
+		enableDefaultRulesets bool
+		kantraDir             string
+		wantPath              string
+	}{
+		{
+			name:                  "enabled returns kantraDir/rulesets/java",
+			enableDefaultRulesets: true,
+			kantraDir:             "/.kantra",
+			wantPath:              "/.kantra/rulesets/java",
+		},
+		{
+			name:                  "disabled returns empty",
+			enableDefaultRulesets: false,
+			kantraDir:             "/.kantra",
+			wantPath:              "",
+		},
+		{
+			name:                  "enabled with custom kantra dir",
+			enableDefaultRulesets: true,
+			kantraDir:             "/home/user/.kantra",
+			wantPath:              "/home/user/.kantra/rulesets/java",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &analyzeCommand{
+				enableDefaultRulesets: tt.enableDefaultRulesets,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					kantraDir: tt.kantraDir,
+				},
+			}
+			got := a.defaultRulesetPathContainerless()
+			assert.Equal(t, tt.wantPath, filepath.ToSlash(got), "path should use java ruleset subdir (DefaultRulesetDir mapping)")
+			if tt.wantPath != "" {
+				assert.Equal(t, util.JavaProvider, filepath.Base(got))
+			}
+		})
+	}
+}
 
 func TestGradleSourcesTaskFileConfiguration(t *testing.T) {
 	a := analyzeCommand{}

@@ -278,8 +278,8 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	ruleSets := []engine.RuleSet{}
 	needProviders := map[string]provider.InternalProviderClient{}
 
-	if a.enableDefaultRulesets {
-		a.rules = append(a.rules, filepath.Join(a.kantraDir, RulesetsLocation))
+	if p := a.defaultRulesetPathContainerless(); p != "" {
+		a.rules = append(a.rules, p)
 	}
 	providerConditions := map[string][]provider.ConditionsByCap{}
 
@@ -452,6 +452,13 @@ func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (a *analyzeCommand) defaultRulesetPathContainerless() string {
+	if !a.enableDefaultRulesets {
+		return ""
+	}
+	return filepath.Join(a.kantraDir, RulesetsLocation, util.JavaProvider)
 }
 
 func (a *analyzeCommand) listLabelsContainerless(ctx context.Context) error {

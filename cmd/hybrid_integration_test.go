@@ -163,7 +163,7 @@ func TestExtractDefaultRulesets(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: true,
 	}
 
@@ -221,7 +221,7 @@ func TestExtractDefaultRulesetsDisabled(t *testing.T) {
 		AnalyzeCommandContext: AnalyzeCommandContext{
 			log: logr.Discard(),
 		},
-		output:               tempDir,
+		output:                tempDir,
 		enableDefaultRulesets: false, // Disabled!
 	}
 
