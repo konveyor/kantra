@@ -396,8 +396,10 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 	}
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
-	// Ensure analysis log is closed before creating static-report (needed for bulk on Windows)
-	analysisLog.Close()
+	err = analysisLog.Sync()
+	if err != nil {
+		a.log.Error(err, "failed to sync analysis log")
+	}
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
