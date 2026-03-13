@@ -6,17 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
-	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -127,14 +121,6 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 			}
 			a.isFileInput = true
 		}
-	}
-	// Compute the resolved source path inside the container.
-	// For directory inputs this is the standard mount path; for file inputs
-	// (binaries) it includes the filename so the provider sees the file.
-	if a.isFileInput {
-		a.sourceLocationPath = path.Join(util.SourceMountPath, filepath.Base(a.input))
-	} else {
-		a.sourceLocationPath = util.SourceMountPath
 	}
 	err := a.CheckOverwriteOutput()
 	if err != nil {
@@ -296,107 +282,5 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 			a.log.V(1).Info("skipping non-YAML rule file", "file", rulePath)
 		}
 	}
-	return nil
-}
-
-func (a *analyzeCommand) needDefaultRules() {
-	needDefaultRulesets := false
-	for prov := range a.providersMap {
-		// default rulesets may have been disabled by user
-		if prov == util.JavaProvider && a.enableDefaultRulesets {
-			needDefaultRulesets = true
-			break
-		}
-	}
-	if !needDefaultRulesets {
-		a.enableDefaultRulesets = false
-	}
-}
-
-func (a *analyzeCommand) ValidateContainerless(ctx context.Context) error {
-	// validate input app is not the current dir
-	// .metadata cannot initialize in the app root
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	if a.input == currentDir {
-		return fmt.Errorf("input path %s cannot be the current directory", a.input)
-	}
-
-	// validate mvn and openjdk install
-	_, mvnErr := exec.LookPath("mvn")
-	if mvnErr != nil {
-		return fmt.Errorf("%w cannot find requirement maven; ensure maven is installed", mvnErr)
-
-	}
-	cmd := exec.Command("java", "-version")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w cannot execute required command java; ensure java is installed", err)
-	}
-	if strings.Contains(string(output), "openjdk") {
-		re := regexp.MustCompile(`openjdk version "(.*?)"`)
-		match := re.FindStringSubmatch(string(output))
-		if len(match) < 2 {
-			return fmt.Errorf("cannot parse openjdk version from output: %s", string(output))
-		}
-		jdkVersionStr := strings.Split(match[1], ".")
-		jdkVersionInt, err := strconv.Atoi(jdkVersionStr[0])
-		if err != nil {
-			return fmt.Errorf("%w cannot parse java version", err)
-		}
-		if jdkVersionInt < 17 {
-			return fmt.Errorf("cannot find requirement openjdk17+; ensure openjdk17+ is installed")
-		}
-	}
-	if os.Getenv("JAVA_HOME") == "" {
-		return fmt.Errorf("JAVA_HOME is not set; ensure JAVA_HOME is set")
-	}
-
-	// Validate .kantra in home directory and its content (containerless)
-	requiredDirs := []string{a.kantraDir, filepath.Join(a.kantraDir, settings.RulesetsLocation), filepath.Join(a.kantraDir, settings.JavaBundlesLocation),
-		filepath.Join(a.kantraDir, settings.JDTLSBinLocation), filepath.Join(a.kantraDir, "fernflower.jar")}
-	for _, path := range requiredDirs {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			a.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) validateProviderConfig() error {
-	// Validate override provider settings file if specified
-	if a.overrideProviderSettings != "" {
-		if _, err := os.Stat(a.overrideProviderSettings); err != nil {
-			return fmt.Errorf(
-				"Override provider settings file not found: %s\n"+
-					"Specified with --override-provider-settings flag but file does not exist",
-				a.overrideProviderSettings)
-		}
-		a.log.V(1).Info("Override provider settings file validated", "path", a.overrideProviderSettings)
-	}
-
-	// Check if any provider ports are already in use
-	for provName, provInit := range a.providersMap {
-		address := fmt.Sprintf("localhost:%d", provInit.port)
-		listener, err := net.Listen("tcp", address)
-		if err != nil {
-			// Port is already in use
-			return fmt.Errorf(
-				"port %d required for %s provider is already in use\n"+
-					"Troubleshooting:\n"+
-					"  1. Check what's using the port: lsof -i :%d\n"+
-					"  2. Stop old provider containers: podman stop $(podman ps -a | grep provider | awk '{print $1}')\n"+
-					"  3. Kill the process using the port, or restart your system",
-				provInit.port, provName, provInit.port)
-		}
-		listener.Close()
-		a.log.V(2).Info("port is available", "provider", provName, "port", provInit.port)
-	}
-
-	a.log.V(1).Info("provider configuration validated successfully")
 	return nil
 }

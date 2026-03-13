@@ -40,8 +40,9 @@ func Test_defaultRunner_Run(t *testing.T) {
 			}
 			r := NewRunner()
 			_, err = r.Run(testFiles, TestOptions{
-				RunLocal:       tt.runLocal,
-				ContainerImage: os.Getenv(RUNNER_IMG),
+				RunLocal:        tt.runLocal,
+				ContainerBinary: os.Getenv("CONTAINER_TOOL"),
+				RunnerImage:     os.Getenv(RUNNER_IMG),
 			})
 			if (err == nil) != tt.wantErr {
 				t.Errorf("runner.Run() expected no error, got error %v", err)

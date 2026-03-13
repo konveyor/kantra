@@ -18,16 +18,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO add network and volume w/ interface
-type ProviderInit struct {
-	port  int
-	image string
-	// used for failed provider container retry attempts
-	isRunning     bool
-	containerName string
-	provider      kantraProvider.Provider
-}
-
 // kantra analyze flags
 type analyzeCommand struct {
 	listSources              bool
@@ -66,10 +56,6 @@ type analyzeCommand struct {
 	overrideProviderSettings string
 	profileDir               string
 	profilePath              string
-	// sourceLocationPath is the resolved path to the source inside the container.
-	// For directory inputs: /opt/input/source
-	// For file inputs:      /opt/input/source/app.war
-	sourceLocationPath string
 	AnalyzeCommandContext
 }
 
@@ -167,9 +153,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
-			if analyzeCmd.providersMap == nil {
-				analyzeCmd.providersMap = make(map[string]ProviderInit)
-			}
 			languages, err := recognizer.Analyze(analyzeCmd.input)
 			if err != nil {
 				log.Error(err, "Failed to determine languages for input")
@@ -210,23 +193,30 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				analyzeCmd.runLocal = false
 			}
 
-			// ***** RUN CONTAINERLESS MODE *****
+			// --- Determine execution mode ---
+			mode := kantraProvider.ModeNetwork
 			if analyzeCmd.runLocal {
-				log.V(1).Info("\n --run-local set. running analysis in containerless mode")
-				// Use signal context (ctx) so Ctrl+C cancels the run and the deferred cleanup in
-				// RunAnalysisContainerless runs, stopping the engine and providers (e.g. JDTLS).
-				cmdCtx, cancelFunc := context.WithCancel(ctx)
-				err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
-				defer cancelFunc()
-				if err != nil {
-					return err
-				}
-				return nil
+				mode = kantraProvider.ModeLocal
 			}
 
-			// ******* RUN HYBRID MODE ******
-			if analyzeCmd.noProgress {
-				log.Info("--run-local set to false. Running analysis in hybrid mode")
+			// For hybrid mode with non-Java providers: check default rules availability
+			if mode == kantraProvider.ModeNetwork {
+				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+					return fmt.Errorf("no providers found with default rules. Use --rules option")
+				}
+
+				// alizer does not detect certain files such as xml
+				// in this case, we can first check for a java project
+				// if not found, only start builtin provider
+				if len(foundProviders) == 0 {
+					foundJava, err := analyzeCmd.detectJavaProviderFallback()
+					if err != nil {
+						return err
+					}
+					if foundJava {
+						foundProviders = append(foundProviders, util.JavaProvider)
+					}
+				}
 			}
 
 			// default rulesets exist for java, nodejs, and csharp
@@ -241,45 +231,16 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				return fmt.Errorf("no providers found with default rules. Use --rules option")
 			}
 
-			// alizer does not detect certain files such as xml
-			// in this case, we can first check for a java project
-			// if not found, only start builtin provider in hybrid mode
-			if len(foundProviders) == 0 {
-				foundJava, err := analyzeCmd.detectJavaProviderFallback()
-				if err != nil {
-					return err
-				}
-				if foundJava {
-					foundProviders = append(foundProviders, util.JavaProvider)
-				}
-				// If no providers found, we'll run builtin-only in hybrid mode
-				// (providersMap will be empty, hybrid mode handles this)
-			}
+			log.V(1).Info("running analysis", "mode", mode, "providers", foundProviders)
 
-			err = analyzeCmd.setProviderInitInfo(foundProviders)
-			if err != nil {
-				log.Error(err, "failed to set provider init info")
-				return err
-			}
-			// defer cleaning created resources here instead of PostRun
-			// if Run returns an error, PostRun does not run
-			defer func() {
-				// start other context here to cleanup in case of program interrupt
-				if err := analyzeCmd.CleanAnalysisResources(context.TODO()); err != nil {
-					log.Error(err, "failed to clean temporary directories")
-				}
-			}()
-			// Run hybrid mode analysis (analyzer in-process, providers in containers)
+			// Run unified analysis pipeline
 			cmdCtx, cancelFunc := context.WithCancel(ctx)
-			err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx)
 			defer cancelFunc()
+			err = analyzeCmd.runAnalysis(cmdCtx, mode, foundProviders)
 			if err != nil {
-				log.Error(err, "failed to run hybrid analysis")
+				log.Error(err, "analysis failed")
 				return err
 			}
-			// Note: CreateJSONOutput and GenerateStaticReport are already called
-			// within RunAnalysisHybridInProcess, so no need to call them here
-
 			return nil
 		},
 	}
