@@ -1,17 +1,12 @@
 package analyze
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 
-	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
-	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/engine"
 
@@ -92,67 +87,6 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 	rulesVolumes[tempDir] = path.Join(util.CustomRulePath, filepath.Base(tempDir))
 
 	return rulesVolumes, nil
-}
-
-// extractDefaultRulesets extracts default rulesets from the kantra container to the host.
-// This allows hybrid mode to use default rulesets without bundling them separately on the host.
-//
-// The function creates a temporary container from the runner image, copies the /opt/rulesets
-// directory to the host at {output}/.rulesets-{version}/, and removes the temporary container.
-// On subsequent runs with the same version, the cached rulesets are reused, avoiding the extraction overhead.
-// The version suffix ensures cache invalidation when upgrading/downgrading kantra versions.
-//
-// Parameters:
-//   - ctx: Context for container operations and cancellation
-//   - containerLogWriter: Writer for container command output (typically analysis.log file)
-//
-// Returns:
-//   - string: Path to the extracted rulesets directory, or empty string if disabled
-//   - error: Any error encountered during container creation or file copying
-func (a *analyzeCommand) extractDefaultRulesets(ctx context.Context, containerLogWriter io.Writer) (string, error) {
-	if !a.enableDefaultRulesets {
-		return "", nil
-	}
-
-	rulesetsDir := filepath.Join(a.output, fmt.Sprintf(".rulesets-%s", settings.Version))
-
-	// Check if rulesets already extracted (cached from previous run)
-	if _, err := os.Stat(rulesetsDir); os.IsNotExist(err) {
-		a.log.Info("extracting default rulesets from container to host", "version", settings.Version, "dir", rulesetsDir)
-
-		// Create temp container to extract rulesets
-		tempName := fmt.Sprintf("ruleset-extract-%v", container.RandomName())
-		createCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary,
-			"create", "--name", tempName, settings.Settings.RunnerImage)
-		// Send container output to log file instead of console
-		createCmd.Stdout = containerLogWriter
-		createCmd.Stderr = containerLogWriter
-		if err := createCmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to create temp container for ruleset extraction: %w", err)
-		}
-
-		// Ensure temp container is removed
-		defer func() {
-			rmCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary, "rm", tempName)
-			rmCmd.Run()
-		}()
-
-		// Copy rulesets from container to host
-		copyCmd := exec.CommandContext(ctx, settings.Settings.ContainerBinary,
-			"cp", fmt.Sprintf("%s:/opt/rulesets", tempName), rulesetsDir)
-		// Send container output to log file instead of console
-		copyCmd.Stdout = containerLogWriter
-		copyCmd.Stderr = containerLogWriter
-		if err := copyCmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to copy rulesets from container: %w", err)
-		}
-
-		a.log.Info("extracted default rulesets to host", "version", settings.Version, "dir", rulesetsDir)
-	} else {
-		a.log.V(1).Info("using cached default rulesets", "version", settings.Version, "dir", rulesetsDir)
-	}
-
-	return rulesetsDir, nil
 }
 
 func (c *AnalyzeCommandContext) handleDir(p string, tempDir string, basePath string) error {

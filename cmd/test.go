@@ -10,9 +10,8 @@ import (
 )
 
 type testCommand struct {
-	testFilterString     string
-	baseProviderSettings string
-	prune                bool
+	testFilterString string
+	prune            bool
 }
 
 func NewTestCommand(log logr.Logger) *cobra.Command {
@@ -36,13 +35,21 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				return nil
 			}
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
-				RunLocal:         settings.Settings.RunLocal,
-				ContainerImage:   settings.Settings.RunnerImage,
-				ContainerToolBin: settings.Settings.ContainerBinary,
-				ProgressPrinter:  testing.PrintProgress,
-				Log:              log.V(3),
-				Prune:            testCmd.prune,
-				NoCleanup:        noCleanup,
+				RunLocal:        settings.Settings.RunLocal,
+				ContainerBinary: settings.Settings.ContainerBinary,
+				ProviderImages: map[string]string{
+					"java":   settings.Settings.JavaProviderImage,
+					"go":     settings.Settings.GenericProviderImage,
+					"python": settings.Settings.GenericProviderImage,
+					"nodejs": settings.Settings.GenericProviderImage,
+					"csharp": settings.Settings.CsharpProviderImage,
+				},
+				RunnerImage:     settings.Settings.RunnerImage,
+				Version:         settings.Version,
+				ProgressPrinter: testing.PrintProgress,
+				Log:             log.V(3),
+				Prune:           testCmd.prune,
+				NoCleanup:       noCleanup,
 			})
 			testing.PrintSummary(os.Stdout, results)
 			if err != nil {
@@ -53,7 +60,6 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 		},
 	}
 	testCobraCommand.Flags().StringVarP(&testCmd.testFilterString, "test-filter", "t", "", "filter tests / testcases by their names")
-	testCobraCommand.Flags().StringVarP(&testCmd.baseProviderSettings, "base-provider-settings", "b", "", "path to a provider settings file the runner will use as base")
 	testCobraCommand.Flags().BoolVarP(&testCmd.prune, "prune", "p", false, "whether to prune after the execution; defaults to false")
 	return testCobraCommand
 }

@@ -20,6 +20,7 @@ Key metrics:
 | [Phase 2](phase2-global-state.md) | Eliminate mutable global state | Done |
 | [Phase 3](phase3-god-object.md) | Break up the `analyzeCommand` God Object (3a: adopt `konveyor.Analyzer`, 3b: reorganize into `cmd/analyze/`) | 3a Done, 3b: package move Done, struct decomposition Planned |
 | [Phase 4](phase4-developer-experience.md) | Developer experience -- Makefile + test organization | Planned |
+| [Phase 5](phase5-environment-interface.md) | `provider.Environment` interface -- unify containerless/hybrid, enable hybrid test runner | In Progress |
 
 Notes:
 - Phase 3 subsumes the original "Deduplicate containerless vs hybrid execution" -- adopting `konveyor.Analyzer` from [analyzer-lsp PR #1033](https://github.com/konveyor/analyzer-lsp/pull/1033) eliminates the duplication at the architectural level.

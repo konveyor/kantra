@@ -5,51 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
-	provider2 "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/konveyor/analyzer-lsp/progress"
 	progressReporterPkg "github.com/konveyor/analyzer-lsp/progress/reporter"
-	"github.com/phayes/freeport"
 )
-
-func (a *analyzeCommand) getProviderLogs(ctx context.Context) error {
-	if len(a.providerContainerNames) == 0 || a.needsBuiltin {
-		return nil
-	}
-	providerLogFilePath := filepath.Join(a.output, "provider.log")
-	providerLog, err := os.Create(providerLogFilePath)
-	if err != nil {
-		return fmt.Errorf("failed creating provider log file at %s", providerLogFilePath)
-	}
-	defer providerLog.Close()
-	for _, conName := range a.providerContainerNames {
-		a.log.V(1).Info("getting provider container logs",
-			"container", conName)
-
-		cmd := exec.CommandContext(
-			ctx,
-			settings.Settings.ContainerBinary,
-			"logs",
-			conName)
-
-		cmd.Stdout = providerLog
-		cmd.Stderr = providerLog
-		if err := cmd.Run(); err != nil {
-			a.log.V(1).Error(err, "failed to get provider container logs",
-				"container", conName)
-			continue
-		}
-	}
-
-	return nil
-}
 
 func (a *analyzeCommand) detectJavaProviderFallback() (bool, error) {
 	a.log.V(7).Info("language files not found. Using fallback")
@@ -210,47 +174,4 @@ func (c *AnalyzeCommandContext) setProviders(providers []string, languages []mod
 		}
 	}
 	return foundProviders, nil
-}
-
-func (c *AnalyzeCommandContext) setProviderInitInfo(foundProviders []string) error {
-	for _, prov := range foundProviders {
-		port, err := freeport.GetFreePort()
-		if err != nil {
-			return err
-		}
-
-		switch prov {
-		case util.JavaProvider:
-			c.providersMap[util.JavaProvider] = ProviderInit{
-				port:     port,
-				image:    settings.Settings.JavaProviderImage,
-				provider: &provider2.JavaProvider{},
-			}
-		case util.GoProvider:
-			c.providersMap[util.GoProvider] = ProviderInit{
-				port:     port,
-				image:    settings.Settings.GenericProviderImage,
-				provider: &provider2.GoProvider{},
-			}
-		case util.PythonProvider:
-			c.providersMap[util.PythonProvider] = ProviderInit{
-				port:     port,
-				image:    settings.Settings.GenericProviderImage,
-				provider: &provider2.PythonProvider{},
-			}
-		case util.NodeJSProvider:
-			c.providersMap[util.NodeJSProvider] = ProviderInit{
-				port:     port,
-				image:    settings.Settings.GenericProviderImage,
-				provider: &provider2.NodeJsProvider{},
-			}
-		case util.CsharpProvider:
-			c.providersMap[util.CsharpProvider] = ProviderInit{
-				port:     port,
-				image:    settings.Settings.CsharpProviderImage,
-				provider: &provider2.CsharpProvider{},
-			}
-		}
-	}
-	return nil
 }
