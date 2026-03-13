@@ -156,9 +156,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	}
 	if overrideConfigs != nil {
 		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
-		for i := range providerConfigs {
-			providerConfigs[i] = applyProviderOverrides(providerConfigs[i], overrideConfigs)
-		}
+		providerConfigs = applyAllProviderOverrides(providerConfigs, overrideConfigs)
 	}
 
 	// --- Rules ---
