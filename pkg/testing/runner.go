@@ -2,24 +2,20 @@ package testing
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/container"
+	kantraprovider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
+	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
-	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 // Runner given a list of TestsFile and a TestOptions
@@ -29,100 +25,29 @@ type Runner interface {
 }
 
 type TestOptions struct {
-	TempDir            string
-	LoudOutput         bool
-	BaseProviderConfig []provider.Config
-	RunLocal           bool
-	ContainerImage     string
-	ContainerToolBin   string
-	ProgressPrinter    ResultPrinter
-	Log                logr.Logger
-	Prune              bool
-	NoCleanup          bool
-}
+	TempDir         string
+	LoudOutput      bool
+	RunLocal        bool
+	ProgressPrinter ResultPrinter
+	Log             logr.Logger
+	Prune           bool
+	NoCleanup       bool
 
-// TODO (pgaikwad): we need to move the default config to a common place
-// to be shared between kantra analyze command and this
-var defaultProviderConfig = []provider.Config{
-	{
-		Name:       "java",
-		BinaryPath: "/usr/local/bin/java-external-provider",
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "java",
-					"bundles":                       "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
-					"depOpenSourceLabelsFile":       "/usr/local/etc/maven.default.index",
-					provider.LspServerPathConfigKey: "/jdtls/bin/jdtls",
-				},
-			},
-		},
-	},
-	{
-		Name:       "builtin",
-		InitConfig: []provider.InitConfig{{Location: ""}},
-	},
-	{
-		Name:       "go",
-		BinaryPath: "/usr/local/bin/generic-external-provider",
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "generic",
-					provider.LspServerPathConfigKey: "/usr/local/bin/gopls",
-					"lspServerArgs":                 []string{},
-					"dependencyProviderPath":        "/usr/local/bin/golang-dependency-provider",
-				},
-			},
-		},
-	},
-	{
-		Name:       "python",
-		BinaryPath: "/usr/local/bin/generic-external-provider",
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "pylsp",
-					provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
-					"lspServerArgs":                 []string{},
-					"workspaceFolders":              []string{},
-					"dependencyFolders":             []string{},
-				},
-			},
-		},
-	},
-	{
-		Name:       "nodejs",
-		BinaryPath: "/usr/local/bin/generic-external-provider",
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"lspServerName":                 "nodejs",
-					provider.LspServerPathConfigKey: "/usr/local/bin/typescript-language-server",
-					"lspServerArgs":                 []string{"--stdio"},
-					"workspaceFolders":              []string{},
-					"dependencyFolders":             []string{},
-				},
-			},
-		},
-	},
-	{
-		Name:       "yaml",
-		BinaryPath: "/usr/local/bin/yq-external-provider",
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode: provider.FullAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"name":                          "yq",
-					provider.LspServerPathConfigKey: "/usr/bin/yq",
-				},
-			},
-		},
-	},
+	// ContainerBinary is the path to the container runtime (podman/docker).
+	// Required when RunLocal is false.
+	ContainerBinary string
+
+	// ProviderImages maps provider names to their container images.
+	// Required when RunLocal is false.
+	// Example: {"java": "quay.io/konveyor/java-external-provider:latest"}
+	ProviderImages map[string]string
+
+	// RunnerImage is the kantra runner container image (for ruleset extraction).
+	// Only used when RunLocal is false.
+	RunnerImage string
+
+	// Version is the kantra version string (for ruleset cache naming).
+	Version string
 }
 
 func NewRunner() Runner {
@@ -143,11 +68,6 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 	anyErrored := false
 	for idx := range testFiles {
 		testsFile := testFiles[idx]
-		// users can override the base provider settings file
-		baseProviderConfig := defaultProviderConfig
-		if opts.BaseProviderConfig != nil {
-			baseProviderConfig = opts.BaseProviderConfig
-		}
 		// within a tests file, we group tests by analysis params
 		testGroups := groupTestsByAnalysisParams(testsFile.Tests)
 		results := []Result{}
@@ -192,48 +112,27 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			// we already know in this group, all tcs have same params, use any
 			analysisParams := tests[0].TestCases[0].AnalysisParams
 
-			reproducerCmd := ""
-			content := []byte{}
-			if opts.RunLocal {
-				// Run with kantra on local mode
-				// For the moment lets assume that all the data for a given test is in the same dataPath
-				dataPath := testsFile.Providers[0].DataPath
-				if dataPath == "" {
-					err = fmt.Errorf("the dataPath field cannot be empty")
-					opts.Log.Error(err, "failed during execution")
-					continue
-				}
-				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(dataPath))
-				if reproducerCmd, err = runLocal(logFile, tempDir, analysisParams, dataPath); err != nil {
-					opts.Log.Error(err, "failed during execution")
-					results = append(results, Result{
-						TestsFilePath: testsFile.Path,
-						Error:         err})
-					logFile.Close()
-					continue
-				}
-				content, err = os.ReadFile(filepath.Join(tempDir, "output", "output.yaml"))
-			} else {
-				// write provider settings file
-				volumes, err := ensureProviderSettings(tempDir, opts.RunLocal, testsFile, baseProviderConfig, analysisParams)
-				if err != nil {
-					results = append(results, Result{
-						TestsFilePath: testsFile.Path,
-						Error:         fmt.Errorf("failed writing provider settings - %w", err)})
-					logFile.Close()
-					continue
-				}
-				volumes[tempDir] = "/shared/"
-				if reproducerCmd, err = runInContainer(
-					logger, opts.ContainerImage, opts.ContainerToolBin, logFile, volumes, analysisParams, opts.Prune); err != nil {
-					results = append(results, Result{
-						TestsFilePath: testsFile.Path,
-						Error:         err})
-					logFile.Close()
-					continue
-				}
-				content, err = os.ReadFile(filepath.Join(tempDir, "output.yaml"))
+			// Resolve the data path for this test group.
+			// For the moment, use the first provider's dataPath (relative to test file).
+			dataPath := ""
+			if len(testsFile.Providers) > 0 && testsFile.Providers[0].DataPath != "" {
+				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(testsFile.Providers[0].DataPath))
 			}
+
+			reproducerCmd, err := runWithEnvironment(
+				logger, opts, testsFile, tempDir, analysisParams, dataPath)
+			if err != nil {
+				opts.Log.Error(err, "failed during execution")
+				results = append(results, Result{
+					TestsFilePath: testsFile.Path,
+					Error:         err})
+				logFile.Close()
+				continue
+			}
+
+			// Read output from the standard location
+			outputPath := filepath.Join(tempDir, "output", "output.yaml")
+			content, err := os.ReadFile(outputPath)
 
 			// write reproducer command to a file
 			os.WriteFile(filepath.Join(tempDir, "reproducer.sh"), []byte(reproducerCmd), 0755)
@@ -250,7 +149,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			if err != nil {
 				results = append(results, Result{
 					TestsFilePath: testsFile.Path,
-					Error:         fmt.Errorf("failed unmarshaling output %s", filepath.Join(tempDir, "output.yaml"))})
+					Error:         fmt.Errorf("failed unmarshaling output %s", outputPath)})
 				logFile.Close()
 				continue
 			}
@@ -313,115 +212,169 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 	return allResults, nil
 }
 
-// runLocal runs tests locally by calling kantra binary itself in local mode
-func runLocal(logFile io.Writer, dir string, analysisParams AnalysisParams, input string) (string, error) {
-	os.Mkdir(filepath.Join(dir, "output"), 0755)
-	args := []string{
-		"analyze",
-		"--run-local",
-		"--skip-static-report",
-		"--input", input,
-		"--output", filepath.Join(dir, "output"),
-		"--rules", filepath.Join(dir, "rules.yaml"),
-		"--overwrite",
-		"--enable-default-rulesets=false",
+// runWithEnvironment runs analysis using a provider.Environment, replacing
+// both the old runLocal and runInContainer paths. The mode is determined by
+// opts.RunLocal: true uses ModeLocal (containerless, Java-only), false uses
+// ModeNetwork (hybrid: providers in containers, analyzer in-process).
+func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFile, dir string, analysisParams AnalysisParams, input string) (string, error) {
+	outputDir := filepath.Join(dir, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Determine mode and build environment config
+	mode := kantraprovider.ModeNetwork
+	if opts.RunLocal {
+		mode = kantraprovider.ModeLocal
+	}
+
+	envCfg := kantraprovider.EnvironmentConfig{
+		Mode:         mode,
+		Input:        input,
+		AnalysisMode: string(analysisParams.Mode),
+		Log:          opts.Log,
+		Cleanup:      true,
+	}
+
+	// Mode-specific config
+	if opts.RunLocal {
+		kantraDir, err := util.GetKantraDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get kantra dir: %w", err)
+		}
+		envCfg.KantraDir = kantraDir
+	} else {
+		// Build provider infos from the test file's providers
+		providerInfos := buildTestProviderInfos(testsFile.Providers, opts.ProviderImages)
+		envCfg.Providers = providerInfos
+		envCfg.ContainerBinary = opts.ContainerBinary
+		envCfg.RunnerImage = opts.RunnerImage
+		envCfg.Version = opts.Version
+		// Don't extract default rulesets for tests -- they have their own rules
+		envCfg.EnableDefaultRulesets = false
+	}
+
+	ctx := context.Background()
+	env := kantraprovider.NewEnvironment(envCfg)
+
+	if err := env.Start(ctx); err != nil {
+		return "", fmt.Errorf("failed to start environment: %w", err)
+	}
+	defer env.Stop(ctx)
+
+	// Get provider configs from the environment
+	providerConfigs := env.ProviderConfigs()
+
+	rulesPath := filepath.Join(dir, "rules.yaml")
+
+	// Build analyzer options
+	analyzerOpts := []konveyorAnalyzer.AnalyzerOption{
+		konveyorAnalyzer.WithProviderConfigs(providerConfigs),
+		konveyorAnalyzer.WithRuleFilepaths([]string{rulesPath}),
+		konveyorAnalyzer.WithLogger(logger),
+		konveyorAnalyzer.WithContext(ctx),
+		konveyorAnalyzer.WithDependencyRulesDisabled(),
 	}
 	if analysisParams.DepLabelSelector != "" {
-		args = append(args, []string{
-			"--label-selector",
-			analysisParams.DepLabelSelector,
-		}...)
-	}
-	// Find this executable and call it
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("failed to get executable path: %w", err)
-	}
-	kantraDir, err := util.GetKantraDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get kantra dir for run-local subprocess: %w", err)
-	}
-	cmd := exec.Command(execPath, args...)
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	cmd.Dir = dir
-	// Pass parent's kantra dir so the subprocess does not rely on cwd (which is dir) or ~/.kantra
-	cmd.Env = append(envWithoutKantraDir(os.Environ()), util.KantraDirEnv+"="+kantraDir)
-	err = cmd.Run()
-	return fmt.Sprintf("kantra %s", strings.Join(args, " ")), err
-}
-
-// envWithoutKantraDir returns a copy of env with any KANTRA_DIR entry removed.
-// This is so that no duplicate KANTRA_DIRs are present in the env vars.
-func envWithoutKantraDir(env []string) []string {
-	prefix := util.KantraDirEnv + "="
-	out := make([]string, 0, len(env))
-	for _, e := range env {
-		if !strings.HasPrefix(e, prefix) {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
-func runInContainer(consoleLogger logr.Logger, image string, containerBin string, logFile io.Writer, volumes map[string]string, analysisParams AnalysisParams, prune bool) (string, error) {
-	if image == "" {
-		image = "quay.io/konveyor/analyzer-lsp:latest"
-	}
-	// run analysis in a container
-	args := []string{
-		"--provider-settings",
-		"/shared/provider_settings.json",
-		"--output-file",
-		"/shared/output.yaml",
-		"--rules",
-		"/shared/rules.yaml",
-		"--verbose",
-		"20",
-	}
-	if analysisParams.DepLabelSelector != "" {
-		args = append(args, []string{
-			"--dep-label-selector",
-			analysisParams.DepLabelSelector,
-		}...)
-	}
-	reproducerCmd := ""
-	ctx := context.TODO()
-	newContainer := container.NewContainer()
-	err := newContainer.Run(
-		ctx,
-		container.WithImage(image),
-		container.WithLog(consoleLogger),
-		container.WithEntrypointBin("konveyor-analyzer"),
-		container.WithCleanup(true),
-		container.WithContainerToolBin(containerBin),
-		container.WithEntrypointArgs(args...),
-		container.WithVolumes(volumes),
-		container.WithWorkDir("/shared/"),
-		container.WithStderr(logFile),
-		container.WithStdout(logFile),
-		container.WithReproduceCmd(&reproducerCmd),
-	)
-	if err != nil {
-		return reproducerCmd, fmt.Errorf("failed running analysis - %w", err)
+		analyzerOpts = append(analyzerOpts,
+			konveyorAnalyzer.WithDepLabelSelector(analysisParams.DepLabelSelector))
 	}
 
-	if prune {
-		err = newContainer.RunCommand(ctx, consoleLogger, "system", "prune", "-f", "--all")
-		if err != nil {
-			consoleLogger.Error(err, "failed")
-		}
-		err = newContainer.RunCommand(ctx, consoleLogger, "volume", "prune", "-f")
-		if err != nil {
-			consoleLogger.Error(err, "failed")
-		}
-		err = newContainer.RunCommand(ctx, consoleLogger, "info")
-		if err != nil {
-			consoleLogger.Error(err, "failed")
-		}
+	// Create and run the analyzer in-process
+	anlzr, err := konveyorAnalyzer.NewAnalyzer(analyzerOpts...)
+	if err != nil {
+		return "", fmt.Errorf("failed to create analyzer: %w", err)
 	}
+	defer anlzr.Stop()
+
+	if _, err := anlzr.ParseRules(); err != nil {
+		return "", fmt.Errorf("failed to parse rules: %w", err)
+	}
+
+	if err := anlzr.ProviderStart(); err != nil {
+		return "", fmt.Errorf("failed to start providers: %w", err)
+	}
+
+	rulesets := anlzr.Run()
+
+	// Write output.yaml to match the interface expected by the caller
+	sort.SliceStable(rulesets, func(i, j int) bool {
+		return rulesets[i].Name < rulesets[j].Name
+	})
+	b, err := yaml.Marshal(rulesets)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal analysis output: %w", err)
+	}
+	outputPath := filepath.Join(outputDir, "output.yaml")
+	if err := os.WriteFile(outputPath, b, 0644); err != nil {
+		return "", fmt.Errorf("failed to write output.yaml: %w", err)
+	}
+
+	// Build a reproducer command for debugging
+	reproducerCmd := buildReproducerCmd(opts.RunLocal, input, outputDir,
+		filepath.Join(dir, "rules.yaml"), analysisParams)
 
 	return reproducerCmd, nil
+}
+
+// buildTestProviderInfos converts the test file's provider configs into
+// ProviderInfo structs using the image map from TestOptions.
+func buildTestProviderInfos(providers []ProviderConfig, images map[string]string) []kantraprovider.ProviderInfo {
+	infos := make([]kantraprovider.ProviderInfo, 0, len(providers))
+	for _, p := range providers {
+		image := ""
+		if images != nil {
+			image = images[p.Name]
+		}
+		if image == "" {
+			// Try well-known default images
+			image = defaultProviderImage(p.Name)
+		}
+		if image == "" {
+			continue
+		}
+		infos = append(infos, kantraprovider.ProviderInfo{
+			Name:  p.Name,
+			Image: image,
+		})
+	}
+	return infos
+}
+
+// defaultProviderImage returns a fallback container image for well-known
+// provider names. This is used when TestOptions.ProviderImages doesn't
+// have an entry for a provider.
+func defaultProviderImage(name string) string {
+	switch name {
+	case util.JavaProvider:
+		return "quay.io/konveyor/java-external-provider:latest"
+	case util.GoProvider, util.PythonProvider, util.NodeJSProvider:
+		return "quay.io/konveyor/generic-external-provider:latest"
+	case util.CsharpProvider:
+		return "quay.io/konveyor/c-sharp-provider:latest"
+	default:
+		// "builtin" and other providers don't have separate container images
+		return ""
+	}
+}
+
+// buildReproducerCmd generates a kantra command string for debugging
+// test failures.
+func buildReproducerCmd(runLocal bool, input string, outputDir string, rulesPath string, params AnalysisParams) string {
+	args := []string{"analyze", "--skip-static-report"}
+	if runLocal {
+		args = append(args, "--run-local")
+	}
+	args = append(args,
+		"--input", input,
+		"--output", outputDir,
+		"--rules", rulesPath,
+		"--overwrite", "--enable-default-rulesets=false",
+	)
+	if params.DepLabelSelector != "" {
+		args = append(args, "--label-selector", params.DepLabelSelector)
+	}
+	return fmt.Sprintf("kantra %s", strings.Join(args, " "))
 }
 
 func ensureRules(rulesPath string, tempDirPath string, group []Test) error {
@@ -462,95 +415,6 @@ func ensureRules(rulesPath string, tempDirPath string, group []Test) error {
 		return fmt.Errorf("failed writing rules file - %w", err)
 	}
 	return nil
-}
-
-func ensureProviderSettings(tempDirPath string, runLocal bool, testsFile TestsFile, baseProviders []provider.Config, params AnalysisParams) (map[string]string, error) {
-	final := []provider.Config{}
-	volumes := map[string]string{}
-	// we need to make sure we only mount unique path trees
-	// to avoid mounting a directory and its subdirectory to two different paths
-	uniqueTrees := map[string]bool{}
-	toDelete := []string{}
-	for _, prov := range testsFile.Providers {
-		found := false
-		for tree := range uniqueTrees {
-			if tree != prov.DataPath && (strings.Contains(tree, prov.DataPath) || strings.Contains(prov.DataPath, tree)) {
-				found = true
-				if len(tree) > len(prov.DataPath) {
-					toDelete = append(toDelete, tree)
-					uniqueTrees[prov.DataPath] = true
-				} else {
-					toDelete = append(toDelete, prov.DataPath)
-					uniqueTrees[tree] = true
-				}
-			}
-		}
-		if !found {
-			uniqueTrees[prov.DataPath] = true
-		}
-	}
-	for _, key := range toDelete {
-		delete(uniqueTrees, key)
-	}
-	for uniquePath := range uniqueTrees {
-		volumes[filepath.Join(filepath.Dir(testsFile.Path), uniquePath)] = path.Join("/data", uniquePath)
-	}
-	for _, override := range testsFile.Providers {
-		// when running in the container, we use the mounted path
-		dataPath := filepath.Join("/data", filepath.Clean(override.DataPath))
-		final = append(final,
-			getMergedProviderConfig(override.Name, baseProviders, params, dataPath, "/shared")...)
-	}
-	content, err := json.Marshal(final)
-	if err != nil {
-		return nil, fmt.Errorf("failed marshaling provider settings - %w", err)
-	}
-	err = os.WriteFile(filepath.Join(tempDirPath, "provider_settings.json"), content, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed writing provider settings file - %w", err)
-	}
-	return volumes, nil
-}
-
-// getMergedProviderConfig for a given provider in the tests file, find a base provider config and
-// merge values as per precedance (values in tests file take precedance)
-func getMergedProviderConfig(name string, baseConfig []provider.Config, params AnalysisParams, dataPath string, outputPath string) []provider.Config {
-	merged := []provider.Config{}
-	for idx := range baseConfig {
-		base := &baseConfig[idx]
-		base.ContextLines = 100
-		if base.Name == name {
-			initConf := &base.InitConfig[0]
-			if params.Mode != "" {
-				initConf.AnalysisMode = params.Mode
-			}
-			switch base.Name {
-			// languages enabled via generic provide use workspaceFolders instead of location
-			// we also enable detailed logging for different providers
-			case "python":
-				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
-				// log things in the output directory for debugging
-				lspArgs, ok := initConf.ProviderSpecificConfig["lspServerArgs"].([]string)
-				if ok {
-					initConf.ProviderSpecificConfig["lspServerArgs"] = append(lspArgs,
-						"--log-file", path.Join(outputPath, "python-server.log"), "-vv")
-				}
-			case "go":
-				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
-				lspArgs, ok := initConf.ProviderSpecificConfig["lspServerArgs"].([]string)
-				if ok {
-					initConf.ProviderSpecificConfig["lspServerArgs"] = append(lspArgs,
-						"--logfile", path.Join(outputPath, "go-server.log"), "-vv")
-				}
-			case "nodejs":
-				initConf.ProviderSpecificConfig["workspaceFolders"] = []string{dataPath}
-			default:
-				initConf.Location = dataPath
-			}
-			merged = append(merged, *base)
-		}
-	}
-	return merged
 }
 
 func groupTestsByAnalysisParams(tests []Test) [][]Test {

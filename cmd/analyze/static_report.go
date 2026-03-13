@@ -1,4 +1,4 @@
-package cmd
+package analyze
 
 import (
 	"encoding/json"
@@ -31,8 +31,13 @@ func validateFlags(analysisOutputPaths []string, appNames []string, depsOutputs 
 	if len(appNames) == 0 {
 		return nil, fmt.Errorf("application names required")
 	}
+	if len(appNames) != len(analysisOutputPaths) {
+		return nil, fmt.Errorf("number of application names (%d) must match number of analysis output paths (%d)", len(appNames), len(analysisOutputPaths))
+	}
 	if len(depsOutputs) == 0 {
 		log.V(1).Info("dependency output path not provided, only parsing analysis output")
+	} else if len(depsOutputs) != len(analysisOutputPaths) {
+		return nil, fmt.Errorf("number of dependency output paths (%d) must match number of analysis output paths (%d)", len(depsOutputs), len(analysisOutputPaths))
 	}
 	for idx, analysisPath := range analysisOutputPaths {
 		currApp := &Application{
@@ -85,12 +90,13 @@ func loadApplications(apps []*Application) error {
 		// we don't need them in the report, ignore them
 		for idx := range app.Rulesets {
 			rs := &app.Rulesets[idx]
-			for _, violation := range rs.Violations {
+			for key, violation := range rs.Violations {
 				violation.Extras = nil
 				for idx := range violation.Incidents {
 					inc := &violation.Incidents[idx]
 					inc.Variables = make(map[string]interface{})
 				}
+				rs.Violations[key] = violation
 			}
 		}
 	}

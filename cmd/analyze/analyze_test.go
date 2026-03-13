@@ -1,13 +1,11 @@
-package cmd
+package analyze
 
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +13,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )
@@ -351,7 +348,7 @@ func Test_analyzeCommand_Validate_sourceAndTargetLabels(t *testing.T) {
 			mode:                  string(provider.FullAnalysisMode),
 			runLocal:              true,
 			sources:               []string{"unknown-source"},
-			enableDefaultRulesets:  true,
+			enableDefaultRulesets: true,
 			overwrite:             true,
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -381,7 +378,7 @@ func Test_analyzeCommand_Validate_sourceAndTargetLabels(t *testing.T) {
 			mode:                  string(provider.FullAnalysisMode),
 			runLocal:              true,
 			targets:               []string{"unknown-target"},
-			enableDefaultRulesets:  true,
+			enableDefaultRulesets: true,
 			overwrite:             true,
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -528,248 +525,6 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			}
 			if got := a.getLabelSelector(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("analyzeCommand.getLabelSelectorArgs() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_analyzeCommand_RunAnalysis_InputValidation(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name        string
-		setupCtx    func() context.Context
-		volName     string
-		setup       func() *analyzeCommand
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name: "normal context and valid volume name should work",
-			setupCtx: func() context.Context {
-				return context.Background()
-			},
-			volName: "valid-volume-name",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					output:       "/tmp/test-output",
-					contextLines: 10,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						log:          log,
-						providersMap: make(map[string]ProviderInit),
-					},
-				}
-			},
-			expectError: false,
-		},
-		{
-			name: "cancelled context should return error",
-			setupCtx: func() context.Context {
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
-				return ctx
-			},
-			volName: "test-volume",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					output:       "/tmp/test-output",
-					contextLines: 10,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						log:          log,
-						providersMap: make(map[string]ProviderInit),
-					},
-				}
-			},
-			expectError: true,
-			errorMsg:    "context canceled",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "test-run-analysis-input-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			outputDir := filepath.Join(tmpDir, "output")
-			err = os.MkdirAll(outputDir, 0755)
-			if err != nil {
-				t.Fatalf("Failed to create output dir: %v", err)
-			}
-
-			a := tt.setup()
-			a.output = outputDir
-
-			ctx := tt.setupCtx()
-			err = a.validateRunAnalysisInputs(ctx, tt.volName)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-			}
-		})
-	}
-}
-
-func (a *analyzeCommand) validateRunAnalysisInputs(ctx context.Context, volName string) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	if a.output == "" {
-		return fmt.Errorf("output directory is required")
-	}
-
-	if deadline, ok := ctx.Deadline(); ok && time.Now().After(deadline) {
-		return context.DeadlineExceeded
-	}
-
-	return nil
-}
-
-func (a *analyzeCommand) buildVolumeMapping(volName string) map[string]string {
-	return map[string]string{
-		volName:  "/opt/input/source",
-		a.output: "/opt/output",
-	}
-}
-
-func Test_analyzeCommand_needDefaultRules(t *testing.T) {
-	tests := []struct {
-		name                          string
-		initialEnableDefaultRulesets  bool
-		providersMap                  map[string]ProviderInit
-		expectedEnableDefaultRulesets bool
-	}{
-		{
-			name:                          "no providers should disable default rulesets",
-			initialEnableDefaultRulesets:  true,
-			providersMap:                  make(map[string]ProviderInit),
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "java provider with enabled rulesets should keep rulesets enabled",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectedEnableDefaultRulesets: true,
-		},
-		{
-			name:                         "java provider with disabled rulesets should keep rulesets disabled",
-			initialEnableDefaultRulesets: false,
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "non-java providers only should disable default rulesets",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.PythonProvider: {},
-				util.GoProvider:     {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "mixed providers including java with enabled rulesets should keep rulesets enabled",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.PythonProvider: {},
-				util.GoProvider:     {},
-			},
-			expectedEnableDefaultRulesets: true,
-		},
-		{
-			name:                         "mixed providers including java with disabled rulesets should keep rulesets disabled",
-			initialEnableDefaultRulesets: false,
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.PythonProvider: {},
-				util.GoProvider:     {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "python provider only should disable default rulesets",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.PythonProvider: {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "go provider only should disable default rulesets",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.GoProvider: {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "nodejs provider only should disable default rulesets",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.NodeJSProvider: {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "dotnet provider only should disable default rulesets",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.CsharpProvider: {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "already disabled rulesets with non-java providers should remain disabled",
-			initialEnableDefaultRulesets: false,
-			providersMap: map[string]ProviderInit{
-				util.PythonProvider: {},
-				util.GoProvider:     {},
-			},
-			expectedEnableDefaultRulesets: false,
-		},
-		{
-			name:                         "java provider first in iteration should enable",
-			initialEnableDefaultRulesets: true,
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.PythonProvider: {},
-				util.GoProvider:     {},
-				util.NodeJSProvider: {},
-			},
-			expectedEnableDefaultRulesets: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &analyzeCommand{
-				enableDefaultRulesets: tt.initialEnableDefaultRulesets,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					providersMap: tt.providersMap,
-				},
-			}
-			a.needDefaultRules()
-
-			if a.enableDefaultRulesets != tt.expectedEnableDefaultRulesets {
-				t.Errorf("needDefaultRules() set enableDefaultRulesets = %v, want %v",
-					a.enableDefaultRulesets, tt.expectedEnableDefaultRulesets)
 			}
 		})
 	}
@@ -1234,180 +989,6 @@ func Test_analyzeCommand_Validate_withFoundProfile(t *testing.T) {
 	})
 }
 
-func Test_analyzeCommand_needDefaultRules_StateChanges(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name                string
-		initialState        *analyzeCommand
-		expectedOnlyChanged []string
-	}{
-		{
-			name: "should only modify enableDefaultRulesets when disabling",
-			initialState: &analyzeCommand{
-				enableDefaultRulesets: true,
-				output:                "/test/output",
-				contextLines:          100,
-				sources:               []string{"test"},
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					providersMap: map[string]ProviderInit{util.PythonProvider: {}},
-				},
-			},
-			expectedOnlyChanged: []string{"enableDefaultRulesets"},
-		},
-		{
-			name: "should not modify anything when java provider present and rulesets enabled",
-			initialState: &analyzeCommand{
-				enableDefaultRulesets: true,
-				output:                "/test/output",
-				contextLines:          100,
-				sources:               []string{"test"},
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					providersMap: map[string]ProviderInit{util.JavaProvider: {}},
-				},
-			},
-			expectedOnlyChanged: []string{},
-		},
-		{
-			name: "should not modify anything when rulesets already disabled",
-			initialState: &analyzeCommand{
-				enableDefaultRulesets: false,
-				output:                "/test/output",
-				contextLines:          100,
-				sources:               []string{"test"},
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					providersMap: map[string]ProviderInit{util.PythonProvider: {}},
-				},
-			},
-			expectedOnlyChanged: []string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			original := &analyzeCommand{
-				enableDefaultRulesets: tt.initialState.enableDefaultRulesets,
-				output:                tt.initialState.output,
-				contextLines:          tt.initialState.contextLines,
-				sources:               make([]string, len(tt.initialState.sources)),
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          tt.initialState.log,
-					providersMap: make(map[string]ProviderInit),
-				},
-			}
-			copy(original.sources, tt.initialState.sources)
-			for k, v := range tt.initialState.providersMap {
-				original.providersMap[k] = v
-			}
-
-			tt.initialState.needDefaultRules()
-
-			changedFields := []string{}
-
-			if tt.initialState.enableDefaultRulesets != original.enableDefaultRulesets {
-				changedFields = append(changedFields, "enableDefaultRulesets")
-			}
-			if tt.initialState.output != original.output {
-				changedFields = append(changedFields, "output")
-			}
-			if tt.initialState.contextLines != original.contextLines {
-				changedFields = append(changedFields, "contextLines")
-			}
-			if !reflect.DeepEqual(tt.initialState.sources, original.sources) {
-				changedFields = append(changedFields, "sources")
-			}
-			if !reflect.DeepEqual(tt.initialState.providersMap, original.providersMap) {
-				changedFields = append(changedFields, "providersMap")
-			}
-
-			if !reflect.DeepEqual(changedFields, tt.expectedOnlyChanged) {
-				t.Errorf("needDefaultRules() changed fields %v, expected only %v to change",
-					changedFields, tt.expectedOnlyChanged)
-			}
-		})
-	}
-}
-
-func Test_analyzeCommand_needDefaultRules_EdgeCases(t *testing.T) {
-	tests := []struct {
-		name     string
-		setup    func() *analyzeCommand
-		expected bool
-	}{
-		{
-			name: "nil providersMap should disable rulesets",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					enableDefaultRulesets: true,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						providersMap: nil,
-					},
-				}
-			},
-			expected: false,
-		},
-		{
-			name: "empty string key in providersMap should not match java",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					enableDefaultRulesets: true,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						providersMap: map[string]ProviderInit{
-							"": {},
-						},
-					},
-				}
-			},
-			expected: false,
-		},
-		{
-			name: "whitespace in provider name should not match java",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					enableDefaultRulesets: true,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						providersMap: map[string]ProviderInit{
-							" java ": {},
-						},
-					},
-				}
-			},
-			expected: false,
-		},
-		{
-			name: "java with different casing should not match",
-			setup: func() *analyzeCommand {
-				return &analyzeCommand{
-					enableDefaultRulesets: true,
-					AnalyzeCommandContext: AnalyzeCommandContext{
-						providersMap: map[string]ProviderInit{
-							"JAVA": {},
-							"Java": {},
-							"jAvA": {},
-						},
-					},
-				}
-			},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := tt.setup()
-			a.needDefaultRules()
-
-			if a.enableDefaultRulesets != tt.expected {
-				t.Errorf("needDefaultRules() set enableDefaultRulesets = %v, want %v",
-					a.enableDefaultRulesets, tt.expected)
-			}
-		})
-	}
-}
-
 func Test_analyzeCommand_CheckOverwriteOutput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1600,8 +1181,8 @@ func Test_analyzeCommand_moveResults(t *testing.T) {
 				}
 
 				files := map[string]string{
-					"output.yaml":  "test output",
-					"analysis.log": "test log",
+					"output.yaml":       "test output",
+					"analysis.log":      "test log",
 					"dependencies.yaml": "test deps",
 				}
 				for filename, content := range files {
@@ -1737,101 +1318,7 @@ func Test_analyzeCommand_disableMavenSearch_flagParsing(t *testing.T) {
 		})
 	}
 }
-
-func Test_analyzeCommand_getConfigVolumes_disableMavenSearch(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name                       string
-		disableMavenSearch         bool
-		expectedDisableMavenSearch bool
-	}{
-		{
-			name:                       "disableMavenSearch true",
-			disableMavenSearch:         true,
-			expectedDisableMavenSearch: true,
-		},
-		{
-			name:                       "disableMavenSearch false",
-			disableMavenSearch:         false,
-			expectedDisableMavenSearch: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "test-input-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			outputDir, err := os.MkdirTemp("", "test-output-")
-			if err != nil {
-				t.Fatalf("Failed to create output dir: %v", err)
-			}
-			defer os.RemoveAll(outputDir)
-
-			a := &analyzeCommand{
-				input:              tmpDir,
-				output:             outputDir,
-				disableMavenSearch: tt.disableMavenSearch,
-				mode:               "source-only",
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					isFileInput:  false,
-					needsBuiltin: true,
-				},
-			}
-
-			// Mock Settings to avoid nil pointer
-			originalSettings := Settings
-			Settings = &Config{
-				JvmMaxMem: "1g",
-			}
-			defer func() { Settings = originalSettings }()
-			configVols, err := a.getConfigVolumes()
-			if err != nil {
-				t.Fatalf("getConfigVolumes() error = %v", err)
-			}
-			if len(configVols) == 0 {
-				t.Fatal("Expected config volumes to be created")
-			}
-
-			tempDir, err := os.MkdirTemp("", "analyze-config-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tempDir)
-
-			javaTargetPaths, _ := kantraProvider.WalkJavaPathForTarget(log, false, tmpDir)
-
-			configInput := kantraProvider.ConfigInput{
-				IsFileInput:             false,
-				InputPath:               tmpDir,
-				OutputPath:              outputDir,
-				MavenSettingsFile:       "",
-				Log:                     log,
-				Mode:                    "source-only",
-				Port:                    6734,
-				TmpDir:                  tempDir,
-				JvmMaxMem:               "1g",
-				DepsFolders:             []string{},
-				JavaExcludedTargetPaths: javaTargetPaths,
-				DisableMavenSearch:      tt.disableMavenSearch,
-			}
-
-			if configInput.DisableMavenSearch != tt.expectedDisableMavenSearch {
-				t.Errorf("ConfigInput.DisableMavenSearch = %v, want %v",
-					configInput.DisableMavenSearch, tt.expectedDisableMavenSearch)
-			}
-		})
-	}
-}
-
-func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
-	log := logr.Discard()
-
+func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 	tests := []struct {
 		name                       string
 		disableMavenSearch         bool
@@ -1851,32 +1338,18 @@ func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a temporary directory for testing
-			tmpDir, err := os.MkdirTemp("", "test-java-config-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			configInput := kantraProvider.ConfigInput{
-				IsFileInput:             false,
-				InputPath:               tmpDir,
-				OutputPath:              tmpDir,
-				MavenSettingsFile:       "",
-				Log:                     log,
-				Mode:                    "source-only",
-				Port:                    6734,
-				TmpDir:                  tmpDir,
-				JvmMaxMem:               "1g",
-				DepsFolders:             []string{},
-				JavaExcludedTargetPaths: []interface{}{},
-				DisableMavenSearch:      tt.disableMavenSearch,
-			}
-
 			javaProvider := &kantraProvider.JavaProvider{}
-			config, err := javaProvider.GetConfigVolume(configInput)
+
+			// disableMavenSearch is only set in local mode
+			config, err := javaProvider.GetConfig(kantraProvider.ModeLocal, kantraProvider.BaseOptions{
+				Location:     "/tmp/project",
+				AnalysisMode: "source-only",
+				KantraDir:    "/home/user/.kantra",
+			}, kantraProvider.JavaOptions{
+				DisableMavenSearch: tt.disableMavenSearch,
+			})
 			if err != nil {
-				t.Fatalf("JavaProvider.GetConfigVolume() error = %v", err)
+				t.Fatalf("JavaProvider.GetConfig() error = %v", err)
 			}
 
 			if len(config.InitConfig) == 0 {
@@ -1892,228 +1365,6 @@ func Test_JavaProvider_GetConfigVolume_disableMavenSearch(t *testing.T) {
 			if disableMavenSearchValue != tt.expectedDisableMavenSearch {
 				t.Errorf("ProviderSpecificConfig[\"disableMavenSearch\"] = %v, want %v",
 					disableMavenSearchValue, tt.expectedDisableMavenSearch)
-			}
-		})
-	}
-}
-
-func Test_analyzeCommand_getConfigVolumes_m2SkippedForNonJava(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name         string
-		providersMap map[string]ProviderInit
-		expectM2Vol  bool
-	}{
-		{
-			name: "no Java provider should not create M2 volume",
-			providersMap: map[string]ProviderInit{
-				util.PythonProvider: {},
-			},
-			expectM2Vol: false,
-		},
-		{
-			name: "Go provider only should not create M2 volume",
-			providersMap: map[string]ProviderInit{
-				util.GoProvider: {},
-			},
-			expectM2Vol: false,
-		},
-		{
-			name:         "empty providersMap should not create M2 volume",
-			providersMap: map[string]ProviderInit{},
-			expectM2Vol:  false,
-		},
-		{
-			name: "Java provider should create M2 volume on linux",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectM2Vol: runtime.GOOS == "linux",
-		},
-		{
-			name: "Java with other providers should create M2 volume on linux",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider:   {},
-				util.PythonProvider: {},
-			},
-			expectM2Vol: runtime.GOOS == "linux",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "test-input-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			outputDir, err := os.MkdirTemp("", "test-output-")
-			if err != nil {
-				t.Fatalf("Failed to create output dir: %v", err)
-			}
-			defer os.RemoveAll(outputDir)
-
-			a := &analyzeCommand{
-				input:  tmpDir,
-				output: outputDir,
-				mode:   "source-only",
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					isFileInput:  false,
-					needsBuiltin: true,
-					providersMap: tt.providersMap,
-				},
-			}
-
-			originalSettings := Settings
-			Settings = &Config{
-				JvmMaxMem: "1g",
-			}
-			defer func() { Settings = originalSettings }()
-
-			configVols, err := a.getConfigVolumes()
-			if err != nil {
-				t.Fatalf("getConfigVolumes() error = %v", err)
-			}
-
-			hasM2Vol := false
-			for _, mountPath := range configVols {
-				if mountPath == util.M2Dir {
-					hasM2Vol = true
-					break
-				}
-			}
-
-			if hasM2Vol != tt.expectM2Vol {
-				t.Errorf("getConfigVolumes() M2 volume present = %v, want %v", hasM2Vol, tt.expectM2Vol)
-			}
-		})
-	}
-}
-
-func Test_analyzeCommand_RunProvidersHostNetwork_mavenCacheSkippedForNonJava(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name                   string
-		providersMap           map[string]ProviderInit
-		expectMavenCacheVolume bool
-		expectError            bool
-		needsContainerRuntime  bool
-		skipMavenCache         bool
-	}{
-		{
-			name:                   "empty providersMap should not create maven cache volume",
-			providersMap:           map[string]ProviderInit{},
-			expectMavenCacheVolume: false,
-			expectError:            false,
-			needsContainerRuntime:  false,
-		},
-		{
-			name: "Go provider only should not create maven cache volume",
-			providersMap: map[string]ProviderInit{
-				util.GoProvider: {},
-			},
-			expectMavenCacheVolume: false,
-			expectError:            true,
-			needsContainerRuntime:  false,
-		},
-		{
-			name: "Python provider only should not create maven cache volume",
-			providersMap: map[string]ProviderInit{
-				util.PythonProvider: {},
-			},
-			expectMavenCacheVolume: false,
-			expectError:            true,
-			needsContainerRuntime:  false,
-		},
-		{
-			name: "Java provider with fake binary should fail maven cache volume creation",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectMavenCacheVolume: false,
-			expectError:            true,
-			needsContainerRuntime:  false,
-		},
-		{
-			name: "Java provider with KANTRA_SKIP_MAVEN_CACHE should skip maven cache volume",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectMavenCacheVolume: false,
-			expectError:            true,
-			needsContainerRuntime:  false,
-			skipMavenCache:         true,
-		},
-		{
-			name: "Java provider should create maven cache volume",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-			},
-			expectMavenCacheVolume: true,
-			expectError:            true,
-			needsContainerRuntime:  true,
-		},
-		{
-			name: "Java with Go provider should create maven cache volume",
-			providersMap: map[string]ProviderInit{
-				util.JavaProvider: {},
-				util.GoProvider:   {},
-			},
-			expectMavenCacheVolume: true,
-			expectError:            true,
-			needsContainerRuntime:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.needsContainerRuntime {
-				binary := getContainerBinary()
-				if binary == "" {
-					t.Skip("Container runtime not available")
-				}
-				cleanupMavenCacheVolume(t)
-				defer cleanupMavenCacheVolume(t)
-			}
-
-			if tt.skipMavenCache {
-				t.Setenv("KANTRA_SKIP_MAVEN_CACHE", "true")
-			}
-
-			originalSettings := Settings
-			containerBinary := "fake-binary"
-			if tt.needsContainerRuntime {
-				containerBinary = getContainerBinary()
-			}
-			Settings = &Config{
-				ContainerBinary: containerBinary,
-			}
-			defer func() { Settings = originalSettings }()
-
-			a := &analyzeCommand{
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:          log,
-					providersMap: tt.providersMap,
-				},
-			}
-
-			err := a.RunProvidersHostNetwork(context.Background(), "test-vol", 0, io.Discard)
-
-			if tt.expectError && err == nil {
-				t.Errorf("expected error but got nil")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-
-			hasMavenCache := a.mavenCacheVolumeName != ""
-			if hasMavenCache != tt.expectMavenCacheVolume {
-				t.Errorf("mavenCacheVolumeName present = %v (value: %q), want present = %v",
-					hasMavenCache, a.mavenCacheVolumeName, tt.expectMavenCacheVolume)
 			}
 		})
 	}

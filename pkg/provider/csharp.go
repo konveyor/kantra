@@ -1,35 +1,34 @@
 package provider
 
 import (
-	"fmt"
-
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 type CsharpProvider struct {
 	baseProvider
-	config provider.Config
+}
+
+func (p *CsharpProvider) Name() string {
+	return util.CsharpProvider
 }
 
 func (p *CsharpProvider) SupportsLogLevel() bool {
 	return false
 }
 
-func (p *CsharpProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
-	p.config = provider.Config{
-		Name:    util.CsharpProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
-		InitConfig: []provider.InitConfig{
-			{
-				Location:     util.SourceMountPath,
-				AnalysisMode: provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: map[string]interface{}{
-					"ilspy_cmd": "/usr/local/bin/ilspycmd",
-					"paket_cmd": "/usr/local/bin/paket",
-				},
-			},
-		},
+func (p *CsharpProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
+	// C# always uses source-only analysis
+	opts.AnalysisMode = string(provider.SourceOnlyAnalysisMode)
+
+	cfg := NewBaseConfig(util.CsharpProvider, mode, opts)
+	psc := cfg.InitConfig[0].ProviderSpecificConfig
+
+	switch mode {
+	case ModeContainer, ModeNetwork:
+		psc["ilspy_cmd"] = ContainerIlspyCmdPath
+		psc["paket_cmd"] = ContainerPaketCmdPath
 	}
-	return p.config, nil
+
+	return cfg, nil
 }

@@ -28,7 +28,9 @@ const (
 var (
 	// TODO (pgaikwad): this assumes that the $USER in container is always root, it may not be the case in future
 	M2Dir = path.Join("/", "root", ".m2")
-	// SourceMountPath application source path inside the container
+	// SourceMountPath is the directory where source code is mounted in the container.
+	// This value must not be modified at runtime. Use analyzeCommand.sourceLocationPath
+	// for the resolved source location (which may include a filename for file inputs).
 	SourceMountPath = path.Join(InputPath, "source")
 	// ConfigMountPath analyzer config files
 	ConfigMountPath = path.Join(InputPath, "config")
@@ -111,7 +113,7 @@ func CopyFolderContents(src string, dst string) error {
 func CopyFileContents(src string, dst string) (err error) {
 	source, err := os.Open(src)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer source.Close()
 	destination, err := os.Create(dst)
@@ -209,11 +211,15 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 
 const ProfilesPath = ".konveyor/profiles"
 
-func GetProfilesExcludedDir(inputPath string, useContainerPath bool) string {
+// GetProfilesExcludedDir returns the profiles exclusion path if a .konveyor/profiles
+// directory exists under inputPath. When useContainerPath is true, containerSourceDir
+// is used as the base for the returned path (e.g. /opt/input/source). When false,
+// the local filesystem path is returned and containerSourceDir is ignored.
+func GetProfilesExcludedDir(inputPath string, containerSourceDir string, useContainerPath bool) string {
 	profilesDir := filepath.Join(inputPath, ProfilesPath)
 	if _, err := os.Stat(profilesDir); err == nil {
 		if useContainerPath {
-			return path.Join(SourceMountPath, ProfilesPath)
+			return path.Join(containerSourceDir, ProfilesPath)
 		}
 		return profilesDir
 	}

@@ -1,35 +1,23 @@
 package provider
 
 import (
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 type BuiltinProvider struct {
+	baseProvider
 	config provider.Config
 }
 
-func (p *BuiltinProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
-	providerSpecificConfig := map[string]interface{}{
-		// Don't set excludedDirs - let analyzer-lsp use default exclusions
-		// (node_modules, vendor, dist, build, target, .git, .venv, venv)
-		// Java target paths are already included in the defaults (target/)
-	}
+func (p *BuiltinProvider) Name() string {
+	return "builtin"
+}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
-		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
-	}
-
-	p.config = provider.Config{
-		Name: "builtin",
-		InitConfig: []provider.InitConfig{
-			{
-				Location:               util.SourceMountPath,
-				AnalysisMode:           provider.AnalysisMode(c.Mode),
-				ProviderSpecificConfig: providerSpecificConfig,
-			},
-		},
-	}
-
-	return p.config, nil
+func (p *BuiltinProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
+	cfg := NewBaseConfig("builtin", mode, opts)
+	// Builtin has no binary, no LSP — it's always in-process.
+	// Clear any address/binary that base might have set.
+	cfg.Address = ""
+	cfg.BinaryPath = ""
+	return cfg, nil
 }

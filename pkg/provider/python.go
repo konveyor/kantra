@@ -1,46 +1,44 @@
 package provider
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 type PythonProvider struct {
 	baseProvider
-	config provider.Config
 }
 
-func (p *PythonProvider) GetConfigVolume(c ConfigInput) (provider.Config, error) {
-	providerSpecificConfig := map[string]interface{}{
-		"lspServerName":                 "pylsp",
-		"workspaceFolders":              []interface{}{fmt.Sprintf("file://%s", util.SourceMountPath)},
-		provider.LspServerPathConfigKey: "/usr/local/bin/pylsp",
-		"dependencyProviderPath":        "",
+func (p *PythonProvider) Name() string {
+	return util.PythonProvider
+}
+
+func (p *PythonProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
+	switch mode {
+	case ModeContainer:
+		opts.BinaryPath = ContainerGenericProviderBin
 	}
 
-	if excludedDir := util.GetProfilesExcludedDir(c.InputPath, true); excludedDir != "" {
-		providerSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
+	// Python defaults to source-only analysis
+	if opts.AnalysisMode == "" {
+		opts.AnalysisMode = string(provider.SourceOnlyAnalysisMode)
 	}
-	depFolders := []string{filepath.Join(util.SourceMountPath, "_pycache_")}
-	if len(c.DepsFolders) != 0 {
-		if len(c.DepsFolders) != 0 {
-			depFolders = append(depFolders, c.DepsFolders...)
-		}
-	}
-	providerSpecificConfig["dependencyFolders"] = depFolders
 
-	p.config = provider.Config{
-		Name:    util.PythonProvider,
-		Address: fmt.Sprintf("0.0.0.0:%v", c.Port),
-		InitConfig: []provider.InitConfig{
-			{
-				AnalysisMode:           provider.SourceOnlyAnalysisMode,
-				ProviderSpecificConfig: providerSpecificConfig,
-			},
-		},
+	cfg := NewBaseConfig(util.PythonProvider, mode, opts)
+	psc := cfg.InitConfig[0].ProviderSpecificConfig
+
+	switch mode {
+	case ModeContainer:
+		psc["lspServerName"] = "pylsp"
+		psc[provider.LspServerPathConfigKey] = ContainerPylspPath
+		psc["lspServerArgs"] = []string{}
+		psc["workspaceFolders"] = []string{}
+		psc["dependencyFolders"] = []string{}
+
+	case ModeNetwork:
+		psc["lspServerName"] = "pylsp"
+		psc[provider.LspServerPathConfigKey] = ContainerPylspPath
 	}
-	return p.config, nil
+
+	return cfg, nil
 }
