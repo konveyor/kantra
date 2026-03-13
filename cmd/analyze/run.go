@@ -3,6 +3,7 @@ package analyze
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -84,15 +85,19 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 
 	// Create analysis log file
 	analysisLogFilePath := filepath.Join(a.output, "analysis.log")
-	analysisLogFile, err := os.Create(analysisLogFilePath)
+	analysisLog, err := os.Create(analysisLogFilePath)
 	if err != nil {
 		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
 	}
-	defer analysisLogFile.Close()
+	defer func() {
+		if analysisLog != nil {
+			_ = analysisLog.Close()
+		}
+	}()
 
 	// Setup logrus for analyzer (writes to analysis.log)
 	logrusAnalyzerLog := logrus.New()
-	logrusAnalyzerLog.SetOutput(analysisLogFile)
+	logrusAnalyzerLog.SetOutput(analysisLog)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
 	if a.logLevel != nil {
 		logrusAnalyzerLog.SetLevel(logrus.Level(*a.logLevel))
@@ -300,8 +305,18 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	}
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
-	// Close analysis log before generating static report (needed for bulk on Windows)
-	analysisLogFile.Close()
+	err = analysisLog.Sync()
+	if err != nil {
+		a.log.Error(err, "failed to sync analysis log")
+	}
+	if a.bulk {
+		// moveResults deletes analysis.log; Windows cannot remove an open file.
+		if cerr := analysisLog.Close(); cerr != nil {
+			a.log.Error(cerr, "failed to close analysis log before static report")
+		}
+		logrusAnalyzerLog.SetOutput(io.Discard)
+		analysisLog = nil
+	}
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
