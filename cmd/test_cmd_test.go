@@ -51,7 +51,6 @@ func TestTestCommand_Flags(t *testing.T) {
 	expectedFlags := []string{
 		"test-filter",
 		"prune",
-		"run-local",
 	}
 
 	for _, flagName := range expectedFlags {
@@ -211,13 +210,6 @@ func TestTestCommand_FlagValues(t *testing.T) {
 		}
 	}
 
-	// Test run-local flag
-	runLocalFlag := flags.Lookup("run-local")
-	if runLocalFlag != nil {
-		if runLocalFlag.DefValue != "true" {
-			t.Errorf("Expected run-local flag default to be 'true', got '%s'", runLocalFlag.DefValue)
-		}
-	}
 }
 
 func TestTestCommand_ExecuteWithArgs(t *testing.T) {
