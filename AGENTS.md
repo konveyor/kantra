@@ -21,17 +21,21 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 - Parses and validates flags and options; Only the **Java provider** is supported. The analyzer-lsp engine runs on the host with the builtin provider and the Java provider in-process. Kantra loads default rulesets from disk (and/or `--rules`) and then runs the engine.
 
-## Components (see `.claude/context.md` for details):
+## Components
 
-### Core Dependencies
+*Full details: `.claude/context.md`*
 
 Kantra orchestrates analysis but delegates work to external components.
 
-- **[analyzer-lsp](https://github.com/konveyor/analyzer-lsp)** — Rule engine that performs the analysis. It loads rules (from default rulesets and/or `--rules`), runs rule evaluation and source and dependency analysis, and coordinates providers. The **[builtin provider](https://github.com/konveyor/analyzer-lsp/tree/main/provider/internal/builtin)** (in-process; evaluates builtin rules) and external providers. Produces the incident and dependency output. 
+- **[Alizer](https://github.com/devfile/alizer)** — Detects languages in the input path; kantra uses this to decide which provider containers to start (hybrid mode).
 
-- **[External providers](https://github.com/konveyor/analyzer-lsp/tree/main/external-providers)** — Per-language providers (Java, Go, Python, NodeJS, C#) that implement LSP-based analysis for rule conditions. In hybrid mode kantra starts one container per detected language. In containerless mode only the Java provider is used (in-process).  
+- **[analyzer-lsp](https://github.com/konveyor/analyzer-lsp)** — Rule engine: loads rules, runs evaluation and dependency analysis, coordinates providers. Produces incident and dependency output. **[Builtin provider](https://github.com/konveyor/analyzer-lsp/tree/main/provider/internal/builtin)** runs in-process for builtin rules.
 
-- **[Default rulesets](https://github.com/konveyor/rulesets)** — Curated rule definitions (e.g. Java migration rules) from [konveyor/rulesets](https://github.com/konveyor/rulesets/tree/main/stable). Shipped with kantra and passed to the analyzer-lsp engine; use `--rules` to append custom rules.
+- **[External providers](https://github.com/konveyor/analyzer-lsp/tree/main/external-providers)** — Per-language (Java, Go, Python, NodeJS, C#); LSP-based rule conditions. Hybrid: one container per language; containerless: Java provider in-process only.
+
+- **[java-analyzer-bundle](https://github.com/konveyor/java-analyzer-bundle)** — Java provider base (JDT LS add-on) used for Java analysis.
+
+- **[Default rulesets](https://github.com/konveyor/rulesets)** — Curated rules from [konveyor/rulesets](https://github.com/konveyor/rulesets/tree/main/stable); use `--rules` to append custom rules.
 
 ### Analyzer-lsp Analysis Modes
 
@@ -39,14 +43,11 @@ Kantra orchestrates analysis but delegates work to external components.
 - **`--mode full`** - Source + dependency analysis 
   - Only the **Java provider** implements dependency analysis today
 
-### Rules (See `.claude/context.md` for detailed rule structure, example rule, and how rules are evaluated)
+### Rules
 
-Rules are YAML definitions that specify migration patterns. Analyzer-lsp is fundamentally a rules engine.
+Rules are YAML definitions: a **condition** (`when`, e.g. `java.referenced` with `location` and `pattern`) that when true produces a **violation** (file, line, message, category, effort). Default rulesets are loaded automatically; add custom rules with `--rules=<path>`. Filter with `--target`, `--source`, or `--label-selector`. Rule writing: `docs/rules-quickstart.md`.
 
-- **Default rulesets**: Automatically loaded from [konveyor/rulesets](https://github.com/konveyor/rulesets)
-- **Custom rules**: Via `--rules=<path>` flag
-- **Filtering**: Use `--target=<name>`, `--source=<name>`, or `--label-selector=<expr>` to select which rules run
-- Rule writing: `docs/rules-quickstart.md`
+*Full rule structure and example: `.claude/context.md`*
 
 ## Development
 
