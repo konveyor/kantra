@@ -12,6 +12,7 @@ type testCommand struct {
 	testFilterString     string
 	baseProviderSettings string
 	prune                bool
+	runLocal             bool
 }
 
 func NewTestCommand(log logr.Logger) *cobra.Command {
@@ -35,7 +36,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				return nil
 			}
 			results, err := testing.NewRunner().Run(tests, testing.TestOptions{
-				RunLocal:         Settings.RunLocal,
+				RunLocal:         testCmd.runLocal,
 				ContainerImage:   Settings.RunnerImage,
 				ContainerToolBin: Settings.ContainerBinary,
 				ProgressPrinter:  testing.PrintProgress,
@@ -54,5 +55,6 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 	testCobraCommand.Flags().StringVarP(&testCmd.testFilterString, "test-filter", "t", "", "filter tests / testcases by their names")
 	testCobraCommand.Flags().StringVarP(&testCmd.baseProviderSettings, "base-provider-settings", "b", "", "path to a provider settings file the runner will use as base")
 	testCobraCommand.Flags().BoolVarP(&testCmd.prune, "prune", "p", false, "whether to prune after the execution; defaults to false")
+	testCobraCommand.Flags().BoolVar(&testCmd.runLocal, "run-local", true, "run tests in containerless mode")
 	return testCobraCommand
 }

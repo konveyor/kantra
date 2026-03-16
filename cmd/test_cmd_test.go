@@ -50,8 +50,9 @@ func TestTestCommand_Flags(t *testing.T) {
 	// Check for expected flags
 	expectedFlags := []string{
 		"test-filter",
-		"base-provider-settings", 
+		"base-provider-settings",
 		"prune",
+		"run-local",
 	}
 	
 	for _, flagName := range expectedFlags {
@@ -218,6 +219,14 @@ func TestTestCommand_FlagValues(t *testing.T) {
 			t.Errorf("Expected prune flag default to be 'false', got '%s'", pruneFlag.DefValue)
 		}
 	}
+
+	// Test run-local flag
+	runLocalFlag := flags.Lookup("run-local")
+	if runLocalFlag != nil {
+		if runLocalFlag.DefValue != "true" {
+			t.Errorf("Expected run-local flag default to be 'true', got '%s'", runLocalFlag.DefValue)
+		}
+	}
 }
 
 func TestTestCommand_ExecuteWithArgs(t *testing.T) {
@@ -243,6 +252,10 @@ func TestTestCommand_ExecuteWithArgs(t *testing.T) {
 		{
 			name: "with base-provider-settings flag",
 			args: []string{"--base-provider-settings", "settings.yaml"},
+		},
+		{
+			name: "with run-local flag",
+			args: []string{"--run-local=false"},
 		},
 		{
 			name: "with multiple flags",

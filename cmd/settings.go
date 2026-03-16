@@ -29,7 +29,6 @@ type Config struct {
 	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
 	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`
 	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
-	RunLocal             bool   `env:"RUN_LOCAL"`
 	JvmMaxMem            string `env:"JVM_MAX_MEM" default:""`
 	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
 	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
