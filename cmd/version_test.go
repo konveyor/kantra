@@ -184,6 +184,71 @@ func TestVersionCommand_OutputFormat(t *testing.T) {
 	}
 }
 
+func TestVersionCommand_WithRulesetsSHA(t *testing.T) {
+	// Set up a temp directory with a .sha file so the version command prints it
+	tmpDir := t.TempDir()
+	rulesetsDir := filepath.Join(tmpDir, RulesetsLocation)
+	if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rulesetsDir, ".sha"), []byte("deadbeef123\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(util.KantraDirEnv, tmpDir)
+
+	cmd := NewVersionCommand()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "rulesets SHA: deadbeef123") {
+		t.Errorf("expected output to contain rulesets SHA, got %q", output)
+	}
+}
+
+func TestVersionCommand_WarningOnSHAReadError(t *testing.T) {
+	// Set up a temp directory with a .sha file that has no read permission
+	tmpDir := t.TempDir()
+	rulesetsDir := filepath.Join(tmpDir, RulesetsLocation)
+	if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	shaPath := filepath.Join(rulesetsDir, ".sha")
+	if err := os.WriteFile(shaPath, []byte("abc123\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(shaPath, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(util.KantraDirEnv, tmpDir)
+
+	cmd := NewVersionCommand()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// The warning should go to stderr
+	if !strings.Contains(stderr.String(), "warning: unable to read rulesets SHA") {
+		t.Errorf("expected warning on stderr, got %q", stderr.String())
+	}
+	// stdout should not contain rulesets SHA
+	if strings.Contains(stdout.String(), "rulesets SHA") {
+		t.Errorf("did not expect rulesets SHA on stdout, got %q", stdout.String())
+	}
+}
+
 func TestReadRulesetsSHA(t *testing.T) {
 	t.Run("reads sha from file", func(t *testing.T) {
 		tmpDir := t.TempDir()
