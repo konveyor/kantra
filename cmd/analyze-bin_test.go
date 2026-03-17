@@ -118,8 +118,8 @@ func TestRunAnalysisContainerless_DeferRunsOnEarlyReturn(t *testing.T) {
 	t.Run("with StopHook asserts deferred cleanup ran", func(t *testing.T) {
 		var cleanupRan bool
 		a := &analyzeCommand{
-			input:  inputDir,
-			output: outputDir,
+			input:                    inputDir,
+			output:                   outputDir,
 			overrideProviderSettings: "/nonexistent/override-settings.json",
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -139,8 +139,8 @@ func TestRunAnalysisContainerless_DeferRunsOnEarlyReturn(t *testing.T) {
 
 	t.Run("without StopHook still runs deferred cleanup", func(t *testing.T) {
 		a := &analyzeCommand{
-			input:  inputDir,
-			output: outputDir,
+			input:                    inputDir,
+			output:                   outputDir,
 			overrideProviderSettings: "/nonexistent/override-settings.json",
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -162,9 +162,9 @@ func TestRunAnalysisContainerless_DeferRunsOnEarlyReturn(t *testing.T) {
 	t.Run("with labelSelector runs label selector path", func(t *testing.T) {
 		var cleanupRan bool
 		a := &analyzeCommand{
-			input:  inputDir,
-			output: outputDir,
-			labelSelector: "source=java", // valid selector so we hit the append path
+			input:                    inputDir,
+			output:                   outputDir,
+			labelSelector:            "source=java", // valid selector so we hit the append path
 			overrideProviderSettings: "/nonexistent/override-settings.json",
 			AnalyzeCommandContext: AnalyzeCommandContext{
 				log:       logr.Discard(),
@@ -1419,6 +1419,81 @@ func TestValidateContainerlessInput(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildStaticReportFileWritesToDestPath(t *testing.T) {
+	log := logr.Discard()
+	tmpOutput, err := os.MkdirTemp("", "test-build-static-report-dest-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	// Valid output.yaml so validateFlags/loadApplications/generateJSBundle succeed
+	outputYaml := filepath.Join(tmpOutput, "output.yaml")
+	err = os.WriteFile(outputYaml, []byte("[]"), 0644)
+	require.NoError(t, err)
+
+	tmpInput, err := os.MkdirTemp("", "test-build-static-report-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpInput)
+
+	// Destination is under output dir (behavior after PR #759)
+	staticReportDestPath := filepath.Join(tmpOutput, "static-report")
+	require.NoError(t, os.MkdirAll(staticReportDestPath, 0755))
+
+	a := &analyzeCommand{
+		input:                 tmpInput,
+		output:                tmpOutput,
+		AnalyzeCommandContext: AnalyzeCommandContext{log: log},
+	}
+
+	err = a.buildStaticReportFile(context.Background(), staticReportDestPath, true)
+	require.NoError(t, err)
+
+	// output.js must be created under the given dest path (output/static-report), not kantraDir
+	outputJS := filepath.Join(staticReportDestPath, "output.js")
+	_, statErr := os.Stat(outputJS)
+	assert.NoError(t, statErr, "output.js should be created under staticReportPath (output/static-report)")
+}
+
+func TestGenerateStaticReportBuildsReportUnderOutputDir(t *testing.T) {
+	log := logr.Discard()
+	tmpOutput, err := os.MkdirTemp("", "test-generate-static-report-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	tmpKantraDir, err := os.MkdirTemp("", "test-generate-static-report-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpKantraDir)
+
+	// kantraDir must contain static-report so buildStaticReportOutput (CopyFolderContents) succeeds
+	staticReportSrc := filepath.Join(tmpKantraDir, "static-report")
+	require.NoError(t, os.MkdirAll(staticReportSrc, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(staticReportSrc, "index.html"), []byte("<html></html>"), 0644))
+
+	// output.yaml so buildStaticReportFile can validate and generate output.js
+	outputYaml := filepath.Join(tmpOutput, "output.yaml")
+	err = os.WriteFile(outputYaml, []byte("[]"), 0644)
+	require.NoError(t, err)
+
+	tmpInput, err := os.MkdirTemp("", "test-generate-static-report-input-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpInput)
+
+	a := &analyzeCommand{
+		input:  tmpInput,
+		output: tmpOutput,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       log,
+			kantraDir: tmpKantraDir,
+		},
+	}
+
+	err = a.GenerateStaticReport(context.Background(), log)
+	require.NoError(t, err)
+
+	outputJS := filepath.Join(tmpOutput, "static-report", "output.js")
+	_, statErr := os.Stat(outputJS)
+	assert.NoError(t, statErr, "static report output.js should be under a.output/static-report")
 }
 
 func TestGenerateStaticReportSkipFlag(t *testing.T) {
