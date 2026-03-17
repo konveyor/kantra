@@ -116,7 +116,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 			// For the moment, use the first provider's dataPath (relative to test file).
 			dataPath := ""
 			if len(testsFile.Providers) > 0 && testsFile.Providers[0].DataPath != "" {
-				dataPath = filepath.Join(filepath.Dir(testsFile.Path), filepath.Clean(testsFile.Providers[0].DataPath))
+				dataPath = resolveDataPath(testsFile.Path, testsFile.Providers[0].DataPath)
 			}
 
 			reproducerCmd, err := runWithEnvironment(
@@ -415,6 +415,15 @@ func ensureRules(rulesPath string, tempDirPath string, group []Test) error {
 		return fmt.Errorf("failed writing rules file - %w", err)
 	}
 	return nil
+}
+
+// resolveDataPath resolves a dataPath relative to the test file's directory,
+// or returns it as-is if it is already an absolute path.
+func resolveDataPath(testsFilePath string, dataPath string) string {
+	if filepath.IsAbs(dataPath) {
+		return dataPath
+	}
+	return filepath.Join(filepath.Dir(testsFilePath), filepath.Clean(dataPath))
 }
 
 func groupTestsByAnalysisParams(tests []Test) [][]Test {

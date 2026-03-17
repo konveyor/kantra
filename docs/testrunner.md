@@ -50,9 +50,7 @@ tests:
   [...]
 ```
 
-_name_ is the name of the provider to which the config applies to, and _dataPath_ is the relative path to the test data to be used when testing rules for that provider.
-
-> Note that _dataPath_ must be relative to the directory in which tests file exists.
+_name_ is the name of the provider to which the config applies to, and _dataPath_ is the path to the test data to be used when testing rules for that provider. It can be a relative path (resolved relative to the directory in which the tests file exists) or an absolute path.
 
 If all tests under a _ruleset_ share values of _providers_ field (e.g. they use common data directory in all tests for a given provider), this config can also be defined at ruleset level under a special file `testing-config.yaml`. In that case, the config present in this file will apply to all tests in that directory. A more specific config for a certain file can still be defined in the tests file. In that case, values in the tests file will take precedance over values at the _ruleset_ level.
 
