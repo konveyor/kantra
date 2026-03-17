@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -189,10 +190,10 @@ func TestReadRulesetsSHA(t *testing.T) {
 
 	t.Setenv(util.KantraDirEnv, tmpDir)
 
-	t.Run("missing file returns error", func(t *testing.T) {
+	t.Run("missing file returns os.ErrNotExist", func(t *testing.T) {
 		_, err := readRulesetsSHA()
-		if err == nil {
-			t.Error("expected error when .sha file is missing")
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("expected os.ErrNotExist, got %v", err)
 		}
 	})
 
