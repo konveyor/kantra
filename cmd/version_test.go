@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -175,6 +178,37 @@ func TestVersionCommand_OutputFormat(t *testing.T) {
 	// Since fmt.Printf writes directly to stdout, not cobra's output buffer,
 	// we can't easily test the output format. We'll just verify execution succeeded.
 	_ = buf.String() // Acknowledge we're not checking output due to fmt.Printf limitation
+}
+
+func TestReadRulesetsSHA(t *testing.T) {
+	tmpDir := t.TempDir()
+	rulesetsDir := filepath.Join(tmpDir, settings.RulesetsLocation)
+	if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(util.KantraDirEnv, tmpDir)
+
+	t.Run("missing file returns error", func(t *testing.T) {
+		_, err := readRulesetsSHA()
+		if err == nil {
+			t.Error("expected error when .sha file is missing")
+		}
+	})
+
+	t.Run("reads sha from file", func(t *testing.T) {
+		expected := "abc123def456"
+		if err := os.WriteFile(filepath.Join(rulesetsDir, ".sha"), []byte(expected+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := readRulesetsSHA()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != expected {
+			t.Errorf("readRulesetsSHA() = %q, want %q", got, expected)
+		}
+	})
 }
 
 func TestVersionGlobalVariables(t *testing.T) {

@@ -5,6 +5,7 @@ FROM registry.access.redhat.com/ubi9-minimal as rulesets
 ARG RULESETS_REF=main
 RUN microdnf -y install git &&\
     git clone https://github.com/konveyor/tackle2-seed -b ${RULESETS_REF} &&\
+    git -C tackle2-seed rev-parse HEAD > tackle2-seed/resources/rulesets/.sha &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
 FROM quay.io/konveyor/static-report:${VERSION} as static-report
