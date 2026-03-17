@@ -18,17 +18,17 @@ func NewVersionCommand() *cobra.Command {
 		Short: "Print the tool version",
 		Long:  "Print this tool version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("version: %s\n", settings.Version)
-			fmt.Printf("SHA: %s\n", settings.BuildCommit)
-			fmt.Printf("image: %s\n", settings.RunnerImage)
+			fmt.Fprintf(cmd.OutOrStdout(), "version: %s\n", settings.Version)
+			fmt.Fprintf(cmd.OutOrStdout(), "SHA: %s\n", settings.BuildCommit)
+			fmt.Fprintf(cmd.OutOrStdout(), "image: %s\n", settings.RunnerImage)
 			sha, err := readRulesetsSHA()
 			switch {
 			case err == nil:
-				fmt.Printf("rulesets SHA: %s\n", sha)
+				fmt.Fprintf(cmd.OutOrStdout(), "rulesets SHA: %s\n", sha)
 			case errors.Is(err, os.ErrNotExist):
 				// .sha file not present, omit from output
 			default:
-				fmt.Fprintf(os.Stderr, "warning: unable to read rulesets SHA: %v\n", err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unable to read rulesets SHA: %v\n", err)
 			}
 		},
 	}
