@@ -10,6 +10,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 - @.claude/testing.md — Testing commands and scenarios
 - @.claude/architecture.md — Containerless vs hybrid architecture, repository layout
 - @.claude/context.md — Component details, rules, analysis flow
+- @.claude/skills.md — Project skills (e.g. testing local code changes)
 
 ## Kantra analysis modes:
 
