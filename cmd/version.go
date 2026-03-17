@@ -43,17 +43,21 @@ func NewVersionCommand() *cobra.Command {
 func readRulesetsSHA() (string, error) {
 	shaFile := filepath.Join(settings.RulesetsLocation, ".sha")
 	kantraDir, err := util.GetKantraDir()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(kantraDir, shaFile))
 	if err == nil {
-		data, err := os.ReadFile(filepath.Join(kantraDir, shaFile))
-		if err == nil {
-			return strings.TrimSpace(string(data)), nil
-		}
-		if !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	if os.Getenv(util.KantraDirEnv) != "" {
+		return "", err
 	}
 	// Fallback for container environment where rulesets are at /opt/rulesets
-	data, err := os.ReadFile(filepath.Join("/opt", shaFile))
+	data, err = os.ReadFile(filepath.Join("/opt", shaFile))
 	if err != nil {
 		return "", err
 	}
