@@ -187,7 +187,7 @@ func TestVersionCommand_OutputFormat(t *testing.T) {
 func TestVersionCommand_WithRulesetsSHA(t *testing.T) {
 	// Set up a temp directory with a .sha file so the version command prints it
 	tmpDir := t.TempDir()
-	rulesetsDir := filepath.Join(tmpDir, RulesetsLocation)
+	rulesetsDir := filepath.Join(tmpDir, settings.RulesetsLocation)
 	if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -213,9 +213,12 @@ func TestVersionCommand_WithRulesetsSHA(t *testing.T) {
 }
 
 func TestVersionCommand_WarningOnSHAReadError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
 	// Set up a temp directory with a .sha file that has no read permission
 	tmpDir := t.TempDir()
-	rulesetsDir := filepath.Join(tmpDir, RulesetsLocation)
+	rulesetsDir := filepath.Join(tmpDir, settings.RulesetsLocation)
 	if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -286,6 +289,9 @@ func TestReadRulesetsSHA(t *testing.T) {
 	})
 
 	t.Run("permission error is returned not suppressed", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("skipping permission test when running as root")
+		}
 		tmpDir := t.TempDir()
 		rulesetsDir := filepath.Join(tmpDir, settings.RulesetsLocation)
 		if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
@@ -311,22 +317,16 @@ func TestReadRulesetsSHA(t *testing.T) {
 	})
 
 	t.Run("falls back to /opt when KANTRA_DIR not set and .sha missing from kantra dir", func(t *testing.T) {
-		// Set KANTRA_DIR to a dir without .sha, then unset it to trigger fallback
-		tmpDir := t.TempDir()
-		rulesetsDir := filepath.Join(tmpDir, settings.RulesetsLocation)
-		if err := os.MkdirAll(rulesetsDir, 0755); err != nil {
-			t.Fatal(err)
+		// Ensure KANTRA_DIR is unset to trigger fallback to /opt/rulesets/.sha
+		// t.Setenv registers cleanup to restore the original value
+		if orig := os.Getenv(util.KantraDirEnv); orig != "" {
+			t.Setenv(util.KantraDirEnv, orig)
+			os.Unsetenv(util.KantraDirEnv)
 		}
-		// Point kantra dir to tmpDir (no .sha), KANTRA_DIR not set
-		// GetKantraDir will fall back to CWD or $HOME/.kantra, not tmpDir
-		// We need KANTRA_DIR unset and the resolved dir to not have .sha
-		// The /opt fallback will also likely fail in test, but we verify the path is attempted
-		t.Setenv(util.KantraDirEnv, tmpDir)
-		os.Unsetenv(util.KantraDirEnv)
 
 		_, err := readRulesetsSHA()
 		// In test environment /opt/rulesets/.sha won't exist either,
-		// but the important thing is we get ErrNotExist (not a different error),
+		// but the important thing is we get an error (not nil),
 		// confirming the fallback path was reached
 		if err == nil {
 			t.Error("expected error in test environment")

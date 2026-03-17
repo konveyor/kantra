@@ -48,7 +48,10 @@ func readRulesetsSHA() (string, error) {
 	}
 	data, err := os.ReadFile(filepath.Join(kantraDir, shaFile))
 	if err == nil {
-		return strings.TrimSpace(string(data)), nil
+		if sha := strings.TrimSpace(string(data)); sha != "" {
+			return sha, nil
+		}
+		return "", os.ErrNotExist
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return "", err
@@ -61,5 +64,8 @@ func readRulesetsSHA() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(data)), nil
+	if sha := strings.TrimSpace(string(data)); sha != "" {
+		return sha, nil
+	}
+	return "", os.ErrNotExist
 }
