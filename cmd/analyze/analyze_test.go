@@ -1498,3 +1498,77 @@ func Test_staticReportPathFlagParsing(t *testing.T) {
 		t.Errorf("unexpected usage text: %q", flag.Usage)
 	}
 }
+
+func TestSetProxyEnvironment(t *testing.T) {
+	allProxyEnvs := []string{"http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY"}
+
+	tests := []struct {
+		name        string
+		httpProxy   string
+		httpsProxy  string
+		noProxy     string
+		expectEnv   map[string]string
+		expectUnset []string
+	}{
+		{
+			name:       "sets all proxy env vars",
+			httpProxy:  "http://proxy.example.com:8080",
+			httpsProxy: "http://proxy.example.com:8443",
+			noProxy:    "localhost,127.0.0.1",
+			expectEnv: map[string]string{
+				"http_proxy":  "http://proxy.example.com:8080",
+				"HTTP_PROXY":  "http://proxy.example.com:8080",
+				"https_proxy": "http://proxy.example.com:8443",
+				"HTTPS_PROXY": "http://proxy.example.com:8443",
+				"no_proxy":    "localhost,127.0.0.1",
+				"NO_PROXY":    "localhost,127.0.0.1",
+			},
+		},
+		{
+			name:       "sets only https proxy when http is empty",
+			httpsProxy: "http://proxy.example.com:8443",
+			expectEnv: map[string]string{
+				"https_proxy": "http://proxy.example.com:8443",
+				"HTTPS_PROXY": "http://proxy.example.com:8443",
+			},
+			expectUnset: []string{"http_proxy", "HTTP_PROXY", "no_proxy", "NO_PROXY"},
+		},
+		{
+			name:        "does not set anything when all empty",
+			expectUnset: []string{"http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, env := range allProxyEnvs {
+				os.Unsetenv(env)
+			}
+
+			a := &analyzeCommand{
+				httpProxy:  tt.httpProxy,
+				httpsProxy: tt.httpsProxy,
+				noProxy:    tt.noProxy,
+			}
+
+			a.setProxyEnvironment()
+
+			for env, expected := range tt.expectEnv {
+				actual := os.Getenv(env)
+				if actual != expected {
+					t.Errorf("env var %s = %q, want %q", env, actual, expected)
+				}
+			}
+			for _, env := range tt.expectUnset {
+				actual, set := os.LookupEnv(env)
+				if set {
+					t.Errorf("env var %s should not be set, but got %q", env, actual)
+				}
+			}
+
+			for _, env := range allProxyEnvs {
+				os.Unsetenv(env)
+			}
+		})
+	}
+}

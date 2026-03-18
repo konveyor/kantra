@@ -42,11 +42,34 @@ import (
 //  13. Post-analysis (e.g., provider log collection)
 //  14. Output writing (YAML, JSON, static report)
 //  15. Results summary
+// setProxyEnvironment sets proxy environment variables in the current process
+// from the CLI flags. This ensures all child processes (providers, language servers,
+// etc.) inherit the proxy settings. Sets both lower and upper case variants for
+// compatibility with different tools. Maven proxy is handled separately by
+// analyzer-lsp's Java provider which generates a settings.xml with <proxies>.
+func (a *analyzeCommand) setProxyEnvironment() {
+	proxyVars := map[string]string{
+		"http_proxy":  a.httpProxy,
+		"HTTP_PROXY":  a.httpProxy,
+		"https_proxy": a.httpsProxy,
+		"HTTPS_PROXY": a.httpsProxy,
+		"no_proxy":    a.noProxy,
+		"NO_PROXY":    a.noProxy,
+	}
+	for env, value := range proxyVars {
+		if value != "" {
+			os.Setenv(env, value)
+		}
+	}
+}
+
 func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.ExecutionMode, foundProviders []string) error {
 	restoreStderr := util.InstallStderrFilter()
 	defer restoreStderr()
 
 	startTotal := time.Now()
+
+	a.setProxyEnvironment()
 
 	// --- Progress, tracing, logging setup ---
 	progressMode := NewProgressMode(a.noProgress)
