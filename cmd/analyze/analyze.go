@@ -54,6 +54,7 @@ type analyzeCommand struct {
 	disableMavenSearch       bool
 	noProgress               bool
 	overrideProviderSettings string
+	staticReportPath         string
 	profileDir               string
 	profilePath              string
 	AnalyzeCommandContext
@@ -271,6 +272,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.staticReportPath, "static-report-path", "", "override the default static report template location")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
 	return analyzeCommand
 }

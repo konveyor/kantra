@@ -171,6 +171,15 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 	if !a.enableDefaultRulesets && len(a.rules) == 0 {
 		return fmt.Errorf("must specify rules if default rulesets are not enabled")
 	}
+	if a.staticReportPath != "" {
+		stat, err := os.Stat(a.staticReportPath)
+		if err != nil {
+			return fmt.Errorf("%w failed to stat static report path %s", err, a.staticReportPath)
+		}
+		if !stat.IsDir() {
+			return fmt.Errorf("static report path %s is not a directory", a.staticReportPath)
+		}
+	}
 	return nil
 }
 

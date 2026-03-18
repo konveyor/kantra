@@ -1369,3 +1369,132 @@ func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 		})
 	}
 }
+
+func Test_analyzeCommand_Validate_staticReportPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupFunc   func(t *testing.T) (string, func())
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "empty staticReportPath is valid",
+			setupFunc: func(t *testing.T) (string, func()) {
+				return "", func() {}
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid directory path is accepted",
+			setupFunc: func(t *testing.T) (string, func()) {
+				tmpDir, err := os.MkdirTemp("", "test-report-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return tmpDir, func() { os.RemoveAll(tmpDir) }
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent path returns error",
+			setupFunc: func(t *testing.T) (string, func()) {
+				return "/nonexistent/path/to/report", func() {}
+			},
+			wantErr:     true,
+			errContains: "failed to stat static report path",
+		},
+		{
+			name: "file path (not directory) returns error",
+			setupFunc: func(t *testing.T) (string, func()) {
+				tmpDir, err := os.MkdirTemp("", "test-report-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				filePath := filepath.Join(tmpDir, "not-a-dir.txt")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				if err != nil {
+					os.RemoveAll(tmpDir)
+					t.Fatal(err)
+				}
+				return filePath, func() { os.RemoveAll(tmpDir) }
+			},
+			wantErr:     true,
+			errContains: "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reportPath, cleanup := tt.setupFunc(t)
+			defer cleanup()
+
+			// Create minimal valid analyze command setup
+			tmpInput, err := os.MkdirTemp("", "test-input-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(tmpInput)
+
+			tmpOutput := filepath.Join(os.TempDir(), fmt.Sprintf("test-output-%d", time.Now().UnixNano()))
+
+			tmpKantraDir, err := os.MkdirTemp("", "test-kantra-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(tmpKantraDir)
+
+			// Create required kantra subdirectories
+			for _, sub := range []string{"rulesets/default/generated", "jdtls/bin", "java-bundles"} {
+				os.MkdirAll(filepath.Join(tmpKantraDir, sub), 0755)
+			}
+			os.WriteFile(filepath.Join(tmpKantraDir, "fernflower.jar"), []byte(""), 0644)
+
+			a := &analyzeCommand{
+				staticReportPath:     reportPath,
+				input:                tmpInput,
+				output:               tmpOutput,
+				mode:                 "full",
+				enableDefaultRulesets: true,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       logr.Discard(),
+					kantraDir: tmpKantraDir,
+				},
+			}
+
+			cmd := &cobra.Command{}
+			err = a.Validate(context.Background(), cmd, nil)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q but got nil", tt.errContains)
+				} else if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error containing %q, got %q", tt.errContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+
+			// Cleanup output dir if created
+			os.RemoveAll(tmpOutput)
+		})
+	}
+}
+
+func Test_staticReportPathFlagParsing(t *testing.T) {
+	log := logr.Discard()
+	cmd := NewAnalyzeCmd(log)
+
+	// Verify the flag exists and has the correct default
+	flag := cmd.Flags().Lookup("static-report-path")
+	if flag == nil {
+		t.Fatal("expected --static-report-path flag to exist")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("expected default value to be empty, got %q", flag.DefValue)
+	}
+	if flag.Usage != "override the default static report template location" {
+		t.Errorf("unexpected usage text: %q", flag.Usage)
+	}
+}

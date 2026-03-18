@@ -943,3 +943,152 @@ func sliceContains(slice []string, item string) bool {
 	}
 	return false
 }
+
+func TestGetStaticReportSrcPath(t *testing.T) {
+	tests := []struct {
+		name             string
+		staticReportPath string
+		kantraDir        string
+		expected         string
+	}{
+		{
+			name:             "uses default kantraDir when staticReportPath is empty",
+			staticReportPath: "",
+			kantraDir:        "/opt/kantra",
+			expected:         filepath.Join("/opt/kantra", "static-report"),
+		},
+		{
+			name:             "uses override when staticReportPath is set",
+			staticReportPath: "/custom/report/template",
+			kantraDir:        "/opt/kantra",
+			expected:         "/custom/report/template",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &analyzeCommand{
+				staticReportPath: tt.staticReportPath,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					kantraDir: tt.kantraDir,
+				},
+			}
+			result := a.getStaticReportSrcPath()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGenerateStaticReportWithCustomPath(t *testing.T) {
+	log := logr.Discard()
+
+	// Create a temporary custom static report template directory
+	customReportDir, err := os.MkdirTemp("", "custom-static-report-")
+	require.NoError(t, err)
+	defer os.RemoveAll(customReportDir)
+
+	// Create a minimal index.html in the custom report dir
+	err = os.WriteFile(filepath.Join(customReportDir, "index.html"), []byte("<html></html>"), 0644)
+	require.NoError(t, err)
+
+	// Create temporary output directory
+	tmpOutput, err := os.MkdirTemp("", "test-static-report-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	// Create minimal output.yaml and dependencies.yaml
+	err = os.WriteFile(filepath.Join(tmpOutput, "output.yaml"), []byte("[]"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpOutput, "dependencies.yaml"), []byte("[]"), 0644)
+	require.NoError(t, err)
+
+	a := &analyzeCommand{
+		staticReportPath: customReportDir,
+		output:           tmpOutput,
+		input:            "/some/input",
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       log,
+			kantraDir: "/nonexistent/kantra/dir",
+		},
+	}
+
+	err = a.GenerateStaticReport(context.Background(), log)
+	assert.NoError(t, err)
+
+	// Verify the report was generated from the custom path
+	_, statErr := os.Stat(filepath.Join(tmpOutput, "static-report", "index.html"))
+	assert.NoError(t, statErr, "index.html should be copied from custom static report path")
+}
+
+func TestBuildStaticReportOutputUsesCustomPath(t *testing.T) {
+	// Create a custom report template directory with a test file
+	customReportDir, err := os.MkdirTemp("", "custom-report-template-")
+	require.NoError(t, err)
+	defer os.RemoveAll(customReportDir)
+
+	testContent := []byte("custom template content")
+	err = os.WriteFile(filepath.Join(customReportDir, "index.html"), testContent, 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(customReportDir, "style.css"), []byte("body{}"), 0644)
+	require.NoError(t, err)
+
+	// Create output directory
+	tmpOutput, err := os.MkdirTemp("", "test-report-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	a := &analyzeCommand{
+		staticReportPath: customReportDir,
+		output:           tmpOutput,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: "/nonexistent/should/not/be/used",
+		},
+	}
+
+	err = a.buildStaticReportOutput(context.Background(), nil)
+	assert.NoError(t, err)
+
+	// Verify files were copied from custom path
+	content, err := os.ReadFile(filepath.Join(tmpOutput, "static-report", "index.html"))
+	assert.NoError(t, err)
+	assert.Equal(t, testContent, content)
+
+	_, statErr := os.Stat(filepath.Join(tmpOutput, "static-report", "style.css"))
+	assert.NoError(t, statErr, "style.css should be copied from custom report dir")
+}
+
+func TestBuildStaticReportOutputUsesDefaultPath(t *testing.T) {
+	// Create a default kantraDir with static-report subdirectory
+	tmpKantraDir, err := os.MkdirTemp("", "test-kantra-dir-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpKantraDir)
+
+	defaultReportDir := filepath.Join(tmpKantraDir, "static-report")
+	err = os.MkdirAll(defaultReportDir, 0755)
+	require.NoError(t, err)
+
+	defaultContent := []byte("default template")
+	err = os.WriteFile(filepath.Join(defaultReportDir, "index.html"), defaultContent, 0644)
+	require.NoError(t, err)
+
+	// Create output directory
+	tmpOutput, err := os.MkdirTemp("", "test-report-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	a := &analyzeCommand{
+		output: tmpOutput,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: tmpKantraDir,
+		},
+	}
+
+	err = a.buildStaticReportOutput(context.Background(), nil)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpOutput, "static-report", "index.html"))
+	assert.NoError(t, err)
+	assert.Equal(t, defaultContent, content)
+}

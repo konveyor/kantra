@@ -111,8 +111,15 @@ func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReport
 	return nil
 }
 
+func (a *analyzeCommand) getStaticReportSrcPath() string {
+	if a.staticReportPath != "" {
+		return a.staticReportPath
+	}
+	return filepath.Join(a.kantraDir, "static-report")
+}
+
 func (a *analyzeCommand) buildStaticReportOutput(ctx context.Context, log *os.File) error {
-	outputFolderSrcPath := filepath.Join(a.kantraDir, "static-report")
+	outputFolderSrcPath := a.getStaticReportSrcPath()
 	outputFolderDestPath := filepath.Join(a.output, "static-report")
 
 	//copy static report files to output folder
