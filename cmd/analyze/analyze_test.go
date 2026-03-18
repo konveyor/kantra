@@ -14,6 +14,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor/analyzer-lsp/provider"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -1367,5 +1368,31 @@ func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 					disableMavenSearchValue, tt.expectedDisableMavenSearch)
 			}
 		})
+	}
+}
+
+func TestCloseAnalysisLog(t *testing.T) {
+	// Create a temp file to simulate an analysis log
+	f, err := os.CreateTemp(t.TempDir(), "analysis-*.log")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	logger := logrus.New()
+	logger.SetOutput(f)
+
+	// Write something to verify the logger works before close
+	logger.Info("test message before close")
+
+	// Close the log - this should redirect output to discard then close the file
+	closeAnalysisLog(logger, f)
+
+	// After close, logging should not panic or produce errors
+	logger.Info("test message after close")
+
+	// Verify the file is actually closed by trying to write to it
+	_, err = f.Write([]byte("should fail"))
+	if err == nil {
+		t.Error("expected write to closed file to fail")
 	}
 }

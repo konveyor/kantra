@@ -302,10 +302,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report (needed for bulk on Windows).
-	// Redirect logrus output to discard first to prevent "Failed to write to log"
-	// errors from any goroutines that may still attempt to log after the file is closed.
-	logrusAnalyzerLog.SetOutput(io.Discard)
-	analysisLogFile.Close()
+	closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
@@ -356,4 +353,12 @@ func providerImage(name string) string {
 	default:
 		return ""
 	}
+}
+
+// closeAnalysisLog safely closes the analysis log file by first redirecting
+// logrus output to discard. This prevents "Failed to write to log" errors
+// from goroutines that may still attempt to log after the file is closed.
+func closeAnalysisLog(logger *logrus.Logger, f *os.File) {
+	logger.SetOutput(io.Discard)
+	f.Close()
 }
