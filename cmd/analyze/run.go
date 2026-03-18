@@ -3,6 +3,7 @@ package analyze
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -300,7 +301,10 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	}
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
-	// Close analysis log before generating static report (needed for bulk on Windows)
+	// Close analysis log before generating static report (needed for bulk on Windows).
+	// Redirect logrus output to discard first to prevent "Failed to write to log"
+	// errors from any goroutines that may still attempt to log after the file is closed.
+	logrusAnalyzerLog.SetOutput(io.Discard)
 	analysisLogFile.Close()
 
 	startStaticReport := time.Now()
