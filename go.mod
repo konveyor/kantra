@@ -135,10 +135,8 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.1.0
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260213173018-c6c045b2bec9
+	github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260318171141-1e9eb64d6989
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/pflag v1.0.7 // indirect
 )
-
-replace github.com/konveyor/analyzer-lsp => github.com/shawn-hurley/analyzer-lsp v0.0.0-20260313193026-0d2b9cfbee4b

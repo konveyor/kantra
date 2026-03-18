@@ -138,6 +138,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
+github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260318171141-1e9eb64d6989 h1:kU8fvJk+2E8sZiYnKZePukUCmH9B6SECFl+5xnL5I3o=
+github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260318171141-1e9eb64d6989/go.mod h1:Iwz1ffcFw9PIC0KB55Wz/sGXVfpRE2lvKrEl90Y31+c=
 github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=
 github.com/konveyor/asset-generation v0.2.2/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
