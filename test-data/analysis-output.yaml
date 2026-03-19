@@ -563,19 +563,6 @@
   - windup-discover-jpa-configuration
   - windup-discover-spring-configuration
   - windup-discover-web-configuration
-- name: dotnet-core-migration
-  description: |
-    Ruleset for migrating ASP.NET MVC applications to ASP.NET Core / .NET Core.
-
-    This ruleset identifies incompatible APIs, frameworks, and patterns that need to be
-    updated when migrating from .NET Framework to .NET Core/.NET 5+.
-
-    The rules are organized into the following categories:
-    - Web Framework Migration (System.Web to ASP.NET Core)
-    - Authentication and Security Migration
-    - Entity Framework to EF Core Migration
-    - Configuration and State Management Migration
-    - Runtime and Utility Class Migration
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge
     Is Everything) API in the upgrade from version 5 to 6.
@@ -1942,9 +1929,6 @@
 - name: spring-boot
   description: Ruleset for migration of Spring Boot
   skipped:
-  - spring-boot-2.x-to-3.0-actuator-00010
-  - spring-boot-2.x-to-3.0-actuator-00020
-  - spring-boot-2.x-to-3.0-actuator-00030
   - spring-boot-2.x-to-3.0-batch-00000
   - spring-boot-2.x-to-3.0-batch-00010
   - spring-boot-2.x-to-3.0-batch-00020
@@ -1952,9 +1936,6 @@
   - spring-boot-2.x-to-3.0-core-changes-00010
   - spring-boot-2.x-to-3.0-core-changes-00020
   - spring-boot-2.x-to-3.0-core-changes-00030
-  - spring-boot-2.x-to-3.0-core-changes-00040
-  - spring-boot-2.x-to-3.0-core-changes-00050
-  - spring-boot-2.x-to-3.0-core-changes-00060
   - spring-boot-2.x-to-3.0-datasource-00000
   - spring-boot-2.x-to-3.0-datasource-00010
   - spring-boot-2.x-to-3.0-datasource-00020
@@ -1962,7 +1943,6 @@
   - spring-boot-2.x-to-3.0-datasource-00040
   - spring-boot-2.x-to-3.0-datasource-00050
   - spring-boot-2.x-to-3.0-datasource-00060
-  - spring-boot-2.x-to-3.0-datasource-00070
   - spring-boot-2.x-to-3.0-dependencies-00001
   - spring-boot-2.x-to-3.0-dependencies-00002
   - spring-boot-2.x-to-3.0-dependencies-00003
@@ -1979,12 +1959,6 @@
   - spring-boot-2.x-to-3.0-dependencies-00014
   - spring-boot-2.x-to-3.0-dependencies-00015
   - spring-boot-2.x-to-3.0-dependencies-00016
-  - spring-boot-2.x-to-3.0-dependencies-00020
-  - spring-boot-2.x-to-3.0-dependencies-00021
-  - spring-boot-2.x-to-3.0-micrometer-00010
-  - spring-boot-2.x-to-3.0-micrometer-00020
-  - spring-boot-2.x-to-3.0-micrometer-00030
-  - spring-boot-2.x-to-3.0-micrometer-00040
   - spring-boot-2.x-to-3.0-removals-00010
   - spring-boot-2.x-to-3.0-removals-00020
   - spring-boot-2.x-to-3.0-removals-00030
@@ -2105,13 +2079,8 @@
   - spring-boot-2.x-to-3.0-security-00000
   - spring-boot-2.x-to-3.0-security-00010
   - spring-boot-2.x-to-3.0-session-00000
-  - spring-boot-2.x-to-3.0-session-00010
-  - spring-boot-2.x-to-3.0-session-00020
   - spring-boot-2.x-to-3.0-webapp-changes-00000
   - spring-boot-2.x-to-3.0-webapp-changes-00010
-  - spring-boot-2.x-to-3.0-webapp-changes-00020
-  - spring-boot-2.x-to-3.0-webapp-changes-00030
-  - spring-boot-2.x-to-3.0-webapp-changes-00040
 - name: spring-framework
   description: Ruleset for migration of Spring Framework versions
   skipped:
@@ -2661,12 +2630,10 @@
   - clustering-00000
   - clustering-00001
   - configuration-management-0100
-  - configuration-management-0200
   - configuration-management-0300
   - configuration-management-0400
   - configuration-management-0500
   - configuration-management-technology-usage-0100
-  - configuration-management-technology-usage-0200
   - configuration-management-technology-usage-0300
   - connect-01400
   - connect-01500
@@ -3240,7 +3207,6 @@
   - technology-usage-mvc-03900
   - technology-usage-mvc-04000
   - technology-usage-mvc-04100
-  - technology-usage-mvc-04200
   - technology-usage-mvc-04300
   - technology-usage-mvc-04400
   - technology-usage-mvc-04500
@@ -3259,6 +3225,7 @@
   - technology-usage-mvc-05800
   - technology-usage-mvc-05900
   - technology-usage-mvc-06000
+  - technology-usage-mvc-0x4200
   - technology-usage-security-01000
   - technology-usage-security-01100
   - technology-usage-security-01200
