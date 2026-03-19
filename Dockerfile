@@ -1,4 +1,4 @@
-ARG VERSION=latest
+ARG VERSION=release-0.9
 
 FROM registry.access.redhat.com/ubi9-minimal as rulesets
 
@@ -26,7 +26,7 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 
 # Build
-ARG VERSION=latest
+ARG VERSION=release-0.9
 ARG BUILD_COMMIT
 ARG IMAGE=quay.io/konveyor/kantra
 ARG NAME=kantra

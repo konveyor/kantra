@@ -62,8 +62,8 @@ jobs:
 
       - name: Run unit tests
         run: |
-          RUNNER_IMG=localhost/kantra:latest go test ./... -coverprofile=coverage.txt
-          RUNNER_IMG=localhost/kantra:latest go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --randomize-suites --fail-on-pending --keep-going
+          GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider:release-0.9 JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider:release-0.9 RUNNER_IMG=localhost/kantra:latest go test ./... -coverprofile=coverage.txt
+          GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider:release-0.9 JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider:release-0.9 RUNNER_IMG=localhost/kantra:latest go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --randomize-suites --fail-on-pending --keep-going
 
       - name: Fetch sample applications
         run: |
@@ -78,7 +78,7 @@ jobs:
 
       - name: Run analysis test and copy output
         run: |
-          KANTRA_SKIP_MAVEN_CACHE=true RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
+          GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider:release-0.9 JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider:release-0.9 KANTRA_SKIP_MAVEN_CACHE=true RUNNER_IMG=localhost/kantra:latest ./kantra analyze --input $(pwd)/example-applications/example-1/ --output ./output/  --target cloud-readiness --run-local=false
       
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
