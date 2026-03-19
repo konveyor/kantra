@@ -1395,4 +1395,9 @@ func TestCloseAnalysisLog(t *testing.T) {
 	if err == nil {
 		t.Error("expected write to closed file to fail")
 	}
+
+	// Verify nil arguments don't panic
+	closeAnalysisLog(nil, nil)
+	closeAnalysisLog(logger, nil)
+	closeAnalysisLog(nil, f)
 }

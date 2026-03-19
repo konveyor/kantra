@@ -359,6 +359,10 @@ func providerImage(name string) string {
 // logrus output to discard. This prevents "Failed to write to log" errors
 // from goroutines that may still attempt to log after the file is closed.
 func closeAnalysisLog(logger *logrus.Logger, f *os.File) {
-	logger.SetOutput(io.Discard)
-	f.Close()
+	if logger != nil {
+		logger.SetOutput(io.Discard)
+	}
+	if f != nil {
+		f.Close()
+	}
 }
