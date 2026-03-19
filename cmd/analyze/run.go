@@ -89,19 +89,9 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	if err != nil {
 		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
 	}
-	var logrusAnalyzerLog *logrus.Logger
-	analysisLogClosed := false
-	closeLog := func() {
-		if analysisLogClosed {
-			return
-		}
-		closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
-		analysisLogClosed = true
-	}
-	defer closeLog()
-
 	// Setup logrus for analyzer (writes to analysis.log)
-	logrusAnalyzerLog = logrus.New()
+	logrusAnalyzerLog := logrus.New()
+	defer closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
 	logrusAnalyzerLog.SetOutput(analysisLogFile)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
 	if a.logLevel != nil {
@@ -311,7 +301,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report (needed for bulk on Windows).
-	closeLog()
+	closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
@@ -367,11 +357,16 @@ func providerImage(name string) string {
 // closeAnalysisLog safely closes the analysis log file by first redirecting
 // logrus output to discard. This prevents "Failed to write to log" errors
 // from goroutines that may still attempt to log after the file is closed.
-func closeAnalysisLog(logger *logrus.Logger, f *os.File) {
+func closeAnalysisLog(logger *logrus.Logger, f *os.File) error {
 	if logger != nil {
 		logger.SetOutput(io.Discard)
 	}
-	if f != nil {
-		f.Close()
+	if f == nil {
+		return nil
 	}
+	err := f.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close analysis log: %w", err)
+	}
+	return nil
 }

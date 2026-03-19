@@ -3,6 +3,7 @@ package analyze
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1385,7 +1386,13 @@ func TestCloseAnalysisLog(t *testing.T) {
 	logger.Info("test message before close")
 
 	// Close the log - this should redirect output to discard then close the file
-	closeAnalysisLog(logger, f)
+	err = closeAnalysisLog(logger, f)
+	if err != nil {
+		t.Fatalf("unexpected error from closeAnalysisLog: %v", err)
+	}
+	if logger.Out != io.Discard {
+		t.Fatal("expected logger output to be io.Discard after closeAnalysisLog")
+	}
 
 	// After close, logging should not panic or produce errors
 	logger.Info("test message after close")
@@ -1396,8 +1403,15 @@ func TestCloseAnalysisLog(t *testing.T) {
 		t.Error("expected write to closed file to fail")
 	}
 
+	// Verify calling closeAnalysisLog again returns an error (file already closed)
+	err = closeAnalysisLog(logger, f)
+	if err == nil {
+		t.Error("expected error when closing already-closed file")
+	}
+
 	// Verify nil arguments don't panic
-	closeAnalysisLog(nil, nil)
-	closeAnalysisLog(logger, nil)
-	closeAnalysisLog(nil, f)
+	err = closeAnalysisLog(nil, nil)
+	if err != nil {
+		t.Errorf("unexpected error with nil args: %v", err)
+	}
 }
