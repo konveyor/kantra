@@ -38,7 +38,7 @@ jobs:
           echo "${{ github.event.pull_request.body }}"
           PULL_REQUEST_NUMBER=$(echo "${{ github.event.pull_request.body }}" | grep -oP 'Analyzer PR: \K\d+' || true)
           if [ -z "$PULL_REQUEST_NUMBER" ]; then
-            echo "ANALYZER_REF=main" >>$GITHUB_ENV
+            echo "ANALYZER_REF=release-0.9" >>$GITHUB_ENV
           else
             echo "ANALYZER_REF=refs/pull/$PULL_REQUEST_NUMBER/merge" >>$GITHUB_ENV
           fi
