@@ -301,7 +301,9 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report (needed for bulk on Windows).
-	closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
+	if err := closeAnalysisLog(logrusAnalyzerLog, analysisLogFile); err != nil {
+		a.log.Error(err, "failed to close analysis log")
+	}
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
