@@ -201,10 +201,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 
 			// For hybrid mode with non-Java providers: check default rules availability
 			if mode == kantraProvider.ModeNetwork {
-				if len(foundProviders) > 0 && len(analyzeCmd.rules) == 0 && !slices.Contains(foundProviders, util.JavaProvider) {
-					return fmt.Errorf("no providers found with default rules. Use --rules option")
-				}
-
 				// alizer does not detect certain files such as xml
 				// in this case, we can first check for a java project
 				// if not found, only start builtin provider
