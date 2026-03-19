@@ -89,10 +89,19 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	if err != nil {
 		return fmt.Errorf("failed creating analysis log file at %s", analysisLogFilePath)
 	}
-	defer analysisLogFile.Close()
+	var logrusAnalyzerLog *logrus.Logger
+	analysisLogClosed := false
+	closeLog := func() {
+		if analysisLogClosed {
+			return
+		}
+		closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
+		analysisLogClosed = true
+	}
+	defer closeLog()
 
 	// Setup logrus for analyzer (writes to analysis.log)
-	logrusAnalyzerLog := logrus.New()
+	logrusAnalyzerLog = logrus.New()
 	logrusAnalyzerLog.SetOutput(analysisLogFile)
 	logrusAnalyzerLog.SetFormatter(&logrus.TextFormatter{})
 	if a.logLevel != nil {
@@ -302,7 +311,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	operationalLog.Info("[TIMING] Output writing complete", "duration_ms", time.Since(startWriting).Milliseconds())
 
 	// Close analysis log before generating static report (needed for bulk on Windows).
-	closeAnalysisLog(logrusAnalyzerLog, analysisLogFile)
+	closeLog()
 
 	startStaticReport := time.Now()
 	operationalLog.Info("[TIMING] Starting static report generation")
