@@ -226,7 +226,7 @@ func TestConfig_loadProviders(t *testing.T) {
 			// Clean up environment
 			os.Unsetenv("JAVA_PROVIDER_IMG")
 			os.Unsetenv("GENERIC_PROVIDER_IMG")
-			os.Unsetenv("DOTNET_PROVIDER_IMG")
+			os.Unsetenv("CSHARP_PROVIDER_IMG")
 
 			// Set up test environment
 			if tt.existingJavaProvider != "" {
@@ -236,7 +236,7 @@ func TestConfig_loadProviders(t *testing.T) {
 				os.Setenv("GENERIC_PROVIDER_IMG", tt.existingGenericProvider)
 			}
 			if tt.existingDotnetProvider != "" {
-				os.Setenv("DOTNET_PROVIDER_IMG", tt.existingDotnetProvider)
+				os.Setenv("CSHARP_PROVIDER_IMG", tt.existingDotnetProvider)
 			}
 			if tt.version != "" {
 				originalVersion := Version
@@ -261,8 +261,8 @@ func TestConfig_loadProviders(t *testing.T) {
 			if tt.existingGenericProvider != "" && os.Getenv("GENERIC_PROVIDER_IMG") != tt.existingGenericProvider {
 				t.Errorf("Expected GENERIC_PROVIDER_IMG=%s, got %s", tt.existingGenericProvider, os.Getenv("GENERIC_PROVIDER_IMG"))
 			}
-			if tt.existingDotnetProvider != "" && os.Getenv("DOTNET_PROVIDER_IMG") != tt.existingDotnetProvider {
-				t.Errorf("Expected DOTNET_PROVIDER_IMG=%s, got %s", tt.existingDotnetProvider, os.Getenv("DOTNET_PROVIDER_IMG"))
+			if tt.existingDotnetProvider != "" && os.Getenv("CSHARP_PROVIDER_IMG") != tt.existingDotnetProvider {
+				t.Errorf("Expected CSHARP_PROVIDER_IMG=%s, got %s", tt.existingDotnetProvider, os.Getenv("CSHARP_PROVIDER_IMG"))
 			}
 		})
 	}

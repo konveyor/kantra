@@ -51,7 +51,7 @@ RUN go build -o kantra.exe main.go
 
 FROM quay.io/konveyor/analyzer-lsp:${VERSION}-windowsservercore-ltsc2025
 
-ENV DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider:${VERSION}
+ENV CSHARP_PROVIDER_IMG=quay.io/konveyor/c-sharp-provider:${VERSION}
 
 # Set the working directory inside the container
 WORKDIR C:/app

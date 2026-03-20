@@ -21,7 +21,7 @@ There is no Makefile. The build process is scattered across:
   -X 'github.com/konveyor-ecosystem/kantra/cmd.BuildCommit=$BUILD_COMMIT'
   -X 'github.com/konveyor-ecosystem/kantra/cmd.JavaBundlesLocation=$JAVA_BUNDLE'
   -X 'github.com/konveyor-ecosystem/kantra/cmd.JavaProviderImage=$JAVA_PROVIDER_IMG'
-  -X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$DOTNET_PROVIDER_IMG'
+  -X 'github.com/konveyor-ecosystem/kantra/cmd.DotnetProviderImage=$CSHARP_PROVIDER_IMG'
   -X 'github.com/konveyor-ecosystem/kantra/cmd.GenericProviderImage=$GENERIC_PROVIDER_IMG'
   -X 'github.com/konveyor-ecosystem/kantra/cmd.RootCommandName=$NAME'
   ```
