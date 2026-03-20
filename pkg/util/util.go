@@ -228,6 +228,37 @@ func GetProfilesExcludedDir(inputPath string, containerSourceDir string, useCont
 
 // KantraDirEnv is the environment variable that can override the kantra directory
 // (e.g. when the binary is invoked with a different working directory, as in runLocal).
+// StderrFilterPatterns contains substrings to filter from stderr output.
+// Lines containing any of these patterns will be silently dropped.
+var StderrFilterPatterns = []string{
+	"Windows system assumed buffer larger than it is, events have likely been missed",
+}
+
+// FilterStderr reads lines from r, drops lines matching any pattern in
+// StderrFilterPatterns, and writes the rest to dest.
+func FilterStderr(r *os.File, dest *os.File) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if ShouldFilterLine(line) {
+			continue
+		}
+		if _, err := dest.WriteString(line + "\n"); err != nil {
+			return
+		}
+	}
+}
+
+// ShouldFilterLine returns true if the line matches any stderr filter pattern.
+func ShouldFilterLine(line string) bool {
+	for _, pattern := range StderrFilterPatterns {
+		if strings.Contains(line, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 const KantraDirEnv = "KANTRA_DIR"
 
 // GetKantraDir returns the directory used for rulesets, jdtls, and static-report.

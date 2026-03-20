@@ -42,7 +42,7 @@ import (
 //  14. Output writing (YAML, JSON, static report)
 //  15. Results summary
 func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.ExecutionMode, foundProviders []string) error {
-	restoreStderr := installStderrFilter()
+	restoreStderr := util.InstallStderrFilter()
 	defer restoreStderr()
 
 	startTotal := time.Now()

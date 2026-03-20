@@ -1,6 +1,6 @@
 //go:build windows
 
-package analyze
+package util
 
 import (
 	"os"
@@ -9,14 +9,14 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// installStderrFilter redirects stderr through a filtering pipe on Windows
+// InstallStderrFilter redirects stderr through a filtering pipe on Windows
 // to suppress noisy "Windows system assumed buffer larger than it is" messages
 // from the nxadm/tail library's internal fsnotify watcher.
 //
 // This works by duplicating the original stderr handle, pointing the Win32
 // standard error handle at a pipe, and running a goroutine that filters
 // lines before writing them to the original stderr.
-func installStderrFilter() (restore func()) {
+func InstallStderrFilter() (restore func()) {
 	noop := func() {}
 
 	origHandle := windows.Handle(os.Stderr.Fd())
@@ -55,7 +55,7 @@ func installStderrFilter() (restore func()) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		filterStderr(pr, origStderr)
+		FilterStderr(pr, origStderr)
 	}()
 
 	var once sync.Once

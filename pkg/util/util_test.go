@@ -1,10 +1,175 @@
 package util
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestShouldFilterLine(t *testing.T) {
+	tests := []struct {
+		name     string
+		line     string
+		filtered bool
+	}{
+		{
+			name:     "exact Windows watcher message",
+			line:     "Windows system assumed buffer larger than it is, events have likely been missed",
+			filtered: true,
+		},
+		{
+			name:     "message with timestamp prefix",
+			line:     "2024/12/09 11:39:26 Error in Watcher Error channel: Windows system assumed buffer larger than it is, events have likely been missed",
+			filtered: true,
+		},
+		{
+			name:     "normal log line passes through",
+			line:     `time="2024-12-09T11:36:08-08:00" level=info msg="running source analysis"`,
+			filtered: false,
+		},
+		{
+			name:     "empty line passes through",
+			line:     "",
+			filtered: false,
+		},
+		{
+			name:     "partial match does not filter",
+			line:     "Windows system assumed buffer",
+			filtered: false,
+		},
+		{
+			name:     "unrelated error passes through",
+			line:     "Error in Watcher Error channel: some other error",
+			filtered: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ShouldFilterLine(tt.line)
+			if got != tt.filtered {
+				t.Errorf("ShouldFilterLine(%q) = %v, want %v", tt.line, got, tt.filtered)
+			}
+		})
+	}
+}
+
+func TestFilterStderr(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lines := []string{
+		"normal line 1",
+		"2024/12/09 11:39:26 Error in Watcher Error channel: Windows system assumed buffer larger than it is, events have likely been missed",
+		"normal line 2",
+		"Windows system assumed buffer larger than it is, events have likely been missed",
+		"normal line 3",
+	}
+	go func() {
+		for _, line := range lines {
+			inputW.WriteString(line + "\n")
+		}
+		inputW.Close()
+	}()
+
+	FilterStderr(inputR, outputW)
+	outputW.Close()
+
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := string(outputBytes)
+	outputR.Close()
+	inputR.Close()
+
+	if strings.Contains(output, "Windows system assumed buffer larger than it is") {
+		t.Error("filtered pattern should not appear in output")
+	}
+	for _, expected := range []string{"normal line 1", "normal line 2", "normal line 3"} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("expected %q in output, got: %q", expected, output)
+		}
+	}
+}
+
+func TestFilterStderrEmptyInput(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inputW.Close()
+
+	FilterStderr(inputR, outputW)
+	outputW.Close()
+
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outputBytes) != 0 {
+		t.Errorf("expected no output for empty input, got %d bytes: %q", len(outputBytes), string(outputBytes))
+	}
+
+	outputR.Close()
+	inputR.Close()
+}
+
+func TestFilterStderrWriteError(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Close the dest write end to force a write error in FilterStderr
+	outputW.Close()
+
+	go func() {
+		inputW.WriteString("line 1\n")
+		inputW.WriteString("line 2\n")
+		inputW.Close()
+	}()
+
+	// Should return without panicking when write fails
+	FilterStderr(inputR, outputW)
+
+	outputR.Close()
+	inputR.Close()
+}
+
+func TestInstallStderrFilter_ReturnsRestoreFunc(t *testing.T) {
+	restore := InstallStderrFilter()
+	if restore == nil {
+		t.Fatal("InstallStderrFilter should return a non-nil restore function")
+	}
+	// Calling restore should not panic
+	restore()
+}
+
+func TestInstallStderrFilter_RestoreIsIdempotent(t *testing.T) {
+	restore := InstallStderrFilter()
+	restore()
+	// Calling restore a second time should not panic
+	restore()
+}
 
 func TestGetKantraDir_KANTRA_DIR_set(t *testing.T) {
 	// Save and restore so we don't affect other tests or the process
