@@ -33,7 +33,7 @@ ARG NAME=kantra
 ARG JAVA_BUNDLE=/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
 ARG JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider
 ARG GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider
-ARG DOTNET_PROVIDER_IMG=quay.io/konveyor/dotnet-external-provider
+ARG CSHARP_PROVIDER_IMG=quay.io/konveyor/c-sharp-provider
 
 RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
