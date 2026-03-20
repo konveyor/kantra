@@ -133,6 +133,33 @@ func TestFilterStderrEmptyInput(t *testing.T) {
 	inputR.Close()
 }
 
+func TestFilterStderrWriteError(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Close the dest write end to force a write error in filterStderr
+	outputW.Close()
+
+	go func() {
+		inputW.WriteString("line 1\n")
+		inputW.WriteString("line 2\n")
+		inputW.Close()
+	}()
+
+	// Should return without panicking when write fails
+	filterStderr(inputR, outputW)
+
+	outputR.Close()
+	inputR.Close()
+}
+
 func TestInstallStderrFilter_ReturnsRestoreFunc(t *testing.T) {
 	restore := installStderrFilter()
 	if restore == nil {
