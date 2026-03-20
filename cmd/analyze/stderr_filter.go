@@ -21,7 +21,9 @@ func filterStderr(r *os.File, dest *os.File) {
 		if shouldFilterLine(line) {
 			continue
 		}
-		dest.WriteString(line + "\n")
+		if _, err := dest.WriteString(line + "\n"); err != nil {
+			return
+		}
 	}
 }
 

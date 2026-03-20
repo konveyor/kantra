@@ -1,6 +1,7 @@
 package analyze
 
 import (
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -85,9 +86,11 @@ func TestFilterStderr(t *testing.T) {
 	outputW.Close()
 
 	// Read the filtered output
-	buf := make([]byte, 4096)
-	n, _ := outputR.Read(buf)
-	output := string(buf[:n])
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := string(outputBytes)
 	outputR.Close()
 	inputR.Close()
 
@@ -118,10 +121,12 @@ func TestFilterStderrEmptyInput(t *testing.T) {
 	filterStderr(inputR, outputW)
 	outputW.Close()
 
-	buf := make([]byte, 4096)
-	n, _ := outputR.Read(buf)
-	if n != 0 {
-		t.Errorf("expected no output for empty input, got %d bytes: %q", n, string(buf[:n]))
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outputBytes) != 0 {
+		t.Errorf("expected no output for empty input, got %d bytes: %q", len(outputBytes), string(outputBytes))
 	}
 
 	outputR.Close()

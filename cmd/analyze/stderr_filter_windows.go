@@ -58,17 +58,20 @@ func installStderrFilter() (restore func()) {
 		filterStderr(pr, origStderr)
 	}()
 
+	var once sync.Once
 	return func() {
-		// Close the pipe write end so the filter goroutine sees EOF.
-		pw.Close()
-		// Wait for the filter goroutine to finish draining.
-		wg.Wait()
-		// Now safe to close the pipe read end.
-		pr.Close()
-		// Restore the Win32 standard error handle and Go's os.Stderr.
-		// Reuse origStderr directly rather than closing it and recreating
-		// from savedHandle, which would leave stderr pointing at a closed handle.
-		windows.SetStdHandle(windows.STD_ERROR_HANDLE, savedHandle)
-		os.Stderr = origStderr
+		once.Do(func() {
+			// Close the pipe write end so the filter goroutine sees EOF.
+			pw.Close()
+			// Wait for the filter goroutine to finish draining.
+			wg.Wait()
+			// Now safe to close the pipe read end.
+			pr.Close()
+			// Restore the Win32 standard error handle and Go's os.Stderr.
+			// Reuse origStderr directly rather than closing it and recreating
+			// from savedHandle, which would leave stderr pointing at a closed handle.
+			windows.SetStdHandle(windows.STD_ERROR_HANDLE, savedHandle)
+			os.Stderr = origStderr
+		})
 	}
 }
