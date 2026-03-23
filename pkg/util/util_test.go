@@ -155,6 +155,71 @@ func TestFilterStderrWriteError(t *testing.T) {
 	inputR.Close()
 }
 
+func TestFilterStderrPartialLine(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Write data without a trailing newline to exercise the partial-line flush path.
+	go func() {
+		inputW.WriteString("complete line\npartial no newline")
+		inputW.Close()
+	}()
+
+	FilterStderr(inputR, outputW)
+	outputW.Close()
+
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := string(outputBytes)
+	outputR.Close()
+	inputR.Close()
+
+	if !strings.Contains(output, "complete line\n") {
+		t.Errorf("expected complete line in output, got: %q", output)
+	}
+	if !strings.Contains(output, "partial no newline") {
+		t.Errorf("expected partial line in output, got: %q", output)
+	}
+}
+
+func TestFilterStderrPartialLineFiltered(t *testing.T) {
+	inputR, inputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputR, outputW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a filter-matching line without a trailing newline.
+	go func() {
+		inputW.WriteString("Windows system assumed buffer larger than it is, events have likely been missed")
+		inputW.Close()
+	}()
+
+	FilterStderr(inputR, outputW)
+	outputW.Close()
+
+	outputBytes, err := io.ReadAll(outputR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outputBytes) != 0 {
+		t.Errorf("expected no output for filtered partial line, got: %q", string(outputBytes))
+	}
+	outputR.Close()
+	inputR.Close()
+}
+
 func TestInstallStderrFilter_ReturnsRestoreFunc(t *testing.T) {
 	restore := InstallStderrFilter()
 	if restore == nil {
