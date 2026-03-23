@@ -176,13 +176,13 @@ func (e *containerEnvironment) ProviderConfigs() []analyzerprovider.Config {
 	return e.configs
 }
 
-// Rules returns rule file/directory paths. For container mode, default
-// rulesets are extracted from the runner container image.
+// Rules returns rule file/directory paths. For container mode, default rulesets are
+// extracted from the runner image; only subdirs for running providers are added
 func (e *containerEnvironment) Rules(userRules []string, enableDefaults bool) ([]string, error) {
 	rules := make([]string, len(userRules))
 	copy(rules, userRules)
 	if enableDefaults && e.rulesetsDir != "" {
-		rules = append(rules, e.rulesetsDir)
+		rules = append(rules, DefaultRulesetPathsForProviders(e.rulesetsDir, e.cfg.Providers)...)
 	}
 	return rules, nil
 }
