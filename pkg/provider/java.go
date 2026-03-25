@@ -118,7 +118,7 @@ func GetJavaBinaryProjectDir(root string) (string, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && strings.Contains(info.Name(), "java-project-") {
+		if info.IsDir() && strings.Contains(info.Name(), "java-project") {
 			foundDir = path
 			return nil
 		}
