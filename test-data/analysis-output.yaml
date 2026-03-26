@@ -666,19 +666,6 @@
   - windup-discover-jpa-configuration
   - windup-discover-spring-configuration
   - windup-discover-web-configuration
-- name: dotnet-core-migration
-  description: |
-    Ruleset for migrating ASP.NET MVC applications to ASP.NET Core / .NET Core.
-
-    This ruleset identifies incompatible APIs, frameworks, and patterns that need to be
-    updated when migrating from .NET Framework to .NET Core/.NET 5+.
-
-    The rules are organized into the following categories:
-    - Web Framework Migration (System.Web to ASP.NET Core)
-    - Authentication and Security Migration
-    - Entity Framework to EF Core Migration
-    - Configuration and State Management Migration
-    - Runtime and Utility Class Migration
 - name: droolsjbpm
   description: This ruleset provides help for migrating to a unified KIE (Knowledge
     Is Everything) API in the upgrade from version 5 to 6.
@@ -1685,9 +1672,6 @@
   - eapxp_microprofile_openapi_4.0-00003
   - eapxp_microprofile_openapi_4.0-00004
   - eapxp_microprofile_openapi_4.0-00005
-- name: filemappings
-  description: This rule set configures the organization matching functionality, using
-    known root-package prefixes to identify libraries and other code.
 - name: fuse-service-works/soa-p-5
   description: This ruleset provides analysis of JBoss SOA Platform 5 applications
     and provides information on how to migrate these to Red Hat JBoss Fuse Service
