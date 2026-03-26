@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.lsp.dev/uri"
 )
 
 // Use logr.Discard() for testing - it's the standard no-op logger
@@ -392,6 +394,186 @@ func TestMakeJavaProviderConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMakeJavaProviderConfig_FileInputKeepsBinaryLocation(t *testing.T) {
+	a := analyzeCommand{
+		input: "/tmp/sample/app.war",
+		mode:  "full",
+	}
+	a.AnalyzeCommandContext.isFileInput = true
+	a.AnalyzeCommandContext.kantraDir = "/test/kantra"
+	a.AnalyzeCommandContext.reqMap = map[string]string{
+		"jdtls":  "/test/jdtls",
+		"bundle": "/test/bundle",
+	}
+
+	config := a.makeJavaProviderConfig()
+	require.Len(t, config.InitConfig, 1)
+	assert.Equal(t, "/tmp/sample/app.war", config.InitConfig[0].Location)
+}
+
+type fakeInternalProvider struct {
+	caps          []provider.Capability
+	deps          map[uri.URI][]*provider.Dep
+	depsErr       error
+	getDepsCalled bool
+}
+
+func (f *fakeInternalProvider) ProviderInit(context.Context, []provider.InitConfig) ([]provider.InitConfig, error) {
+	return nil, nil
+}
+
+func (f *fakeInternalProvider) Capabilities() []provider.Capability {
+	return f.caps
+}
+
+func (f *fakeInternalProvider) Init(context.Context, logr.Logger, provider.InitConfig) (provider.ServiceClient, provider.InitConfig, error) {
+	return nil, provider.InitConfig{}, nil
+}
+
+func (f *fakeInternalProvider) Prepare(context.Context, []provider.ConditionsByCap) error {
+	return nil
+}
+
+func (f *fakeInternalProvider) Evaluate(context.Context, string, []byte) (provider.ProviderEvaluateResponse, error) {
+	return provider.ProviderEvaluateResponse{}, nil
+}
+
+func (f *fakeInternalProvider) Stop() {}
+
+func (f *fakeInternalProvider) GetDependencies(context.Context) (map[uri.URI][]*provider.Dep, error) {
+	f.getDepsCalled = true
+	return f.deps, f.depsErr
+}
+
+func (f *fakeInternalProvider) GetDependenciesDAG(context.Context) (map[uri.URI][]provider.DepDAGItem, error) {
+	return nil, nil
+}
+
+func (f *fakeInternalProvider) NotifyFileChanges(context.Context, ...provider.FileChange) error {
+	return nil
+}
+
+func TestDependencyOutputContainerless_UsesDependencyCapability(t *testing.T) {
+	tmpOutput, err := os.MkdirTemp("", "deps-out-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpOutput)
+
+	javaProv := &fakeInternalProvider{
+		caps: []provider.Capability{{Name: "dependency"}},
+		deps: map[uri.URI][]*provider.Dep{
+			uri.File("/tmp/pom.xml"): {
+				{
+					Name:    "org.example:demo",
+					Version: "1.0.0",
+				},
+			},
+		},
+	}
+	builtinProv := &fakeInternalProvider{
+		// builtin has no dependency capability and should be skipped
+		caps: []provider.Capability{{Name: "referenced"}},
+		deps: map[uri.URI][]*provider.Dep{
+			uri.File("/tmp/should-not-be-used"): {
+				{Name: "should-not-appear"},
+			},
+		},
+	}
+
+	a := &analyzeCommand{
+		output: tmpOutput,
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log: logr.Discard(),
+		},
+	}
+	providers := map[string]provider.InternalProviderClient{
+		"builtin": builtinProv,
+		"java":    javaProv,
+	}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	a.DependencyOutputContainerless(context.Background(), providers, "dependencies.yaml", wg)
+	wg.Wait()
+
+	by, err := os.ReadFile(filepath.Join(tmpOutput, "dependencies.yaml"))
+	require.NoError(t, err)
+	content := string(by)
+	assert.Contains(t, content, "provider: java")
+	assert.NotContains(t, content, "provider: builtin")
+	assert.False(t, builtinProv.getDepsCalled, "builtin provider should not be queried for dependencies")
+	assert.True(t, javaProv.getDepsCalled, "java provider should be queried for dependencies")
+}
+
+func TestRunAnalysisContainerless_CleansJavaProjectOnError(t *testing.T) {
+	if _, err := exec.LookPath("mvn"); err != nil {
+		t.Skip("mvn not in PATH, skipping containerless cleanup test")
+	}
+	if _, err := exec.LookPath("java"); err != nil {
+		t.Skip("java not in PATH, skipping containerless cleanup test")
+	}
+	if os.Getenv("JAVA_HOME") == "" {
+		t.Skip("JAVA_HOME not set, skipping containerless cleanup test")
+	}
+
+	oldBundle := JavaBundlesLocation
+	oldJdtls := JDTLSBinLocation
+	defer func() {
+		JavaBundlesLocation = oldBundle
+		JDTLSBinLocation = oldJdtls
+	}()
+	JavaBundlesLocation = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	JDTLSBinLocation = "jdtls/bin/jdtls"
+
+	baseDir, err := os.MkdirTemp("", "containerless-binary-")
+	require.NoError(t, err)
+	defer os.RemoveAll(baseDir)
+
+	binaryPath := filepath.Join(baseDir, "app.war")
+	require.NoError(t, os.WriteFile(binaryPath, []byte("war"), 0644))
+
+	javaProjectDir := filepath.Join(baseDir, "java-project")
+	require.NoError(t, os.MkdirAll(javaProjectDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(javaProjectDir, "keep.txt"), []byte("x"), 0644))
+
+	outputDir, err := os.MkdirTemp("", "containerless-output-")
+	require.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	kantraDir, err := os.MkdirTemp("", "containerless-kantra-")
+	require.NoError(t, err)
+	defer os.RemoveAll(kantraDir)
+
+	for _, dir := range []string{RulesetsLocation, "jdtls/bin", "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(kantraDir, dir), 0755))
+	}
+	for _, f := range []string{
+		"jdtls/bin/jdtls",
+		"jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar",
+		"fernflower.jar",
+	} {
+		full := filepath.Join(kantraDir, f)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0755))
+		require.NoError(t, os.WriteFile(full, []byte("x"), 0644))
+	}
+
+	a := &analyzeCommand{
+		input:                    binaryPath,
+		output:                   outputDir,
+		overrideProviderSettings: "/nonexistent/override-settings.json",
+		AnalyzeCommandContext: AnalyzeCommandContext{
+			log:       logr.Discard(),
+			kantraDir: kantraDir,
+		},
+	}
+	a.AnalyzeCommandContext.isFileInput = true
+
+	err = a.RunAnalysisContainerless(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "override provider settings")
+	_, statErr := os.Stat(javaProjectDir)
+	assert.True(t, os.IsNotExist(statErr), "java-project should be removed by deferred cleanup")
 }
 
 func TestWalkJavaPathForTarget(t *testing.T) {
