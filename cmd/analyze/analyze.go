@@ -219,7 +219,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// default rulesets exist for java, nodejs, and csharp
 			hasProviderWithDefaultRules := false
 			for _, p := range foundProviders {
-				if _, ok := util.DefaultRulesetDir[p]; ok {
+				if kantraProvider.BundledDefaultRulesetSubdir(p) != "" {
 					hasProviderWithDefaultRules = true
 					break
 				}

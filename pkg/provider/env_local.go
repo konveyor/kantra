@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	analyzerprovider "github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -154,11 +153,7 @@ func (e *localEnvironment) Rules(userRules []string, enableDefaults bool) ([]str
 	copy(rules, userRules)
 	if enableDefaults {
 		rulesetsRoot := filepath.Join(e.cfg.KantraDir, rulesetsSubdir)
-		subdir := util.DefaultRulesetDir[util.JavaProvider]
-		p := filepath.Join(rulesetsRoot, subdir)
-		if st, err := os.Stat(p); err == nil && st.IsDir() {
-			rules = append(rules, p)
-		}
+		rules = append(rules, DefaultRulesetPathsForProviders(rulesetsRoot, e.cfg.Providers)...)
 	}
 	return rules, nil
 }

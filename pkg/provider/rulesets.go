@@ -8,9 +8,14 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
-// returns ruleset directory paths under rulesetsRoot for each configured provider
-//
-//	that has bundled defaults so only running providers' default rulesets are loaded.
+// BundledDefaultRulesetSubdir returns the subdirectory name under the rulesets root for
+// bundled default rules for this provider name
+func BundledDefaultRulesetSubdir(providerName string) string {
+	return util.DefaultRulesetDir[providerName]
+}
+
+// DefaultRulesetPathsForProviders returns ruleset directory paths under rulesetsRoot for
+// each provider whose ProviderInfo.DefaultRulesetSubdir is set and the path exists
 func DefaultRulesetPathsForProviders(rulesetsRoot string, providers []ProviderInfo) []string {
 	if rulesetsRoot == "" {
 		return nil
@@ -18,11 +23,10 @@ func DefaultRulesetPathsForProviders(rulesetsRoot string, providers []ProviderIn
 	seen := make(map[string]struct{})
 	var out []string
 	for _, info := range providers {
-		subdir, ok := util.DefaultRulesetDir[info.Name]
-		if !ok {
+		if info.DefaultRulesetSubdir == "" {
 			continue
 		}
-		p := filepath.Join(rulesetsRoot, subdir)
+		p := filepath.Join(rulesetsRoot, info.DefaultRulesetSubdir)
 		st, err := os.Stat(p)
 		if err != nil || !st.IsDir() {
 			continue
