@@ -12,6 +12,14 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 - @.claude/context.md — Component details, rules, analysis flow
 - @.claude/skills.md — Project skills (e.g. testing local code changes)
 
+## Portable agent instruction (plain text)
+
+- If you load this file, also read: `.claude/commands.md` - Command references
+- If you load this file, also read: `.claude/testing.md` - Testing commands and scenarios
+- If you load this file, also read: `.claude/architecture.md` - Containerless vs hybrid architecture, repository layout
+- If you load this file, also read: `.claude/context.md` - Component details, rules, analysis flow
+- If you load this file, also read: `.claude/skills.md` - Project skills (e.g. testing local code changes)
+
 ## Kantra analysis modes:
 
 ### Hybrid mode (`--run-local=false`):
@@ -20,7 +28,7 @@ Kantra is a CLI that unifies analysis and transformation capabilities of Konveyo
 
 ### Containerless mode (default, `--run-local=true`): 
 
-- Parses and validates flags and options; Only the **Java provider** is supported. The analyzer-lsp engine runs on the host with the builtin provider and the Java provider in-process. Kantra loads default rulesets from disk (and/or `--rules`) and then runs the engine.
+- Parses and validates flags and options; Only the **Java provider** and **builtin provider** are supported. The analyzer-lsp engine runs on the host with the builtin provider and the Java provider in-process. Kantra loads default rulesets from disk (and/or `--rules`) and then runs the engine.
 
 ## Components
 

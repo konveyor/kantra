@@ -2,7 +2,7 @@
 
 ### Analyze
 
-- `./kantra analyze --input=<path/to/source> --output=<path/to/output> --overwrite` — Run analysis (containerless mode by default)
+- `./kantra analyze --input=<path/to/source> --output=<path/to/output> --overwrite` --target <target> — Run analysis (containerless mode by default)
 
 - `./kantra analyze --input=... --output=... --run-local=false` — Run analysis in hybrid mode (providers in containers)
 
@@ -22,3 +22,10 @@
 ### Test
 
 - `./kantra test --rules=<path> [options]` — Test YAML rules
+
+
+## Test with Koncur
+
+Koncur is a project that can also be used to test kantra changes. It currently works with hybrid mode. 
+
+- See [quickstart](https://github.com/konveyor/koncur/blob/main/README.md#quick-start) for an example of running a kantra test with koncur.

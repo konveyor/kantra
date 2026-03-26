@@ -52,7 +52,7 @@ Containerless mode is the default: `kantra analyze --input=<path> --output=<path
 |-----------|---------|
 | **kantra CLI** | Parses flags, orchestrates flow: [Alizer](https://github.com/devfile/alizer), volume creation, container start/stop, provider client setup, engine run, output writing. |
 | **[analyzer-lsp](https://github.com/konveyor/analyzer-lsp/tree/main/engine) engine** | Runs rule evaluation, source and dependency analysis, and coordinates providers (builtin + network). |
-| **[Builtin provider](https://github.com/konveyor/analyzer-lsp/tree/main/provider/internal/builtin)** | In-process provider that evaluates builtin-rules
+| **[Builtin provider](https://github.com/konveyor/analyzer-lsp/tree/main/provider/internal/builtin)** | In-process provider that evaluates builtin-rules |
 | **[External providers](https://github.com/konveyor/analyzer-lsp/tree/main/external-providers)** | gRPC clients; evaluates respective rules; i.e. `<provider>.referenced` |
 | **[Default rulesets](https://github.com/konveyor/rulesets/tree/main/stable)** | Rules provided with kantra; Use --rules to append more rules for analysis |
 
