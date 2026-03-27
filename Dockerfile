@@ -1,6 +1,6 @@
 ARG VERSION=latest
 
-FROM registry.access.redhat.com/ubi9-minimal as rulesets
+FROM registry.access.redhat.com/ubi10-minimal as rulesets
 
 ARG RULESETS_REF=main
 RUN microdnf -y install git &&\
