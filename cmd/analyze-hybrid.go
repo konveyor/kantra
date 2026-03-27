@@ -511,6 +511,9 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 //   - Provider isolation and consistency from containers
 func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 	startTotal := time.Now()
+
+	a.setProxyEnvironment()
+
 	// Create progress mode to encapsulate progress reporting behavior
 	progressMode := NewProgressMode(a.noProgress)
 

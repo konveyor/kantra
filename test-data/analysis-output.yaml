@@ -1569,9 +1569,6 @@
   - eapxp_microprofile_openapi_4.0-00003
   - eapxp_microprofile_openapi_4.0-00004
   - eapxp_microprofile_openapi_4.0-00005
-- name: filemappings
-  description: This rule set configures the organization matching functionality, using
-    known root-package prefixes to identify libraries and other code.
 - name: fuse-service-works/soa-p-5
   description: This ruleset provides analysis of JBoss SOA Platform 5 applications
     and provides information on how to migrate these to Red Hat JBoss Fuse Service
