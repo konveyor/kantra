@@ -41,6 +41,9 @@ jobs:
         podman cp kantra-download:/usr/local/bin/kantra . && zip kantra.linux.${{ matrix.arch }}.zip kantra
         podman cp kantra-download:/usr/local/bin/darwin-kantra . && zip kantra.darwin.${{ matrix.arch }}.zip darwin-kantra
         podman cp kantra-download:/usr/local/bin/windows-kantra windows-kantra.exe && zip kantra.windows.${{ matrix.arch }}.zip windows-kantra.exe
+        podman cp kantra-download:/usr/local/bin/java-external-provider . && zip kantra.linux.${{ matrix.arch }}.zip java-external-provider
+        podman cp kantra-download:/usr/local/bin/darwin-java-external-provider . && zip kantra.darwin.${{ matrix.arch }}.zip darwin-java-external-provider
+        podman cp kantra-download:/usr/local/bin/windows-java-external-provider.exe . && zip kantra.windows.${{ matrix.arch }}.zip windows-java-external-provider.exe
 
     - name: Extract containerless reqs
       run: |
