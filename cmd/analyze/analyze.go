@@ -233,7 +233,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			// Run unified analysis pipeline
 			cmdCtx, cancelFunc := context.WithCancel(ctx)
 			defer cancelFunc()
-			err = analyzeCmd.runAnalysis(cmdCtx, mode, foundProviders)
+			err = analyzeCmd.runAnalysis(cmdCtx, cmd, mode, foundProviders)
 			if err != nil {
 				log.Error(err, "analysis failed")
 				return err

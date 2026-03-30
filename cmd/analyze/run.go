@@ -17,6 +17,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
@@ -63,7 +64,7 @@ func (a *analyzeCommand) setProxyEnvironment() {
 	}
 }
 
-func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.ExecutionMode, foundProviders []string) error {
+func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mode kantraprovider.ExecutionMode, foundProviders []string) error {
 	restoreStderr := util.InstallStderrFilter()
 	defer restoreStderr()
 
@@ -197,7 +198,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, mode kantraprovider.Ex
 	}
 
 	// --- Label selectors ---
-	labelSelector := a.getLabelSelector()
+	labelSelector := a.getLabelSelector(cmd)
 	depLabelSelector := ""
 	if !a.analyzeKnownLibraries {
 		depLabelSelector = fmt.Sprintf("!%v=open-source", provider.DepSourceLabel)

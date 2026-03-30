@@ -120,8 +120,15 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	if !cmd.Flags().Lookup("incident-selector").Changed {
 		settings.IncidentSelector = buildIncidentSelector(profile.Scope.Packages)
 	}
+
+	sourceSet := cmd.Flags().Lookup("source") != nil && cmd.Flags().Lookup("source").Changed
+	targetSet := cmd.Flags().Lookup("target") != nil && cmd.Flags().Lookup("target").Changed
 	if !cmd.Flags().Lookup("label-selector").Changed {
-		settings.LabelSelector = buildLabelSelector(profile.Rules.Labels)
+		labels := profile.Rules.Labels
+		if sourceSet || targetSet {
+			labels = filterKonveyorSourceTargetLabels(labels, sourceSet, targetSet)
+		}
+		settings.LabelSelector = buildLabelSelector(labels)
 	}
 	// prioritize user-set enable-default-rulesets
 	if cmd.Flags().Lookup("enable-default-rulesets") != nil && cmd.Flags().Lookup("enable-default-rulesets").Changed {
@@ -133,8 +140,6 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 
 		// use default rulesets if default sources/targets are used
 	} else {
-		targetSet := cmd.Flags().Lookup("target") != nil && cmd.Flags().Lookup("target").Changed
-		sourceSet := cmd.Flags().Lookup("source") != nil && cmd.Flags().Lookup("source").Changed
 		hasDefaultLabels := profileHasDefaultKonveyorLabels(profile)
 		settings.EnableDefaultRulesets = targetSet || sourceSet || hasDefaultLabels
 	}
@@ -152,6 +157,43 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	}
 
 	return nil
+}
+
+func filterKonveyorSourceTargetLabels(labels LabelSelector, sourceSet, targetSet bool) LabelSelector {
+	filtered := LabelSelector{
+		Included: make([]string, 0, len(labels.Included)),
+		Excluded: make([]string, 0, len(labels.Excluded)),
+	}
+	for _, label := range labels.Included {
+		if shouldFilterKonveyorLabel(label, sourceSet, targetSet) {
+			continue
+		}
+		filtered.Included = append(filtered.Included, label)
+	}
+	for _, label := range labels.Excluded {
+		if shouldFilterKonveyorLabel(label, sourceSet, targetSet) {
+			continue
+		}
+		filtered.Excluded = append(filtered.Excluded, label)
+	}
+	return filtered
+}
+
+func shouldFilterKonveyorLabel(label string, sourceSet, targetSet bool) bool {
+	label = strings.TrimSpace(label)
+	if sourceSet {
+		sourcePrefix := outputv1.SourceTechnologyLabel + "="
+		if label == outputv1.SourceTechnologyLabel || strings.HasPrefix(label, sourcePrefix) {
+			return true
+		}
+	}
+	if targetSet {
+		targetPrefix := outputv1.TargetTechnologyLabel + "="
+		if label == outputv1.TargetTechnologyLabel || strings.HasPrefix(label, targetPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildIncidentSelector(packages PackageSelector) string {
