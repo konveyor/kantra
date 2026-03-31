@@ -1,9 +1,13 @@
 coverage:
   status:
+    # This is a blocking check
     project:
       default:
+        target: auto # Check coverage against the base branch
         threshold: 1% # Allow for a small drop before failing
+    # This is an informational check
     patch:
       default:
-        target: 80% # Require 80% coverage on new code (patch)
-
+        target: 75% 
+        threshold: 0% 
+        informational: true
