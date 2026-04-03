@@ -609,8 +609,12 @@ func extractTarFile(tarPath, destDir string, log logr.Logger) error {
 	}
 	defer tarFile.Close()
 
-	err = os.MkdirAll(destDir, 0755)
-	if err != nil {
+	// Replace previous extract so files removed from the bundle on the Hub
+	// are not left behind on disk
+	if err := os.RemoveAll(destDir); err != nil {
+		return fmt.Errorf("remove existing extract directory: %w", err)
+	}
+	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 	var reader io.Reader = tarFile

@@ -1464,6 +1464,62 @@ func TestExtractTarFile(t *testing.T) {
 	}
 }
 
+func TestExtractTarFile_removesStaleFiles(t *testing.T) {
+	log := logr.Discard()
+	tmpDir, err := os.MkdirTemp("", "test-extract-stale-")
+	if err != nil {
+		t.Fatalf("mkdir temp: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	destDir := filepath.Join(tmpDir, "profile-1")
+	stalePath := filepath.Join(destDir, "rules", "removed-rule.yaml")
+	if err := os.MkdirAll(filepath.Join(destDir, "rules"), 0755); err != nil {
+		t.Fatalf("mkdir rules: %v", err)
+	}
+	if err := os.WriteFile(stalePath, []byte("stale"), 0644); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	tarPath := filepath.Join(tmpDir, "bundle.tar")
+	tarFile, err := os.Create(tarPath)
+	if err != nil {
+		t.Fatalf("create tar: %v", err)
+	}
+	tarWriter := tar.NewWriter(tarFile)
+	header := &tar.Header{
+		Name: "profile.yaml",
+		Mode: 0644,
+		Size: int64(len("name: test")),
+	}
+	if err := tarWriter.WriteHeader(header); err != nil {
+		tarFile.Close()
+		t.Fatalf("tar header: %v", err)
+	}
+	if _, err := tarWriter.Write([]byte("name: test")); err != nil {
+		tarFile.Close()
+		t.Fatalf("tar body: %v", err)
+	}
+	if err := tarWriter.Close(); err != nil {
+		tarFile.Close()
+		t.Fatalf("tar close: %v", err)
+	}
+	if err := tarFile.Close(); err != nil {
+		t.Fatalf("close tar file: %v", err)
+	}
+
+	if err := extractTarFile(tarPath, destDir, log); err != nil {
+		t.Fatalf("extractTarFile: %v", err)
+	}
+	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
+		t.Errorf("expected stale rule file removed, still at %s", stalePath)
+	}
+	profilePath := filepath.Join(destDir, "profile.yaml")
+	if _, err := os.Stat(profilePath); err != nil {
+		t.Errorf("expected profile.yaml from bundle: %v", err)
+	}
+}
+
 func TestDeleteTarFile(t *testing.T) {
 
 	tests := []struct {
