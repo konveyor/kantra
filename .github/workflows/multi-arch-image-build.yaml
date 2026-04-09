@@ -30,25 +30,10 @@ jobs:
       registry_username: ${{ secrets.QUAY_PUBLISH_ROBOT }}
       registry_password: ${{ secrets.QUAY_PUBLISH_TOKEN }}
 
-  windows-image-build:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@main
-    - name: Login to Docker Hub
-      uses: docker/login-action@master
-      with:
-        registry: "quay.io/konveyor"
-        username: ${{ secrets.QUAY_PUBLISH_ROBOT }}
-        password: ${{ secrets.QUAY_PUBLISH_TOKEN }}
-    - name: Build static-report
-      run: |
-        docker build -f ./Dockerfile.windows -t quay.io/konveyor/kantra:$env:tag-windowsservercore-ltsc2022 .
-        docker push quay.io/konveyor/kantra:$env:tag-windowsservercore-ltsc2022
 
   update-manifest:
     needs:
     - image-build
-    - windows-image-build
     runs-on: ubuntu-latest
     steps:
     - name: update manifest
