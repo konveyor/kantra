@@ -1,0 +1,28 @@
+# Hybrid-mode `kantra test` with the python provider (generic external provider container).
+# Provider defaults: ./testing-config.yaml (dataPath ./test-data/python/).
+# Run from repo root (requires podman/docker + provider images), e.g.:
+#   kantra test ./cmd/testrunner/examples/python/
+#
+# `--run-local` is not valid here (python is not limited to java/builtin containerless).
+rulesPath: ./rules.yaml
+tests:
+  - ruleID: python-sample-rule-001
+    testCases:
+      - name: tc-hello-world
+        hasIncidents:
+          atLeast: 1
+  - ruleID: python-sample-rule-002
+    testCases:
+      - name: tc-speak
+        hasIncidents:
+          atLeast: 1
+  - ruleID: python-sample-rule-003
+    testCases:
+      - name: tc-create-crd-fn
+        hasIncidents:
+          atLeast: 1
+  - ruleID: python-sample-rule-004
+    testCases:
+      - name: tc-file-b-glob
+        hasIncidents:
+          atLeast: 1

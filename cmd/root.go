@@ -11,6 +11,8 @@ import (
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/generate"
 	"github.com/konveyor-ecosystem/kantra/cmd/config"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
+	"github.com/konveyor-ecosystem/kantra/cmd/openrewrite"
+	"github.com/konveyor-ecosystem/kantra/cmd/test"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -47,17 +49,10 @@ func init() {
 	logrusLog.SetOutput(os.Stdout)
 	logrusLog.SetFormatter(&logrus.TextFormatter{})
 
-	assertGenerationGroup := cobra.Group{
-		ID:    "assetGeneration",
-		Title: "Asset Generation",
-	}
-	rootCmd.AddGroup(&assertGenerationGroup)
-
 	logger := logrusr.New(logrusLog)
-	rootCmd.AddCommand(NewTransformCommand(logger))
+	rootCmd.AddCommand(openrewrite.NewOpenRewriteCommand(logger))
 	rootCmd.AddCommand(analyze.NewAnalyzeCmd(logger))
-	rootCmd.AddCommand(NewTestCommand(logger))
-	rootCmd.AddCommand(NewDumpRulesCommand(logger))
+	rootCmd.AddCommand(test.NewTestCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))

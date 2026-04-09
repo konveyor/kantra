@@ -84,7 +84,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 		}
 	}
-	rulesVolumes[tempDir] = path.Join(util.CustomRulePath, filepath.Base(tempDir))
+	rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
 
 	return rulesVolumes, nil
 }

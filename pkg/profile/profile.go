@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +15,21 @@ import (
 )
 
 const Profiles = ".konveyor/profiles"
+
+// GetProfilesExcludedDir returns the profiles exclusion path if a .konveyor/profiles
+// directory exists under inputPath. When useContainerPath is true, containerSourceDir
+// is used as the base for the returned path (e.g. /opt/input/source). When false,
+// the local filesystem path is returned and containerSourceDir is ignored.
+func GetProfilesExcludedDir(inputPath string, containerSourceDir string, useContainerPath bool) string {
+	profilesDir := filepath.Join(inputPath, Profiles)
+	if _, err := os.Stat(profilesDir); err == nil {
+		if useContainerPath {
+			return path.Join(containerSourceDir, Profiles)
+		}
+		return profilesDir
+	}
+	return ""
+}
 
 type AnalysisProfile struct {
 	ID    uint          `json:"id" yaml:"id"`

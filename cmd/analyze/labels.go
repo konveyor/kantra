@@ -1,17 +1,20 @@
 package analyze
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 )
 
@@ -71,7 +74,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
+			ListOptionsFromLabels(sourceSlice, sourceLabel, out)
 			return nil
 		}
 		if listTargets {
@@ -80,7 +83,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 				a.log.Error(err, "failed to read rule labels")
 				return err
 			}
-			util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
+			ListOptionsFromLabels(targetsSlice, targetLabel, out)
 			return nil
 		}
 	} else {
@@ -91,7 +94,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		}
 
 		if len(a.rules) > 0 {
-			customRulePath = filepath.Join(util.CustomRulePath, a.tempRuleDir)
+			customRulePath = filepath.Join(CustomRulePath, a.tempRuleDir)
 		}
 		args := []string{"analyze", "--run-local=false"}
 		if listSources {
@@ -124,13 +127,13 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 
 func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
-	err := filepath.WalkDir(util.RulesetPath, util.WalkRuleSets(util.RulesetPath, label, &labelsSlice))
+	err := filepath.WalkDir(RulesetPath, WalkRuleSets(RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	rulePath := os.Getenv("RULE_PATH")
 	if rulePath != "" {
-		err := filepath.WalkDir(rulePath, util.WalkRuleSets(rulePath, label, &labelsSlice))
+		err := filepath.WalkDir(rulePath, WalkRuleSets(rulePath, label, &labelsSlice))
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +170,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		util.ListOptionsFromLabels(sourceSlice, sourceLabel, out)
+		ListOptionsFromLabels(sourceSlice, sourceLabel, out)
 		return nil
 	}
 	if listTargets {
@@ -176,7 +179,7 @@ func (a *analyzeCommand) fetchLabelsContainerless(ctx context.Context, listSourc
 			a.log.Error(err, "failed to read rule labels")
 			return err
 		}
-		util.ListOptionsFromLabels(targetsSlice, targetLabel, out)
+		ListOptionsFromLabels(targetsSlice, targetLabel, out)
 		return nil
 	}
 
@@ -190,17 +193,88 @@ func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]st
 		a.log.Error(err, "cannot open provided path")
 		return nil, err
 	}
-	err := filepath.WalkDir(path, util.WalkRuleSets(path, label, &labelsSlice))
+	err := filepath.WalkDir(path, WalkRuleSets(path, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
 	if len(a.rules) > 0 {
 		for _, p := range a.rules {
-			err := filepath.WalkDir(p, util.WalkRuleSets(p, label, &labelsSlice))
+			err := filepath.WalkDir(p, WalkRuleSets(p, label, &labelsSlice))
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 	return labelsSlice, nil
+}
+
+func WalkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
+	return func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			*labelsSlice, err = readRuleFile(path, labelsSlice, label)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	}
+}
+
+func readRuleFile(filePath string, labelsSlice *[]string, label string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanWords)
+
+	for scanner.Scan() {
+		// add source/target labels to slice
+		label := getSourceOrTargetLabel(scanner.Text(), label)
+		if len(label) > 0 && !slices.Contains(*labelsSlice, label) {
+			*labelsSlice = append(*labelsSlice, label)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return *labelsSlice, nil
+}
+
+func getSourceOrTargetLabel(text string, label string) string {
+	if strings.Contains(text, label) {
+		return text
+	}
+	return ""
+}
+
+func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
+	var newSl []string
+	l := label + "="
+
+	for _, label := range sl {
+		newSt := strings.TrimPrefix(label, l)
+
+		if newSt != label {
+			newSt = strings.TrimSuffix(newSt, "+")
+			newSt = strings.TrimSuffix(newSt, "-")
+
+			if !slices.Contains(newSl, newSt) {
+				newSl = append(newSl, newSt)
+
+			}
+		}
+	}
+	sort.Strings(newSl)
+
+	if label == outputv1.SourceTechnologyLabel {
+		fmt.Fprintln(out, "available source technologies:")
+	} else {
+		fmt.Fprintln(out, "available target technologies:")
+	}
+	for _, tech := range newSl {
+		fmt.Fprintln(out, tech)
+	}
 }

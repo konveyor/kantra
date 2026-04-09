@@ -54,7 +54,7 @@ _name_ is the name of the provider to which the config applies to, and _dataPath
 
 If all tests under a _ruleset_ share values of _providers_ field (e.g. they use common data directory in all tests for a given provider), this config can also be defined at ruleset level under a special file `testing-config.yaml`. In that case, the config present in this file will apply to all tests in that directory. A more specific config for a certain file can still be defined in the tests file. In that case, values in the tests file will take precedance over values at the _ruleset_ level.
 
-See an example of ruleset level config in [../pkg/testing/examples/ruleset/testing-config.yaml](../pkg/testing/examples/ruleset/testing-config.yaml).
+Examples of directory-level `testing-config.yaml` files: [builtin](../cmd/testrunner/examples/builtin/testing-config.yaml), [java](../cmd/testrunner/examples/java/testing-config.yaml), [python](../cmd/testrunner/examples/python/testing-config.yaml), [nodejs](../cmd/testrunner/examples/nodejs/testing-config.yaml).
 
 > Note that a config for every providers present in the rules file _must_ be defined.
 
@@ -226,6 +226,10 @@ Among other files, the important files needed for debugging in this directory ar
 
 - OpenAPI schema for tests: [Tests schema](../test-schema.json)
 
-- Example tests for a ruleset: [Ruleset tests](../pkg/testing/examples/ruleset/)
+- Example tests (builtin discovery ruleset): [Builtin examples](../cmd/testrunner/examples/builtin/)
 
-- Example tests for a rules file: [Rules file tests](../pkg/testing/examples/rules-file.test.yaml)
+- Example tests (Java / storage rules): [Java examples](../cmd/testrunner/examples/java/)
+
+- Example tests for other languages: [Node.js](../cmd/testrunner/examples/nodejs/), [Python](../cmd/testrunner/examples/python/)
+
+- Rules file tests live next to the rules under [../cmd/testrunner/examples/java/rules-file.test.yaml](../cmd/testrunner/examples/java/rules-file.test.yaml)

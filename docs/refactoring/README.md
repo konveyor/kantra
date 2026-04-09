@@ -24,7 +24,7 @@ Key metrics:
 
 Notes:
 - Phase 3 subsumes the original "Deduplicate containerless vs hybrid execution" -- adopting `konveyor.Analyzer` from [analyzer-lsp PR #1033](https://github.com/konveyor/analyzer-lsp/pull/1033) eliminates the duplication at the architectural level.
-- Phase 3a also covers the `test` command (`pkg/testing/runner.go`) -- replacing its subprocess-based `runLocal()` with a direct in-process `konveyor.Analyzer` call, and extracting shared provider defaults to `pkg/provider/defaults.go`.
+- Phase 3a also covers the `test` command (`cmd/testrunner/runner.go`) -- replacing its subprocess-based `runLocal()` with a direct in-process `konveyor.Analyzer` call, and extracting shared provider defaults to `pkg/provider/defaults.go`.
 - Phase 4 merges the original "Add a Makefile" and "Improve test organization" phases into a single developer experience phase.
 
 ## Known Bugs Found During Analysis

@@ -18,9 +18,8 @@ func NewDiscoverCommand(log logr.Logger) *cobra.Command {
 		showSupportedPlatforms bool
 	)
 	cmd := &cobra.Command{
-		Use:     "discover",
-		GroupID: "assetGeneration",
-		Short:   "Discover application outputs a YAML representation of source platform resources",
+		Use:   "discover",
+		Short: "Discover application outputs a YAML representation of source platform resources",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if showSupportedPlatforms {
 				listPlatforms(cmd.OutOrStdout())

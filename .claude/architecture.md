@@ -74,7 +74,7 @@ Containerless mode is the default: `kantra analyze --input=<path> --output=<path
   - `pkg/provider/` — Provider implementations (Java, Go, C#, Node.js, Python)
   - `pkg/container/` — Container runtime abstractions
   - `pkg/profile/` — Analysis profiles
-  - `pkg/testing/` — Test runner for YAML rules
+  - `cmd/testrunner/` — Test runner for YAML rules (`kantra test`)
   - `pkg/util/` — Common utilities
 - `internal/constants/` — Internal constants
 - `hack/` — Development scripts (setup, release helpers)

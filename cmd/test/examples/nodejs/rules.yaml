@@ -1,0 +1,23 @@
+- message: nodejs sample rule 001
+  ruleID: node-sample-rule-001
+  description: "Testing that the node provider works - type"
+  effort: 1
+  when:
+    nodejs.referenced:
+      pattern: "greeter"
+
+- message: nodejs sample rule 002
+  ruleID: node-sample-rule-002
+  description: "Testing that the node provider works - function"
+  effort: 1
+  when:
+    nodejs.referenced:
+      pattern: "hello"
+
+- message: nodejs sample rule 003
+  ruleID: node-sample-rule-003
+  description: "Testing that the node module files are not matched"
+  effort: 1
+  when:
+    nodejs.referenced:
+      pattern: "log"

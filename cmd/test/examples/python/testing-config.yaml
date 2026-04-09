@@ -1,0 +1,3 @@
+providers:
+  - name: python
+    dataPath: ./test-data/python/

@@ -8,9 +8,8 @@ import (
 
 func NewGenerateCommand(log logr.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "generate",
-		GroupID: "assetGeneration",
-		Short:   "Analyze the source platform and/or application and output discovery manifest.",
+		Use:   "generate",
+		Short: "Analyze the source platform and/or application and output discovery manifest.",
 		Run: func(cmd *cobra.Command, _ []string) {
 			cmd.Help()
 		},

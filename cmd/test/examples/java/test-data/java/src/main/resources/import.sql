@@ -1,0 +1,5 @@
+INSERT INTO customers(id, username, name, surname, address, zipcode, city, country) VALUES (1, 'phlegm_master_19', 'Guybrush', 'Threepwood', '1060 West Addison', 'ME-001', 'Melee Town', 'Melee Island');
+INSERT INTO customers(id, username, name, surname, address, zipcode, city, country) VALUES (2, 'hate_guybrush', 'Pirate', 'Lechuck', 'Caverns of Meat, no number', 'MO-666', 'Giant Monkey Head', 'Monkey Island');
+INSERT INTO customers(id, username, name, surname, address, zipcode, city, country) VALUES (3, 'the_governor_em', 'Elaine', 'Marley', 'PO Box 1', 'BO-001', 'Ville de la Booty', 'Booty Island');
+INSERT INTO customers(id, username, name, surname, address, zipcode, city, country) VALUES (4, 'rescue_me', 'Herman', 'Toothrot', '1110 Gorgas Ave', '94129', 'Dinky Beach', 'Dinky Island');
+INSERT INTO customers(id, username, name, surname, address, zipcode, city, country) VALUES (5, 'i_rule_scabb', 'Largo', 'LaGrande', 'Swamp Rot Inn', 'SC-002', 'Woodtick', 'Scabb Island');

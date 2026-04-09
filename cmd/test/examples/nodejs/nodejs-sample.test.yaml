@@ -1,0 +1,16 @@
+rulesPath: ./rules.yaml
+tests:
+  - ruleID: node-sample-rule-001
+    testCases:
+      - name: tc-greeter-symbol
+        hasIncidents:
+          atLeast: 1
+  - ruleID: node-sample-rule-002
+    testCases:
+      - name: tc-hello-symbol
+        hasIncidents:
+          atLeast: 1
+  - ruleID: node-sample-rule-003
+    testCases:
+      - name: tc-no-log-in-app-source
+        isUnmatched: true

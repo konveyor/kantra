@@ -63,7 +63,7 @@ func TestDefaultProviderConfig_ModeContainer_AllProviders(t *testing.T) {
 
 func TestDefaultProviderConfig_ModeContainer_MatchesRunnerDefaults(t *testing.T) {
 	// This test validates that ModeContainer produces configs equivalent
-	// to the former defaultProviderConfig in pkg/testing/runner.go.
+	// to the former defaultProviderConfig in cmd/testrunner/runner.go.
 	configs := DefaultProviderConfig(ModeContainer, DefaultOptions{})
 	byName := configsByName(configs)
 

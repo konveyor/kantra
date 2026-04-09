@@ -28,3 +28,5 @@ Setting `KANTRA_DIR` is useful when you run kantra from a different working dire
 
 - To increase logs for debugging, you can set `--log-level` (default is 5)
 - ie: `--log-level=7`
+
+- Set `-no-progress` to see additional kantra logs

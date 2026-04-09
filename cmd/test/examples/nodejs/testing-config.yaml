@@ -1,0 +1,3 @@
+providers:
+  - name: nodejs
+    dataPath: ./test-data/nodejs/

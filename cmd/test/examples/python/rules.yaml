@@ -1,0 +1,21 @@
+- message: python sample rule 001
+  ruleID: python-sample-rule-001
+  description: sample-rule-1 - this should appear as an issue
+  effort: 1
+  when:
+    python.referenced:
+      pattern: hello_world
+- message: python sample rule 003
+  ruleID: python-sample-rule-003
+  description: sample-rule-3
+  effort: 1
+  when:
+    python.referenced:
+      pattern: create_custom_resource_definition
+- message: python sample rule 004
+  ruleID: python-sample-rule-004
+  description: sample-rule-4
+  effort: 5
+  when:
+    python.referenced:
+      pattern: "file_b*"

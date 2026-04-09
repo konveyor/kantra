@@ -1,0 +1,3 @@
+providers:
+  - name: java
+    dataPath: ./test-data/java/

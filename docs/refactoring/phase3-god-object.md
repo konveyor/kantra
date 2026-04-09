@@ -291,11 +291,11 @@ Provider configuration is duplicated in three places:
 
 | Location | Lines | Mode |
 |----------|-------|------|
-| `pkg/testing/runner.go:46-126` | 80 | `defaultProviderConfig` (container paths) |
+| `cmd/testrunner/runner.go:46-126` | 80 | `defaultProviderConfig` (container paths) |
 | `cmd/analyze-bin.go:522-576` | 55 | `makeJavaProviderConfig` + `makeBuiltinProviderConfig` (local paths) |
 | `cmd/analyze-hybrid.go:222-260` | 40 | `setupNetworkProvider` switch (container paths) |
 
-There is an existing TODO at `pkg/testing/runner.go:44` acknowledging this:
+There is an existing TODO at `cmd/testrunner/runner.go:44` acknowledging this:
 ```go
 // TODO (pgaikwad): we need to move the default config to a common place
 // to be shared between kantra analyze command and this
@@ -320,7 +320,7 @@ const (
 func DefaultProviderConfig(mode ExecutionMode) []provider.Config { ... }
 ```
 
-This replaces `defaultProviderConfig` in `pkg/testing/runner.go`, `makeJavaProviderConfig()`/`makeBuiltinProviderConfig()` in `analyze-bin.go`, and the provider-specific switch in `analyze-hybrid.go:222-260`.
+This replaces `defaultProviderConfig` in `cmd/testrunner/runner.go`, `makeJavaProviderConfig()`/`makeBuiltinProviderConfig()` in `analyze-bin.go`, and the provider-specific switch in `analyze-hybrid.go:222-260`.
 
 **Step 3: Rewrite `RunAnalysisContainerless()` (`analyze-bin.go`)**
 
@@ -350,7 +350,7 @@ Keep after analyzer returns:
 - `CreateJSONOutput()`
 - `GenerateStaticReport()`
 
-**Step 5: Replace `runLocal()` in `pkg/testing/runner.go` with in-process analyzer**
+**Step 5: Replace `runLocal()` in `cmd/testrunner/runner.go` with in-process analyzer**
 
 The test command's local mode currently shells out to `kantra analyze` as a subprocess (`runner.go:317-351`):
 
@@ -425,9 +425,9 @@ Code that becomes dead in the test runner:
 
 | Code | File | Lines |
 |------|------|-------|
-| `defaultProviderConfig` var | `pkg/testing/runner.go:46-126` | 80 |
-| `runLocal()` function | `pkg/testing/runner.go:317-351` | 35 |
-| `envWithoutKantraDir()` function | `pkg/testing/runner.go:354-365` | 12 |
+| `defaultProviderConfig` var | `cmd/testrunner/runner.go:46-126` | 80 |
+| `runLocal()` function | `cmd/testrunner/runner.go:317-351` | 35 |
+| `envWithoutKantraDir()` function | `cmd/testrunner/runner.go:354-365` | 12 |
 
 **Step 7: Verify**
 
@@ -443,7 +443,7 @@ Code that becomes dead in the test runner:
 | `analyze-bin.go` | 1,019 | ~400 |
 | `analyze-hybrid.go` | 946 | ~500 |
 | `analyze.go` | 1,600 | ~1,400 (dead code removed) |
-| `pkg/testing/runner.go` | 585 | ~460 (subprocess code removed, shared defaults used) |
+| `cmd/testrunner/runner.go` | 585 | ~460 (subprocess code removed, shared defaults used) |
 | `pkg/provider/defaults.go` | 0 | ~100 (new, shared provider config) |
 | **Total delta** | | ~1,400 lines eliminated |
 
@@ -575,7 +575,7 @@ The following commands were evaluated for similar refactoring needs:
 
 | Command | Lines | Verdict |
 |---------|-------|---------|
-| `cmd/test.go` + `pkg/testing/` | 58 + 1,382 | **Included in Phase 3a** -- `runLocal()` replaced by in-process `konveyor.Analyzer`; shared provider defaults extracted |
+| `cmd/test.go` + `cmd/testrunner/` | 58 + 1,382 | **Included in Phase 3a** -- `runLocal()` replaced by in-process `konveyor.Analyzer`; shared provider defaults extracted |
 | `cmd/openrewrite.go` | 198 | No change needed -- right-sized and self-contained |
 | `cmd/transform.go` | 18 | No change needed -- proper parent command |
 | `cmd/dump-rules.go` | 148 | No change needed -- simple utility |

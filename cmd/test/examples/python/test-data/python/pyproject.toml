@@ -1,0 +1,5 @@
+[project]
+name = "kantra-python-sample-app"
+version = "0.0.0"
+description = "Minimal app for cmd/testrunner/examples/python rule tests"
+requires-python = ">=3.10"

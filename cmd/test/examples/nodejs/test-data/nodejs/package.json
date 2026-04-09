@@ -1,0 +1,6 @@
+{
+  "name": "kantra-nodejs-sample-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal app for cmd/testrunner/examples/nodejs rule tests"
+}

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -142,7 +143,7 @@ func NewBaseConfig(name string, mode ExecutionMode, opts BaseOptions) provider.C
 		if !useContainerPath {
 			containerDir = ""
 		}
-		if excludedDir := util.GetProfilesExcludedDir(opts.InputPath, containerDir, useContainerPath); excludedDir != "" {
+		if excludedDir := profile.GetProfilesExcludedDir(opts.InputPath, containerDir, useContainerPath); excludedDir != "" {
 			cfg.InitConfig[0].ProviderSpecificConfig["excludedDirs"] = []interface{}{excludedDir}
 		}
 	}

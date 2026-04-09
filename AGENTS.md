@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to agents when working with code in this repository.
 
 Kantra is a CLI that unifies analysis and transformation capabilities of Konveyor. The CLI is built with Cobra. Podman or Docker is required for container-based workflows.
 
@@ -70,7 +70,7 @@ go test ./...
 
 # Quick smoke test
 ./kantra analyze \
-  --input pkg/testing/examples/ruleset/test-data/java \
+  --input cmd/testrunner/examples/test-data/java \
   --output ./test-output \
   --target cloud-readiness \
   --overwrite

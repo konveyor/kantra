@@ -18,7 +18,7 @@ Despite Phase 3a eliminating the low-level engine duplication, `RunAnalysisConta
 
 Everything else -- progress setup, tracing, logging, override loading, label selectors, analyzer creation, rule parsing, execution, dependency resolution, output writing, static report -- is structurally identical.
 
-The same duplication exists in the test runner (`pkg/testing/runner.go`): `runLocal()` and `runInContainer()` duplicate the analysis pipeline with different provider setup. The test runner cannot currently run in hybrid mode (providers in containers, analyzer on host), limiting it to Java-only containerless or all-in-one container.
+The same duplication exists in the test runner (`cmd/testrunner/runner.go`): `runLocal()` and `runInContainer()` duplicate the analysis pipeline with different provider setup. The test runner cannot currently run in hybrid mode (providers in containers, analyzer on host), limiting it to Java-only containerless or all-in-one container.
 
 Additionally, `--list-sources` and `--list-targets` have three separate code paths (`fetchLabels`, `fetchLabelsContainerless`, `readRuleFilesForLabels`) that all do the same thing -- walk rule files and text-grep for label strings -- differing only in where rule files are located. These labels are not project-aware (they dump all labels from all rulesets regardless of what providers apply to the project) and not capability-filtered (they don't consult providers about what rules they can evaluate).
 
@@ -342,7 +342,7 @@ func (a *analyzeCommand) listLabels(ctx context.Context, mode provider.Execution
 }
 ```
 
-### `pkg/testing/runner.go` -- Test runner
+### `cmd/testrunner/runner.go` -- Test runner
 
 ```go
 func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, error) {
@@ -534,7 +534,7 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 **`cmd/analyze/validate.go`** -- `ValidateContainerless` moves to `localEnvironment.Start`
 **`cmd/analyze/context.go`** -- remove fields that moved to environments
 **`cmd/analyze/rules.go`** -- `extractDefaultRulesets` moves to `containerEnvironment.Start`
-**`pkg/testing/runner.go`** -- `runLocal`/`runInContainer`/`ensureProviderSettings`/`getMergedProviderConfig`/`defaultProviderConfig` removed, replaced by environment
+**`cmd/testrunner/runner.go`** -- `runLocal`/`runInContainer`/`ensureProviderSettings`/`getMergedProviderConfig`/`defaultProviderConfig` removed, replaced by environment
 **`cmd/test.go`** -- hybrid default, remove container-specific flags
 
 ### Files That Don't Change
@@ -599,7 +599,7 @@ cmd/analyze/      → pkg/provider/  (NewEnvironment, EnvironmentConfig)
                   → analyzer-lsp/core (NewAnalyzer, AnalyzerOption)
 
 cmd/test.go       → pkg/provider/  (NewEnvironment, EnvironmentConfig)
-pkg/testing/      → pkg/provider/  (NewEnvironment, EnvironmentConfig)
+cmd/testrunner/      → pkg/provider/  (NewEnvironment, EnvironmentConfig)
                   → analyzer-lsp/core (NewAnalyzer)
 
 pkg/provider/     → pkg/container/ (containerEnvironment uses container.NewContainer)
@@ -641,7 +641,7 @@ Single PR. Implementation follows this order to maintain compilability:
 9. Slim `cmd/analyze/container_ops.go` -- most moved to `env_container.go`
 10. Slim `cmd/analyze/cleanup.go` -- most moved to environment implementations
 11. Slim `cmd/analyze/context.go` -- remove fields that moved to environments
-12. Update `pkg/testing/runner.go` -- replace `runLocal`/`runInContainer` with environment
+12. Update `cmd/testrunner/runner.go` -- replace `runLocal`/`runInContainer` with environment
 13. Update `cmd/test.go` -- new flags, hybrid default
 14. Update tests
 15. Remove dead code (`ModeContainer`, `AllContainerProviders`, `defaultProviderConfig`, `ensureProviderSettings`, `getMergedProviderConfig`)
@@ -667,7 +667,7 @@ Single PR. Implementation follows this order to maintain compilability:
 | `pkg/provider/environment.go` | 0 | ~100 lines (new) |
 | `pkg/provider/env_local.go` | 0 | ~130 lines (new) |
 | `pkg/provider/env_container.go` | 0 | ~350 lines (new) |
-| `pkg/testing/runner.go` | ~549 lines | ~300 lines |
+| `cmd/testrunner/runner.go` | ~549 lines | ~300 lines |
 | Mode branching in callers | if/else at 6+ locations | `NewEnvironment(cfg)` -- zero branching |
 | Test runner modes | container (all-in-one) + local | hybrid + local |
 | `--list-targets` accuracy | all labels, text-grepped | project-aware, capability-filtered, properly parsed |

@@ -88,7 +88,7 @@ jobs:
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
         run: |
-          expected_file=./test-data/analysis-output.yaml
+          expected_file=./test-data/analysis/analysis-output.yaml
           actual_file=./output/output.yaml
           function filter_and_sort() {
             yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
@@ -102,7 +102,7 @@ jobs:
 
       - name: Fail if dependencies output does not match expected
         run: |
-          expected_file=./test-data/deps-output.yaml
+          expected_file=./test-data/analysis/deps-output.yaml
           actual_file=./output/dependencies.yaml
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file
@@ -141,7 +141,7 @@ jobs:
 
       - name: fail if analysis output doesn't match expected
         run: |
-          expected_file=./test-data/analysis-output.yaml
+          expected_file=./test-data/analysis/analysis-output.yaml
           actual_file=./output/output.yaml
           function filter_and_sort() {
             yq e 'del(.[].skipped) | del(.[].unmatched)' $1 \
@@ -155,7 +155,7 @@ jobs:
 
       - name: fail if deps output doesn't match expected
         run: |
-          expected_file=./test-data/deps-output.yaml
+          expected_file=./test-data/analysis/deps-output.yaml
           actual_file=./output/dependencies.yaml
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file
           sed 's/^[ \t-]*//' $actual_file | sort -s > /tmp/actual_file

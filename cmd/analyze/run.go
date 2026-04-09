@@ -12,6 +12,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	kantraprovider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
 	"github.com/konveyor/analyzer-lsp/provider"
@@ -174,7 +175,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 	providerConfigs := env.ProviderConfigs()
 
 	// Apply excludedDirs from profile settings
-	if excludedDir := util.GetProfilesExcludedDir(a.input, "", false); excludedDir != "" {
+	if excludedDir := profile.GetProfilesExcludedDir(a.input, "", false); excludedDir != "" {
 		for i := range providerConfigs {
 			if len(providerConfigs[i].InitConfig) > 0 {
 				if providerConfigs[i].InitConfig[0].ProviderSpecificConfig == nil {
