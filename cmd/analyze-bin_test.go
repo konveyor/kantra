@@ -80,7 +80,7 @@ func TestRunAnalysisContainerless_OverrideSettingsError(t *testing.T) {
 		require.NoError(t, err)
 		a.input = absInput
 
-		err = a.RunAnalysisContainerless(context.Background())
+		err = a.RunAnalysisContainerless(context.Background(), nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "override provider settings")
 	})
@@ -101,7 +101,7 @@ func TestRunAnalysisContainerless_OverrideSettingsError(t *testing.T) {
 		require.NoError(t, err)
 		a.input = absInput
 
-		err = a.RunAnalysisContainerless(context.Background())
+		err = a.RunAnalysisContainerless(context.Background(), nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "override provider settings")
 	})
@@ -154,7 +154,7 @@ func TestRunAnalysisContainerless_SetBinMapContainerlessError(t *testing.T) {
 	require.NoError(t, err)
 	a.input = absInput
 
-	err = a.RunAnalysisContainerless(context.Background())
+	err = a.RunAnalysisContainerless(context.Background(), nil)
 	require.Error(t, err)
 	// We hit the setBinMapContainerless error path (lines 214-215); error may be wrapped
 	errStr := err.Error()
@@ -207,7 +207,7 @@ func TestRunAnalysisContainerless_EngineCreationPath(t *testing.T) {
 	require.NoError(t, err)
 	a.input = absInput
 
-	err = a.RunAnalysisContainerless(context.Background())
+	err = a.RunAnalysisContainerless(context.Background(), nil)
 	// May succeed or fail depending on environment; must not panic
 	_ = err
 }
@@ -569,7 +569,7 @@ func TestRunAnalysisContainerless_CleansJavaProjectOnError(t *testing.T) {
 	}
 	a.AnalyzeCommandContext.isFileInput = true
 
-	err = a.RunAnalysisContainerless(context.Background())
+	err = a.RunAnalysisContainerless(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "override provider settings")
 	_, statErr := os.Stat(javaProjectDir)

@@ -694,6 +694,97 @@ func TestSetSettingsFromProfile_EnableDefaultRulesets(t *testing.T) {
 	}
 }
 
+func TestSetSettingsFromProfile_SourceTargetOverrideProfileKonveyorLabels(t *testing.T) {
+	makeProfileWithKonveyorPath := func(t *testing.T, profileYAML string) (profilePath string, cleanup func()) {
+		t.Helper()
+		tmpDir, err := os.MkdirTemp("", "test-profile-")
+		if err != nil {
+			t.Fatalf("MkdirTemp: %v", err)
+		}
+		konveyorDir := filepath.Join(tmpDir, "app", ".konveyor", "profiles", "p")
+		if err := os.MkdirAll(konveyorDir, 0755); err != nil {
+			os.RemoveAll(tmpDir)
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		profilePath = filepath.Join(konveyorDir, "profile.yaml")
+		if err := os.WriteFile(profilePath, []byte(profileYAML), 0644); err != nil {
+			os.RemoveAll(tmpDir)
+			t.Fatalf("WriteFile: %v", err)
+		}
+		return profilePath, func() { os.RemoveAll(tmpDir) }
+	}
+
+	makeCmd := func() *cobra.Command {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("input", "", "")
+		cmd.Flags().String("mode", "", "")
+		cmd.Flags().Bool("analyze-known-libraries", false, "")
+		cmd.Flags().String("incident-selector", "", "")
+		cmd.Flags().String("label-selector", "", "")
+		cmd.Flags().StringSlice("rules", nil, "")
+		cmd.Flags().Bool("enable-default-rulesets", true, "")
+		cmd.Flags().StringArray("source", []string{}, "")
+		cmd.Flags().StringArray("target", []string{}, "")
+		return cmd
+	}
+
+	t.Run("target flag removes profile konveyor target labels", func(t *testing.T) {
+		profilePath, cleanup := makeProfileWithKonveyorPath(t, `
+mode: {}
+rules:
+  labels:
+    included:
+      - "konveyor.io/target=eap7"
+      - "konveyor.io/target=eap8"
+      - "hibernate"
+`)
+		defer cleanup()
+
+		cmd := makeCmd()
+		_ = cmd.Flags().Set("target", "eap9")
+		cmd.Flags().Lookup("target").Changed = true
+
+		settings := &ProfileSettings{EnableDefaultRulesets: true}
+		if err := SetSettingsFromProfile(profilePath, cmd, settings); err != nil {
+			t.Fatalf("SetSettingsFromProfile: %v", err)
+		}
+		if settings.LabelSelector != "(hibernate)" {
+			t.Fatalf("LabelSelector = %q, want %q", settings.LabelSelector, "(hibernate)")
+		}
+	})
+
+	t.Run("source and target flags remove all profile konveyor source/target labels", func(t *testing.T) {
+		profilePath, cleanup := makeProfileWithKonveyorPath(t, `
+mode: {}
+rules:
+  labels:
+    included:
+      - "konveyor.io/source=weblogic"
+      - "konveyor.io/target=eap7"
+      - "configuration"
+    excluded:
+      - "konveyor.io/source=springboot"
+      - "konveyor.io/target=eap8"
+      - "deprecated"
+`)
+		defer cleanup()
+
+		cmd := makeCmd()
+		_ = cmd.Flags().Set("source", "quarkus")
+		_ = cmd.Flags().Set("target", "eap9")
+		cmd.Flags().Lookup("source").Changed = true
+		cmd.Flags().Lookup("target").Changed = true
+
+		settings := &ProfileSettings{EnableDefaultRulesets: true}
+		if err := SetSettingsFromProfile(profilePath, cmd, settings); err != nil {
+			t.Fatalf("SetSettingsFromProfile: %v", err)
+		}
+		if settings.LabelSelector != "(configuration) && !deprecated" {
+			t.Fatalf("LabelSelector = %q, want %q", settings.LabelSelector, "(configuration) && !deprecated")
+		}
+	})
+}
+
 func TestGetRulesInProfile(t *testing.T) {
 	tests := []struct {
 		name       string

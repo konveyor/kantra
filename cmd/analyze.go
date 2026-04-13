@@ -237,7 +237,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					return nil
 				}
 				cmdCtx, cancelFunc := context.WithCancel(cmd.Context())
-				err := analyzeCmd.RunAnalysisContainerless(cmdCtx)
+				err := analyzeCmd.RunAnalysisContainerless(cmdCtx, cmd)
 				defer cancelFunc()
 				if err != nil {
 					return err
@@ -292,7 +292,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}()
 			// Run hybrid mode analysis (analyzer in-process, providers in containers)
 			cmdCtx, cancelFunc := context.WithCancel(ctx)
-			err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx)
+			err = analyzeCmd.RunAnalysisHybridInProcess(cmdCtx, cmd)
 			defer cancelFunc()
 			if err != nil {
 				log.Error(err, "failed to run hybrid analysis")
@@ -1227,12 +1227,37 @@ func (a *analyzeCommand) inputShortName() string {
 	return filepath.Base(a.input)
 }
 
-func (a *analyzeCommand) getLabelSelector() string {
+func labelSelectorSetFromCLI(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	f := cmd.Flags().Lookup("label-selector")
+	if f == nil {
+		return false
+	}
+	return f.Changed
+}
+
+func (a *analyzeCommand) getLabelSelector(cmd *cobra.Command) string {
+	if labelSelectorSetFromCLI(cmd) && a.labelSelector != "" {
+		return a.labelSelector
+	}
+	hasSourceOrTarget := len(a.sources) > 0 || len(a.targets) > 0
+	if hasSourceOrTarget {
+		cliExpr := a.labelSelectorFromSourcesTargets()
+		if a.profilePath != "" && a.labelSelector != "" && !labelSelectorSetFromCLI(cmd) {
+			return fmt.Sprintf("(%s) && (%s)", cliExpr, a.labelSelector)
+		}
+		return cliExpr
+	}
 	if a.labelSelector != "" {
 		return a.labelSelector
 	}
-	if (a.sources == nil || len(a.sources) == 0) &&
-		(a.targets == nil || len(a.targets) == 0) {
+	return ""
+}
+
+func (a *analyzeCommand) labelSelectorFromSourcesTargets() string {
+	if len(a.sources) == 0 && len(a.targets) == 0 {
 		return ""
 	}
 	// default labels are applied everytime either a source or target is specified
@@ -1260,12 +1285,11 @@ func (a *analyzeCommand) getLabelSelector() string {
 			// when both targets and sources are present, AND them
 			return fmt.Sprintf("(%s && %s) || (%s)",
 				targetExpr, sourceExpr, strings.Join(defaultLabels, " || "))
-		} else {
-			// when target is specified, but source is not
-			// return target expression OR'd with default labels
-			return fmt.Sprintf("%s || (%s)",
-				targetExpr, strings.Join(defaultLabels, " || "))
 		}
+		// when target is specified, but source is not
+		// return target expression OR'd with default labels
+		return fmt.Sprintf("%s || (%s)",
+			targetExpr, strings.Join(defaultLabels, " || "))
 	}
 	if sourceExpr != "" {
 		// when only source is specified, OR them all

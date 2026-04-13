@@ -32,6 +32,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"go.lsp.dev/uri"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -100,7 +101,7 @@ func (a *analyzeCommand) setProxyEnvironment() {
 	}
 }
 
-func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
+func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context, cmd *cobra.Command) error {
 	startTotal := time.Now()
 
 	a.setProxyEnvironment()
@@ -200,7 +201,7 @@ func (a *analyzeCommand) RunAnalysisContainerless(ctx context.Context) error {
 		progressMode.Printf("Running source analysis...\n")
 	}
 	operationalLog.Info("running analysis")
-	labelSelectors := a.getLabelSelector()
+	labelSelectors := a.getLabelSelector(cmd)
 
 	selectors := []engine.RuleSelector{}
 	if labelSelectors != "" {

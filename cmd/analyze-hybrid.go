@@ -29,6 +29,7 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider/lib"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/yaml.v2"
 )
@@ -509,7 +510,7 @@ func (a *analyzeCommand) setupBuiltinProviderHybrid(ctx context.Context, additio
 // This approach combines the best of both worlds:
 //   - Clean output and direct control from in-process execution
 //   - Provider isolation and consistency from containers
-func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
+func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context, cmd *cobra.Command) error {
 	startTotal := time.Now()
 
 	a.setProxyEnvironment()
@@ -590,7 +591,7 @@ func (a *analyzeCommand) RunAnalysisHybridInProcess(ctx context.Context) error {
 
 	// Setup label selectors
 	a.log.Info("running source analysis")
-	labelSelectors := a.getLabelSelector()
+	labelSelectors := a.getLabelSelector(cmd)
 
 	selectors := []engine.RuleSelector{}
 	if labelSelectors != "" {

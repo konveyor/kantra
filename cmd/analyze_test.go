@@ -456,10 +456,22 @@ func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
+// makeLabelSelectorCLICommand returns a command whose --label-selector flag is marked Changed,
+// matching a real user invocation of -l / --label-selector.
+func makeLabelSelectorCLICommand(value string) *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().StringP("label-selector", "l", "", "")
+	_ = cmd.Flags().Set("label-selector", value)
+	cmd.Flags().Lookup("label-selector").Changed = true
+	return cmd
+}
+
 func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 	tests := []struct {
 		name          string
 		labelSelector string
+		profilePath   string
+		cmd           *cobra.Command
 		sources       []string
 		targets       []string
 		want          string
@@ -509,7 +521,21 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 			targets:       []string{"t1", "t2"},
 			sources:       []string{"t1", "t2"},
 			labelSelector: "example.io/target=foo",
+			cmd:           makeLabelSelectorCLICommand("example.io/target=foo"),
 			want:          "example.io/target=foo",
+		},
+		{
+			name:          "CLI target merges with profile labelSelector via AND",
+			labelSelector: "(hibernate)",
+			profilePath:   "/app/.konveyor/profiles/p/profile.yaml",
+			targets:       []string{"cloud-readiness"},
+			want:          "((konveyor.io/target=cloud-readiness) || (discovery)) && ((hibernate))",
+		},
+		{
+			name:          "without profile, target only uses CLI expression (no AND with labelSelector)",
+			labelSelector: "(hibernate)",
+			targets:       []string{"cloud-readiness"},
+			want:          "(konveyor.io/target=cloud-readiness) || (discovery)",
 		},
 		{
 			name:          "multiple sources & targets specified, OR them within each other, AND result with catch-all source label, finally OR with default labels",
@@ -525,8 +551,9 @@ func Test_analyzeCommand_getLabelSelectorArgs(t *testing.T) {
 				sources:       tt.sources,
 				targets:       tt.targets,
 				labelSelector: tt.labelSelector,
+				profilePath:   tt.profilePath,
 			}
-			if got := a.getLabelSelector(); !reflect.DeepEqual(got, tt.want) {
+			if got := a.getLabelSelector(tt.cmd); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("analyzeCommand.getLabelSelectorArgs() = %v, want %v", got, tt.want)
 			}
 		})
