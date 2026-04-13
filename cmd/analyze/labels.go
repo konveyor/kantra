@@ -94,7 +94,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 		}
 
 		if len(a.rules) > 0 {
-			customRulePath = filepath.Join(CustomRulePath, a.tempRuleDir)
+			customRulePath = filepath.Join(container.CustomRulePath, a.tempRuleDir)
 		}
 		args := []string{"analyze", "--run-local=false"}
 		if listSources {
@@ -127,7 +127,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 
 func (a *analyzeCommand) readRuleFilesForLabels(label string) ([]string, error) {
 	labelsSlice := []string{}
-	err := filepath.WalkDir(RulesetPath, WalkRuleSets(RulesetPath, label, &labelsSlice))
+	err := filepath.WalkDir(container.RulesetPath, WalkRuleSets(container.RulesetPath, label, &labelsSlice))
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +210,15 @@ func (a *analyzeCommand) walkRuleFilesForLabelsContainerless(label string) ([]st
 
 func WalkRuleSets(root string, label string, labelsSlice *[]string) fs.WalkDirFunc {
 	return func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
-			*labelsSlice, err = readRuleFile(path, labelsSlice, label)
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
 		}
-		return err
+		if d == nil || d.IsDir() {
+			return nil
+		}
+		var readErr error
+		*labelsSlice, readErr = readRuleFile(path, labelsSlice, label)
+		return readErr
 	}
 }
 

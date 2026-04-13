@@ -4,6 +4,8 @@
 *.out
 
 .metadata/
+.settings/
+target/
 
 env.local
 

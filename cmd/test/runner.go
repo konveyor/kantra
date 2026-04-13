@@ -215,94 +215,35 @@ func (r defaultRunner) Run(testFiles []TestsFile, opts TestOptions) ([]Result, e
 	return allResults, nil
 }
 
-// runWithEnvironment runs analysis either in hybrid mode (default) or
-// containerless mode when opts.RunLocal is true (Java + builtin only).
 func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFile, dir string, analysisParams AnalysisParams, input string) (string, error) {
-	if opts.RunLocal {
-		return runTestContainerless(logger, opts, dir, analysisParams, input)
-	}
-	return runTestHybrid(logger, opts, testsFile, dir, analysisParams, input)
-}
-
-func runTestContainerless(logger logr.Logger, opts TestOptions, dir string, analysisParams AnalysisParams, input string) (string, error) {
 	outputDir := filepath.Join(dir, "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	kantraDir, err := util.GetKantraDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get kantra dir: %w", err)
+	var providerInfos []kantraprovider.ProviderInfo
+	if !opts.RunLocal {
+		providerInfos = buildTestProviderInfos(testsFile.Providers, opts.ProviderImages)
 	}
 
-	envCfg := kantraprovider.EnvironmentConfig{
-		Mode:         kantraprovider.ModeLocal,
+	ctx := context.Background()
+	env, err := newEnvironmentForRuleTests(opts, RuleTestRunParams{
 		Input:        input,
 		AnalysisMode: string(analysisParams.Mode),
-		Log:          opts.Log,
 		Cleanup:      !opts.NoCleanup,
 		ContextLines: defaultTestContextLines,
-		KantraDir:    kantraDir,
+		Providers:    providerInfos,
+		WorkDir:      dir,
+	})
+	if err != nil {
+		return "", err
 	}
-
-	ctx := context.Background()
-	env := kantraprovider.NewEnvironment(envCfg)
 	if err := env.Start(ctx); err != nil {
 		return "", fmt.Errorf("failed to start environment: %w", err)
 	}
 	defer env.Stop(ctx)
 
 	providerConfigs := env.ProviderConfigs()
-	rulesPath := filepath.Join(dir, "rules.yaml")
-
-	analyzerOpts := []konveyorAnalyzer.AnalyzerOption{
-		konveyorAnalyzer.WithProviderConfigs(providerConfigs),
-		konveyorAnalyzer.WithRuleFilepaths([]string{rulesPath}),
-		konveyorAnalyzer.WithLogger(logger),
-		konveyorAnalyzer.WithContext(ctx),
-		konveyorAnalyzer.WithContextLinesLimit(defaultTestContextLines),
-		konveyorAnalyzer.WithDependencyRulesDisabled(),
-	}
-	if analysisParams.DepLabelSelector != "" {
-		analyzerOpts = append(analyzerOpts,
-			konveyorAnalyzer.WithDepLabelSelector(analysisParams.DepLabelSelector))
-	}
-
-	return runAnalyzerAndWriteOutput(ctx, logger, opts, env, analyzerOpts, outputDir, dir, analysisParams, input)
-}
-
-func runTestHybrid(logger logr.Logger, opts TestOptions, testsFile TestsFile, dir string, analysisParams AnalysisParams, input string) (string, error) {
-	outputDir := filepath.Join(dir, "output")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	providerInfos := buildTestProviderInfos(testsFile.Providers, opts.ProviderImages)
-	envCfg := kantraprovider.EnvironmentConfig{
-		Mode:                  kantraprovider.ModeNetwork,
-		Input:                 input,
-		AnalysisMode:          string(analysisParams.Mode),
-		Log:                   opts.Log,
-		Cleanup:               !opts.NoCleanup,
-		ContextLines:          defaultTestContextLines,
-		Providers:             providerInfos,
-		ContainerBinary:       opts.ContainerBinary,
-		RunnerImage:           opts.RunnerImage,
-		Version:               opts.Version,
-		OutputDir:             dir,
-		EnableDefaultRulesets: false,
-	}
-
-	ctx := context.Background()
-	env := kantraprovider.NewEnvironment(envCfg)
-
-	if err := env.Start(ctx); err != nil {
-		return "", fmt.Errorf("failed to start environment: %w", err)
-	}
-	defer env.Stop(ctx)
-
-	providerConfigs := env.ProviderConfigs()
-
 	rulesPath := filepath.Join(dir, "rules.yaml")
 
 	analyzerOpts := []konveyorAnalyzer.AnalyzerOption{

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/cmd/analyze"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
@@ -74,7 +73,7 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.goal, "goal", "g", "dryRun", "target goal")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.input, "input", "i", "", "path to application source code directory")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.mavenSettingsFile, "maven-settings", "s", "", "path to a custom maven settings file to use")
-	openRewriteCobra.Flags().BoolVarP(&openRewriteCmd.mavenDebugLog, "maven debug log level", "x", false, "enable Maven debug logging")
+	openRewriteCobra.Flags().BoolVarP(&openRewriteCmd.mavenDebugLog, "maven-debug-log", "x", false, "enable Maven debug logging")
 
 	return openRewriteCobra
 }
@@ -149,7 +148,7 @@ func (o *openRewriteCommand) Run(ctx context.Context) error {
 	}
 
 	volumes := map[string]string{
-		o.input: analyze.InputPath,
+		o.input: container.InputPath,
 	}
 	args := []string{
 		"-U", "org.openrewrite.maven:rewrite-maven-plugin:run",

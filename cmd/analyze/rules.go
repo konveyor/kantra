@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/engine"
 
@@ -84,7 +85,7 @@ func (a *analyzeCommand) getRulesVolumes() (map[string]string, error) {
 			}
 		}
 	}
-	rulesVolumes[tempDir] = path.Join(CustomRulePath, filepath.Base(tempDir))
+	rulesVolumes[tempDir] = path.Join(container.CustomRulePath, filepath.Base(tempDir))
 
 	return rulesVolumes, nil
 }
