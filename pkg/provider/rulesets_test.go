@@ -22,20 +22,32 @@ func TestDefaultRulesetPathsForProviders(t *testing.T) {
 		want      []string
 	}{
 		{
-			name:      "java only",
-			providers: []ProviderInfo{{Name: util.JavaProvider}},
-			want:      []string{filepath.Join(tmpDir, "java")},
+			name: "java only",
+			providers: []ProviderInfo{{
+				Name:                 util.JavaProvider,
+				DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.JavaProvider),
+			}},
+			want: []string{filepath.Join(tmpDir, "java")},
 		},
 		{
-			name:      "csharp maps to dotnet",
-			providers: []ProviderInfo{{Name: util.CsharpProvider}},
-			want:      []string{filepath.Join(tmpDir, "dotnet")},
+			name: "csharp maps to dotnet",
+			providers: []ProviderInfo{{
+				Name:                 util.CsharpProvider,
+				DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.CsharpProvider),
+			}},
+			want: []string{filepath.Join(tmpDir, "dotnet")},
 		},
 		{
 			name: "java and nodejs",
 			providers: []ProviderInfo{
-				{Name: util.JavaProvider},
-				{Name: util.NodeJSProvider},
+				{
+					Name:                 util.JavaProvider,
+					DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.JavaProvider),
+				},
+				{
+					Name:                 util.NodeJSProvider,
+					DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.NodeJSProvider),
+				},
 			},
 			want: []string{
 				filepath.Join(tmpDir, "java"),
@@ -53,7 +65,10 @@ func TestDefaultRulesetPathsForProviders(t *testing.T) {
 		{
 			name: "mixed java and go only adds java",
 			providers: []ProviderInfo{
-				{Name: util.JavaProvider},
+				{
+					Name:                 util.JavaProvider,
+					DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.JavaProvider),
+				},
 				{Name: util.GoProvider},
 			},
 			want: []string{filepath.Join(tmpDir, "java")},
@@ -93,8 +108,14 @@ func TestDefaultRulesetPathsForProvidersMissingSubdir(t *testing.T) {
 		t.Fatal(err)
 	}
 	providers := []ProviderInfo{
-		{Name: util.JavaProvider},
-		{Name: util.NodeJSProvider},
+		{
+			Name:                 util.JavaProvider,
+			DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.JavaProvider),
+		},
+		{
+			Name:                 util.NodeJSProvider,
+			DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.NodeJSProvider),
+		},
 	}
 	got := DefaultRulesetPathsForProviders(tmpDir, providers)
 	want := []string{filepath.Join(tmpDir, "java")}
