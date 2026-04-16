@@ -23,6 +23,8 @@ const (
 	fernflowerJar     = "fernflower.jar"
 )
 
+const javaBinaryProjectDirName = "java-project"
+
 // Eclipse language server temporary directories created in the working
 // directory during Java analysis. Cleaned up by Stop.
 var eclipseLSDirs = []string{
@@ -176,7 +178,35 @@ func (e *localEnvironment) Stop(ctx context.Context) error {
 			// continue cleanup even if one fails
 		}
 	}
+	cleanLocalJavaBinaryProjectDirs(e.log, e.cfg.Input, e.cfg.IsFileInput)
 	return nil
+}
+
+func cleanLocalJavaBinaryProjectDirs(log logr.Logger, input string, isFileInput bool) {
+	if !isFileInput {
+		return
+	}
+	parent := filepath.Dir(input)
+	entries, err := os.ReadDir(parent)
+	if err != nil {
+		log.V(1).Info("skipping java-project cleanup", "err", err)
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name != javaBinaryProjectDirName {
+			continue
+		}
+		full := filepath.Join(parent, name)
+		if err := os.RemoveAll(full); err != nil {
+			log.Error(err, "failed to remove decompiled java project directory")
+			continue
+		}
+
+	}
 }
 
 // ProviderConfigs returns ModeLocal provider configurations.

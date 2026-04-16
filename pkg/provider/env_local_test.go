@@ -177,3 +177,44 @@ func TestLocalEnvironment_Stop_CleansUpEclipseDirs(t *testing.T) {
 	err := env.Stop(context.Background())
 	require.NoError(t, err)
 }
+
+func TestCleanLocalJavaBinaryProjectDirs(t *testing.T) {
+	logger := getTestLogger()
+
+	t.Run("removes java-project and java-project-suffix beside binary", func(t *testing.T) {
+		tmp := t.TempDir()
+		bin := filepath.Join(tmp, "app.war")
+		require.NoError(t, os.WriteFile(bin, []byte("x"), 0644))
+		legacy := filepath.Join(tmp, "java-project")
+		require.NoError(t, os.MkdirAll(filepath.Join(legacy, "src"), 0755))
+		keep := filepath.Join(tmp, "other-dir")
+		require.NoError(t, os.MkdirAll(keep, 0755))
+
+		cleanLocalJavaBinaryProjectDirs(logger, bin, true)
+
+		_, err := os.Stat(legacy)
+		require.True(t, os.IsNotExist(err))
+		_, err = os.Stat(keep)
+		require.NoError(t, err)
+	})
+
+	t.Run("no-op when not file input", func(t *testing.T) {
+		tmp := t.TempDir()
+		proj := filepath.Join(tmp, "java-project")
+		require.NoError(t, os.MkdirAll(proj, 0755))
+		cleanLocalJavaBinaryProjectDirs(logger, tmp, false)
+		_, err := os.Stat(proj)
+		require.NoError(t, err)
+	})
+
+	t.Run("removes java-project for any file path when isFileInput true", func(t *testing.T) {
+		tmp := t.TempDir()
+		f := filepath.Join(tmp, "readme.txt")
+		require.NoError(t, os.WriteFile(f, []byte("x"), 0644))
+		proj := filepath.Join(tmp, "java-project")
+		require.NoError(t, os.MkdirAll(proj, 0755))
+		cleanLocalJavaBinaryProjectDirs(logger, f, true)
+		_, err := os.Stat(proj)
+		require.True(t, os.IsNotExist(err))
+	})
+}
