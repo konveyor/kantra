@@ -53,6 +53,10 @@ func newLocalEnvironment(cfg EnvironmentConfig) *localEnvironment {
 
 // Start validates that the host has the required tools and kantra
 // installation for containerless analysis.
+//
+// When ExternalOnly is set, Java-specific validation (mvn, java, JAVA_HOME,
+// and Java bundles) is skipped entirely. Only builtin provider configs are
+// generated; external provider configs are added later via overrides.
 func (e *localEnvironment) Start(ctx context.Context) error {
 	// validate input app is not the current dir
 	// .metadata cannot initialize in the app root
@@ -64,6 +68,42 @@ func (e *localEnvironment) Start(ctx context.Context) error {
 		return fmt.Errorf("input path %s cannot be the current directory", e.cfg.Input)
 	}
 
+	if !e.cfg.ExternalOnly {
+		if err := e.validateJavaPrerequisites(); err != nil {
+			return err
+		}
+	}
+
+	// validate .kantra directory and its contents
+	if err := e.validateKantraDir(); err != nil {
+		return err
+	}
+
+	// generate provider configs now that validation passed
+	providers := AllLocalProviders
+	if e.cfg.ExternalOnly {
+		providers = []string{"builtin"}
+	}
+	e.configs = DefaultProviderConfig(ModeLocal, DefaultOptions{
+		Providers:          providers,
+		KantraDir:          e.cfg.KantraDir,
+		Location:           e.cfg.Input,
+		AnalysisMode:       e.cfg.AnalysisMode,
+		DisableMavenSearch: e.cfg.DisableMavenSearch,
+		MavenSettingsFile:  e.cfg.MavenSettingsFile,
+		JvmMaxMem:          e.cfg.JvmMaxMem,
+		ContextLines:       e.cfg.ContextLines,
+		HTTPProxy:          e.cfg.HTTPProxy,
+		HTTPSProxy:         e.cfg.HTTPSProxy,
+		NoProxy:            e.cfg.NoProxy,
+	})
+
+	return nil
+}
+
+// validateJavaPrerequisites checks that mvn, java 17+, and JAVA_HOME
+// are available on the host. Called only when Java analysis is needed.
+func (e *localEnvironment) validateJavaPrerequisites() error {
 	// validate mvn
 	if _, err := exec.LookPath("mvn"); err != nil {
 		return fmt.Errorf("%w cannot find requirement maven; ensure maven is installed", err)
@@ -93,37 +133,36 @@ func (e *localEnvironment) Start(ctx context.Context) error {
 	if os.Getenv("JAVA_HOME") == "" {
 		return fmt.Errorf("JAVA_HOME is not set; ensure JAVA_HOME is set")
 	}
+	return nil
+}
 
-	// validate .kantra directory and its contents
+// validateKantraDir checks that the kantra installation directory and
+// its required contents exist. When ExternalOnly is set, only the base
+// directory and rulesets (if default rulesets are enabled) are checked.
+func (e *localEnvironment) validateKantraDir() error {
 	kantraDir := e.cfg.KantraDir
-	requiredPaths := []string{
-		kantraDir,
-		filepath.Join(kantraDir, rulesetsSubdir),
-		filepath.Join(kantraDir, javaBundlesSubdir),
-		filepath.Join(kantraDir, jdtlsBinSubdir),
-		filepath.Join(kantraDir, fernflowerJar),
+
+	requiredPaths := []string{kantraDir}
+
+	if e.cfg.EnableDefaultRulesets {
+		requiredPaths = append(requiredPaths, filepath.Join(kantraDir, rulesetsSubdir))
 	}
+
+	if !e.cfg.ExternalOnly {
+		// Java-specific paths only needed when running Java provider
+		requiredPaths = append(requiredPaths,
+			filepath.Join(kantraDir, javaBundlesSubdir),
+			filepath.Join(kantraDir, jdtlsBinSubdir),
+			filepath.Join(kantraDir, fernflowerJar),
+		)
+	}
+
 	for _, p := range requiredPaths {
 		if _, err := os.Stat(p); os.IsNotExist(err) {
 			e.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
 			return err
 		}
 	}
-
-	// generate provider configs now that validation passed
-	e.configs = DefaultProviderConfig(ModeLocal, DefaultOptions{
-		KantraDir:          e.cfg.KantraDir,
-		Location:           e.cfg.Input,
-		AnalysisMode:       e.cfg.AnalysisMode,
-		DisableMavenSearch: e.cfg.DisableMavenSearch,
-		MavenSettingsFile:  e.cfg.MavenSettingsFile,
-		JvmMaxMem:          e.cfg.JvmMaxMem,
-		ContextLines:       e.cfg.ContextLines,
-		HTTPProxy:          e.cfg.HTTPProxy,
-		HTTPSProxy:         e.cfg.HTTPSProxy,
-		NoProxy:            e.cfg.NoProxy,
-	})
-
 	return nil
 }
 

@@ -150,11 +150,12 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 		Log:                   a.log,
 		KantraDir:             a.kantraDir,
 		DisableMavenSearch:    a.disableMavenSearch,
+		ExternalOnly:          a.externalOnly,
+		EnableDefaultRulesets: a.enableDefaultRulesets,
 		Providers:             buildProviderInfos(foundProviders),
 		ContainerBinary:       settings.Settings.ContainerBinary,
 		RunnerImage:           settings.Settings.RunnerImage,
 		OutputDir:             a.output,
-		EnableDefaultRulesets: a.enableDefaultRulesets,
 		LogLevel:              a.logLevel,
 		Cleanup:               a.cleanup,
 		DepFolders:            a.depFolders,
@@ -182,12 +183,18 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 		}
 	}
 
-	overrideConfigs, err := a.loadOverrideProviderSettings()
-	if err != nil {
-		return fmt.Errorf("failed to load override provider settings: %w", err)
+	// Reuse override configs loaded early in RunE (for mode selection).
+	// If not loaded yet (e.g., called from a different path), load now.
+	overrideConfigs := a.parsedOverrideConfigs
+	if overrideConfigs == nil && a.overrideProviderSettings != "" {
+		var loadErr error
+		overrideConfigs, loadErr = a.loadOverrideProviderSettings()
+		if loadErr != nil {
+			return fmt.Errorf("failed to load override provider settings: %w", loadErr)
+		}
 	}
 	if overrideConfigs != nil {
-		operationalLog.Info("loaded override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
+		operationalLog.Info("applying override provider settings", "file", a.overrideProviderSettings, "providers", len(overrideConfigs))
 		providerConfigs = applyAllProviderOverrides(providerConfigs, overrideConfigs)
 	}
 

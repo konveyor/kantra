@@ -252,7 +252,7 @@ func (a *analyzeCommand) ValidateAndLoadProfile() (*profile.AnalysisProfile, err
 	return foundProfile, nil
 }
 
-func (a *analyzeCommand) validateProviders(providers []string) error {
+func (a *analyzeCommand) validateProviders(providers []string, overrideNames map[string]bool) error {
 	validProvs := []string{
 		util.JavaProvider,
 		util.PythonProvider,
@@ -261,9 +261,13 @@ func (a *analyzeCommand) validateProviders(providers []string) error {
 		util.CsharpProvider,
 	}
 	for _, prov := range providers {
+		// providers defined in the override settings file are always valid
+		if overrideNames[prov] {
+			continue
+		}
 		//validate other providers
 		if !slices.Contains(validProvs, prov) {
-			return fmt.Errorf("provider %v not supported. Use --providerOverride or --provider option", prov)
+			return fmt.Errorf("provider %v not supported. Use --override-provider-settings or --provider option", prov)
 		}
 	}
 	return nil

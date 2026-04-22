@@ -54,6 +54,8 @@ type analyzeCommand struct {
 	disableMavenSearch       bool
 	noProgress               bool
 	overrideProviderSettings string
+	parsedOverrideConfigs    []provider.Config // loaded early for mode selection
+	externalOnly             bool              // true when only builtin + external providers needed
 	staticReportPath         string
 	profileDir               string
 	profilePath              string
@@ -154,6 +156,17 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 				}
 				return nil
 			}
+			// --- Load override provider settings early ---
+			// This must happen before provider detection so external providers
+			// from the override file can influence mode selection.
+			overrideConfigs, err := analyzeCmd.loadOverrideProviderSettings()
+			if err != nil {
+				return fmt.Errorf("failed to load override provider settings: %w", err)
+			}
+			analyzeCmd.parsedOverrideConfigs = overrideConfigs
+			externalNames := externalProviderNames(overrideConfigs)
+			overrideNames := overrideProviderNameSet(overrideConfigs)
+
 			languages, err := recognizer.Analyze(analyzeCmd.input)
 			if err != nil {
 				log.Error(err, "Failed to determine languages for input")
@@ -182,14 +195,46 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 					log.Error(err, "failed to set provider info")
 					return err
 				}
-				err = analyzeCmd.validateProviders(foundProviders)
+				err = analyzeCmd.validateProviders(foundProviders, overrideNames)
 				if err != nil {
 					return err
 				}
 			}
 
+			// When the override file introduces non-standard external providers
+			// (providers kantra doesn't natively manage) and the user did NOT
+			// explicitly select providers via --provider, ignore Alizer-detected
+			// providers. The user's intent is to use only their external provider.
+			providerFlagUsed := len(analyzeCmd.provider) > 0
+			if !providerFlagUsed && hasNonStandardExternalProviders(overrideConfigs) {
+				log.V(1).Info("override introduces non-standard external providers, clearing Alizer-detected providers",
+					"detected", foundProviders, "external", externalNames)
+				foundProviders = []string{}
+			}
+
+			// Determine if only external providers are needed (no kantra-managed ones).
+			// This allows running without Java when the user has their own provider.
+			allExternalOnly := isExternalOnly(foundProviders, externalNames)
+			analyzeCmd.externalOnly = allExternalOnly
+
+			if allExternalOnly {
+				log.V(1).Info("external-only mode: all providers are user-managed", "external", externalNames)
+				// Auto-disable default rulesets unless the user explicitly enabled them
+				if !cmd.Flags().Lookup("enable-default-rulesets").Changed {
+					analyzeCmd.enableDefaultRulesets = false
+					log.V(1).Info("auto-disabled default rulesets for external-only mode")
+				}
+				// Require --rules when using external-only providers without default rulesets.
+				// The PreRunE validation couldn't catch this because enableDefaultRulesets
+				// was still true at that point.
+				if !analyzeCmd.enableDefaultRulesets && len(analyzeCmd.rules) == 0 {
+					return fmt.Errorf("must specify --rules when using external-only providers (no default rulesets available)")
+				}
+			}
+
 			// default to run container mode if no Java provider found
-			if len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
+			// but NOT if all providers are external (user-managed)
+			if !allExternalOnly && len(foundProviders) > 0 && !slices.Contains(foundProviders, util.JavaProvider) {
 				log.V(1).Info("detected non-Java providers, switching to hybrid mode", "providers", foundProviders)
 				analyzeCmd.runLocal = false
 			}

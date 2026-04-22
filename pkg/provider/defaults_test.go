@@ -237,6 +237,26 @@ func TestDefaultProviderConfig_UnknownProviderSkipped(t *testing.T) {
 	assert.Empty(t, configs)
 }
 
+func TestDefaultProviderConfig_ModeLocal_BuiltinOnly(t *testing.T) {
+	// When Providers is restricted to only "builtin" (as in external-only mode),
+	// no Java provider config should be generated.
+	kantraDir := "/home/user/.kantra"
+	input := "/home/user/project"
+
+	configs := DefaultProviderConfig(ModeLocal, DefaultOptions{
+		Providers: []string{"builtin"},
+		KantraDir: kantraDir,
+		Location:  input,
+	})
+
+	require.Len(t, configs, 1, "should return only builtin provider")
+	assert.Equal(t, "builtin", configs[0].Name)
+	assert.Empty(t, configs[0].BinaryPath, "builtin has no binary")
+	assert.Empty(t, configs[0].Address, "builtin has no address")
+	require.Len(t, configs[0].InitConfig, 1)
+	assert.Equal(t, input, configs[0].InitConfig[0].Location)
+}
+
 // configsByName creates a lookup map from provider configs.
 func configsByName(configs []provider.Config) map[string]provider.Config {
 	m := make(map[string]provider.Config, len(configs))
