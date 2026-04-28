@@ -27,8 +27,10 @@ const (
 )
 
 var (
-	// TODO (pgaikwad): this assumes that the $USER in container is always root, it may not be the case in future
-	M2Dir = path.Join("/", "root", ".m2")
+	// MavenCacheDir is the container-internal directory for the Maven
+	// local repository cache. Mounted under /opt/input so it is
+	// accessible regardless of which user the container runs as.
+	MavenCacheDir = path.Join(InputPath, "maven-cache")
 	// SourceMountPath is the directory where source code is mounted in the container.
 	// This value must not be modified at runtime. Use analyzeCommand.sourceLocationPath
 	// for the resolved source location (which may include a filename for file inputs).

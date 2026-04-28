@@ -6,6 +6,7 @@
                     "bundles": "",
                     "depOpenSourceLabelsFile": "",
                     "jvmMaxMem": "",
+                    "mavenCacheDir": "",
                     "mavenSettingsFile": ""
                 },
                 "analysisMode": "source-only"

@@ -448,7 +448,7 @@ func (e *containerEnvironment) startProviders(ctx context.Context, logWriter io.
 		if err != nil {
 			e.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
 		} else if mavenCacheVolName != "" {
-			mavenCacheDir := path.Join(util.M2Dir, "repository")
+			mavenCacheDir := path.Join(util.MavenCacheDir, "repository")
 			volumes[mavenCacheVolName] = mavenCacheDir
 			e.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
 		}

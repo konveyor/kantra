@@ -2,6 +2,7 @@ package provider
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -42,6 +43,7 @@ func (p *JavaProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...
 		psc["bundles"] = ContainerJavaBundlePath
 		psc["depOpenSourceLabelsFile"] = ContainerDepOpenSourceLabels
 		psc[provider.LspServerPathConfigKey] = ContainerJDTLSPath
+		psc["mavenCacheDir"] = path.Join(util.MavenCacheDir, "repository")
 
 	case ModeLocal:
 		kantraDir := opts.KantraDir
@@ -61,6 +63,7 @@ func (p *JavaProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...
 		psc["bundles"] = ContainerJavaBundlePath
 		psc["mavenIndexPath"] = ContainerMavenIndexPath
 		psc["depOpenSourceLabelsFile"] = ContainerDepOpenSourceLabels
+		psc["mavenCacheDir"] = path.Join(util.MavenCacheDir, "repository")
 	}
 
 	// Apply Java-specific overrides from options
