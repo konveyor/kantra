@@ -374,32 +374,36 @@ func (e *containerEnvironment) createMavenCacheVolume() (string, error) {
 	}
 
 	volName := "maven-cache-volume"
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
 
-	m2RepoPath := filepath.Join(homeDir, ".m2", "repository")
-	if err := os.MkdirAll(m2RepoPath, 0755); err != nil {
-		return "", fmt.Errorf("failed to create maven cache directory: %w", err)
-	}
-
-	mountPath := m2RepoPath
+	var args []string
 	if runtime.GOOS == "windows" {
-		volumeName := filepath.VolumeName(mountPath)
-		remainingPath := mountPath[len(volumeName):]
-		remainingPath = filepath.ToSlash(remainingPath)
-		driveLetter := strings.ToLower(strings.TrimSuffix(volumeName, ":"))
-		mountPath = fmt.Sprintf("/mnt/%s%s", driveLetter, remainingPath)
+		// On Windows, use a regular container-managed volume instead of a
+		// bind mount from the host. Bind mounts go through WSL2's 9p
+		// filesystem layer, which does not support the atomic file
+		// operations that Maven's DefaultTrackingFileManager requires
+		// for writing dependency tracking metadata. This causes
+		// transitive dependency resolution to fail.
+		args = []string{"volume", "create", volName}
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get user home directory: %w", err)
+		}
+
+		m2RepoPath := filepath.Join(homeDir, ".m2", "repository")
+		if err := os.MkdirAll(m2RepoPath, 0755); err != nil {
+			return "", fmt.Errorf("failed to create maven cache directory: %w", err)
+		}
+
+		args = []string{
+			"volume", "create",
+			"--opt", "type=none",
+			"--opt", fmt.Sprintf("device=%v", m2RepoPath),
+			"--opt", "o=bind",
+			volName,
+		}
 	}
 
-	args := []string{
-		"volume", "create",
-		"--opt", "type=none",
-		"--opt", fmt.Sprintf("device=%v", mountPath),
-		"--opt", "o=bind",
-		volName,
-	}
 	cmd := exec.Command(e.cfg.ContainerBinary, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -415,7 +419,7 @@ func (e *containerEnvironment) createMavenCacheVolume() (string, error) {
 		return "", fmt.Errorf("failed to create maven cache volume: %w\nOutput: %s", err, string(output))
 	}
 
-	e.log.V(1).Info("created maven cache volume", "volume", volName, "host_path", m2RepoPath)
+	e.log.V(1).Info("created maven cache volume", "volume", volName)
 	e.mavenCacheVol = volName
 	return volName, nil
 }
