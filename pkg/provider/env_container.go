@@ -103,6 +103,13 @@ func (e *containerEnvironment) Start(ctx context.Context) error {
 		mavenSettingsPath = path.Join(util.ConfigMountPath, "settings.xml")
 	}
 
+	// Only tell the provider about the maven cache dir when a cache
+	// volume was actually mounted into the container.
+	mavenCacheDir := ""
+	if e.mavenCacheVol != "" {
+		mavenCacheDir = path.Join(util.MavenCacheDir, "repository")
+	}
+
 	// For file inputs (e.g., .war/.jar), the Location must include the
 	// filename so the Java provider knows it's analyzing a binary file.
 	// The volume mounts the parent directory at SourceMountPath, so the
@@ -124,6 +131,7 @@ func (e *containerEnvironment) Start(ctx context.Context) error {
 		NoProxy:           e.cfg.NoProxy,
 		MavenSettingsFile: mavenSettingsPath,
 		JvmMaxMem:         e.cfg.JvmMaxMem,
+		MavenCacheDir:     mavenCacheDir,
 	})
 
 	e.log.Info("all providers are ready")

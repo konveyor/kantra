@@ -18,6 +18,7 @@ type JavaOptions struct {
 	MavenSettingsFile  string
 	JvmMaxMem          string
 	DisableMavenSearch bool
+	MavenCacheDir      string
 }
 
 func (JavaOptions) providerOption() {}

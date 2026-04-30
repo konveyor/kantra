@@ -137,6 +137,10 @@ type DefaultOptions struct {
 
 	// JvmMaxMem sets JVM max memory for the Java provider.
 	JvmMaxMem string
+
+	// MavenCacheDir is the container path to use for the Maven local
+	// repository cache. Only set when a cache volume is actually mounted.
+	MavenCacheDir string
 }
 
 // DefaultProviderConfig returns provider configs for the given execution mode.
@@ -195,6 +199,7 @@ func DefaultProviderConfig(mode ExecutionMode, opts DefaultOptions) []provider.C
 				MavenSettingsFile:  opts.MavenSettingsFile,
 				JvmMaxMem:          opts.JvmMaxMem,
 				DisableMavenSearch: opts.DisableMavenSearch,
+				MavenCacheDir:      opts.MavenCacheDir,
 			},
 		}
 
