@@ -154,6 +154,10 @@ type ProviderInfo struct {
 
 	// Image is the container image for this provider.
 	Image string
+
+	// DefaultRulesetSubdir is the subdirectory under kantraDir/rulesets for bundled
+	// rules for this provider
+	DefaultRulesetSubdir string
 }
 
 // NewEnvironment creates an Environment for the given configuration.

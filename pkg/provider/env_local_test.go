@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,17 @@ func mkKantraDirWithRulesets(t *testing.T) string {
 	dir := t.TempDir()
 	err := os.MkdirAll(filepath.Join(dir, rulesetsSubdir), 0755)
 	require.NoError(t, err)
+	return dir
+}
+
+// mkKantraDirWithRulesetSubdirs creates a kantra directory with rulesets/<subdirs>.
+func mkKantraDirWithRulesetSubdirs(t *testing.T, subdirs ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, s := range subdirs {
+		err := os.MkdirAll(filepath.Join(dir, rulesetsSubdir, s), 0o755)
+		require.NoError(t, err)
+	}
 	return dir
 }
 
@@ -176,4 +188,114 @@ func TestLocalEnvironment_Stop_CleansUpEclipseDirs(t *testing.T) {
 	// Stop should not error even if no eclipse dirs exist
 	err := env.Stop(context.Background())
 	require.NoError(t, err)
+}
+
+func TestLocalEnvironment_Rules(t *testing.T) {
+	tests := []struct {
+		name           string
+		prep           func(t *testing.T) (kantraDir string, cfg EnvironmentConfig)
+		enableDefaults bool
+		assert         func(t *testing.T, kantraDir string, rules []string, err error)
+	}{
+		{
+			name: "external_only_enable_defaults_uses_rulesets_root",
+			prep: func(t *testing.T) (string, EnvironmentConfig) {
+				d := mkKantraDirWithRulesets(t)
+				return d, EnvironmentConfig{
+					KantraDir:    d,
+					ExternalOnly: true,
+					Log:          logr.Discard(),
+				}
+			},
+			enableDefaults: true,
+			assert: func(t *testing.T, kantraDir string, rules []string, err error) {
+				require.NoError(t, err)
+				require.Len(t, rules, 1)
+				assert.Equal(t, filepath.Join(kantraDir, rulesetsSubdir), rules[0])
+			},
+		},
+		{
+			name: "external_only_enable_defaults_false",
+			prep: func(t *testing.T) (string, EnvironmentConfig) {
+				d := mkKantraDirWithRulesets(t)
+				return d, EnvironmentConfig{
+					KantraDir:    d,
+					ExternalOnly: true,
+					Log:          logr.Discard(),
+				}
+			},
+			enableDefaults: false,
+			assert: func(t *testing.T, _ string, rules []string, err error) {
+				require.NoError(t, err)
+				assert.Empty(t, rules)
+			},
+		},
+		{
+			name: "non_external_fallback_java_subdir",
+			prep: func(t *testing.T) (string, EnvironmentConfig) {
+				d := mkKantraDirWithRulesetSubdirs(t, util.DefaultRulesetDir[util.JavaProvider])
+				return d, EnvironmentConfig{
+					KantraDir:    d,
+					ExternalOnly: false,
+					Log:          logr.Discard(),
+				}
+			},
+			enableDefaults: true,
+			assert: func(t *testing.T, kantraDir string, rules []string, err error) {
+				require.NoError(t, err)
+				require.Len(t, rules, 1)
+				want := filepath.Join(kantraDir, rulesetsSubdir, util.DefaultRulesetDir[util.JavaProvider])
+				assert.Equal(t, want, rules[0])
+			},
+		},
+		{
+			name: "non_external_fallback_no_provider_subdir",
+			prep: func(t *testing.T) (string, EnvironmentConfig) {
+				// rulesets/ exists but no rulesets/java — bundled defaults resolve to nothing.
+				d := mkKantraDirWithRulesets(t)
+				return d, EnvironmentConfig{
+					KantraDir:    d,
+					ExternalOnly: false,
+					Log:          logr.Discard(),
+				}
+			},
+			enableDefaults: true,
+			assert: func(t *testing.T, _ string, rules []string, err error) {
+				require.NoError(t, err)
+				assert.Empty(t, rules)
+			},
+		},
+		{
+			name: "non_external_explicit_providers",
+			prep: func(t *testing.T) (string, EnvironmentConfig) {
+				sub := BundledDefaultRulesetSubdir(util.NodeJSProvider)
+				require.NotEmpty(t, sub)
+				d := mkKantraDirWithRulesetSubdirs(t, sub)
+				return d, EnvironmentConfig{
+					KantraDir:    d,
+					ExternalOnly: false,
+					Providers: []ProviderInfo{
+						{Name: util.NodeJSProvider, DefaultRulesetSubdir: sub},
+					},
+					Log: logr.Discard(),
+				}
+			},
+			enableDefaults: true,
+			assert: func(t *testing.T, kantraDir string, rules []string, err error) {
+				require.NoError(t, err)
+				require.Len(t, rules, 1)
+				sub := BundledDefaultRulesetSubdir(util.NodeJSProvider)
+				assert.Equal(t, filepath.Join(kantraDir, rulesetsSubdir, sub), rules[0])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kantraDir, cfg := tt.prep(t)
+			env := newLocalEnvironment(cfg)
+			rules, err := env.Rules(nil, tt.enableDefaults)
+			tt.assert(t, kantraDir, rules, err)
+		})
+	}
 }

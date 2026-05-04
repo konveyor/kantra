@@ -1,6 +1,9 @@
 package provider
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 )
@@ -219,4 +222,36 @@ func resolveAnalysisMode(mode string, fallback provider.AnalysisMode) provider.A
 		return provider.AnalysisMode(mode)
 	}
 	return fallback
+}
+
+// BundledDefaultRulesetSubdir returns the rulesets/<name> subdirectory used for a
+// provider's bundled defaults, or "" when the provider has no bundled ruleset tree.
+func BundledDefaultRulesetSubdir(providerName string) string {
+	return util.DefaultRulesetDir[providerName]
+}
+
+// DefaultRulesetPathsForProviders returns existing ruleset directory paths under
+// rulesetsRoot for each provider (skips missing directories).
+func DefaultRulesetPathsForProviders(rulesetsRoot string, provInfo []ProviderInfo) []string {
+	var out []string
+	seen := map[string]struct{}{}
+	for _, info := range provInfo {
+		sub := info.DefaultRulesetSubdir
+		if sub == "" {
+			sub = BundledDefaultRulesetSubdir(info.Name)
+		}
+		if sub == "" {
+			continue
+		}
+		p := filepath.Join(rulesetsRoot, sub)
+		if st, err := os.Stat(p); err != nil || !st.IsDir() {
+			continue
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
 }
