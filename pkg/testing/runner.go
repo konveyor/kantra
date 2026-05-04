@@ -273,7 +273,6 @@ func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFil
 		konveyorAnalyzer.WithRuleFilepaths([]string{rulesPath}),
 		konveyorAnalyzer.WithLogger(logger),
 		konveyorAnalyzer.WithContext(ctx),
-		konveyorAnalyzer.WithDependencyRulesDisabled(),
 	}
 	if analysisParams.DepLabelSelector != "" {
 		analyzerOpts = append(analyzerOpts,
