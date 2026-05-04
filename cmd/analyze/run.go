@@ -43,6 +43,7 @@ import (
 //  13. Post-analysis (e.g., provider log collection)
 //  14. Output writing (YAML, JSON, static report)
 //  15. Results summary
+//
 // setProxyEnvironment sets proxy environment variables in the current process
 // from the CLI flags. This ensures all child processes (providers, language servers,
 // etc.) inherit the proxy settings. Sets both lower and upper case variants for
@@ -364,7 +365,9 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 	// Print results summary
 	progressMode.Println("\nResults:")
 	reportPath := filepath.Join(a.output, "static-report", "index.html")
-	progressMode.Printf("  Report: file://%s\n", reportPath)
+	if !a.skipStaticReport {
+		progressMode.Printf("  Report: file://%s\n", reportPath)
+	}
 	analysisLogPath := filepath.Join(a.output, "analysis.log")
 	progressMode.Printf("  Analysis logs: %s\n", analysisLogPath)
 
