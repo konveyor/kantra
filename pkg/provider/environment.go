@@ -154,10 +154,6 @@ type ProviderInfo struct {
 
 	// Image is the container image for this provider.
 	Image string
-
-	// DefaultRulesetSubdir is the subdirectory name under the rulesets root for bundled
-	// default rules for this provider
-	DefaultRulesetSubdir string
 }
 
 // NewEnvironment creates an Environment for the given configuration.

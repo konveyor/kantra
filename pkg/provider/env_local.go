@@ -185,14 +185,14 @@ func (e *localEnvironment) ProviderConfigs() []analyzerprovider.Config {
 	return e.configs
 }
 
-// Rules returns rule file/directory paths. Containerless mode only runs the Java provider,
-// so default rulesets are limited to kantraDir/rulesets/<java> (util.DefaultRulesetDir).
+// Rules returns rule file/directory paths. For local mode, default
+// rulesets are at kantraDir/rulesets on the host filesystem.
 func (e *localEnvironment) Rules(userRules []string, enableDefaults bool) ([]string, error) {
 	rules := make([]string, len(userRules))
 	copy(rules, userRules)
 	if enableDefaults {
-		rulesetsRoot := filepath.Join(e.cfg.KantraDir, rulesetsSubdir)
-		rules = append(rules, DefaultRulesetPathsForProviders(rulesetsRoot, e.cfg.Providers)...)
+		rulesetsPath := filepath.Join(e.cfg.KantraDir, rulesetsSubdir)
+		rules = append(rules, rulesetsPath)
 	}
 	return rules, nil
 }

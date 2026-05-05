@@ -382,9 +382,8 @@ func buildProviderInfos(foundProviders []string) []kantraprovider.ProviderInfo {
 			continue
 		}
 		infos = append(infos, kantraprovider.ProviderInfo{
-			Name:                 name,
-			Image:                image,
-			DefaultRulesetSubdir: kantraprovider.BundledDefaultRulesetSubdir(name),
+			Name:  name,
+			Image: image,
 		})
 	}
 	return infos
