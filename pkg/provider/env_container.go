@@ -481,6 +481,7 @@ func (e *containerEnvironment) startProviders(ctx context.Context, logWriter io.
 			ctx,
 			container.WithImage(p.image),
 			container.WithLog(e.log.V(1)),
+			container.WithRuntimeArgs(e.cfg.ContainerRuntimeArgs...),
 			container.WithVolumes(volumes),
 			container.WithContainerToolBin(e.cfg.ContainerBinary),
 			container.WithEntrypointArgs(args...),

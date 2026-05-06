@@ -103,6 +103,7 @@ func (a *analyzeCommand) fetchLabels(ctx context.Context, listSources, listTarge
 			ctx,
 			container.WithImage(settings.Settings.RunnerImage),
 			container.WithLog(a.log.V(1)),
+			container.WithRuntimeArgs(a.containerRuntimeArgs()...),
 			container.WithEnv(runMode, runModeContainer),
 			container.WithEnv(rulePath, customRulePath),
 			container.WithVolumes(volumes),

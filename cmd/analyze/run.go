@@ -155,6 +155,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 		EnableDefaultRulesets: a.enableDefaultRulesets,
 		Providers:             buildProviderInfos(foundProviders),
 		ContainerBinary:       settings.Settings.ContainerBinary,
+		ContainerRuntimeArgs:  a.containerRuntimeArgs(),
 		RunnerImage:           settings.Settings.RunnerImage,
 		OutputDir:             a.output,
 		LogLevel:              a.logLevel,

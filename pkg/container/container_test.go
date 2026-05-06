@@ -111,6 +111,22 @@ func TestRun_WithVolumesAndEnvInReproducer(t *testing.T) {
 	}
 }
 
+func TestRun_WithRuntimeArgsInReproducer(t *testing.T) {
+	reproducer, err := runWithNonexistentTool(
+		t,
+		"/nonexistent/podman",
+		WithRuntimeArgs("--memory", "4G", "--cpus", "4"),
+	)
+	if err == nil {
+		t.Fatal("expected Run to fail when container tool does not exist")
+	}
+	for _, token := range []string{"--memory", "4G", "--cpus", "4"} {
+		if !strings.Contains(reproducer, token) {
+			t.Fatalf("expected reproducer to contain %q, got: %s", token, reproducer)
+		}
+	}
+}
+
 func TestRun_ValidatesRequiredFields(t *testing.T) {
 	ctx := context.Background()
 	t.Run("missing image", func(t *testing.T) {

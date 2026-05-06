@@ -1345,6 +1345,70 @@ func Test_analyzeCommand_disableMavenSearch_flagParsing(t *testing.T) {
 		})
 	}
 }
+
+func Test_analyzeCommand_containerRuntimeFlagsParsing(t *testing.T) {
+	a := &analyzeCommand{
+		containerRuntimeFlags: "--memory 4G --cpus 4",
+	}
+	want := []string{"--memory", "4G", "--cpus", "4"}
+	if got := a.containerRuntimeArgs(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("containerRuntimeArgs() = %v, want %v", got, want)
+	}
+}
+
+func Test_parseContainerRuntimeFlags(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:  "basic args",
+			input: "--memory 4G --cpus 4",
+			want:  []string{"--memory", "4G", "--cpus", "4"},
+		},
+		{
+			name:  "quoted value with spaces",
+			input: "--annotation \"io.konveyor.note=hello world\"",
+			want:  []string{"--annotation", "io.konveyor.note=hello world"},
+		},
+		{
+			name:  "single quotes",
+			input: "--label 'com.example/name=my app'",
+			want:  []string{"--label", "com.example/name=my app"},
+		},
+		{
+			name:  "escaped spaces",
+			input: "--label com.example/name=my\\ app",
+			want:  []string{"--label", "com.example/name=my app"},
+		},
+		{
+			name:    "unterminated quote",
+			input:   "--label \"broken",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseContainerRuntimeFlags(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for input %q", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseContainerRuntimeFlags() unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("parseContainerRuntimeFlags() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 	tests := []struct {
 		name                       string
@@ -1477,10 +1541,10 @@ func Test_analyzeCommand_Validate_staticReportPath(t *testing.T) {
 			os.WriteFile(filepath.Join(tmpKantraDir, "fernflower.jar"), []byte(""), 0644)
 
 			a := &analyzeCommand{
-				staticReportPath:     reportPath,
-				input:                tmpInput,
-				output:               tmpOutput,
-				mode:                 "full",
+				staticReportPath:      reportPath,
+				input:                 tmpInput,
+				output:                tmpOutput,
+				mode:                  "full",
 				enableDefaultRulesets: true,
 				AnalyzeCommandContext: AnalyzeCommandContext{
 					log:       logr.Discard(),

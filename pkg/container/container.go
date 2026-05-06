@@ -38,6 +38,7 @@ type container struct {
 	detached         bool
 	log              logr.Logger
 	containerToolBin string
+	runtimeArgs      []string
 	reproducerCmd    *string
 }
 
@@ -76,6 +77,12 @@ func WithEntrypointBin(b string) Option {
 func WithContainerToolBin(r string) Option {
 	return func(c *container) {
 		c.containerToolBin = r
+	}
+}
+
+func WithRuntimeArgs(args ...string) Option {
+	return func(c *container) {
+		c.runtimeArgs = args
 	}
 }
 
@@ -235,6 +242,9 @@ func (c *container) Run(ctx context.Context, opts ...Option) error {
 	}
 	if c.cleanup {
 		args = append(args, "--rm")
+	}
+	if len(c.runtimeArgs) > 0 {
+		args = append(args, c.runtimeArgs...)
 	}
 	if c.Name != "" {
 		args = append(args, "--name")

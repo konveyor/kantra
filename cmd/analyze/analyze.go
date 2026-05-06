@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 
@@ -53,6 +54,7 @@ type analyzeCommand struct {
 	runLocal                 bool
 	disableMavenSearch       bool
 	noProgress               bool
+	containerRuntimeFlags    string
 	overrideProviderSettings string
 	parsedOverrideConfigs    []provider.Config // loaded early for mode selection
 	externalOnly             bool              // true when only builtin + external providers needed
@@ -316,8 +318,22 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.runLocal, "run-local", true, "run Java analysis in containerless mode")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.disableMavenSearch, "disable-maven-search", false, "disable maven search for dependencies")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noProgress, "no-progress", false, "disable progress reporting (useful for scripting)")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.containerRuntimeFlags, "container-runtime-flags", "", "additional flags passed to the container runtime for run commands, for example: \"--memory 4G --cpus 4\"")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.staticReportPath, "static-report-path", "", "override the default static report template location")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
 	return analyzeCommand
+}
+
+func (a *analyzeCommand) containerRuntimeArgs() []string {
+	if a.parsedContainerRuntime != nil {
+		return a.parsedContainerRuntime
+	}
+	args, err := parseContainerRuntimeFlags(a.containerRuntimeFlags)
+	if err != nil {
+		// Validation should catch malformed flags first, but keep a best-effort
+		// fallback for direct unit usage paths.
+		return strings.Fields(a.containerRuntimeFlags)
+	}
+	return args
 }

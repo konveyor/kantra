@@ -18,6 +18,12 @@ import (
 )
 
 func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, foundProfile *profile.AnalysisProfile) error {
+	parsedContainerRuntime, err := parseContainerRuntimeFlags(a.containerRuntimeFlags)
+	if err != nil {
+		return fmt.Errorf("invalid --container-runtime-flags: %w", err)
+	}
+	a.parsedContainerRuntime = parsedContainerRuntime
+
 	if a.listSources || a.listTargets || a.listProviders {
 		return nil
 	}
@@ -122,7 +128,7 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 			a.isFileInput = true
 		}
 	}
-	err := a.CheckOverwriteOutput()
+	err = a.CheckOverwriteOutput()
 	if err != nil {
 		return err
 	}

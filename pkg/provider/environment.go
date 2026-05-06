@@ -124,6 +124,10 @@ type EnvironmentConfig struct {
 	// ContainerBinary is the path to the container runtime (podman/docker).
 	ContainerBinary string
 
+	// ContainerRuntimeArgs are additional arguments passed to the container
+	// runtime for every "run" invocation (for example --memory and --cpus).
+	ContainerRuntimeArgs []string
+
 	// RunnerImage is the kantra runner container image (for ruleset extraction).
 	RunnerImage string
 
