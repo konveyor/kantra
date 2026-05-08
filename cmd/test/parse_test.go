@@ -1,9 +1,12 @@
 package test
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
 var one = int(1)
@@ -482,12 +485,20 @@ func TestValidateContainerlessProviders(t *testing.T) {
 		}
 	})
 	t.Run("python rejects", func(t *testing.T) {
+		path := "/x/a.test.yaml"
 		err := ValidateContainerlessProviders([]TestsFile{{
-			Path:      "/x/a.test.yaml",
+			Path:      path,
 			Providers: []ProviderConfig{{Name: "python", DataPath: "."}},
 		}})
+		want := fmt.Errorf(
+			"containerless mode (--run-local=true) only supports %q and %q providers; file %q declares %q — use hybrid mode (default; omit --run-local or --run-local=false)",
+			util.JavaProvider, "builtin", path, "python",
+		)
 		if err == nil {
-			t.Error("expected error")
+			t.Fatal("expected error")
+		}
+		if err.Error() != want.Error() {
+			t.Errorf("got %q, want %q", err.Error(), want.Error())
 		}
 	})
 }

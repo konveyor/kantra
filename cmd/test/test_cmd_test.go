@@ -213,8 +213,8 @@ func TestTestCommand_FlagValues(t *testing.T) {
 
 	runLocalFlag := flags.Lookup("run-local")
 	if runLocalFlag != nil {
-		if runLocalFlag.DefValue != "true" {
-			t.Errorf("Expected run-local flag default to be 'true', got '%s'", runLocalFlag.DefValue)
+		if runLocalFlag.DefValue != "false" {
+			t.Errorf("Expected run-local flag default to be 'false', got '%s'", runLocalFlag.DefValue)
 		}
 	}
 

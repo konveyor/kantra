@@ -48,6 +48,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				}
 			}
 			results, err := NewRunner().Run(tests, TestOptions{
+				Context:         cmd.Context(),
 				RunLocal:        testCmd.runLocal,
 				ContainerBinary: settings.Settings.ContainerBinary,
 				ProviderImages: map[string]string{
@@ -74,6 +75,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 	}
 	testCobraCommand.Flags().StringVarP(&testCmd.testFilterString, "test-filter", "t", "", "filter tests / testcases by their names")
 	testCobraCommand.Flags().BoolVarP(&testCmd.prune, "prune", "p", false, "whether to prune after the execution; defaults to false")
-	testCobraCommand.Flags().BoolVar(&testCmd.runLocal, "run-local", true, "run tests in containerless mode")
+	testCobraCommand.Flags().BoolVar(&testCmd.runLocal, "run-local", false,
+		"run Java and builtin providers on the host (containerless); default is hybrid mode (providers in containers), required for Go, Python, Node.js, and C# tests")
 	return testCobraCommand
 }

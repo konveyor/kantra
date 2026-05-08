@@ -3,7 +3,7 @@
 # Run from repo root (requires podman/docker + provider images), e.g.:
 #   kantra test ./cmd/testrunner/examples/python/
 #
-# `--run-local` is not valid here (python is not limited to java/builtin containerless).
+# Default `kantra test` is hybrid; only pass `--run-local=true` for Java+builtin containerless tests.
 rulesPath: ./rules.yaml
 tests:
   - ruleID: python-sample-rule-001

@@ -51,6 +51,10 @@ type TestOptions struct {
 
 	// Version is the kantra version string (for ruleset cache naming).
 	Version string
+
+	// Context carries cancellation from the CLI (e.g. root ExecuteContext). If nil,
+	// runWithEnvironment uses [context.Background].
+	Context context.Context
 }
 
 func NewRunner() Runner {
@@ -226,7 +230,10 @@ func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFil
 		providerInfos = buildTestProviderInfos(testsFile.Providers, opts.ProviderImages)
 	}
 
-	ctx := context.Background()
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	env, err := newEnvironmentForRuleTests(opts, RuleTestRunParams{
 		Input:        input,
 		AnalysisMode: string(analysisParams.Mode),
@@ -254,7 +261,9 @@ func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFil
 		konveyorAnalyzer.WithContextLinesLimit(defaultTestContextLines),
 		konveyorAnalyzer.WithDependencyRulesDisabled(),
 	}
-	extra := env.ExtraOptions(ctx, false)
+	// Match cmd/analyze/run.go: path mappings apply to binary file inputs (jar/war/ear/class),
+	// not to "full" vs "source-only" analysis mode.
+	extra := env.ExtraOptions(ctx, isBinaryAnalysisInput(input))
 	if len(extra.PathMappings) > 0 {
 		analyzerOpts = append(analyzerOpts, konveyorAnalyzer.WithPathMappings(extra.PathMappings))
 	}
@@ -424,6 +433,18 @@ func resolveDataPath(testsFilePath string, dataPath string) string {
 		return dataPath
 	}
 	return filepath.Join(filepath.Dir(testsFilePath), filepath.Clean(dataPath))
+}
+
+// isBinaryAnalysisInput matches analyze binary detection so hybrid ExtraOptions
+// path mappings align with `kantra analyze --run-local=false`.
+func isBinaryAnalysisInput(input string) bool {
+	info, err := os.Stat(input)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	ext := filepath.Ext(input)
+	return ext == util.JavaArchive || ext == util.WebArchive ||
+		ext == util.EnterpriseArchive || ext == util.ClassFile
 }
 
 func groupTestsByAnalysisParams(tests []Test) [][]Test {

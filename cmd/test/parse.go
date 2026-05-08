@@ -82,7 +82,7 @@ func ValidateContainerlessProviders(files []TestsFile) error {
 		for _, p := range f.Providers {
 			if p.Name != util.JavaProvider && p.Name != "builtin" {
 				return fmt.Errorf(
-					"containerless mode (--run-local) only supports %q and %q providers; file %q declares %q — omit --run-local to use hybrid mode",
+					"containerless mode (--run-local=true) only supports %q and %q providers; file %q declares %q — use hybrid mode (default; omit --run-local or --run-local=false)",
 					util.JavaProvider, "builtin", f.Path, p.Name)
 			}
 		}
