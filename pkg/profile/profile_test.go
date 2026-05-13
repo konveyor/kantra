@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,7 @@ func TestUnmarshalProfile(t *testing.T) {
 		name        string
 		profileDir  string
 		setupFunc   func() (string, func(), error)
-		wantProfile *AnalysisProfile
+		wantProfile *hubapi.AnalysisProfile
 		wantErr     bool
 		errMsg      string
 	}{
@@ -59,16 +60,16 @@ rules:
 				cleanup := func() { os.RemoveAll(tmpDir) }
 				return profilePath, cleanup, nil
 			},
-			wantProfile: &AnalysisProfile{
-				Mode: AnalysisMode{WithDeps: true},
-				Scope: AnalysisScope{
+			wantProfile: &hubapi.AnalysisProfile{
+				Mode: hubapi.ApMode{WithDeps: true},
+				Scope: hubapi.ApScope{
 					WithKnownLibs: true,
-					Packages: PackageSelector{
+					Packages: hubapi.InExList{
 						Included: []string{"com.example"},
 					},
 				},
-				Rules: AnalysisRules{
-					Labels: LabelSelector{
+				Rules: hubapi.ApRules{
+					Labels: hubapi.InExList{
 						Included: []string{"test-label"},
 					},
 				},
@@ -112,19 +113,19 @@ rules:
 				cleanup := func() { os.RemoveAll(tmpDir) }
 				return profilePath, cleanup, nil
 			},
-			wantProfile: &AnalysisProfile{
-				ID:   123,
-				Name: "Complete Profile",
-				Mode: AnalysisMode{WithDeps: false},
-				Scope: AnalysisScope{
+			wantProfile: &hubapi.AnalysisProfile{
+				Resource: hubapi.Resource{ID: 123},
+				Name:     "Complete Profile",
+				Mode:     hubapi.ApMode{WithDeps: false},
+				Scope: hubapi.ApScope{
 					WithKnownLibs: false,
-					Packages: PackageSelector{
+					Packages: hubapi.InExList{
 						Included: []string{"com.example.included"},
 						Excluded: []string{"com.example.excluded"},
 					},
 				},
-				Rules: AnalysisRules{
-					Labels: LabelSelector{
+				Rules: hubapi.ApRules{
+					Labels: hubapi.InExList{
 						Included: []string{"included-label"},
 						Excluded: []string{"excluded-label"},
 					},
@@ -150,7 +151,7 @@ rules:
 				cleanup := func() { os.RemoveAll(tmpDir) }
 				return profilePath, cleanup, nil
 			},
-			wantProfile: &AnalysisProfile{},
+			wantProfile: &hubapi.AnalysisProfile{},
 			wantErr:     false,
 		},
 		{
@@ -175,8 +176,8 @@ mode:
 				cleanup := func() { os.RemoveAll(tmpDir) }
 				return profilePath, cleanup, nil
 			},
-			wantProfile: &AnalysisProfile{
-				Mode: AnalysisMode{WithDeps: true},
+			wantProfile: &hubapi.AnalysisProfile{
+				Mode: hubapi.ApMode{WithDeps: true},
 			},
 			wantErr: false,
 		},
@@ -1263,7 +1264,7 @@ func TestUnmarshalProfile_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupFunc   func() (string, func(), error)
-		wantProfile *AnalysisProfile
+		wantProfile *hubapi.AnalysisProfile
 		wantErr     bool
 		errMsg      string
 	}{
@@ -1299,7 +1300,7 @@ rules:
 
 				return profilePath, func() { os.RemoveAll(tmpDir) }, nil
 			},
-			wantProfile: &AnalysisProfile{
+			wantProfile: &hubapi.AnalysisProfile{
 				Name: "Test Profile",
 			},
 			wantErr: false,

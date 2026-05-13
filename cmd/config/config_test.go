@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"gopkg.in/yaml.v2"
 )
 
@@ -1036,11 +1037,11 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 		{
 			name: "successful application retrieval",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				apps := []profile.Application{
+				apps := []hubapi.Application{
 					{
-						ID:   1,
-						Name: "Test App",
-						Repository: &profile.Repository{
+						Resource: hubapi.Resource{ID: 1},
+						Name:     "Test App",
+						Repository: &hubapi.Repository{
 							URL: "https://github.com/example/test",
 						},
 					},
@@ -1057,13 +1058,13 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 		{
 			name: "application not found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				apps := []profile.Application{
+				apps := []hubapi.Application{
 					{
-						ID:   1,
-						Name: "Different App",
+						Resource: hubapi.Resource{ID: 1},
+						Name:     "Different App",
 					},
 				}
-				apps[0].Repository = &profile.Repository{URL: "https://github.com/example/different"}
+				apps[0].Repository = &hubapi.Repository{URL: "https://github.com/example/different"}
 				jsonData, _ := json.Marshal(apps)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
@@ -1145,14 +1146,14 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 		{
 			name: "successful profiles retrieval",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				profiles := []profile.AnalysisProfile{
+				profiles := []hubapi.AnalysisProfile{
 					{
-						ID:   1,
-						Name: "Profile 1",
+						Resource: hubapi.Resource{ID: 1},
+						Name:     "Profile 1",
 					},
 					{
-						ID:   2,
-						Name: "Profile 2",
+						Resource: hubapi.Resource{ID: 2},
+						Name:     "Profile 2",
 					},
 				}
 				yamlData, _ := yaml.Marshal(profiles)
@@ -1167,7 +1168,7 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 		{
 			name: "no profiles found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				profiles := []profile.AnalysisProfile{}
+				profiles := []hubapi.AnalysisProfile{}
 				yamlData, _ := yaml.Marshal(profiles)
 				w.Header().Set("Content-Type", "application/x-yaml")
 				w.WriteHeader(http.StatusOK)

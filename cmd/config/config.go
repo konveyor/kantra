@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -425,13 +426,13 @@ func (s *syncCommand) checkAuthentication() error {
 	return nil
 }
 
-func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
+func (s *syncCommand) getApplicationFromHub() (hubapi.Application, error) {
 	if err := s.checkAuthentication(); err != nil {
-		return profile.Application{}, err
+		return hubapi.Application{}, err
 	}
 	hubClient, err := s.getHubClient()
 	if err != nil {
-		return profile.Application{}, err
+		return hubapi.Application{}, err
 	}
 
 	var path string
@@ -443,20 +444,20 @@ func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
 
 	resp, err := hubClient.doRequest(path, "application/json", s.log)
 	if err != nil {
-		return profile.Application{}, err
+		return hubapi.Application{}, err
 	}
 	body, err := hubClient.readResponseBody(resp)
 	if err != nil {
-		return profile.Application{}, err
+		return hubapi.Application{}, err
 	}
 
 	apps, err := parseApplicationsFromHub(string(body))
 	if err != nil {
-		return profile.Application{}, err
+		return hubapi.Application{}, err
 	}
 
 	if s.binary != "" {
-		var matched []profile.Application
+		var matched []hubapi.Application
 		for _, app := range apps {
 			if app.Binary == s.binary {
 				matched = append(matched, app)
@@ -466,7 +467,7 @@ func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
 	}
 
 	if len(apps) == 0 {
-		return profile.Application{}, fmt.Errorf("no applications found in Hub for given input")
+		return hubapi.Application{}, fmt.Errorf("no applications found in Hub for given input")
 	}
 	// TODO support multiple applications later
 	if len(apps) > 1 {
@@ -474,7 +475,7 @@ func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
 		if s.binary != "" {
 			lookup = s.binary
 		}
-		return profile.Application{}, fmt.Errorf("multiple applications found in Hub: %s", lookup)
+		return hubapi.Application{}, fmt.Errorf("multiple applications found in Hub: %s", lookup)
 	}
 	application := apps[0]
 	if s.binary == "" {
@@ -484,21 +485,21 @@ func (s *syncCommand) getApplicationFromHub() (profile.Application, error) {
 			if apps[0].Repository != nil {
 				gotURL = apps[0].Repository.URL
 			}
-			return profile.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, gotURL)
+			return hubapi.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, gotURL)
 		}
 		if s.branch != "" && apps[0].Repository.Branch != "" && apps[0].Repository.Branch != s.branch {
-			return profile.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, apps[0].Repository.Branch)
+			return hubapi.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, apps[0].Repository.Branch)
 		}
 	} else {
 		if apps[0].Binary != s.binary {
-			return profile.Application{}, fmt.Errorf("binary mismatch: expected %s, got %s", s.binary, apps[0].Binary)
+			return hubapi.Application{}, fmt.Errorf("binary mismatch: expected %s, got %s", s.binary, apps[0].Binary)
 		}
 	}
 	return application, nil
 }
 
-func parseApplicationsFromHub(jsonData string) ([]profile.Application, error) {
-	var apps []profile.Application
+func parseApplicationsFromHub(jsonData string) ([]hubapi.Application, error) {
+	var apps []hubapi.Application
 
 	err := json.Unmarshal([]byte(jsonData), &apps)
 	if err != nil {
@@ -521,7 +522,7 @@ func parseURLWithBranch(input string) (url, branch string) {
 	return input, ""
 }
 
-func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]profile.AnalysisProfile, error) {
+func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]hubapi.AnalysisProfile, error) {
 	hubClient, err := s.getHubClient()
 	if err != nil {
 		return nil, err
@@ -535,7 +536,7 @@ func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]profile.Analys
 	if err != nil {
 		return nil, err
 	}
-	profiles := []profile.AnalysisProfile{}
+	profiles := []hubapi.AnalysisProfile{}
 	if err := yaml.Unmarshal(body, &profiles); err != nil {
 		return nil, err
 	}
