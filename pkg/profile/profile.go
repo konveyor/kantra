@@ -10,6 +10,7 @@ import (
 
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 	"github.com/konveyor/analyzer-lsp/provider"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -29,37 +30,6 @@ func GetProfilesExcludedDir(inputPath string, containerSourceDir string, useCont
 		return profilesDir
 	}
 	return ""
-}
-
-type AnalysisProfile struct {
-	ID    uint          `json:"id" yaml:"id"`
-	Name  string        `json:"name" yaml:"name"`
-	Mode  AnalysisMode  `json:"mode,omitempty" yaml:"mode,omitempty"`
-	Scope AnalysisScope `json:"scope,omitempty" yaml:"scope,omitempty"`
-	Rules AnalysisRules `json:"rules,omitempty" yaml:"rules,omitempty"`
-}
-
-type AnalysisMode struct {
-	WithDeps bool `json:"withDeps" yaml:"withDeps"`
-}
-
-type PackageSelector struct {
-	Included []string `json:"included,omitempty" yaml:"included,omitempty"`
-	Excluded []string `json:"excluded,omitempty" yaml:"excluded,omitempty"`
-}
-
-type AnalysisScope struct {
-	WithKnownLibs bool            `json:"withKnownLibs" yaml:"withKnownLibs"`
-	Packages      PackageSelector `json:"packages,omitempty" yaml:"packages,omitempty"`
-}
-
-type LabelSelector struct {
-	Included []string `json:"included,omitempty" yaml:"included,omitempty"`
-	Excluded []string `json:"excluded,omitempty" yaml:"excluded,omitempty"`
-}
-
-type AnalysisRules struct {
-	Labels LabelSelector `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 func ProfileHasRules(rulesDir string) bool {
@@ -91,7 +61,7 @@ type ProfileSettings struct {
 	EnableDefaultRulesets bool
 }
 
-func UnmarshalProfile(path string) (*AnalysisProfile, error) {
+func UnmarshalProfile(path string) (*hubapi.AnalysisProfile, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -100,16 +70,16 @@ func UnmarshalProfile(path string) (*AnalysisProfile, error) {
 		return nil, err
 	}
 
-	var profile AnalysisProfile
-	if err := yaml.Unmarshal(data, &profile); err != nil {
+	var prof hubapi.AnalysisProfile
+	if err := yaml.Unmarshal(data, &prof); err != nil {
 		return nil, err
 	}
 
-	return &profile, nil
+	return &prof, nil
 }
 
 func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSettings) error {
-	profile, err := UnmarshalProfile(path)
+	prof, err := UnmarshalProfile(path)
 	if err != nil {
 		return err
 	}
@@ -124,23 +94,23 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 		settings.Input = locationDir
 	}
 	if !cmd.Flags().Lookup("mode").Changed {
-		if !profile.Mode.WithDeps {
+		if !prof.Mode.WithDeps {
 			settings.Mode = string(provider.SourceOnlyAnalysisMode)
 		} else {
 			settings.Mode = string(provider.FullAnalysisMode)
 		}
 	}
-	if !cmd.Flags().Lookup("analyze-known-libraries").Changed && profile.Scope.WithKnownLibs {
+	if !cmd.Flags().Lookup("analyze-known-libraries").Changed && prof.Scope.WithKnownLibs {
 		settings.AnalyzeKnownLibraries = true
 	}
 	if !cmd.Flags().Lookup("incident-selector").Changed {
-		settings.IncidentSelector = buildIncidentSelector(profile.Scope.Packages)
+		settings.IncidentSelector = buildIncidentSelector(prof.Scope.Packages)
 	}
 
 	sourceSet := cmd.Flags().Lookup("source") != nil && cmd.Flags().Lookup("source").Changed
 	targetSet := cmd.Flags().Lookup("target") != nil && cmd.Flags().Lookup("target").Changed
 	if !cmd.Flags().Lookup("label-selector").Changed {
-		labels := profile.Rules.Labels
+		labels := prof.Rules.Labels
 		if sourceSet || targetSet {
 			labels = filterKonveyorSourceTargetLabels(labels, sourceSet, targetSet)
 		}
@@ -156,7 +126,7 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 
 		// use default rulesets if default sources/targets are used
 	} else {
-		hasDefaultLabels := profileHasDefaultKonveyorLabels(profile)
+		hasDefaultLabels := profileHasDefaultKonveyorLabels(prof)
 		settings.EnableDefaultRulesets = targetSet || sourceSet || hasDefaultLabels
 	}
 
@@ -175,8 +145,8 @@ func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSe
 	return nil
 }
 
-func filterKonveyorSourceTargetLabels(labels LabelSelector, sourceSet, targetSet bool) LabelSelector {
-	filtered := LabelSelector{
+func filterKonveyorSourceTargetLabels(labels hubapi.InExList, sourceSet, targetSet bool) hubapi.InExList {
+	filtered := hubapi.InExList{
 		Included: make([]string, 0, len(labels.Included)),
 		Excluded: make([]string, 0, len(labels.Excluded)),
 	}
@@ -212,7 +182,7 @@ func shouldFilterKonveyorLabel(label string, sourceSet, targetSet bool) bool {
 	return false
 }
 
-func buildIncidentSelector(packages PackageSelector) string {
+func buildIncidentSelector(packages hubapi.InExList) string {
 	incidentParts := []string{}
 	if len(packages.Included) > 0 {
 		for _, pkg := range packages.Included {
@@ -258,7 +228,7 @@ func buildIncidentSelector(packages PackageSelector) string {
 	return selector
 }
 
-func buildLabelSelector(labels LabelSelector) string {
+func buildLabelSelector(labels hubapi.InExList) string {
 	includedParts := []string{}
 	excludedParts := []string{}
 	if len(labels.Included) > 0 {
@@ -371,7 +341,7 @@ func FindSingleProfile(profilesDir string) (string, error) {
 	return profilePath, nil
 }
 
-func profileHasDefaultKonveyorLabels(profile *AnalysisProfile) bool {
+func profileHasDefaultKonveyorLabels(profile *hubapi.AnalysisProfile) bool {
 	if profile == nil {
 		return false
 	}

@@ -125,8 +125,6 @@ func LoadEnvInsensitive(variableName string) string {
 	}
 }
 
-// KantraDirEnv is the environment variable that can override the kantra directory
-// (e.g. when the binary is invoked with a different working directory, as in runLocal).
 // StderrFilterPatterns contains substrings to filter from stderr output.
 // Lines containing any of these patterns will be silently dropped.
 var StderrFilterPatterns = []string{
@@ -188,13 +186,35 @@ func ShouldFilterLine(line string) bool {
 	return false
 }
 
-const KantraDirEnv = "KANTRA_DIR"
+const (
+	// AssetsDirEnv overrides the default assets directory (rulesets, jdtls, static-report).
+	AssetsDirEnv = "ASSETS_PATH"
+	// KantraDirEnv is the legacy name for AssetsDirEnv (upstream compatibility).
+	KantraDirEnv = "KANTRA_DIR"
+)
 
-// GetKantraDir returns the directory used for rulesets, jdtls, and static-report.
-// Resolution order: 1) KANTRA_DIR env var (if set), 2) current directory if it
-// contains "rulesets", "jdtls", and "static-report", 3) $HOME/.kantra (or
-// $XDG_CONFIG_HOME/.kantra on Linux when set).
+// ResolveAssetsDir returns the root directory for bundled analysis assets.
+// cliOverride (--assets-path) wins over environment variables and defaults.
+// When cliOverride is empty, resolution order is:
+//  1. ASSETS_PATH env var (if set)
+//  2. KANTRA_DIR env var (if set)
+//  3. current directory if it contains "rulesets", "jdtls", and "static-report"
+//  4. $HOME/.kantra (or $XDG_CONFIG_HOME/.kantra on Linux when set)
+//
+// Subdirectories under the returned path (rulesets, jdtls, static-report, etc.) are fixed.
+func ResolveAssetsDir(cliOverride string) (string, error) {
+	if cliOverride != "" {
+		return filepath.Clean(cliOverride), nil
+	}
+	return defaultAssetsDir()
+}
+
+// GetKantraDir returns the assets directory using default resolution (no CLI override).
 func GetKantraDir() (string, error) {
+	return ResolveAssetsDir("")
+}
+
+func defaultAssetsDir() (string, error) {
 	var dir string
 	var err error
 	reqs := []string{
@@ -203,13 +223,14 @@ func GetKantraDir() (string, error) {
 		"static-report",
 	}
 
-	// Allow explicit override (e.g. from parent process when running kantra with cmd.Dir set)
-	if envDir := os.Getenv(KantraDirEnv); envDir != "" {
-		if _, err := os.Stat(envDir); err == nil {
+	for _, env := range []string{AssetsDirEnv, KantraDirEnv} {
+		if envDir := os.Getenv(env); envDir != "" {
+			if _, err := os.Stat(envDir); err == nil {
+				return filepath.Clean(envDir), nil
+			}
+			// env set but path missing: still use it so callers get a consistent error
 			return filepath.Clean(envDir), nil
 		}
-		// env set but path missing: still use it so callers get a consistent error
-		return filepath.Clean(envDir), nil
 	}
 
 	set := true

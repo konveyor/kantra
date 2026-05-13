@@ -13,11 +13,12 @@ import (
 
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )
 
-func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, foundProfile *profile.AnalysisProfile) error {
+func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, foundProfile *hubapi.AnalysisProfile) error {
 	parsedContainerRuntime, err := parseContainerRuntimeFlags(a.containerRuntimeFlags)
 	if err != nil {
 		return fmt.Errorf("invalid --container-runtime-flags: %w", err)
@@ -174,6 +175,18 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 	if absPath, err := filepath.Abs(a.mavenSettingsFile); a.mavenSettingsFile != "" && err == nil {
 		a.mavenSettingsFile = absPath
 	}
+	if a.assetsPath != "" {
+		if absPath, err := filepath.Abs(a.kantraDir); err == nil {
+			a.kantraDir = absPath
+		}
+		stat, err := os.Stat(a.kantraDir)
+		if err != nil {
+			return fmt.Errorf("%w failed to stat assets path %s", err, a.kantraDir)
+		}
+		if !stat.IsDir() {
+			return fmt.Errorf("assets path %s is not a directory", a.kantraDir)
+		}
+	}
 	if !a.enableDefaultRulesets && len(a.rules) == 0 {
 		return fmt.Errorf("must specify rules if default rulesets are not enabled")
 	}
@@ -220,7 +233,7 @@ func (a *analyzeCommand) CheckOverwriteOutput() error {
 	return nil
 }
 
-func (a *analyzeCommand) ValidateAndLoadProfile() (*profile.AnalysisProfile, error) {
+func (a *analyzeCommand) ValidateAndLoadProfile() (*hubapi.AnalysisProfile, error) {
 	if a.profileDir != "" {
 		stat, err := os.Stat(a.profileDir)
 		if err != nil {

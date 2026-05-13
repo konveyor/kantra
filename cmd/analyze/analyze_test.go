@@ -1590,6 +1590,102 @@ func Test_staticReportPathFlagParsing(t *testing.T) {
 	}
 }
 
+func Test_analyzeCommand_Validate_assetsPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupFunc   func(t *testing.T) (assetsPath string, kantraDir string, cleanup func())
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "empty assetsPath is valid",
+			setupFunc: func(t *testing.T) (string, string, func()) {
+				return "", t.TempDir(), func() {}
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid directory is accepted",
+			setupFunc: func(t *testing.T) (string, string, func()) {
+				tmpDir := t.TempDir()
+				return tmpDir, tmpDir, func() {}
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-existent path returns error",
+			setupFunc: func(t *testing.T) (string, string, func()) {
+				p := "/nonexistent/assets/path"
+				return p, p, func() {}
+			},
+			wantErr:     true,
+			errContains: "failed to stat assets path",
+		},
+		{
+			name: "file path (not directory) returns error",
+			setupFunc: func(t *testing.T) (string, string, func()) {
+				tmpDir := t.TempDir()
+				filePath := filepath.Join(tmpDir, "not-a-dir.txt")
+				if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath, filePath, func() {}
+			},
+			wantErr:     true,
+			errContains: "is not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assetsPath, kantraDir, cleanup := tt.setupFunc(t)
+			defer cleanup()
+
+			tmpInput := t.TempDir()
+			tmpOutput := filepath.Join(os.TempDir(), fmt.Sprintf("test-output-%d", time.Now().UnixNano()))
+			defer os.RemoveAll(tmpOutput)
+
+			a := &analyzeCommand{
+				assetsPath:            assetsPath,
+				input:                 tmpInput,
+				output:                tmpOutput,
+				mode:                  "full",
+				enableDefaultRulesets: true,
+				AnalyzeCommandContext: AnalyzeCommandContext{
+					log:       logr.Discard(),
+					kantraDir: kantraDir,
+				},
+			}
+
+			err := a.Validate(context.Background(), &cobra.Command{}, nil)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q but got nil", tt.errContains)
+				} else if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error containing %q, got %q", tt.errContains, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func Test_assetsPathFlagParsing(t *testing.T) {
+	cmd := NewAnalyzeCmd(logr.Discard())
+
+	flag := cmd.Flags().Lookup("assets-path")
+	if flag == nil {
+		t.Fatal("expected --assets-path flag to exist")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("expected default value to be empty, got %q", flag.DefValue)
+	}
+	if !strings.Contains(flag.Usage, "rulesets") {
+		t.Errorf("unexpected usage text: %q", flag.Usage)
+	}
+}
+
 func TestSetProxyEnvironment(t *testing.T) {
 	allProxyEnvs := []string{"http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY"}
 

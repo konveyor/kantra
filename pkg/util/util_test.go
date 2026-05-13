@@ -282,6 +282,63 @@ func TestGetKantraDir_KANTRA_DIR_set(t *testing.T) {
 	}
 }
 
+func TestResolveAssetsDir_cliOverride(t *testing.T) {
+	origAssets := os.Getenv(AssetsDirEnv)
+	origKantra := os.Getenv(KantraDirEnv)
+	defer func() {
+		if origAssets != "" {
+			os.Setenv(AssetsDirEnv, origAssets)
+		} else {
+			os.Unsetenv(AssetsDirEnv)
+		}
+		if origKantra != "" {
+			os.Setenv(KantraDirEnv, origKantra)
+		} else {
+			os.Unsetenv(KantraDirEnv)
+		}
+	}()
+
+	tmp := t.TempDir()
+	os.Setenv(AssetsDirEnv, "/env/assets")
+	os.Setenv(KantraDirEnv, "/env/kantra")
+
+	got, err := ResolveAssetsDir(tmp)
+	if err != nil {
+		t.Fatalf("ResolveAssetsDir() error = %v", err)
+	}
+	if got != filepath.Clean(tmp) {
+		t.Errorf("ResolveAssetsDir() = %q, want %q", got, filepath.Clean(tmp))
+	}
+}
+
+func TestResolveAssetsDir_ASSETS_PATH_before_KANTRA_DIR(t *testing.T) {
+	origAssets := os.Getenv(AssetsDirEnv)
+	origKantra := os.Getenv(KantraDirEnv)
+	defer func() {
+		if origAssets != "" {
+			os.Setenv(AssetsDirEnv, origAssets)
+		} else {
+			os.Unsetenv(AssetsDirEnv)
+		}
+		if origKantra != "" {
+			os.Setenv(KantraDirEnv, origKantra)
+		} else {
+			os.Unsetenv(KantraDirEnv)
+		}
+	}()
+
+	os.Setenv(AssetsDirEnv, "/from/assets-env")
+	os.Setenv(KantraDirEnv, "/from/kantra-env")
+
+	got, err := ResolveAssetsDir("")
+	if err != nil {
+		t.Fatalf("ResolveAssetsDir() error = %v", err)
+	}
+	if got != "/from/assets-env" {
+		t.Errorf("ResolveAssetsDir() = %q, want %q", got, "/from/assets-env")
+	}
+}
+
 func TestGetKantraDir_KANTRA_DIR_empty_unchanged_behavior(t *testing.T) {
 	orig := os.Getenv(KantraDirEnv)
 	defer func() {

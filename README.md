@@ -75,17 +75,24 @@ kantra transform openrewrite --input=/path/to/app --target=<recipe-name>
 | `kantra test` | Run YAML rule tests |
 | `kantra discover` / `kantra generate` | Asset-generation workflows; see **[docs/examples.md](docs/examples.md)** |
 
-Use `kantra <command> --help` for flags. 
+Use `kantra <command> --help` for flags.
 
+### Assets directory (rulesets and tooling)
 
+Commands like `analyze` need an **assets root** containing `rulesets`, `jdtls`, and `static-report`. Only the root path is configurable; subdirectory names are fixed. Resolution order:
 
+1. **`--assets-path`** — on `kantra analyze` (highest priority).
+2. **`ASSETS_PATH`** — environment variable.
+3. **`KANTRA_DIR`** — legacy environment variable.
+4. **Current working directory** — if it contains `rulesets`, `jdtls`, and `static-report`.
+5. **Config directory** — otherwise `$HOME/.kantra` (or `$XDG_CONFIG_HOME/.kantra` on Linux when set).
 
+Examples:
 
-
-
-
-
-
+```sh
+kantra analyze -i ./app -o ./out --assets-path /opt/mta/assets
+export ASSETS_PATH=/opt/mta/assets
+```
 
 
 ---

@@ -59,6 +59,7 @@ type analyzeCommand struct {
 	parsedOverrideConfigs    []provider.Config // loaded early for mode selection
 	externalOnly             bool              // true when only builtin + external providers needed
 	staticReportPath         string
+	assetsPath               string
 	profileDir               string
 	profilePath              string
 	AnalyzeCommandContext
@@ -90,13 +91,13 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			if cmd.Flags().Lookup("list-languages").Changed {
 				cmd.MarkFlagRequired("input")
 			}
-			kantraDir, err := util.GetKantraDir()
+			assetsDir, err := util.ResolveAssetsDir(analyzeCmd.assetsPath)
 			if err != nil {
-				analyzeCmd.log.Error(err, "unable to get analyze reqs")
+				analyzeCmd.log.Error(err, "unable to resolve assets directory")
 				return err
 			}
-			analyzeCmd.kantraDir = kantraDir
-			analyzeCmd.log.Info("found kantra dir", "dir", kantraDir)
+			analyzeCmd.kantraDir = assetsDir
+			analyzeCmd.log.Info("using assets directory", "dir", assetsDir)
 
 			foundProfile, err := analyzeCmd.ValidateAndLoadProfile()
 			if err != nil {
@@ -321,6 +322,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().StringVar(&analyzeCmd.containerRuntimeFlags, "container-runtime-flags", "", "additional flags passed to the container runtime for run commands, for example: \"--memory 4G --cpus 4\"")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.overrideProviderSettings, "override-provider-settings", "", "override provider settings with custom provider config file")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.staticReportPath, "static-report-path", "", "override the default static report template location")
+	analyzeCommand.Flags().StringVar(&analyzeCmd.assetsPath, "assets-path", "", "root directory for analysis assets (rulesets, jdtls, static-report); overrides ASSETS_PATH, KANTRA_DIR, and default config paths")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.profileDir, "profile-dir", "", "path to a directory containing analysis profiles")
 	return analyzeCommand
 }
