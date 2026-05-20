@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
@@ -99,4 +100,25 @@ func Test_setupProgressReporter_WithProgress(t *testing.T) {
 	// Cancel should close the done channel eventually
 	cancel()
 	<-done // should not block forever
+}
+
+func Test_setupProgressReporter_ShutdownOnCancel(t *testing.T) {
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
+	_, done, cancel := setupProgressReporter(ctx, false)
+	require.NotNil(t, done)
+	require.NotNil(t, cancel)
+
+	// Cancel the progress context
+	cancel()
+
+	// done channel must close promptly, not block shutdown
+	select {
+	case <-done:
+		// Success
+	case <-time.After(5 * time.Second):
+		t.Fatal("progress goroutine did not shut down within 5s after cancel")
+	}
+
+	ctxCancel()
 }
