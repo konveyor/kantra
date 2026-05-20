@@ -7,7 +7,7 @@ analyze and a transform command.
 `git clone https://github.com/konveyor/example-applications`
 
 - List available target technologies
-`kantra analyze --list-targets`
+`kantra rules list-targets`
 
 - Run analysis with a specified target technology
 `kantra analyze --input=<path-to/example-applications/example-1> --output=<path-to-output-dir> --target=cloud-readiness`

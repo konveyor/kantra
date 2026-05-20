@@ -70,7 +70,7 @@ go test ./...
 
 # Quick smoke test
 ./kantra analyze \
-  --input cmd/testrunner/examples/test-data/java \
+  --input cmd/rules/test/examples/java/test-data/java \
   --output ./test-output \
   --target cloud-readiness \
   --overwrite

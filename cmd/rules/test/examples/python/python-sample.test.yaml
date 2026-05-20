@@ -1,9 +1,9 @@
-# Hybrid-mode `kantra test` with the python provider (generic external provider container).
+# Hybrid-mode `kantra rules test` with the python provider (generic external provider container).
 # Provider defaults: ./testing-config.yaml (dataPath ./test-data/python/).
 # Run from repo root (requires podman/docker + provider images), e.g.:
-#   kantra test ./cmd/testrunner/examples/python/
+#   kantra rules test ./cmd/rules/test/examples/python/
 #
-# Default `kantra test` is hybrid; only pass `--run-local=true` for Java+builtin containerless tests.
+# Default `kantra rules test` is hybrid; only pass `--run-local=true` for Java+builtin containerless tests.
 rulesPath: ./rules.yaml
 tests:
   - ruleID: python-sample-rule-001

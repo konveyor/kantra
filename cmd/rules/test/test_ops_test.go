@@ -186,6 +186,27 @@ func TestTestCase_Verify(t *testing.T) {
 			wantErrors: 0,
 		},
 		{
+			name: "tc uses locationBased constraint with rule output in insights",
+			testCase: TestCase{
+				RuleID: "rule",
+				HasIncidents: &IncidentVerification{
+					LocationBased: &LocationBasedVerification{
+						Locations: []LocationVerification{
+							{FileURI: &testFileUri, LineNumber: &one},
+						},
+					},
+				},
+			},
+			output: konveyor.RuleSet{Insights: map[string]konveyor.Violation{
+				"rule": {
+					Incidents: []konveyor.Incident{
+						{URI: "test", LineNumber: &one},
+					},
+				},
+			}},
+			wantErrors: 0,
+		},
+		{
 			name: "tc uses locationBased constraint and has a different file URI coming from the container",
 			testCase: TestCase{
 				RuleID: "rule",

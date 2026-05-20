@@ -50,7 +50,7 @@ kantra analyze --input=/path/to/app --output=/path/to/out --run-local=false --ov
 ```
 
 - **`--mode`** — `full` (default, source + deps where supported) or `source-only`.  
-- **Filtering** — `--target`, `--source`, `--label-selector`; list labels with `--list-targets` / `--list-sources`.
+- **Filtering** — `--target`, `--source`, `--label-selector`; list labels with `kantra rules list-targets` / `kantra rules list-sources`.
 
 Deeper detail: **[docs/containerless.md](docs/containerless.md)**, **[docs/hybrid.md](docs/hybrid.md)**.
 
@@ -72,7 +72,7 @@ kantra transform openrewrite --input=/path/to/app --target=<recipe-name>
 | Command | Purpose |
 |--------|---------|
 | `kantra config` | Login / sync / list Konveyor Hub profiles (`kantra config --help`) |
-| `kantra test` | Run YAML rule tests |
+| `kantra rules` | List rule labels and run YAML rule tests (`kantra rules --help`) |
 | `kantra discover` / `kantra generate` | Asset-generation workflows; see **[docs/examples.md](docs/examples.md)** |
 
 Use `kantra <command> --help` for flags. 
@@ -98,7 +98,7 @@ Use `kantra <command> --help` for flags.
 | Hybrid / containerless analysis | [docs/hybrid.md](docs/hybrid.md), [docs/containerless.md](docs/containerless.md) |
 | Rule YAML tests | [docs/testrunner.md](docs/testrunner.md) |
 | Writing rules | [docs/rules-quickstart.md](docs/rules-quickstart.md) |
-| Provider options | [docs/usage.md](docs/usage.md) |
+| Usage (modes, providers, rules, output) | [docs/usage.md](docs/usage.md) |
 | Hack scripts / asset generation | [hack/README.md](hack/README.md) |
 
 ---
