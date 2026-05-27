@@ -101,7 +101,6 @@ COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/open
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
 COPY --from=go-provider /usr/local/bin/go-external-provider /usr/local/bin/go-external-provider
-COPY --from=go-provider /usr/local/bin/gopls /usr/local/bin/gopls
 COPY --from=python-provider /usr/local/bin/python-external-provider /usr/local/bin/python-external-provider
 COPY --from=nodejs-provider /usr/local/bin/nodejs-external-provider /usr/local/bin/nodejs-external-provider
 COPY --from=yq-provider /usr/local/bin/yq /usr/local/bin/yq
