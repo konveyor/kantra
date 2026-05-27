@@ -115,65 +115,99 @@ kantra config --list-profiles /path/to/my-app --insecure
 
 ### Hub Login
 
-To connect Kantra to a Konveyor Hub instance, use the login subcommand:
+Connect Kantra to a Konveyor Hub instance and store credentials in `~/.kantra/auth.json`:
 
 ```bash
-kantra config login [host] [username] [password]
+kantra config login [host]
 ```
 
-**Arguments (all optional):**
-- `host`: Hub URL (e.g., `https://hub.example.com`)
-- `username`: Your Hub username  
-- `password`: Your Hub password
+**Arguments:**
+- `host` (optional): Hub **API base URL** (e.g. `https://hub.example.com` or, on OpenShift, `https://<route>/hub`). If omitted, you are prompted for the host.
 
 **Flags:**
-- `--insecure, -k`: Skip TLS certificate verification
+- `--insecure, -k`: Skip TLS certificate verification (use for clusters with self-signed certificates)
 
-If arguments are not provided, you'll be prompted interactively for:
-- **Hub URL**: The URL of your Konveyor Hub instance
-- **Username**: Your Hub username
-- **Password**: Your Hub password (entered securely, hidden from terminal)
+#### Authentication methods
+
+Kantra supports two ways to authenticate at login time:
+
+1. **OIDC device flow (default, interactive terminal)**  
+   Kantra starts OIDC login, prints a verification URL and user code, and waits while you sign in in the browser. After authentication, Kantra creates a Hub **API key** (personal access token) and saves it to `auth.json`.
+
+2. **Existing PAT via `HUB_TOKEN`**  
+   Set a personal access token from the Hub UI (or API) before running login:
+   ```bash
+   export HUB_TOKEN="<your-hub-pat>"
+   kantra config login https://hub.example.com/hub
+   ```
+   Kantra validates the token and stores it in `auth.json` without running the browser flow.
+
+On non-interactive terminals (no TTY), Kantra prompts for a PAT instead of starting OIDC.
+
+#### Stored credentials
+
+After a successful login, `~/.kantra/auth.json` contains:
+
+```json
+{
+  "host": "https://hub.example.com/hub",
+  "token": "<api-key-or-pat>"
+}
+```
+
+The `token` field is the credential used by `kantra config sync` and other Hub commands. `HUB_TOKEN` is only read during `config login`; later commands use `auth.json`.
 
 **Examples:**
 ```bash
-# Interactive login (prompts for all credentials)
+# OIDC device login (prompt for host if omitted)
 kantra config login
 
-# Provide all credentials as arguments
-kantra config login https://hub.example.com myuser mypassword
+# OIDC device login with hub URL
+kantra config login https://hub.example.com/hub
 
-# Provide only host, prompt for username/password
-kantra config login https://hub.example.com
+# Login with self-signed / untrusted TLS
+kantra config --insecure login https://hub.example.com/hub
 
-# Login with insecure connection (skip TLS verification)
-kantra config login --insecure
+# Login with an existing PAT from the environment
+export HUB_TOKEN="$(cat my-pat.txt)"
+kantra config --insecure login https://hub.example.com/hub
 ```
 
 ### Profile Synchronization
 
-Once logged in, you can sync profiles from the Hub using the sync subcommand:
+After `kantra config login`, sync analysis profiles from the Hub for an application:
 
 ```bash
-kantra config sync --url <repository-url> [flags]
+kantra config sync [flags]
 ```
 
-**Required Flags:**
-- `--url <repository-url>`: URL of the remote application repository to sync profiles for
+**Lookup (one required):**
+- `--url <repository-url>`: Git repository URL of the application in the Hub. Use `url:branch` to match a specific branch (e.g. `https://github.com/org/repo.git:main`).
+- `--binary <name>`: Application binary identifier in the Hub (for binary-based applications; use with `--profile-path`).
 
-**Optional Flags:**
-- `--application-path <path>`: Path to the local application directory (defaults to current directory)
-- `--insecure, -k`: Skip TLS certificate verification (inherited from parent config command)
+**Optional flags:**
+- `--application-path <path>`: Local directory where profile bundles are extracted (for `--url`; defaults to the current directory).
+- `--profile-path <path>`: Download directory when using `--binary` (required with `--binary`).
+- `--host <hub-url>`: Hub API base URL. If it matches the host in `auth.json`, stored credentials are used. If omitted, sync uses `auth.json` only. If set to a different host without stored credentials, Kantra uses OIDC and may prompt via the browser when the Hub returns unauthorized responses.
+- `--insecure, -k`: Set on the parent `config` command to skip TLS verification for all Hub traffic in that invocation.
+
+Repository URLs are matched flexibly (with or without a `.git` suffix and trailing slashes). If the Hub filter returns no results, Kantra lists applications and matches by repository URL.
 
 **Examples:**
 ```bash
-# Sync profiles for a repository to current directory
-kantra config sync --url https://github.com/mycompany/my-app.git
+# Sync using credentials from login (recommended)
+kantra config --insecure sync \
+  --url https://github.com/mycompany/my-app.git \
+  --application-path /path/to/my-app
 
-# Sync profiles to specific application path
-kantra config sync --url https://github.com/mycompany/my-app.git --application-path /path/to/my-app
+# Same hub URL as login; --host is optional
+kantra config --insecure sync \
+  --host https://hub.example.com/hub \
+  --url https://github.com/mycompany/my-app.git \
+  --application-path /path/to/my-app
 
-# Sync with insecure connection
-kantra config sync --url https://github.com/mycompany/my-app.git --insecure
+# Binary application
+kantra config sync --binary my-app-binary --profile-path /path/to/profiles
 ```
 
 
@@ -230,7 +264,7 @@ kantra config list --profile-dir /path/to/application
 
 ### Sync Profiles from Hub
 
-Synchronize profiles from the Hub (requires login):
+Synchronize profiles from the Hub (requires `kantra config login` or `HUB_TOKEN` at login time):
 
 ```bash
 kantra config sync --url <repository-url> --application-path <path-to-application>
@@ -239,22 +273,23 @@ kantra config sync --url <repository-url> --application-path <path-to-applicatio
 
 ### Example: End-to-End Hub Workflow
 
-This example demonstrates a complete workflow from hub login to running analysis with a synced profile.
+This example demonstrates a complete workflow from Hub login to running analysis with a synced profile.
 
 #### Step 1: Login to the Hub
 
-First, authenticate with your Konveyor Hub instance:
+Authenticate with your Konveyor Hub instance (OIDC device flow in an interactive terminal):
 
 ```bash
-kantra config login
+kantra config --insecure login https://hub.myapp.com/hub
 ```
 
-You'll be prompted for:
+You will see a verification URL and user code. Open the URL in a browser, sign in if asked, then enter the code on the device verification page. Kantra creates an API key and saves it to `~/.kantra/auth.json`.
 
-```
-Host: https://hub.myapp.com
-Username: myusername
-Password: [hidden]
+Alternatively, use a PAT from the Hub UI:
+
+```bash
+export HUB_TOKEN="<pat-from-hub>"
+kantra config --insecure login https://hub.myapp.com/hub
 ```
 
 #### Step 2: Navigate to Your Application
@@ -265,13 +300,15 @@ cd /path/to/my-java-app
 
 #### Step 3: Sync Profile from Hub
 
-Sync the available profiles for your application from the Hub:
+Sync profiles for the application repository (uses `auth.json`; pass `--insecure` on `config` if needed):
 
 ```bash
-kantra config sync --url https://github.com/mycompany/my-app-repo.git --application-path /path/to/my-java-app
+kantra config --insecure sync \
+  --url https://github.com/mycompany/my-app-repo.git \
+  --application-path /path/to/my-java-app
 ```
 
-This downloads profiles associated with the application repository to `.konveyor/profiles/`.
+Use the same repository URL as registered on the Hub application (with or without `.git` is fine). This downloads profile bundles into `.konveyor/profiles/` under the application path.
 
 #### Step 4: Verify Downloaded Profile
 
@@ -313,39 +350,46 @@ kantra analyze --profile-dir .konveyor/profiles --output <output-dir>
 
 2. **Authentication required**
    ```
-   Error: no stored authentication found, please login
+   Error: Hub authentication required for sync: no stored Hub authentication found
    ```
-   - Run `kantra config login` to authenticate with the Hub
-   - Check that `~/.kantra/auth.json` exists and contains valid tokens
+   - Run `kantra config login` (OIDC) or set `HUB_TOKEN` and run login again
+   - Confirm `~/.kantra/auth.json` exists with `host` and `token`
+   - For `config sync --host`, use the same Hub base URL as in `auth.json`, or omit `--host` after login
 
-3. **Hub connection issues**
+3. **Hub connection / authorization errors**
    ```
-   Error: login failed with status: 401 Unauthorized
+   Error: hub authentication failed: ...
+   GET /hub/applications failed: 403 ... missing credentials
    ```
-   - Verify Hub URL is correct and accessible
-   - Check username and password
-   - Ensure Hub is accessible from your network
-   - Try using `--insecure` flag if using self-signed certificates
+   - Run `kantra config login` so a PAT is stored in `auth.json`
+   - If using `config sync --host`, ensure it matches the logged-in host or omit `--host`
+   - Without stored credentials, `--host` uses OIDC; the Hub must return 401 for the binding to start device login (some deployments return 403 instead)
 
 4. **Application not found in Hub**
    ```
-   Error: no applications found in Hub for URL: https://github.com/example/repo.git
+   Error: no applications found in Hub for given input
    ```
-   - Verify the repository URL is correct and matches exactly what's configured in the Hub
-   - Ensure the application exists in the Hub and is associated with the repository
-   - Check that you have access permissions to the application in the Hub
+   - Confirm the application exists in the Hub with a **repository** URL (not binary-only)
+   - Use the repository URL shown on the Hub application (`--url`); Kantra matches with or without `.git`
+   - Try the URL exactly as shown in the Hub UI
 
 5. **TLS certificate issues**
    ```
    Error: x509: certificate signed by unknown authority
    ```
-   - Use the `--insecure` flag to skip TLS verification: `kantra config login --insecure`
-   - Or properly configure your system's certificate store with the Hub's CA certificate
+   - Pass `--insecure` on the parent `config` command for both login and sync:
+     `kantra config --insecure login ...` and `kantra config --insecure sync ...`
+   - Or add the cluster CA to your system trust store
 
-6. **Token expiration**
+6. **API key / PAT expiration**
    ```
-   Error: stored authentication is invalid. Please login
+   Error: hub authentication failed: ... 401 ...
    ```
-   - Re-authenticate with `kantra config login`
-   - Tokens are automatically refreshed, but may need manual re-login in some cases
+   - API keys created at login expire after **168 hours** (Kantra default)
+   - Run `kantra config login` again to obtain a new key, or set `HUB_TOKEN` to a PAT you manage in the Hub UI
+
+7. **OIDC device login**
+   - Visit the printed `/oidc/device` URL; sign in on `/oidc/login` if redirected, then enter the user code on the verification page
+   - Keep the `config login` process running until it completes
+   - If login fails after a Hub restart, run `config login` again (device authorizations are not persisted across Hub restarts)
 
