@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,6 +103,10 @@ func Test_setupProgressReporter_WithProgress(t *testing.T) {
 }
 
 func Test_providerImage(t *testing.T) {
+	// Initialize settings with defaults
+	err := settings.Settings.Load()
+	require.NoError(t, err)
+
 	tests := []struct {
 		name         string
 		providerName string
