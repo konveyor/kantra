@@ -100,3 +100,49 @@ func Test_setupProgressReporter_WithProgress(t *testing.T) {
 	cancel()
 	<-done // should not block forever
 }
+
+func Test_providerImage(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerName string
+		want         string
+	}{
+		{
+			name:         "java provider",
+			providerName: "java",
+			want:         "quay.io/konveyor/java-external-provider:latest",
+		},
+		{
+			name:         "go provider",
+			providerName: "go",
+			want:         "quay.io/konveyor/go-external-provider:latest",
+		},
+		{
+			name:         "python provider",
+			providerName: "python",
+			want:         "quay.io/konveyor/python-external-provider:latest",
+		},
+		{
+			name:         "nodejs provider",
+			providerName: "nodejs",
+			want:         "quay.io/konveyor/nodejs-external-provider:latest",
+		},
+		{
+			name:         "csharp provider",
+			providerName: "dotnet",
+			want:         "quay.io/konveyor/c-sharp-provider:latest",
+		},
+		{
+			name:         "unknown provider",
+			providerName: "unknown",
+			want:         "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := providerImage(tt.providerName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

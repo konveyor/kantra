@@ -5,6 +5,59 @@ import (
 	"testing"
 )
 
+func Test_defaultProviderImage(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerName string
+		want         string
+	}{
+		{
+			name:         "java provider",
+			providerName: "java",
+			want:         "quay.io/konveyor/java-external-provider:latest",
+		},
+		{
+			name:         "go provider",
+			providerName: "go",
+			want:         "quay.io/konveyor/go-external-provider:latest",
+		},
+		{
+			name:         "python provider",
+			providerName: "python",
+			want:         "quay.io/konveyor/python-external-provider:latest",
+		},
+		{
+			name:         "nodejs provider",
+			providerName: "nodejs",
+			want:         "quay.io/konveyor/nodejs-external-provider:latest",
+		},
+		{
+			name:         "csharp provider",
+			providerName: "dotnet",
+			want:         "quay.io/konveyor/c-sharp-provider:latest",
+		},
+		{
+			name:         "builtin provider has no image",
+			providerName: "builtin",
+			want:         "",
+		},
+		{
+			name:         "unknown provider",
+			providerName: "unknown",
+			want:         "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := defaultProviderImage(tt.providerName)
+			if got != tt.want {
+				t.Errorf("defaultProviderImage() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_resolveDataPath(t *testing.T) {
 	tests := []struct {
 		name          string
