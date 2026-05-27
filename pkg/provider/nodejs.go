@@ -16,7 +16,7 @@ func (p *NodeJsProvider) Name() string {
 func (p *NodeJsProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
 	switch mode {
 	case ModeContainer:
-		opts.BinaryPath = ContainerGenericProviderBin
+		opts.BinaryPath = ContainerNodeJSProviderBin
 	}
 
 	// Node.js defaults to source-only analysis

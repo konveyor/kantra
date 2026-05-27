@@ -356,8 +356,12 @@ func defaultProviderImage(name string) string {
 	switch name {
 	case util.JavaProvider:
 		return "quay.io/konveyor/java-external-provider:latest"
-	case util.GoProvider, util.PythonProvider, util.NodeJSProvider:
-		return "quay.io/konveyor/generic-external-provider:latest"
+	case util.GoProvider:
+		return "quay.io/konveyor/go-external-provider:latest"
+	case util.PythonProvider:
+		return "quay.io/konveyor/python-external-provider:latest"
+	case util.NodeJSProvider:
+		return "quay.io/konveyor/nodejs-external-provider:latest"
 	case util.CsharpProvider:
 		return "quay.io/konveyor/c-sharp-provider:latest"
 	default:

@@ -27,7 +27,9 @@ var (
 	DepOpenSourceLabels  = "/usr/local/etc/maven.default.index"
 	RulesetsLocation     = "rulesets"
 	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
-	GenericProviderImage = "quay.io/konveyor/generic-external-provider"
+	GoProviderImage      = "quay.io/konveyor/go-external-provider"
+	PythonProviderImage  = "quay.io/konveyor/python-external-provider"
+	NodeJSProviderImage  = "quay.io/konveyor/nodejs-external-provider"
 	CsharpProviderImage  = "quay.io/konveyor/c-sharp-provider"
 	RunnerImage          = "quay.io/konveyor/kantra"
 )
@@ -37,13 +39,15 @@ var Settings = &Config{}
 
 // Config holds runtime configuration populated from environment variables and build-time defaults.
 type Config struct {
-	RootCommandName      string `env:"CMD_NAME" default:"kantra"`
-	ContainerBinary      string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`
-	RunnerImage          string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
-	JvmMaxMem            string `env:"JVM_MAX_MEM" default:""`
-	JavaProviderImage    string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
-	GenericProviderImage string `env:"GENERIC_PROVIDER_IMG" default:"quay.io/konveyor/generic-external-provider:latest"`
-	CsharpProviderImage  string `env:"CSHARP_PROVIDER_IMG" default:"quay.io/konveyor/c-sharp-provider:latest"`
+	RootCommandName     string `env:"CMD_NAME" default:"kantra"`
+	ContainerBinary     string `env:"CONTAINER_TOOL" default:"/usr/bin/podman"`
+	RunnerImage         string `env:"RUNNER_IMG" default:"quay.io/konveyor/kantra"`
+	JvmMaxMem           string `env:"JVM_MAX_MEM" default:""`
+	JavaProviderImage   string `env:"JAVA_PROVIDER_IMG" default:"quay.io/konveyor/java-external-provider:latest"`
+	GoProviderImage     string `env:"GO_PROVIDER_IMG" default:"quay.io/konveyor/go-external-provider:latest"`
+	PythonProviderImage string `env:"PYTHON_PROVIDER_IMG" default:"quay.io/konveyor/python-external-provider:latest"`
+	NodeJSProviderImage string `env:"NODEJS_PROVIDER_IMG" default:"quay.io/konveyor/nodejs-external-provider:latest"`
+	CsharpProviderImage string `env:"CSHARP_PROVIDER_IMG" default:"quay.io/konveyor/c-sharp-provider:latest"`
 }
 
 func (c *Config) Load() error {
@@ -141,18 +145,34 @@ func (c *Config) loadProviders() error {
 		}
 	}
 
-	if os.Getenv("GENERIC_PROVIDER_IMG") == "" {
-		// if version tag is given in image
-		genericImg := strings.TrimSuffix(GenericProviderImage, fmt.Sprintf(":%v", Version))
-		updatedGenericImg := fmt.Sprintf("%v:%v", genericImg, Version)
-		err := os.Setenv("GENERIC_PROVIDER_IMG", updatedGenericImg)
+	if os.Getenv("GO_PROVIDER_IMG") == "" {
+		goImg := strings.TrimSuffix(GoProviderImage, fmt.Sprintf(":%v", Version))
+		updatedGoImg := fmt.Sprintf("%v:%v", goImg, Version)
+		err := os.Setenv("GO_PROVIDER_IMG", updatedGoImg)
+		if err != nil {
+			return err
+		}
+	}
+
+	if os.Getenv("PYTHON_PROVIDER_IMG") == "" {
+		pythonImg := strings.TrimSuffix(PythonProviderImage, fmt.Sprintf(":%v", Version))
+		updatedPythonImg := fmt.Sprintf("%v:%v", pythonImg, Version)
+		err := os.Setenv("PYTHON_PROVIDER_IMG", updatedPythonImg)
+		if err != nil {
+			return err
+		}
+	}
+
+	if os.Getenv("NODEJS_PROVIDER_IMG") == "" {
+		nodejsImg := strings.TrimSuffix(NodeJSProviderImage, fmt.Sprintf(":%v", Version))
+		updatedNodeJSImg := fmt.Sprintf("%v:%v", nodejsImg, Version)
+		err := os.Setenv("NODEJS_PROVIDER_IMG", updatedNodeJSImg)
 		if err != nil {
 			return err
 		}
 	}
 
 	if os.Getenv("CSHARP_PROVIDER_IMG") == "" {
-		// if version tag is given in image
 		csharpImg := strings.TrimSuffix(CsharpProviderImage, fmt.Sprintf(":%v", Version))
 		updatedCsharpImg := fmt.Sprintf("%v:%v", csharpImg, Version)
 		err := os.Setenv("CSHARP_PROVIDER_IMG", updatedCsharpImg)

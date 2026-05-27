@@ -399,8 +399,12 @@ func providerImage(name string) string {
 	switch name {
 	case util.JavaProvider:
 		return settings.Settings.JavaProviderImage
-	case util.GoProvider, util.PythonProvider, util.NodeJSProvider:
-		return settings.Settings.GenericProviderImage
+	case util.GoProvider:
+		return settings.Settings.GoProviderImage
+	case util.PythonProvider:
+		return settings.Settings.PythonProviderImage
+	case util.NodeJSProvider:
+		return settings.Settings.NodeJSProviderImage
 	case util.CsharpProvider:
 		return settings.Settings.CsharpProviderImage
 	default:

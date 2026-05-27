@@ -33,29 +33,39 @@ ARG IMAGE=quay.io/konveyor/kantra
 ARG NAME=kantra
 ARG JAVA_BUNDLE=/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
 ARG JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider
-ARG GENERIC_PROVIDER_IMG=quay.io/konveyor/generic-external-provider
+ARG GO_PROVIDER_IMG=quay.io/konveyor/go-external-provider
+ARG PYTHON_PROVIDER_IMG=quay.io/konveyor/python-external-provider
+ARG NODEJS_PROVIDER_IMG=quay.io/konveyor/nodejs-external-provider
 ARG CSHARP_PROVIDER_IMG=quay.io/konveyor/c-sharp-provider
 
 RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o kantra main.go
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.NodeJSProviderImage=$NODEJS_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o kantra main.go
 
 RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o darwin-kantra main.go
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.NodeJSProviderImage=$NODEJS_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o darwin-kantra main.go
 
 RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GenericProviderImage=$GENERIC_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o windows-kantra main.go
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.NodeJSProviderImage=$NODEJS_PROVIDER_IMG' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RootCommandName=$NAME'" -a -o windows-kantra main.go
 
 FROM jaegertracing/all-in-one:latest AS jaeger-builder
-FROM quay.io/konveyor/generic-external-provider:${VERSION} as generic-provider
+FROM quay.io/konveyor/go-external-provider:${VERSION} as go-provider
+FROM quay.io/konveyor/python-external-provider:${VERSION} as python-provider
+FROM quay.io/konveyor/nodejs-external-provider:${VERSION} as nodejs-provider
 FROM quay.io/konveyor/yq-external-provider:${VERSION} as yq-provider
 FROM quay.io/konveyor/analyzer-lsp:${VERSION} as analyzer
 
@@ -90,9 +100,10 @@ COPY --from=rulesets /tackle2-seed/resources/rulesets /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
-COPY --from=generic-provider /usr/local/bin/generic-external-provider /usr/local/bin/generic-external-provider
-COPY --from=generic-provider /usr/local/bin/golang-dependency-provider /usr/local/bin/golang-dependency-provider
-COPY --from=generic-provider /usr/local/bin/gopls /usr/local/bin/gopls
+COPY --from=go-provider /usr/local/bin/go-external-provider /usr/local/bin/go-external-provider
+COPY --from=go-provider /usr/local/bin/gopls /usr/local/bin/gopls
+COPY --from=python-provider /usr/local/bin/python-external-provider /usr/local/bin/python-external-provider
+COPY --from=nodejs-provider /usr/local/bin/nodejs-external-provider /usr/local/bin/nodejs-external-provider
 COPY --from=yq-provider /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=yq-provider /usr/local/bin/yq-external-provider /usr/local/bin/yq-external-provider
 COPY --from=analyzer /usr/local/bin/konveyor-analyzer /usr/local/bin/konveyor-analyzer
