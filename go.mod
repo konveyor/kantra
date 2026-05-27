@@ -7,9 +7,8 @@ require (
 	github.com/devfile/alizer v1.6.1
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-logr/logr v1.4.3
-	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/konveyor/asset-generation v0.2.2
-	github.com/konveyor/tackle2-hub/shared v0.0.0-20260430164516-31215b33d9d7
+	github.com/konveyor/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -56,6 +55,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
@@ -66,6 +66,7 @@ require (
 	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/jhump/protoreflect v1.16.0 // indirect
+	github.com/jortel/go-utils v0.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -140,4 +141,11 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/pflag v1.0.7 // indirect
+)
+
+// Temporary: OIDC/PAT support from tackle2-hub PR 1042 (jortel fork).
+// Remove replace and bump version once https://github.com/konveyor/tackle2-hub/pull/1042 merges.
+replace (
+	github.com/konveyor/tackle2-hub => github.com/jortel/tackle2-hub v0.0.0-20260526143950-517949b9011b
+	github.com/konveyor/tackle2-hub/shared => github.com/jortel/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b
 )

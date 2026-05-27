@@ -132,6 +132,10 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jhump/protoreflect v1.16.0 h1:54fZg+49widqXYQ0b+usAFHbMkBGR4PpXrsHc8+TBDg=
 github.com/jhump/protoreflect v1.16.0/go.mod h1:oYPd7nPvcBw/5wlDfm/AVmU9zH9BgqGCI469pGxfj/8=
+github.com/jortel/go-utils v0.1.5 h1:fBkvlojnbrx5rqJt+1fx9dlGV5NjjnCyGgWyXsQ12Ws=
+github.com/jortel/go-utils v0.1.5/go.mod h1:R9W67T6eTYPcofmSuvvv3lOcNuF4zh7ZoBfaoTA9zss=
+github.com/jortel/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b h1:L+jkZ8qzEIqAjwSAgL5BzjxC9Fezm08xyoxpsrj3F2I=
+github.com/jortel/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b/go.mod h1:kJBH9U7Lcn7p3o0etF7O2S6dnERX50ekAfi2PCwKyng=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
@@ -142,8 +146,6 @@ github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260326145242-861e51620602 h1:
 github.com/konveyor/analyzer-lsp v0.9.0-beta.1.0.20260326145242-861e51620602/go.mod h1:Iwz1ffcFw9PIC0KB55Wz/sGXVfpRE2lvKrEl90Y31+c=
 github.com/konveyor/asset-generation v0.2.2 h1:bzg4wDO3M4NxayS3b7SKk0f6Ai2MP/mioCZozhphKfw=
 github.com/konveyor/asset-generation v0.2.2/go.mod h1:X5K2VuEV+PEBAI5O+9mNVDtCW4vFWDvFYRThpea+56U=
-github.com/konveyor/tackle2-hub/shared v0.0.0-20260430164516-31215b33d9d7 h1:3V6TlfBUcHf+KRfaiGXpecjANrJkYe1YxzhX0awtLAE=
-github.com/konveyor/tackle2-hub/shared v0.0.0-20260430164516-31215b33d9d7/go.mod h1:kJBH9U7Lcn7p3o0etF7O2S6dnERX50ekAfi2PCwKyng=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
