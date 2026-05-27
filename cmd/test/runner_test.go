@@ -33,7 +33,7 @@ func Test_defaultProviderImage(t *testing.T) {
 		},
 		{
 			name:         "csharp provider",
-			providerName: "dotnet",
+			providerName: "csharp",
 			want:         "quay.io/konveyor/c-sharp-provider:latest",
 		},
 		{

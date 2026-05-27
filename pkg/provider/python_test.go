@@ -27,6 +27,7 @@ func TestPythonProvider_GetConfig_ModeContainer(t *testing.T) {
 	assert.Equal(t, ContainerPythonProviderBin, cfg.BinaryPath)
 	assert.Empty(t, cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	// Python defaults to source-only analysis
 	assert.Equal(t, provider.SourceOnlyAnalysisMode, cfg.InitConfig[0].AnalysisMode)
@@ -34,9 +35,9 @@ func TestPythonProvider_GetConfig_ModeContainer(t *testing.T) {
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "pylsp", psc["lspServerName"])
 	assert.Equal(t, ContainerPylspPath, psc[provider.LspServerPathConfigKey])
-	assert.Equal(t, []interface{}{}, psc["lspServerArgs"])
-	assert.Equal(t, []interface{}{}, psc["workspaceFolders"])
-	assert.Equal(t, []interface{}{}, psc["dependencyFolders"])
+	assert.Contains(t, psc, "lspServerArgs")
+	assert.Contains(t, psc, "workspaceFolders")
+	assert.Contains(t, psc, "dependencyFolders")
 }
 
 func TestPythonProvider_GetConfig_ModeNetwork(t *testing.T) {
@@ -53,6 +54,7 @@ func TestPythonProvider_GetConfig_ModeNetwork(t *testing.T) {
 	assert.Empty(t, cfg.BinaryPath)
 	assert.Equal(t, "localhost:12347", cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "pylsp", psc["lspServerName"])

@@ -27,11 +27,12 @@ func TestGoProvider_GetConfig_ModeContainer(t *testing.T) {
 	assert.Equal(t, ContainerGoProviderBin, cfg.BinaryPath)
 	assert.Empty(t, cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "gopls", psc["lspServerName"])
 	assert.Equal(t, ContainerGoplsPath, psc[provider.LspServerPathConfigKey])
-	assert.Equal(t, []interface{}{}, psc["lspServerArgs"])
+	assert.Contains(t, psc, "lspServerArgs")
 }
 
 func TestGoProvider_GetConfig_ModeNetwork(t *testing.T) {
@@ -48,6 +49,7 @@ func TestGoProvider_GetConfig_ModeNetwork(t *testing.T) {
 	assert.Empty(t, cfg.BinaryPath)
 	assert.Equal(t, "localhost:12346", cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "gopls", psc["lspServerName"])

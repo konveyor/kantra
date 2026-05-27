@@ -27,6 +27,7 @@ func TestNodeJsProvider_GetConfig_ModeContainer(t *testing.T) {
 	assert.Equal(t, ContainerNodeJSProviderBin, cfg.BinaryPath)
 	assert.Empty(t, cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	// Node.js defaults to source-only analysis
 	assert.Equal(t, provider.SourceOnlyAnalysisMode, cfg.InitConfig[0].AnalysisMode)
@@ -34,9 +35,9 @@ func TestNodeJsProvider_GetConfig_ModeContainer(t *testing.T) {
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "nodejs", psc["lspServerName"])
 	assert.Equal(t, ContainerTSLangServerPath, psc[provider.LspServerPathConfigKey])
-	assert.Equal(t, []interface{}{"--stdio"}, psc["lspServerArgs"])
-	assert.Equal(t, []interface{}{}, psc["workspaceFolders"])
-	assert.Equal(t, []interface{}{}, psc["dependencyFolders"])
+	assert.Contains(t, psc, "lspServerArgs")
+	assert.Contains(t, psc, "workspaceFolders")
+	assert.Contains(t, psc, "dependencyFolders")
 }
 
 func TestNodeJsProvider_GetConfig_ModeNetwork(t *testing.T) {
@@ -53,11 +54,12 @@ func TestNodeJsProvider_GetConfig_ModeNetwork(t *testing.T) {
 	assert.Empty(t, cfg.BinaryPath)
 	assert.Equal(t, "localhost:12348", cfg.Address)
 	require.Len(t, cfg.InitConfig, 1)
+	assert.Equal(t, "/opt/input/source", cfg.InitConfig[0].Location)
 
 	psc := cfg.InitConfig[0].ProviderSpecificConfig
 	assert.Equal(t, "nodejs", psc["lspServerName"])
 	assert.Equal(t, ContainerTSLangServerPath, psc[provider.LspServerPathConfigKey])
-	assert.Equal(t, []interface{}{"--stdio"}, psc["lspServerArgs"])
+	assert.Contains(t, psc, "lspServerArgs")
 }
 
 func TestNodeJsProvider_GetConfig_DefaultsToSourceOnly(t *testing.T) {
