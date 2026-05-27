@@ -30,9 +30,11 @@ const (
 // inside the kantra/provider container images.
 const (
 	// Provider binaries
-	ContainerJavaProviderBin    = "/usr/local/bin/java-external-provider"
-	ContainerGenericProviderBin = "/usr/local/bin/generic-external-provider"
-	ContainerYqProviderBin      = "/usr/local/bin/yq-external-provider"
+	ContainerJavaProviderBin   = "/usr/local/bin/java-external-provider"
+	ContainerGoProviderBin     = "/usr/local/bin/go-external-provider"
+	ContainerPythonProviderBin = "/usr/local/bin/python-external-provider"
+	ContainerNodeJSProviderBin = "/usr/local/bin/nodejs-external-provider"
+	ContainerYqProviderBin     = "/usr/local/bin/yq-external-provider"
 
 	// Java provider resources (container absolute paths)
 	ContainerJDTLSPath           = "/jdtls/bin/jdtls"
@@ -45,8 +47,7 @@ const (
 	LocalJavaBundlePath = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 
 	// Go provider resources
-	ContainerGoplsPath     = "/usr/local/bin/gopls"
-	ContainerGolangDepPath = "/usr/local/bin/golang-dependency-provider"
+	ContainerGoplsPath = "/usr/local/bin/gopls"
 
 	// Python provider resources
 	ContainerPylspPath = "/usr/local/bin/pylsp"

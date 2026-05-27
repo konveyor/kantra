@@ -16,7 +16,7 @@ func (p *PythonProvider) Name() string {
 func (p *PythonProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
 	switch mode {
 	case ModeContainer:
-		opts.BinaryPath = ContainerGenericProviderBin
+		opts.BinaryPath = ContainerPythonProviderBin
 	}
 
 	// Python defaults to source-only analysis

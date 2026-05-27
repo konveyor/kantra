@@ -34,22 +34,21 @@ func TestDefaultProviderConfig_ModeContainer_AllProviders(t *testing.T) {
 
 	// Go provider
 	goP := byName[util.GoProvider]
-	assert.Equal(t, ContainerGenericProviderBin, goP.BinaryPath)
+	assert.Equal(t, ContainerGoProviderBin, goP.BinaryPath)
 	require.Len(t, goP.InitConfig, 1)
-	assert.Equal(t, "generic", goP.InitConfig[0].ProviderSpecificConfig["lspServerName"])
+	assert.Equal(t, "gopls", goP.InitConfig[0].ProviderSpecificConfig["lspServerName"])
 	assert.Equal(t, ContainerGoplsPath, goP.InitConfig[0].ProviderSpecificConfig[provider.LspServerPathConfigKey])
-	assert.Equal(t, ContainerGolangDepPath, goP.InitConfig[0].ProviderSpecificConfig["dependencyProviderPath"])
 
 	// Python provider
 	python := byName[util.PythonProvider]
-	assert.Equal(t, ContainerGenericProviderBin, python.BinaryPath)
+	assert.Equal(t, ContainerPythonProviderBin, python.BinaryPath)
 	require.Len(t, python.InitConfig, 1)
 	assert.Equal(t, "pylsp", python.InitConfig[0].ProviderSpecificConfig["lspServerName"])
 	assert.Equal(t, ContainerPylspPath, python.InitConfig[0].ProviderSpecificConfig[provider.LspServerPathConfigKey])
 
 	// NodeJS provider
 	nodejs := byName[util.NodeJSProvider]
-	assert.Equal(t, ContainerGenericProviderBin, nodejs.BinaryPath)
+	assert.Equal(t, ContainerNodeJSProviderBin, nodejs.BinaryPath)
 	require.Len(t, nodejs.InitConfig, 1)
 	assert.Equal(t, "nodejs", nodejs.InitConfig[0].ProviderSpecificConfig["lspServerName"])
 	assert.Equal(t, ContainerTSLangServerPath, nodejs.InitConfig[0].ProviderSpecificConfig[provider.LspServerPathConfigKey])

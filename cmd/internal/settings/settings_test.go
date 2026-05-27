@@ -200,19 +200,23 @@ func TestConfig_loadCommandName(t *testing.T) {
 
 func TestConfig_loadProviders(t *testing.T) {
 	tests := []struct {
-		name                    string
-		existingJavaProvider    string
-		existingGenericProvider string
-		existingDotnetProvider  string
-		version                 string
-		expectError             bool
+		name                   string
+		existingJavaProvider   string
+		existingGoProvider     string
+		existingPythonProvider string
+		existingNodeJSProvider string
+		existingDotnetProvider string
+		version                string
+		expectError            bool
 	}{
 		{
-			name:                    "existing provider images are respected",
-			existingJavaProvider:    "custom/java:tag",
-			existingGenericProvider: "custom/generic:tag",
-			existingDotnetProvider:  "custom/dotnet:tag",
-			expectError:             false,
+			name:                   "existing provider images are respected",
+			existingJavaProvider:   "custom/java:tag",
+			existingGoProvider:     "custom/go:tag",
+			existingPythonProvider: "custom/python:tag",
+			existingNodeJSProvider: "custom/nodejs:tag",
+			existingDotnetProvider: "custom/dotnet:tag",
+			expectError:            false,
 		},
 		{
 			name:        "generates versioned providers when empty",
@@ -225,15 +229,23 @@ func TestConfig_loadProviders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clean up environment
 			os.Unsetenv("JAVA_PROVIDER_IMG")
-			os.Unsetenv("GENERIC_PROVIDER_IMG")
+			os.Unsetenv("GO_PROVIDER_IMG")
+			os.Unsetenv("PYTHON_PROVIDER_IMG")
+			os.Unsetenv("NODEJS_PROVIDER_IMG")
 			os.Unsetenv("CSHARP_PROVIDER_IMG")
 
 			// Set up test environment
 			if tt.existingJavaProvider != "" {
 				os.Setenv("JAVA_PROVIDER_IMG", tt.existingJavaProvider)
 			}
-			if tt.existingGenericProvider != "" {
-				os.Setenv("GENERIC_PROVIDER_IMG", tt.existingGenericProvider)
+			if tt.existingGoProvider != "" {
+				os.Setenv("GO_PROVIDER_IMG", tt.existingGoProvider)
+			}
+			if tt.existingPythonProvider != "" {
+				os.Setenv("PYTHON_PROVIDER_IMG", tt.existingPythonProvider)
+			}
+			if tt.existingNodeJSProvider != "" {
+				os.Setenv("NODEJS_PROVIDER_IMG", tt.existingNodeJSProvider)
 			}
 			if tt.existingDotnetProvider != "" {
 				os.Setenv("CSHARP_PROVIDER_IMG", tt.existingDotnetProvider)
@@ -258,8 +270,14 @@ func TestConfig_loadProviders(t *testing.T) {
 			if tt.existingJavaProvider != "" && os.Getenv("JAVA_PROVIDER_IMG") != tt.existingJavaProvider {
 				t.Errorf("Expected JAVA_PROVIDER_IMG=%s, got %s", tt.existingJavaProvider, os.Getenv("JAVA_PROVIDER_IMG"))
 			}
-			if tt.existingGenericProvider != "" && os.Getenv("GENERIC_PROVIDER_IMG") != tt.existingGenericProvider {
-				t.Errorf("Expected GENERIC_PROVIDER_IMG=%s, got %s", tt.existingGenericProvider, os.Getenv("GENERIC_PROVIDER_IMG"))
+			if tt.existingGoProvider != "" && os.Getenv("GO_PROVIDER_IMG") != tt.existingGoProvider {
+				t.Errorf("Expected GO_PROVIDER_IMG=%s, got %s", tt.existingGoProvider, os.Getenv("GO_PROVIDER_IMG"))
+			}
+			if tt.existingPythonProvider != "" && os.Getenv("PYTHON_PROVIDER_IMG") != tt.existingPythonProvider {
+				t.Errorf("Expected PYTHON_PROVIDER_IMG=%s, got %s", tt.existingPythonProvider, os.Getenv("PYTHON_PROVIDER_IMG"))
+			}
+			if tt.existingNodeJSProvider != "" && os.Getenv("NODEJS_PROVIDER_IMG") != tt.existingNodeJSProvider {
+				t.Errorf("Expected NODEJS_PROVIDER_IMG=%s, got %s", tt.existingNodeJSProvider, os.Getenv("NODEJS_PROVIDER_IMG"))
 			}
 			if tt.existingDotnetProvider != "" && os.Getenv("CSHARP_PROVIDER_IMG") != tt.existingDotnetProvider {
 				t.Errorf("Expected CSHARP_PROVIDER_IMG=%s, got %s", tt.existingDotnetProvider, os.Getenv("CSHARP_PROVIDER_IMG"))

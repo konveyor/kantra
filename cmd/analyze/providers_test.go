@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -99,4 +100,54 @@ func Test_setupProgressReporter_WithProgress(t *testing.T) {
 	// Cancel should close the done channel eventually
 	cancel()
 	<-done // should not block forever
+}
+
+func Test_providerImage(t *testing.T) {
+	// Initialize settings with defaults
+	err := settings.Settings.Load()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		providerName string
+		want         string
+	}{
+		{
+			name:         "java provider",
+			providerName: "java",
+			want:         "quay.io/konveyor/java-external-provider:latest",
+		},
+		{
+			name:         "go provider",
+			providerName: "go",
+			want:         "quay.io/konveyor/go-external-provider:latest",
+		},
+		{
+			name:         "python provider",
+			providerName: "python",
+			want:         "quay.io/konveyor/python-external-provider:latest",
+		},
+		{
+			name:         "nodejs provider",
+			providerName: "nodejs",
+			want:         "quay.io/konveyor/nodejs-external-provider:latest",
+		},
+		{
+			name:         "csharp provider",
+			providerName: "csharp",
+			want:         "quay.io/konveyor/c-sharp-provider:latest",
+		},
+		{
+			name:         "unknown provider",
+			providerName: "unknown",
+			want:         "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := providerImage(tt.providerName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

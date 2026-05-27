@@ -16,7 +16,7 @@ func (p *GoProvider) Name() string {
 func (p *GoProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...ProviderOption) (provider.Config, error) {
 	switch mode {
 	case ModeContainer:
-		opts.BinaryPath = ContainerGenericProviderBin
+		opts.BinaryPath = ContainerGoProviderBin
 	}
 
 	cfg := NewBaseConfig(util.GoProvider, mode, opts)
@@ -24,15 +24,13 @@ func (p *GoProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...Pr
 
 	switch mode {
 	case ModeContainer:
-		psc["lspServerName"] = "generic"
+		psc["lspServerName"] = "gopls"
 		psc[provider.LspServerPathConfigKey] = ContainerGoplsPath
 		psc["lspServerArgs"] = []string{}
-		psc["dependencyProviderPath"] = ContainerGolangDepPath
 
 	case ModeNetwork:
-		psc["lspServerName"] = "generic"
+		psc["lspServerName"] = "gopls"
 		psc[provider.LspServerPathConfigKey] = ContainerGoplsPath
-		psc["dependencyProviderPath"] = ContainerGolangDepPath
 	}
 
 	return cfg, nil

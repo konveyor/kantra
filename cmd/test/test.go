@@ -53,9 +53,9 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 				ContainerBinary: settings.Settings.ContainerBinary,
 				ProviderImages: map[string]string{
 					"java":   settings.Settings.JavaProviderImage,
-					"go":     settings.Settings.GenericProviderImage,
-					"python": settings.Settings.GenericProviderImage,
-					"nodejs": settings.Settings.GenericProviderImage,
+					"go":     settings.Settings.GoProviderImage,
+					"python": settings.Settings.PythonProviderImage,
+					"nodejs": settings.Settings.NodeJSProviderImage,
 					"csharp": settings.Settings.CsharpProviderImage,
 				},
 				RunnerImage:     settings.Settings.RunnerImage,
