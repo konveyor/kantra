@@ -31,6 +31,8 @@ Kantra behavior can be customized via environment variables (see `cmd/settings.g
 - `JVM_MAX_MEM` — JVM maximum memory for Java analysis (e.g., `4g`, `8g`)
 - `CMD_NAME` — Override root command name (default: `kantra`)
 
+Config directory basename (`~/.kantra` by default) is set at **build time** via ldflags (`settings.ConfigDirName`), not at runtime.
+
 ## Analysis Commands
 
 ### Containerless Mode (Default)

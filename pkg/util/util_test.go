@@ -282,6 +282,71 @@ func TestGetKantraDir_KANTRA_DIR_set(t *testing.T) {
 	}
 }
 
+func TestSetConfigDirBasename(t *testing.T) {
+	orig := ConfigDirBasename()
+	defer SetConfigDirBasename(orig)
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "default empty", input: "", want: ".kantra"},
+		{name: "kantra", input: ".kantra", want: ".kantra"},
+		{name: "custom", input: ".mytool", want: ".mytool"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetConfigDirBasename(tt.input)
+			if got := ConfigDirBasename(); got != tt.want {
+				t.Errorf("ConfigDirBasename() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetKantraDir_configDirBasename(t *testing.T) {
+	origBasename := ConfigDirBasename()
+	origKantraDir := os.Getenv(KantraDirEnv)
+	origHome := os.Getenv("HOME")
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
+	defer func() {
+		SetConfigDirBasename(origBasename)
+		if origKantraDir != "" {
+			os.Setenv(KantraDirEnv, origKantraDir)
+		} else {
+			os.Unsetenv(KantraDirEnv)
+		}
+		if origHome != "" {
+			os.Setenv("HOME", origHome)
+		} else {
+			os.Unsetenv("HOME")
+		}
+		if origXDG != "" {
+			os.Setenv("XDG_CONFIG_HOME", origXDG)
+		} else {
+			os.Unsetenv("XDG_CONFIG_HOME")
+		}
+	}()
+	os.Unsetenv(KantraDirEnv)
+	os.Unsetenv("XDG_CONFIG_HOME")
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	work := t.TempDir()
+	t.Chdir(work)
+
+	SetConfigDirBasename(".mytool")
+	got, err := GetKantraDir()
+	if err != nil {
+		t.Fatalf("GetKantraDir() error = %v", err)
+	}
+	want := filepath.Join(home, ".mytool")
+	if got != want {
+		t.Errorf("GetKantraDir() = %q, want %q", got, want)
+	}
+}
+
 func TestGetKantraDir_KANTRA_DIR_empty_unchanged_behavior(t *testing.T) {
 	orig := os.Getenv(KantraDirEnv)
 	defer func() {
