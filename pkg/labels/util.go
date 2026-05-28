@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 // ParseLabelLines splits listing output into non-empty trimmed lines.
@@ -98,4 +99,12 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 	for _, tech := range newSl {
 		fmt.Fprintln(out, tech)
 	}
+}
+
+func DepLabelSelectorForAnalysis(analyzeKnownLibraries bool) string {
+	label := provider.DepSourceLabel
+	if analyzeKnownLibraries {
+		return label + "=open-source || !" + label + "=open-source"
+	}
+	return "!" + label + "=open-source"
 }
