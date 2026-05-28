@@ -16,6 +16,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 func (a *analyzeCommand) ListAllProviders() {
@@ -279,4 +280,12 @@ func ListOptionsFromLabels(sl []string, label string, out io.Writer) {
 	for _, tech := range newSl {
 		fmt.Fprintln(out, tech)
 	}
+}
+
+func depLabelSelectorForAnalysis(analyzeKnownLibraries bool) string {
+	label := provider.DepSourceLabel
+	if analyzeKnownLibraries {
+		return label + "=open-source || !" + label + "=open-source"
+	}
+	return "!" + label + "=open-source"
 }

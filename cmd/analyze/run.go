@@ -15,7 +15,6 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
-	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/konveyor/analyzer-lsp/tracing"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -209,10 +208,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 
 	// --- Label selectors ---
 	labelSelector := a.getLabelSelector(cmd)
-	depLabelSelector := ""
-	if !a.analyzeKnownLibraries {
-		depLabelSelector = fmt.Sprintf("!%v=open-source", provider.DepSourceLabel)
-	}
+	depLabelSelector := depLabelSelectorForAnalysis(a.analyzeKnownLibraries)
 
 	// --- Progress reporter ---
 	reporter, progressDone, progressCancel := setupProgressReporter(ctx, a.noProgress)
@@ -240,9 +236,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 	if a.noDepRules {
 		analyzerOpts = append(analyzerOpts, konveyorAnalyzer.WithDependencyRulesDisabled())
 	}
-	if depLabelSelector != "" {
-		analyzerOpts = append(analyzerOpts, konveyorAnalyzer.WithDepLabelSelector(depLabelSelector))
-	}
+	analyzerOpts = append(analyzerOpts, konveyorAnalyzer.WithDepLabelSelector(depLabelSelector))
 
 	// Apply mode-specific extra options (path mappings for binary, ignore builtin configs for source)
 	extra := env.ExtraOptions(ctx, isBinaryAnalysis)
