@@ -18,6 +18,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"gopkg.in/yaml.v2"
 )
@@ -47,18 +48,19 @@ func generateMockJWT(expirationTime time.Time) string {
 	return headerB64 + "." + payloadB64 + "." + signatureB64
 }
 
-// setupTempAuth creates a temporary HOME directory and writes auth data to ~/.kantra/auth.json
-// Returns the temp home directory path for cleanup
+// setupTempAuth creates a temporary config directory and writes auth data to auth.json.
+// Returns the temp home directory path for cleanup.
 func setupTempAuth(t *testing.T, auth *LoginResponse) string {
-	// Create temporary home directory
 	tempHome := t.TempDir()
-
-	// Set HOME environment variable to point to temp directory
 	t.Setenv("HOME", tempHome)
+	// GetKantraDir prefers XDG_CONFIG_HOME on Linux; pin the config dir for tests.
+	t.Setenv("XDG_CONFIG_HOME", "")
 
-	// Create .kantra directory in temp home
-	kantreDir := filepath.Join(tempHome, ".kantra")
-	os.MkdirAll(kantreDir, 0755)
+	kantreDir := filepath.Join(tempHome, util.ConfigDirBasename())
+	t.Setenv(util.KantraDirEnv, kantreDir)
+	if err := os.MkdirAll(kantreDir, 0755); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
 
 	// Write auth data if provided
 	if auth != nil {
