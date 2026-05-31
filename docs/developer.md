@@ -12,9 +12,9 @@ The “kantra directory” is chosen in this order of priority:
 
 1. **`KANTRA_DIR`** — if the environment variable is set, that path is used.
 2. **Current working directory** — if it contains the subdirectories `rulesets`, `jdtls`, and `static-report`, it is used.
-3. **Config directory** — otherwise:
-   - Linux: `$XDG_CONFIG_HOME/.kantra` if `XDG_CONFIG_HOME` is set, else `$HOME/.kantra`
-   - macOS / Windows: `$HOME/.kantra` or `%USERPROFILE%\.kantra`
+3. **Config directory** — otherwise (default `~/.kantra`; distributors may set a different basename at **build time** via `settings.ConfigDirName` / ldflags):
+   - Linux: `$XDG_CONFIG_HOME/.<name>` if `XDG_CONFIG_HOME` is set, else `$HOME/.<name>`
+   - macOS / Windows: `$HOME/.<name>` or `%USERPROFILE%\.<name>`
 
 Setting `KANTRA_DIR` is useful when you run kantra from a different working directory (e.g. in scripts or when the process is started with a different `cwd`).
 

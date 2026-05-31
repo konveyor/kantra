@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/codingconcepts/env"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
 // Build-time variables set via ldflags.
@@ -15,12 +16,16 @@ import (
 // Example:
 //
 //	--ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=1.2.3' \
-//	           -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$(git rev-parse HEAD)'"
+//	           -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$(git rev-parse HEAD)' \
+//	           -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.ConfigDirName=mytool'"
 var (
 	BuildCommit = ""
 	Version     = "latest"
 
-	RootCommandName      = "kantra"
+	RootCommandName = "kantra"
+	// ConfigDirName is the basename (without leading dot) of the user config directory
+	// under $HOME or $XDG_CONFIG_HOME (e.g. "kantra" -> ~/.kantra). Override at build time.
+	ConfigDirName            = "kantra"
 	JavaBundlesLocation  = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	JDTLSBinLocation     = "/jdtls/bin/jdtls"
 	MavenIndexPath       = "/usr/local/etc/maven-index.txt"
@@ -50,7 +55,22 @@ type Config struct {
 	CsharpProviderImage string `env:"CSHARP_PROVIDER_IMG" default:"quay.io/konveyor/c-sharp-provider:latest"`
 }
 
+// ConfigDirBasename returns the dot-prefixed config directory name (from ConfigDirName).
+func ConfigDirBasename() string {
+	name := ConfigDirName
+	if name == "" {
+		name = "kantra"
+	}
+	if strings.HasPrefix(name, ".") {
+		return name
+	}
+	return "." + name
+}
+
 func (c *Config) Load() error {
+	if err := c.loadConfigDir(); err != nil {
+		return err
+	}
 	if err := c.loadCommandName(); err != nil {
 		return err
 	}
@@ -121,6 +141,11 @@ func (c *Config) loadRunnerImg() error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *Config) loadConfigDir() error {
+	util.SetConfigDirBasename(ConfigDirBasename())
 	return nil
 }
 

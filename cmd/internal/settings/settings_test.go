@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 )
 
 // Test RUNNER_IMG settings
@@ -186,6 +188,43 @@ func TestConfig_loadRunnerImg(t *testing.T) {
 				t.Errorf("Expected RUNNER_IMG=%s, got %s", tt.expectRunnerImg, os.Getenv("RUNNER_IMG"))
 			}
 		})
+	}
+}
+
+func TestConfigDirBasename(t *testing.T) {
+	orig := ConfigDirName
+	defer func() { ConfigDirName = orig }()
+
+	tests := []struct {
+		dirName string
+		want    string
+	}{
+		{dirName: "", want: ".kantra"},
+		{dirName: "kantra", want: ".kantra"},
+		{dirName: "mytool", want: ".mytool"},
+		{dirName: ".custom", want: ".custom"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.dirName, func(t *testing.T) {
+			ConfigDirName = tt.dirName
+			if got := ConfigDirBasename(); got != tt.want {
+				t.Errorf("ConfigDirBasename() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfig_loadConfigDir(t *testing.T) {
+	orig := ConfigDirName
+	defer func() { ConfigDirName = orig }()
+
+	ConfigDirName = "mytool"
+	c := &Config{}
+	if err := c.loadConfigDir(); err != nil {
+		t.Fatalf("loadConfigDir() error = %v", err)
+	}
+	if got := util.ConfigDirBasename(); got != ".mytool" {
+		t.Errorf("util.ConfigDirBasename() = %q, want %q", got, ".mytool")
 	}
 }
 

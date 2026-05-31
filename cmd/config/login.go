@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -244,11 +245,10 @@ func (l *loginCommand) RefreshToken(hubURL string, loginResp *LoginResponse) (*L
 }
 
 func (l *loginCommand) storeTokens(loginResp *LoginResponse) error {
-	homeDir, err := os.UserHomeDir()
+	kantraDir, err := util.GetKantraDir()
 	if err != nil {
 		return err
 	}
-	kantraDir := filepath.Join(homeDir, ".kantra")
 	if err := os.MkdirAll(kantraDir, 0700); err != nil {
 		return err
 	}
@@ -265,11 +265,11 @@ func (l *loginCommand) storeTokens(loginResp *LoginResponse) error {
 }
 
 func loadStoredTokens() (*LoginResponse, error) {
-	homeDir, err := os.UserHomeDir()
+	kantraDir, err := util.GetKantraDir()
 	if err != nil {
 		return nil, err
 	}
-	tokenFile := filepath.Join(homeDir, ".kantra", "auth.json")
+	tokenFile := filepath.Join(kantraDir, "auth.json")
 	data, err := os.ReadFile(tokenFile)
 	if err != nil {
 		if os.IsNotExist(err) {
