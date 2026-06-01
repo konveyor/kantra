@@ -26,6 +26,11 @@ func PrepareRulesVolumes(log logr.Logger, rules []string) (volumes map[string]st
 		log.V(1).Error(err, "failed to create temp dir", "path", tempDir)
 		return nil, "", err
 	}
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(tempDir)
+		}
+	}()
 	customRuleDir = filepath.Base(tempDir)
 	log.V(1).Info("created directory for rules", "dir", tempDir)
 
@@ -55,12 +60,15 @@ func PrepareRulesVolumes(log logr.Logger, rules []string) (volumes map[string]st
 			if path == r {
 				return nil
 			}
+			if isHidden, hiddenErr := hiddenfile.IsHidden(path); hiddenErr != nil || isHidden {
+				log.V(5).Info("skipping hidden path", "path", path, "error", hiddenErr)
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 			if d.IsDir() {
 				return copyRuleDir(log, path, tempDir, r)
-			}
-			if isHidden, err := hiddenfile.IsHidden(path); isHidden || err != nil {
-				log.V(5).Info("skipping hidden file", "path", path, "error", err)
-				return nil
 			}
 			relpath, err := filepath.Rel(r, path)
 			if err != nil {

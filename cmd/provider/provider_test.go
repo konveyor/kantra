@@ -18,7 +18,7 @@ func TestNewProviderCommand_list(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 	out := cmd.OutOrStdout().(*bytes.Buffer).String()
-	if !strings.Contains(out, "java") || !strings.Contains(out, "container analysis supported providers:") {
+	if !strings.Contains(out, "java") || !strings.Contains(out, "Container analysis supported providers:") {
 		t.Fatalf("unexpected output:\n%s", out)
 	}
 }

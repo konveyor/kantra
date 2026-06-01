@@ -13,10 +13,10 @@ func TestListProviders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"container analysis supported providers:",
+		"Container analysis supported providers:",
 		"java",
 		"python",
-		"containerless analysis supported providers (default):",
+		"Containerless analysis supported providers (default):",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("ListProviders() output missing %q:\n%s", want, out)

@@ -33,13 +33,17 @@ func newListCommand() *cobra.Command {
 
 // ListProviders writes supported analysis providers to w.
 func ListProviders(w io.Writer) error {
-	fmt.Fprintln(w, "container analysis supported providers:")
+	if _, err := fmt.Fprintln(w, "Container analysis supported providers:"); err != nil {
+		return err
+	}
 	for _, prov := range containerProviders {
 		if _, err := fmt.Fprintln(w, prov); err != nil {
 			return err
 		}
 	}
-	fmt.Fprintln(w, "containerless analysis supported providers (default):")
+	if _, err := fmt.Fprintln(w, "Containerless analysis supported providers (default):"); err != nil {
+		return err
+	}
 	for _, prov := range containerlessProviders {
 		if _, err := fmt.Fprintln(w, prov); err != nil {
 			return err
