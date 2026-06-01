@@ -8,6 +8,7 @@ import (
 
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/go-logr/logr/testr"
+	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,4 +114,37 @@ func Test_listLanguages_EmptyReturnsError(t *testing.T) {
 	err := listLanguages([]model.Language{}, "test-input")
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "failed to detect"))
+}
+
+func Test_depLabelSelectorForAnalysis(t *testing.T) {
+	t.Parallel()
+
+	excludeOSS := "!" + provider.DepSourceLabel + "=open-source"
+	includeAll := provider.DepSourceLabel + "=open-source || !" + provider.DepSourceLabel + "=open-source"
+
+	tests := []struct {
+		name                  string
+		analyzeKnownLibraries bool
+		want                  string
+	}{
+		{
+			name:                  "exclude open source by default",
+			analyzeKnownLibraries: false,
+			want:                  excludeOSS,
+		},
+		{
+			name:                  "include known libraries uses tautology",
+			analyzeKnownLibraries: true,
+			want:                  includeAll,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := depLabelSelectorForAnalysis(tt.analyzeKnownLibraries); got != tt.want {
+				t.Errorf("depLabelSelectorForAnalysis() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
