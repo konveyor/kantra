@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -221,6 +222,20 @@ func TestWalkJavaPathForTargetIntegration(t *testing.T) {
 	assert.ElementsMatch(t, expectedPaths, relativePaths)
 }
 
+func runListRuleLabels(ctx context.Context, log logr.Logger, kantraDir string, listSources, listTargets bool, out *strings.Builder) error {
+	lister := labels.New(labels.Config{
+		Log:       log,
+		KantraDir: kantraDir,
+	})
+	if listSources {
+		return lister.ListSources(ctx, out)
+	}
+	if listTargets {
+		return lister.ListTargets(ctx, out)
+	}
+	return nil
+}
+
 func TestListLabelsContainerless(t *testing.T) {
 	log := logr.Discard()
 
@@ -350,19 +365,8 @@ func TestListLabelsContainerless(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Create analyze command with mocked kantra directory
-			a := &analyzeCommand{
-				listSources: tt.listSources,
-				listTargets: tt.listTargets,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:       log,
-					kantraDir: tmpKantraDir,
-				},
-			}
-
-			// Capture output
 			var output strings.Builder
-			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+			err = runListRuleLabels(context.Background(), log, tmpKantraDir, tt.listSources, tt.listTargets, &output)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -459,36 +463,18 @@ func TestAnalyzeCommandListTargetsContainerless(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Create analyze command
-			a := &analyzeCommand{
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:       log,
-					kantraDir: tmpKantraDir,
-				},
-			}
-
-			// Parse flags to set the command options
+			var listSources, listTargets bool
 			for _, arg := range tt.cmdArgs {
 				switch {
 				case arg == "--list-targets":
-					a.listTargets = true
+					listTargets = true
 				case arg == "--list-sources":
-					a.listSources = true
-				case arg == "--run-local=true":
-					a.runLocal = true
-				case arg == "--run-local=false":
-					a.runLocal = false
+					listSources = true
 				}
 			}
 
-			// Set default for runLocal if not specified (matches the actual default)
-			if !sliceContains(tt.cmdArgs, "--run-local=false") {
-				a.runLocal = true
-			}
-
-			// Capture output
 			var output strings.Builder
-			err = a.fetchLabelsContainerless(context.Background(), a.listSources, a.listTargets, &output)
+			err = runListRuleLabels(context.Background(), log, tmpKantraDir, listSources, listTargets, &output)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -577,36 +563,18 @@ func TestAnalyzeCommandListSourcesContainerless(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Create analyze command
-			a := &analyzeCommand{
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:       log,
-					kantraDir: tmpKantraDir,
-				},
-			}
-
-			// Parse flags to set the command options
+			var listSources, listTargets bool
 			for _, arg := range tt.cmdArgs {
 				switch {
 				case arg == "--list-targets":
-					a.listTargets = true
+					listTargets = true
 				case arg == "--list-sources":
-					a.listSources = true
-				case arg == "--run-local=true":
-					a.runLocal = true
-				case arg == "--run-local=false":
-					a.runLocal = false
+					listSources = true
 				}
 			}
 
-			// Set default for runLocal if not specified (matches the actual default)
-			if !sliceContains(tt.cmdArgs, "--run-local=false") {
-				a.runLocal = true
-			}
-
-			// Capture output
 			var output strings.Builder
-			err = a.fetchLabelsContainerless(context.Background(), a.listSources, a.listTargets, &output)
+			err = runListRuleLabels(context.Background(), log, tmpKantraDir, listSources, listTargets, &output)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -685,19 +653,8 @@ func TestListLabelsContainerlessErrorHandling(t *testing.T) {
 				tmpKantraDir = "/non/existent/kantra/directory"
 			}
 
-			// Create analyze command with potentially missing kantra directory
-			a := &analyzeCommand{
-				listSources: tt.listSources,
-				listTargets: tt.listTargets,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:       log,
-					kantraDir: tmpKantraDir,
-				},
-			}
-
-			// Capture output
 			var output strings.Builder
-			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+			err = runListRuleLabels(context.Background(), log, tmpKantraDir, tt.listSources, tt.listTargets, &output)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -770,19 +727,8 @@ func TestListLabelsContainerlessOutputFormat(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Create analyze command
-			a := &analyzeCommand{
-				listSources: tt.listSources,
-				listTargets: tt.listTargets,
-				AnalyzeCommandContext: AnalyzeCommandContext{
-					log:       log,
-					kantraDir: tmpKantraDir,
-				},
-			}
-
-			// Capture output
 			var output strings.Builder
-			err = a.fetchLabelsContainerless(context.Background(), tt.listSources, tt.listTargets, &output)
+			err = runListRuleLabels(context.Background(), log, tmpKantraDir, tt.listSources, tt.listTargets, &output)
 			require.NoError(t, err)
 
 			// Verify output format

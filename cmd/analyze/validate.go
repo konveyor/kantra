@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
+	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	hubapi "github.com/konveyor/tackle2-hub/shared/api"
@@ -24,10 +26,6 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 		return fmt.Errorf("invalid --container-runtime-flags: %w", err)
 	}
 	a.parsedContainerRuntime = parsedContainerRuntime
-
-	if a.listSources || a.listTargets || a.listProviders {
-		return nil
-	}
 
 	if a.listLanguages {
 		stat, err := os.Stat(a.input)
@@ -54,12 +52,10 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 	// allow custom sources/targets if custom rules are set
 	if len(a.sources) > 0 {
 		var sourcesRaw bytes.Buffer
-		if a.runLocal {
-			a.fetchLabelsContainerless(ctx, true, false, &sourcesRaw)
-		} else {
-			a.fetchLabels(ctx, true, false, &sourcesRaw)
+		if err := a.labelsLister().ListSources(ctx, &sourcesRaw); err != nil {
+			return err
 		}
-		knownSources := parseLabelLines(sourcesRaw.String())
+		knownSources := labels.ParseLabelLines(sourcesRaw.String())
 		for _, source := range a.sources {
 			found := false
 			for _, knownSource := range knownSources {
@@ -76,12 +72,10 @@ func (a *analyzeCommand) Validate(ctx context.Context, cmd *cobra.Command, found
 	// Validate target labels
 	if len(a.targets) > 0 {
 		var targetRaw bytes.Buffer
-		if a.runLocal {
-			a.fetchLabelsContainerless(ctx, false, true, &targetRaw)
-		} else {
-			a.fetchLabels(ctx, false, true, &targetRaw)
+		if err := a.labelsLister().ListTargets(ctx, &targetRaw); err != nil {
+			return err
 		}
-		knownTargets := parseLabelLines(targetRaw.String())
+		knownTargets := labels.ParseLabelLines(targetRaw.String())
 		for _, target := range a.targets {
 			found := false
 			for _, knownTarget := range knownTargets {
@@ -303,4 +297,22 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 		}
 	}
 	return nil
+}
+
+func (a *analyzeCommand) labelsLister() *labels.Lister {
+	return labels.NewListerFromAnalyze(labels.AnalyzeListerOptions{
+		Log:                   a.log,
+		KantraDir:             a.kantraDir,
+		Rules:                 a.rules,
+		RunLocal:              a.runLocal,
+		Cleanup:               a.cleanup,
+		HTTPProxy:             a.httpProxy,
+		HTTPSProxy:            a.httpsProxy,
+		NoProxy:              a.noProxy,
+		ContainerRuntimeArgs: a.parsedContainerRuntime,
+		RunnerImage:           settings.Settings.RunnerImage,
+		RootCommandName:       settings.Settings.RootCommandName,
+		ContainerBinary:       settings.Settings.ContainerBinary,
+		PrepareRulesVolumes:   PrepareRulesVolumes,
+	})
 }

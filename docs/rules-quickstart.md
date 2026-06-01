@@ -31,7 +31,7 @@ a binary for your OS and architecture.
 
 #### How to use Kantra
 - Kantra comes pre-loaded with several rulesets that provide different migration paths by default. These available paths
-  (also named _targets_ in the Konveyor ecosystem) can be checked out by running `kantra analyze --list-targets`. Specifying
+  (also named _targets_ in the Konveyor ecosystem) can be checked out by running `kantra rules list-targets`. Specifying
   a migration path is desirable to have a targeted analysis.
 - Additionally, more rules can be specified with the `--rules` option.
 - When analyzing an application, it is possible to also analyze the code of its dependencies too:
@@ -242,4 +242,4 @@ tests:
       messageMatches: "ProductService cannot be used with the @Inject annotation in version 2 of the coolstore application"
 ```
 It will check that two incidents are occurring in the analyzer output, and that the message corresponds to that of the rule.
-To execute it simply run `kantra test .`.
+To execute it simply run `kantra rules test .`.

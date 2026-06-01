@@ -1,8 +1,8 @@
 providers:
   - name: builtin
     dataPath: ./test-data/
-  - name: python
-    dataPath: ../python/test-data/python/
+  - name: java
+    dataPath: ./test-data/java/
 tests:
   - ruleID: storage-000
     testCases:
