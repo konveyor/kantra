@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	analyzerprovider "github.com/konveyor/analyzer-lsp/provider"
 )
 
@@ -161,7 +162,11 @@ func (e *localEnvironment) validateKantraDir() error {
 
 	for _, p := range requiredPaths {
 		if _, err := os.Stat(p); os.IsNotExist(err) {
-			e.log.Error(err, "cannot open required path, ensure that container-less dependencies are installed")
+			if p == kantraDir {
+				return util.MissingKantraDirectory(kantraDir)
+			}
+			return util.MissingKantraPath(kantraDir, p)
+		} else if err != nil {
 			return err
 		}
 	}
