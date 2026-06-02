@@ -1,5 +1,7 @@
 - ruleID: storage-000
   description: Hardcoded local files in properties
+  category: mandatory
+  effort: 1
   labels:
   - component=storage
   message: Found access to a local file {{ matchingText }}
@@ -8,7 +10,6 @@
       filePattern: .*(\.java|\.properties|\.jsp|\.jspf|\.tag|[^pom]\.xml|\.txt)
       pattern: file://.*
 - ruleID: storage-001
-  description: Usage of Java local storage apis
   labels:
   - component=storage
   message: Application may lose access to local storage in container environment

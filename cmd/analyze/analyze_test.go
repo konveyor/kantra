@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
+	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )
@@ -440,7 +441,7 @@ func TestParseLabelLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseLabelLines(tt.raw)
+			got := labels.ParseLabelLines(tt.raw)
 			if !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("parseLabelLines() = %v, want %v", got, tt.expected)
 			}

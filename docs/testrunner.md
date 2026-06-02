@@ -54,7 +54,7 @@ _name_ is the name of the provider to which the config applies to, and _dataPath
 
 If all tests under a _ruleset_ share values of _providers_ field (e.g. they use common data directory in all tests for a given provider), this config can also be defined at ruleset level under a special file `testing-config.yaml`. In that case, the config present in this file will apply to all tests in that directory. A more specific config for a certain file can still be defined in the tests file. In that case, values in the tests file will take precedance over values at the _ruleset_ level.
 
-Examples of directory-level `testing-config.yaml` files: [builtin](../cmd/testrunner/examples/builtin/testing-config.yaml), [java](../cmd/testrunner/examples/java/testing-config.yaml), [python](../cmd/testrunner/examples/python/testing-config.yaml), [nodejs](../cmd/testrunner/examples/nodejs/testing-config.yaml).
+Examples of directory-level `testing-config.yaml` files: [builtin](../cmd/rules/test/examples/builtin/testing-config.yaml), [java](../cmd/rules/test/examples/java/testing-config.yaml), [python](../cmd/rules/test/examples/python/testing-config.yaml), [nodejs](../cmd/rules/test/examples/nodejs/testing-config.yaml).
 
 > Note that a config for every providers present in the rules file _must_ be defined.
 
@@ -147,25 +147,25 @@ _HasIncidents_ defines a criteria for passing the test case. It provides two way
 To run tests in a single file:
 
 ```yaml
-kantra test /path/to/a/single/tests/file.test.yaml
+kantra rules test /path/to/a/single/tests/file.test.yaml
 ```
 
 To run tests in a ruleset:
 
 ```yaml
-kantra test /path/to/a/ruleset/directory/
+kantra rules test /path/to/a/ruleset/directory/
 ```
 
 To run tests in multiple different paths:
 
 ```yaml
-kantra test /path/to/a/ruleset/directory/ /path/to/a/test/file.test.yaml
+kantra rules test /path/to/a/ruleset/directory/ /path/to/a/test/file.test.yaml
 ```
 
 To run specific tests by rule IDs:
 
 ```yaml
-kantra test /path/to/a/ruleset/directory/ -t "RULE_ID_1, RULE_ID_2"
+kantra rules test /path/to/a/ruleset/directory/ -t "RULE_ID_1, RULE_ID_2"
 ```
 
 _-t_ option allows specifying a list of rule IDs (separated by commas) to select specific tests.
@@ -175,7 +175,7 @@ A specific test case in a test can also be selected using the _-t_ option.
 To run specific test cases in a test, each value in the comma separated list of  _-t_ becomes _<RULE_ID>#<TEST_CASE_NAME>_:
 
 ```yaml
-kantra test /path/to/a/ruleset/directory/ -t RULE_ID_1#TEST_CASE_1
+kantra rules test /path/to/a/ruleset/directory/ -t RULE_ID_1#TEST_CASE_1
 ```
 
 > Note that # is a reserved character used to seperate test case name in the filter. The name of the test case itself _must not_ contain #. 
@@ -224,12 +224,12 @@ Among other files, the important files needed for debugging in this directory ar
 
 ### References
 
-- OpenAPI schema for tests: [Tests schema](../test-schema.json)
+- OpenAPI schema for tests: [Tests schema](../cmd/rules/test/examples/test-schema.json)
 
-- Example tests (builtin discovery ruleset): [Builtin examples](../cmd/testrunner/examples/builtin/)
+- Example tests (builtin discovery ruleset): [Builtin examples](../cmd/rules/test/examples/builtin/)
 
-- Example tests (Java / storage rules): [Java examples](../cmd/testrunner/examples/java/)
+- Example tests (Java / storage rules): [Java examples](../cmd/rules/test/examples/java/)
 
-- Example tests for other languages: [Node.js](../cmd/testrunner/examples/nodejs/), [Python](../cmd/testrunner/examples/python/)
+- Example tests for other languages: [Node.js](../cmd/rules/test/examples/nodejs/), [Python](../cmd/rules/test/examples/python/)
 
-- Rules file tests live next to the rules under [../cmd/testrunner/examples/java/rules-file.test.yaml](../cmd/testrunner/examples/java/rules-file.test.yaml)
+- Rules file tests live next to the rules under [../cmd/rules/test/examples/java/rules-file.test.yaml](../cmd/rules/test/examples/java/rules-file.test.yaml)

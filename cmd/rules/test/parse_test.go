@@ -54,7 +54,6 @@ var localStorageTests = TestsFile{
 	Providers: []ProviderConfig{
 		{Name: "builtin", DataPath: "./test-data/"},
 		{Name: "java", DataPath: "./test-data/java/"},
-		{Name: "python", DataPath: "../python/test-data/python/"},
 	},
 	RulesPath: "examples/java/local-storage.yml",
 	Tests: []Test{
@@ -84,7 +83,6 @@ var rulesFileTests = TestsFile{
 	Providers: []ProviderConfig{
 		{Name: "builtin", DataPath: "./test-data/"},
 		{Name: "java", DataPath: "./test-data/java/"},
-		{Name: "python", DataPath: "../python/test-data/python/"},
 	},
 	RulesPath: "examples/java/rules-file.yaml",
 	Tests: []Test{

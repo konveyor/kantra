@@ -12,7 +12,8 @@ import (
 	"github.com/konveyor-ecosystem/kantra/cmd/config"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
 	"github.com/konveyor-ecosystem/kantra/cmd/openrewrite"
-	"github.com/konveyor-ecosystem/kantra/cmd/test"
+	provider "github.com/konveyor-ecosystem/kantra/cmd/provider"
+	"github.com/konveyor-ecosystem/kantra/cmd/rules"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -52,7 +53,8 @@ func init() {
 	logger := logrusr.New(logrusLog)
 	rootCmd.AddCommand(openrewrite.NewOpenRewriteCommand(logger))
 	rootCmd.AddCommand(analyze.NewAnalyzeCmd(logger))
-	rootCmd.AddCommand(test.NewTestCommand(logger))
+	rootCmd.AddCommand(rules.NewRulesCommand(logger))
+	rootCmd.AddCommand(provider.NewProviderCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))

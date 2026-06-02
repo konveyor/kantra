@@ -11,6 +11,7 @@ import (
 
 	"slices"
 
+	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
@@ -21,9 +22,6 @@ import (
 
 // kantra analyze flags
 type analyzeCommand struct {
-	listSources              bool
-	listTargets              bool
-	listProviders            bool
 	listLanguages            bool
 	skipStaticReport         bool
 	analyzeKnownLibraries    bool
@@ -76,10 +74,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 		Short: "Analyze application source code",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// TODO (pgaikwad): this is nasty
-			if !cmd.Flags().Lookup("list-sources").Changed &&
-				!cmd.Flags().Lookup("list-targets").Changed &&
-				!cmd.Flags().Lookup("list-providers").Changed &&
-				!cmd.Flags().Lookup("list-languages").Changed &&
+			if !cmd.Flags().Lookup("list-languages").Changed &&
 				!cmd.Flags().Lookup("profile-dir").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
@@ -130,34 +125,11 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
-			if analyzeCmd.listProviders {
-				analyzeCmd.ListAllProviders()
-				return nil
-			}
-
 			// skip container mode check
 			if analyzeCmd.listLanguages {
 				analyzeCmd.runLocal = false
 			}
 
-			if analyzeCmd.listSources || analyzeCmd.listTargets {
-				// list sources/targets in containerless mode
-				if analyzeCmd.runLocal {
-					err := analyzeCmd.listLabelsContainerless(ctx)
-					if err != nil {
-						analyzeCmd.log.Error(err, "failed to list rule labels")
-						return err
-					}
-					return nil
-				}
-				// list sources/targets in container mode
-				err := analyzeCmd.ListLabels(cmd.Context())
-				if err != nil {
-					log.Error(err, "failed to list rule labels")
-					return err
-				}
-				return nil
-			}
 			// --- Load override provider settings early ---
 			// This must happen before provider detection so external providers
 			// from the override file can influence mode selection.
@@ -288,9 +260,6 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 	}
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "list rules for available migration sources")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
-	analyzeCommand.Flags().BoolVar(&analyzeCmd.listProviders, "list-providers", false, "list available supported providers")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listLanguages, "list-languages", false, "list found application language(s)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...")
@@ -336,4 +305,18 @@ func (a *analyzeCommand) containerRuntimeArgs() []string {
 		return strings.Fields(a.containerRuntimeFlags)
 	}
 	return args
+}
+
+func listLanguages(languages []model.Language, input string) error {
+	switch {
+	case len(languages) == 0:
+		return fmt.Errorf("failed to detect application language(s)")
+	default:
+		fmt.Fprintln(os.Stdout, "found languages for input application:", input)
+		for _, l := range languages {
+			fmt.Fprintln(os.Stdout, l.Name)
+		}
+		fmt.Fprintln(os.Stdout, "run 'kantra provider list' to view supported language providers")
+	}
+	return nil
 }

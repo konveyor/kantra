@@ -19,9 +19,17 @@
 
 - `./kantra transform openrewrite --input=<path> --target=<target>` — Run OpenRewrite recipes
 
-### Test
+### Provider
 
-- `./kantra test --rules=<path> [options]` — Test YAML rules
+- `./kantra provider list` — List available analysis providers (container and containerless)
+
+### Rules
+
+- `./kantra rules list-sources` — List available source technologies from rule labels
+
+- `./kantra rules list-targets` — List available target technologies from rule labels
+
+- `./kantra rules test [paths...]` — Test YAML rules (`--test-filter`, `--prune`, `--run-local`, etc.)
 
 
 ## Test with Koncur

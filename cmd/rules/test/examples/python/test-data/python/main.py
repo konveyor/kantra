@@ -19,3 +19,14 @@ def create_custom_resource_definition() -> None:
 def file_backup() -> None:
     """Referenced by python-sample-rule-004 (pattern file_b*)."""
     pass
+
+
+def main() -> None:
+    hello_world()
+    speak()
+    create_custom_resource_definition()
+    file_backup()
+
+
+if __name__ == "__main__":
+    main()

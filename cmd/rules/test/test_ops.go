@@ -217,9 +217,21 @@ func (l LocationVerification) Validate() error {
 	return nil
 }
 
+// matchedRuleViolation returns rule output from violations or insights (rules with
+// no effort are recorded as insights by analyzer-lsp).
+func matchedRuleViolation(output konveyor.RuleSet, ruleID string) (konveyor.Violation, bool) {
+	if v, ok := output.Violations[ruleID]; ok {
+		return v, true
+	}
+	if v, ok := output.Insights[ruleID]; ok {
+		return v, true
+	}
+	return konveyor.Violation{}, false
+}
+
 func (t TestCase) Verify(output konveyor.RuleSet) []string {
 	failures := []string{}
-	violation, violationExists := output.Violations[t.RuleID]
+	violation, violationExists := matchedRuleViolation(output, t.RuleID)
 	existsInUnmatched := false
 	for _, unmatchd := range output.Unmatched {
 		if unmatchd == t.RuleID {

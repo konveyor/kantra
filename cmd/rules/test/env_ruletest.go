@@ -60,7 +60,7 @@ func environmentConfigForRuleTests(opts TestOptions, run RuleTestRunParams) (kan
 	}, nil
 }
 
-// newEnvironmentForRuleTests returns a [kantraprovider.Environment] for kantra test
+// newEnvironmentForRuleTests returns a [kantraprovider.Environment] for kantra rules test
 func newEnvironmentForRuleTests(opts TestOptions, run RuleTestRunParams) (kantraprovider.Environment, error) {
 	cfg, err := environmentConfigForRuleTests(opts, run)
 	if err != nil {
