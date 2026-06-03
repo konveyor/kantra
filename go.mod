@@ -141,3 +141,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/pflag v1.0.7 // indirect
 )
+
+// helm.sh/helm/v3 pulls dario.cat/mergo; konveyor/ci sets GOPROXY=direct, which
+// resolves the module via dario.cat and can fail when runner DNS misbehaves.
+replace dario.cat/mergo => github.com/imdario/mergo v1.0.1
