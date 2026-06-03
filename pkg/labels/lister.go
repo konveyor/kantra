@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/container"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
 )
 
@@ -120,7 +121,6 @@ func (l *Lister) listContainerless(out io.Writer, listSources, listTargets bool)
 	if listSources {
 		sourceSlice, err := l.collectLabelsContainerless(sourceLabel)
 		if err != nil {
-			l.cfg.Log.Error(err, "failed to read rule labels")
 			return err
 		}
 		ListOptionsFromLabels(sourceSlice, sourceLabel, out)
@@ -129,7 +129,6 @@ func (l *Lister) listContainerless(out io.Writer, listSources, listTargets bool)
 	if listTargets {
 		targetsSlice, err := l.collectLabelsContainerless(targetLabel)
 		if err != nil {
-			l.cfg.Log.Error(err, "failed to read rule labels")
 			return err
 		}
 		ListOptionsFromLabels(targetsSlice, targetLabel, out)
@@ -140,11 +139,10 @@ func (l *Lister) listContainerless(out io.Writer, listSources, listTargets bool)
 
 func (l *Lister) collectLabelsContainerless(label string) ([]string, error) {
 	labelsSlice := []string{}
-	path := filepath.Join(l.cfg.KantraDir, BundledRulesetsDir)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		l.cfg.Log.Error(err, "cannot open provided path")
+	if err := util.CheckKantraSubpath(l.cfg.KantraDir, BundledRulesetsDir); err != nil {
 		return nil, err
 	}
+	path := filepath.Join(l.cfg.KantraDir, BundledRulesetsDir)
 	if err := filepath.WalkDir(path, WalkRuleSets(path, label, &labelsSlice)); err != nil {
 		return nil, err
 	}

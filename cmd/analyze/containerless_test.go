@@ -615,7 +615,7 @@ func TestListLabelsContainerlessErrorHandling(t *testing.T) {
 			setupKantra:   false,
 			setupRulesets: false,
 			expectError:   true,
-			errorContains: "no such file or directory",
+			errorContains: "kantra installation directory not found",
 		},
 		{
 			name:          "missing rulesets directory should fail",
@@ -623,7 +623,7 @@ func TestListLabelsContainerlessErrorHandling(t *testing.T) {
 			setupKantra:   true,
 			setupRulesets: false,
 			expectError:   true,
-			errorContains: "no such file or directory",
+			errorContains: "missing kantra dependency",
 		},
 		{
 			name:          "empty rulesets directory should not fail",

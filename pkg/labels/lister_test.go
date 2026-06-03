@@ -104,6 +104,9 @@ func TestLister_ListTargets_missingRulesetsDir(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when rulesets dir is missing")
 	}
+	if !strings.Contains(err.Error(), "missing kantra dependency") {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestLister_listInsideRunnerContainer(t *testing.T) {
