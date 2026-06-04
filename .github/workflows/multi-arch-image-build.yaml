@@ -22,7 +22,7 @@ jobs:
       containerfile: "./Dockerfile"
       architectures: '[ "amd64", "arm64" ]'
       extra-args: |
-        --build-arg RULESETS_REF=${{ github.ref_name }} --build-arg VERSION=${{ github.ref_name == 'main' && 'latest' || github.ref_name }} --build-arg BUILD_COMMIT=${{ github.sha }}
+        --build-arg VERSION=${{ github.ref_name == 'main' && 'latest' || github.ref_name }} --build-arg BUILD_COMMIT=${{ github.sha }}
     secrets:
       registry_username: ${{ secrets.QUAY_PUBLISH_ROBOT }}
       registry_password: ${{ secrets.QUAY_PUBLISH_TOKEN }}
