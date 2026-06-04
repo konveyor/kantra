@@ -11,10 +11,9 @@ import (
 )
 
 var (
-	// MavenCacheDir is the container-internal directory for the Maven
-	// local repository cache. Mounted under /opt/input so it is
-	// accessible regardless of which user the container runs as.
-	MavenCacheDir = path.Join(InputPath, "maven-cache")
+	// MavenCacheDir is the container-internal Maven local repository path.
+	// Must be a dedicated volume mount so Maven can write regardless of user
+	MavenCacheDir = path.Join("/cache", "m2")
 	// SourceMountPath is the directory where source code is mounted in the container.
 	// This value must not be modified at runtime. Use analyzeCommand.sourceLocationPath
 	// for the resolved source location (which may include a filename for file inputs).

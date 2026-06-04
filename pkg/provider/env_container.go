@@ -107,7 +107,7 @@ func (e *containerEnvironment) Start(ctx context.Context) error {
 	// volume was actually mounted into the container.
 	mavenCacheDir := ""
 	if e.mavenCacheVol != "" {
-		mavenCacheDir = path.Join(util.MavenCacheDir, "repository")
+		mavenCacheDir = util.MavenCacheDir
 	}
 
 	// For file inputs (e.g., .war/.jar), the Location must include the
@@ -460,7 +460,7 @@ func (e *containerEnvironment) startProviders(ctx context.Context, logWriter io.
 		if err != nil {
 			e.log.V(1).Error(err, "failed to create maven cache volume, continuing without cache")
 		} else if mavenCacheVolName != "" {
-			mavenCacheDir := path.Join(util.MavenCacheDir, "repository")
+			mavenCacheDir := util.MavenCacheDir
 			volumes[mavenCacheVolName] = mavenCacheDir
 			e.log.V(1).Info("mounted maven cache volume", "container_path", mavenCacheDir)
 		}
