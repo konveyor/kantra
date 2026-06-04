@@ -64,7 +64,7 @@ func storeAuth(auth *AuthConfig) error {
 	if err := auth.Validate(); err != nil {
 		return err
 	}
-	normalizedHost, err := normalizeHubHost(auth.Host)
+	normalizedHost, err := normalizeTackleBaseURL(auth.Host)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,11 @@ func loadStoredAuth() (*AuthConfig, error) {
 	if err := auth.Validate(); err != nil {
 		return nil, err
 	}
-	auth.Host = strings.TrimSuffix(auth.Host, "/")
+	base, err := normalizeTackleBaseURL(auth.Host)
+	if err != nil {
+		return nil, err
+	}
+	auth.Host = base
 	return &auth, nil
 }
 
@@ -113,15 +117,38 @@ func hubTokenFromEnv() string {
 }
 
 func hubHostsEqual(a, b string) bool {
-	na, err := normalizeHubHost(a)
+	na, err := normalizeTackleBaseURL(a)
 	if err != nil {
 		return false
 	}
-	nb, err := normalizeHubHost(b)
+	nb, err := normalizeTackleBaseURL(b)
 	if err != nil {
 		return false
 	}
 	return na == nb
+}
+
+// normalizeTackleBaseURL returns the main Tackle application URL.
+// Legacy values ending in /hub or /oidc are accepted and normalized.
+func normalizeTackleBaseURL(host string) (string, error) {
+	host, err := normalizeHubHost(host)
+	if err != nil {
+		return "", err
+	}
+	for _, suffix := range []string{"/hub", "/oidc"} {
+		if strings.HasSuffix(host, suffix) {
+			return strings.TrimSuffix(host, suffix), nil
+		}
+	}
+	return host, nil
+}
+
+func hubAPIURL(host string) (string, error) {
+	base, err := normalizeTackleBaseURL(host)
+	if err != nil {
+		return "", err
+	}
+	return url.JoinPath(base, "hub")
 }
 
 func normalizeHubHost(host string) (string, error) {

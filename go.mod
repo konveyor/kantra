@@ -8,7 +8,7 @@ require (
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-logr/logr v1.4.3
 	github.com/konveyor/asset-generation v0.2.2
-	github.com/konveyor/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b
+	github.com/konveyor/tackle2-hub/shared v0.0.0-20260604122507-623f9d5b3bb1
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -146,9 +146,3 @@ require (
 // helm.sh/helm/v3 pulls dario.cat/mergo; konveyor/ci sets GOPROXY=direct, which
 // resolves the module via dario.cat and can fail when runner DNS misbehaves.
 replace dario.cat/mergo => github.com/imdario/mergo v1.0.1
-// Temporary: OIDC/PAT support from tackle2-hub PR 1042 (jortel fork).
-// Remove replace and bump version once https://github.com/konveyor/tackle2-hub/pull/1042 merges.
-replace (
-	github.com/konveyor/tackle2-hub => github.com/jortel/tackle2-hub v0.0.0-20260526143950-517949b9011b
-	github.com/konveyor/tackle2-hub/shared => github.com/jortel/tackle2-hub/shared v0.0.0-20260526143950-517949b9011b
-)

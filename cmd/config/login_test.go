@@ -13,6 +13,41 @@ import (
 	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 )
 
+func hubAPIPath(route string) string {
+	return "/hub" + route
+}
+
+func TestNormalizeTackleBaseURL(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"https://tackle.example.com", "https://tackle.example.com"},
+		{"https://tackle.example.com/", "https://tackle.example.com"},
+		{"https://tackle.example.com/hub", "https://tackle.example.com"},
+		{"https://tackle.example.com/oidc", "https://tackle.example.com"},
+	}
+	for _, tt := range tests {
+		got, err := normalizeTackleBaseURL(tt.in)
+		if err != nil {
+			t.Fatalf("normalizeTackleBaseURL(%q) error = %v", tt.in, err)
+		}
+		if got != tt.want {
+			t.Errorf("normalizeTackleBaseURL(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestHubAPIURL(t *testing.T) {
+	got, err := hubAPIURL("https://tackle.example.com/hub")
+	if err != nil {
+		t.Fatalf("hubAPIURL() error = %v", err)
+	}
+	if got != "https://tackle.example.com/hub" {
+		t.Errorf("hubAPIURL() = %q, want https://tackle.example.com/hub", got)
+	}
+}
+
 func TestNewLoginCmd(t *testing.T) {
 	cmd := NewLoginCmd(logr.Discard())
 
@@ -46,8 +81,8 @@ func TestLoginCommand_resolveToken_prefersHUB_TOKEN(t *testing.T) {
 
 func TestLoginCommand_login_storesHUB_TOKEN(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != hubapi.UsersRoute {
-			t.Errorf("path = %q, want %q", r.URL.Path, hubapi.UsersRoute)
+		if r.URL.Path != hubAPIPath(hubapi.UsersRoute) {
+			t.Errorf("path = %q, want %q", r.URL.Path, hubAPIPath(hubapi.UsersRoute))
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -127,7 +162,7 @@ func TestDeviceLogin_tokenCreateFailure(t *testing.T) {
 				"access_token":  "oidc-access",
 				"refresh_token": "oidc-refresh",
 			})
-		case hubapi.AuthTokensRoute:
+		case hubAPIPath(hubapi.AuthTokensRoute):
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"error":"forbidden"}`))
 		default:

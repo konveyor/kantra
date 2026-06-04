@@ -13,25 +13,25 @@ import (
 
 func TestHubIssuerURL(t *testing.T) {
 	tests := []struct {
-		hub    string
+		host   string
 		issuer string
 	}{
 		{
-			hub:    "https://hub.example.com",
-			issuer: "https://hub.example.com/oidc",
+			host:   "https://tackle.example.com",
+			issuer: "https://tackle.example.com/oidc",
 		},
 		{
-			hub:    "https://route.example.com/hub",
-			issuer: "https://route.example.com/oidc",
+			host:   "https://tackle.example.com/hub",
+			issuer: "https://tackle.example.com/oidc",
 		},
 	}
 	for _, tt := range tests {
-		got, err := hubIssuerURL(tt.hub)
+		got, err := hubIssuerURL(tt.host)
 		if err != nil {
-			t.Fatalf("hubIssuerURL(%q) error = %v", tt.hub, err)
+			t.Fatalf("hubIssuerURL(%q) error = %v", tt.host, err)
 		}
 		if got != tt.issuer {
-			t.Errorf("hubIssuerURL(%q) = %q, want %q", tt.hub, got, tt.issuer)
+			t.Errorf("hubIssuerURL(%q) = %q, want %q", tt.host, got, tt.issuer)
 		}
 	}
 }
@@ -116,8 +116,8 @@ func TestFindApplicationsByRepositoryURL_fallbackList(t *testing.T) {
 	var filteredRequest bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != hubapi.ApplicationsRoute {
-			t.Errorf("path = %q, want %q", r.URL.Path, hubapi.ApplicationsRoute)
+		if r.URL.Path != hubAPIPath(hubapi.ApplicationsRoute) {
+			t.Errorf("path = %q, want %q", r.URL.Path, hubAPIPath(hubapi.ApplicationsRoute))
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -157,8 +157,8 @@ func TestFindApplicationsByRepositoryURL_fallbackList(t *testing.T) {
 
 func TestValidateHubToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != hubapi.UsersRoute {
-			t.Errorf("path = %q, want %q", r.URL.Path, hubapi.UsersRoute)
+		if r.URL.Path != hubAPIPath(hubapi.UsersRoute) {
+			t.Errorf("path = %q, want %q", r.URL.Path, hubAPIPath(hubapi.UsersRoute))
 		}
 		if auth := r.Header.Get("Authorization"); auth != "Bearer "+testPAT {
 			t.Errorf("Authorization = %q", auth)
@@ -190,7 +190,7 @@ func TestNewHubClient_normalizesHost(t *testing.T) {
 }
 
 func TestNewHubBindingClientWithOIDC(t *testing.T) {
-	client, oidc, err := newHubBindingClientWithOIDC("https://hub.example.com/hub", true)
+	client, oidc, err := newHubBindingClientWithOIDC("https://tackle.example.com", true)
 	if err != nil {
 		t.Fatalf("newHubBindingClientWithOIDC() error = %v", err)
 	}

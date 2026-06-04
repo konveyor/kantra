@@ -650,8 +650,8 @@ func TestHubClient_listApplications_noAuth(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if r.URL.Path != hubapi.ApplicationsRoute {
-			t.Errorf("path = %q, want %q", r.URL.Path, hubapi.ApplicationsRoute)
+		if r.URL.Path != hubAPIPath(hubapi.ApplicationsRoute) {
+			t.Errorf("path = %q, want %q", r.URL.Path, hubAPIPath(hubapi.ApplicationsRoute))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode([]hubapi.Application{})

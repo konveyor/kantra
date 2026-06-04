@@ -42,28 +42,34 @@ func (o *onDemandOIDC) SetTransport(tr *http.Transport) {
 	o.inner.SetTransport(tr)
 }
 
-func newHubBindingClient(host, token string, insecure bool) *binding.RichClient {
-	client := binding.New(host)
+func newHubBindingClient(tackleBase, token string, insecure bool) (*binding.RichClient, error) {
+	apiURL, err := hubAPIURL(tackleBase)
+	if err != nil {
+		return nil, err
+	}
+	client := binding.New(apiURL)
 	if token != "" {
 		client.Client.Use(auth.NewBearer(token))
 	}
 	applyInsecureTransport(client, insecure)
-	return client
+	return client, nil
 }
 
-func newHubBindingClientWithOIDC(host string, insecure bool) (*binding.RichClient, *auth.OIDC, error) {
-	oidc, err := newHubOIDCAuthenticator(host, insecure)
+func newHubBindingClientWithOIDC(tackleBase string, insecure bool) (*binding.RichClient, *auth.OIDC, error) {
+	oidc, err := newHubOIDCAuthenticator(tackleBase, insecure)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := binding.New(host)
+	client, err := newHubBindingClient(tackleBase, "", insecure)
+	if err != nil {
+		return nil, nil, err
+	}
 	client.Client.Use(&onDemandOIDC{inner: oidc})
-	applyInsecureTransport(client, insecure)
 	return client, oidc, nil
 }
 
-func newHubOIDCAuthenticator(hubHost string, insecure bool) (*auth.OIDC, error) {
-	issuer, err := hubIssuerURL(hubHost)
+func newHubOIDCAuthenticator(tackleBase string, insecure bool) (*auth.OIDC, error) {
+	issuer, err := hubIssuerURL(tackleBase)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +78,12 @@ func newHubOIDCAuthenticator(hubHost string, insecure bool) (*auth.OIDC, error) 
 	return oidc, nil
 }
 
-func hubIssuerURL(hubHost string) (string, error) {
-	// Hub API is often mounted at /hub while the OIDC issuer stays at the route root.
-	if strings.HasSuffix(hubHost, "/hub") {
-		base := strings.TrimSuffix(hubHost, "/hub")
-		return url.JoinPath(base, "oidc")
+func hubIssuerURL(host string) (string, error) {
+	base, err := normalizeTackleBaseURL(host)
+	if err != nil {
+		return "", err
 	}
-	return url.JoinPath(hubHost, "oidc")
+	return url.JoinPath(base, "oidc")
 }
 
 func applyInsecureTransport(client *binding.RichClient, insecure bool) {
@@ -102,19 +107,26 @@ func insecureTransport() *http.Transport {
 }
 
 func validateHubToken(host, token string, insecure bool) error {
-	client := newHubBindingClient(host, token, insecure)
-	_, err := client.User.List()
+	client, err := newHubBindingClient(host, token, insecure)
+	if err != nil {
+		return err
+	}
+	_, err = client.User.List()
 	return err
 }
 
 func newHubClient(host, token string, insecure bool) (*hubClient, error) {
-	normalized, err := normalizeHubHost(host)
+	base, err := normalizeTackleBaseURL(host)
+	if err != nil {
+		return nil, err
+	}
+	client, err := newHubBindingClient(base, token, insecure)
 	if err != nil {
 		return nil, err
 	}
 	return &hubClient{
-		binding: newHubBindingClient(normalized, token, insecure),
-		host:    normalized,
+		binding: client,
+		host:    base,
 	}, nil
 }
 
@@ -127,17 +139,17 @@ func newHubClientFromAuth(insecure bool) (*hubClient, error) {
 }
 
 func newHubClientNoAuth(host string, insecure bool) (*hubClient, error) {
-	normalized, err := normalizeHubHost(host)
+	base, err := normalizeTackleBaseURL(host)
 	if err != nil {
 		return nil, err
 	}
-	client, _, err := newHubBindingClientWithOIDC(normalized, insecure)
+	client, _, err := newHubBindingClientWithOIDC(base, insecure)
 	if err != nil {
 		return nil, err
 	}
 	return &hubClient{
 		binding: client,
-		host:    normalized,
+		host:    base,
 	}, nil
 }
 

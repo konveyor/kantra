@@ -122,7 +122,7 @@ kantra config login [host]
 ```
 
 **Arguments:**
-- `host` (optional): Hub **API base URL** (e.g. `https://hub.example.com` or, on OpenShift, `https://<route>/hub`). If omitted, you are prompted for the host.
+- `host` (optional): **Tackle app URL** (e.g. `https://tackle.example.com`). Kantra appends `/oidc` for OIDC login and `/hub` for Hub API calls. Legacy values ending in `/hub` are still accepted. If omitted, you are prompted for the host.
 
 **Flags:**
 - `--insecure, -k`: Skip TLS certificate verification (use for clusters with self-signed certificates)
@@ -138,7 +138,7 @@ Kantra supports two ways to authenticate at login time:
    Set a personal access token from the Hub UI (or API) before running login:
    ```bash
    export HUB_TOKEN="<your-hub-pat>"
-   kantra config login https://hub.example.com/hub
+   kantra config login https://tackle.example.com
    ```
    Kantra validates the token and stores it in `auth.json` without running the browser flow.
 
@@ -150,7 +150,7 @@ After a successful login, `~/.kantra/auth.json` contains:
 
 ```json
 {
-  "host": "https://hub.example.com/hub",
+  "host": "https://tackle.example.com",
   "token": "<api-key-or-pat>"
 }
 ```
@@ -162,15 +162,15 @@ The `token` field is the credential used by `kantra config sync` and other Hub c
 # OIDC device login (prompt for host if omitted)
 kantra config login
 
-# OIDC device login with hub URL
-kantra config login https://hub.example.com/hub
+# OIDC device login with Tackle URL
+kantra config login https://tackle.example.com
 
 # Login with self-signed / untrusted TLS
-kantra config --insecure login https://hub.example.com/hub
+kantra config --insecure login https://tackle.example.com
 
 # Login with an existing PAT from the environment
 export HUB_TOKEN="$(cat my-pat.txt)"
-kantra config --insecure login https://hub.example.com/hub
+kantra config --insecure login https://tackle.example.com
 ```
 
 ### Profile Synchronization
@@ -188,7 +188,7 @@ kantra config sync [flags]
 **Optional flags:**
 - `--application-path <path>`: Local directory where profile bundles are extracted (for `--url`; defaults to the current directory).
 - `--profile-path <path>`: Download directory when using `--binary` (required with `--binary`).
-- `--host <hub-url>`: Hub API base URL. If it matches the host in `auth.json`, stored credentials are used. If omitted, sync uses `auth.json` only. If set to a different host without stored credentials, Kantra uses OIDC and may prompt via the browser when the Hub returns unauthorized responses.
+- `--host <tackle-url>`: Tackle app URL. If it matches the host in `auth.json`, stored credentials are used. If omitted, sync uses `auth.json` only.
 - `--insecure, -k`: Set on the parent `config` command to skip TLS verification for all Hub traffic in that invocation.
 
 Repository URLs are matched flexibly (with or without a `.git` suffix and trailing slashes). If the Hub filter returns no results, Kantra lists applications and matches by repository URL.
@@ -202,7 +202,7 @@ kantra config --insecure sync \
 
 # Same hub URL as login; --host is optional
 kantra config --insecure sync \
-  --host https://hub.example.com/hub \
+  --host https://tackle.example.com \
   --url https://github.com/mycompany/my-app.git \
   --application-path /path/to/my-app
 
@@ -280,7 +280,7 @@ This example demonstrates a complete workflow from Hub login to running analysis
 Authenticate with your Konveyor Hub instance (OIDC device flow in an interactive terminal):
 
 ```bash
-kantra config --insecure login https://hub.myapp.com/hub
+kantra config --insecure login https://tackle.myapp.com
 ```
 
 You will see a verification URL and user code. Open the URL in a browser, sign in if asked, then enter the code on the device verification page. Kantra creates an API key and saves it to `~/.kantra/auth.json`.
@@ -289,7 +289,7 @@ Alternatively, use a PAT from the Hub UI:
 
 ```bash
 export HUB_TOKEN="<pat-from-hub>"
-kantra config --insecure login https://hub.myapp.com/hub
+kantra config --insecure login https://tackle.myapp.com
 ```
 
 #### Step 2: Navigate to Your Application

@@ -58,7 +58,7 @@ func (l *loginCommand) login() error {
 		l.host = strings.TrimSpace(input)
 	}
 
-	host, err := normalizeHubHost(l.host)
+	host, err := normalizeTackleBaseURL(l.host)
 	if err != nil {
 		return err
 	}
