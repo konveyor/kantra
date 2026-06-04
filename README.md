@@ -4,15 +4,13 @@
 
 Kantra is a CLI for [Konveyor](https://konveyor.io/) analysis and transformation.
 
-
 ---
 
 ## Prerequisites
 
+**Analysis Containerless mode**  — prerequisites and layout are documented in **[docs/containerless.md](docs/containerless.md)**
 
-**Analysis Containerless mode**  — prerequisites and layout are documented in **[docs/containerless.md](docs/containerless.md)** 
-
-**Analysis Hybrid mode** (external language providers run in containers; the analyzer runs on the host.) and **Transform**  — 
+**Analysis Hybrid mode** (external language providers run in containers; the analyzer runs on the host.) and **Transform**  —
 
 - **Podman 4+** or **Docker** (Engine 24+ / Desktop 4+). Kantra defaults to `podman`; override with `export CONTAINER_TOOL=/path/to/docker`.
 
@@ -20,20 +18,67 @@ Kantra is a CLI for [Konveyor](https://konveyor.io/) analysis and transformation
 
 ## Install
 
-1. **Releases:** [GitHub releases](https://github.com/konveyor/kantra/releases) — unzip and add `kantra` to your `PATH`.
+### From GitHub releases (recommended)
 
+Download the zip for your OS and CPU from [GitHub releases](https://github.com/konveyor/kantra/releases):
 
+| Platform | Asset |
+|----------|-------|
+| Linux | `kantra.linux.amd64.zip`, `kantra.linux.arm64.zip` |
+| macOS | `kantra.darwin.amd64.zip`, `kantra.darwin.arm64.zip` |
+| Windows | `kantra.windows.amd64.zip`, `kantra.windows.arm64.zip` |
 
+Each archive contains the CLI plus bundled assets (default rulesets, JDT language server, static report template, and Java/Maven helper files).
 
+1. Unzip the archive into the default config directory (or another directory you will keep):
 
+**Linux**
 
+```sh
+mkdir -p ~/.kantra
+unzip kantra.linux.amd64.zip -d ~/.kantra   # or kantra.linux.arm64.zip
+```
 
+**macOS**
 
+```sh
+mkdir -p ~/.kantra
+unzip kantra.darwin.amd64.zip -d ~/.kantra   # or kantra.darwin.arm64.zip
+```
 
+**Windows** (PowerShell)
 
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kantra"
+Expand-Archive -Path kantra.windows.amd64.zip -DestinationPath "$env:USERPROFILE\.kantra"
+# or kantra.windows.arm64.zip
+```
 
+You can also use **Extract All** in File Explorer and choose `%USERPROFILE%\.kantra` (for example `C:\Users\You\.kantra`).
 
+1. Put the CLI on your `PATH`:
 
+| Platform | Binary in the zip | Example |
+|----------|-------------------|---------|
+| Linux | `kantra` | `sudo mv ~/.kantra/kantra /usr/local/bin/` |
+| macOS | `darwin-kantra` | `sudo mv ~/.kantra/darwin-kantra /usr/local/bin/kantra` |
+| Windows | `windows-kantra.exe` | add to `PATH` as `kantra.exe` |
+
+1. Verify: `kantra version`
+
+Kantra resolves bundled assets in this order: `KANTRA_DIR` (if set) → current directory (when it contains `rulesets/`, `jdtls/`, and `static-report/`) → the default config directory: `$HOME/.kantra` on macOS, `%USERPROFILE%\.kantra` on Windows, and on Linux `$XDG_CONFIG_HOME/.kantra` when set or otherwise `$HOME/.kantra`. Containerless analysis requires those assets; hybrid and transform need the CLI and a container runtime (see [Prerequisites](#prerequisites)).
+
+### Build from source (development)
+
+Requires Go 1.25+.
+
+```sh
+git clone https://github.com/konveyor/kantra.git
+cd kantra
+go build -o kantra .
+```
+
+`go build` produces only the CLI — not the bundled rulesets, JDT LS, or report assets. Extract a [release zip](#from-github-releases-recommended) into the default config directory (for example `~/.kantra` on macOS/Linux or `%USERPROFILE%\.kantra` on Windows), or point `KANTRA_DIR` at that directory. See [docs/developer.md](docs/developer.md) for container-based development workflows.
 
 ## Quick start: analyze
 
@@ -63,8 +108,6 @@ kantra transform openrewrite --list-targets
 kantra transform openrewrite --input=/path/to/app --target=<recipe-name>
 ```
 
-
-
 ---
 
 ## Other commands
@@ -75,18 +118,7 @@ kantra transform openrewrite --input=/path/to/app --target=<recipe-name>
 | `kantra rules` | List rule labels and run YAML rule tests (`kantra rules --help`) |
 | `kantra discover` / `kantra generate` | Asset-generation workflows; see **[docs/examples.md](docs/examples.md)** |
 
-Use `kantra <command> --help` for flags. 
-
-
-
-
-
-
-
-
-
-
-
+Use `kantra <command> --help` for flags.
 
 ---
 
