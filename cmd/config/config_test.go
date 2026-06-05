@@ -5,52 +5,25 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	hubapi "github.com/konveyor/tackle2-hub/shared/api"
-	"gopkg.in/yaml.v2"
+	hubfilter "github.com/konveyor/tackle2-hub/shared/binding/filter"
 )
 
-// generateMockJWT creates a mock JWT token for testing purposes
-// The token has a valid structure with an expiration claim set to a future date
-func generateMockJWT(expirationTime time.Time) string {
-	// JWT Header
-	header := map[string]interface{}{
-		"alg": "HS256",
-		"typ": "JWT",
-	}
-	headerJSON, _ := json.Marshal(header)
-	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+const testPAT = "test-hub-personal-access-token"
 
-	// JWT Payload with expiration claim
-	payload := map[string]interface{}{
-		"exp": expirationTime.Unix(),
-	}
-	payloadJSON, _ := json.Marshal(payload)
-	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
-
-	// Mock signature (not cryptographically valid, but sufficient for testing)
-	signature := "mock_signature_for_testing"
-	signatureB64 := base64.RawURLEncoding.EncodeToString([]byte(signature))
-
-	return headerB64 + "." + payloadB64 + "." + signatureB64
-}
-
-// setupTempAuth creates a temporary config directory and writes auth data to auth.json.
-// Returns the temp home directory path for cleanup.
-func setupTempAuth(t *testing.T, auth *LoginResponse) string {
+// setupTempAuth creates a temporary HOME directory and writes auth data to ~/.kantra/auth.json.
+func setupTempAuth(t *testing.T, auth *AuthConfig) string {
 	tempHome := t.TempDir()
 	t.Setenv("HOME", tempHome)
 	// GetKantraDir prefers XDG_CONFIG_HOME on Linux; pin the config dir for tests.
@@ -76,6 +49,24 @@ func setupTempAuth(t *testing.T, auth *LoginResponse) string {
 	}
 
 	return tempHome
+}
+
+func mustTestHubClient(t *testing.T, serverURL, token string) *hubClient {
+	t.Helper()
+	hc, err := newHubClient(serverURL, token, false)
+	if err != nil {
+		t.Fatalf("newHubClient() error = %v", err)
+	}
+	return hc
+}
+
+func mustTestHubClientNoAuth(t *testing.T, serverURL string) *hubClient {
+	t.Helper()
+	hc, err := newHubClientNoAuth(serverURL, false)
+	if err != nil {
+		t.Fatalf("newHubClientNoAuth() error = %v", err)
+	}
+	return hc
 }
 
 func TestNewConfigCmd(t *testing.T) {
@@ -524,16 +515,10 @@ func TestSyncCommand_Validate(t *testing.T) {
 }
 
 func TestSyncCommand_getHubClient(t *testing.T) {
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
-	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
+	setupTempAuth(t, &AuthConfig{
+		Host:  "http://test-host",
+		Token: testPAT,
+	})
 
 	syncCmd := &syncCommand{}
 
@@ -556,67 +541,39 @@ func TestSyncCommand_getHubClient(t *testing.T) {
 	}
 }
 
-func TestNewHubClientWithOptions(t *testing.T) {
+func TestNewHubClientFromAuth(t *testing.T) {
+	setupTempAuth(t, &AuthConfig{
+		Host:  "http://test-host",
+		Token: testPAT,
+	})
+
 	tests := []struct {
 		name     string
 		insecure bool
 	}{
-		{
-			name:     "secure client",
-			insecure: false,
-		},
-		{
-			name:     "insecure client",
-			insecure: true,
-		},
+		{name: "secure client", insecure: false},
+		{name: "insecure client", insecure: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := newHubClientWithOptions(tt.insecure)
+			client, err := newHubClientFromAuth(tt.insecure)
 			if err != nil {
-				// If no stored auth, that's expected - skip the test
-				if strings.Contains(err.Error(), "no stored authentication found") ||
-					strings.Contains(err.Error(), "stored authentication is invalid") {
-					t.Skip("No stored authentication available for testing")
-					return
-				}
-				t.Fatalf("Unexpected error: %v", err)
+				t.Fatalf("newHubClientFromAuth() error = %v", err)
 			}
-
-			// Verify client was created
 			if client == nil {
-				t.Fatal("Expected client to be created, got nil")
+				t.Fatal("expected hub client")
 			}
-
-			// Verify host is set from stored auth (should not be empty)
-			if client.host == "" {
-				t.Error("Expected host to be set from stored authentication")
+			if client.host != "http://test-host" {
+				t.Errorf("host = %q, want http://test-host", client.host)
 			}
-
-			if client.client == nil {
-				t.Error("Expected HTTP client to be initialized")
+			if client.binding == nil {
+				t.Error("expected binding client")
 			}
-
-			if client.client.Timeout != 10*time.Second {
-				t.Errorf("Expected timeout to be 10s, got %v", client.client.Timeout)
-			}
-
-			// Verify insecure setting affects TLS config
 			if tt.insecure {
-				transport, ok := client.client.Transport.(*http.Transport)
-				if !ok {
-					t.Error("Expected Transport to be *http.Transport for insecure client")
-				} else if transport.TLSClientConfig == nil || !transport.TLSClientConfig.InsecureSkipVerify {
-					t.Error("Expected InsecureSkipVerify to be true for insecure client")
-				}
-			} else {
-				// For secure clients, Transport should be nil (default) or have secure TLS config
-				if client.client.Transport != nil {
-					transport, ok := client.client.Transport.(*http.Transport)
-					if ok && transport.TLSClientConfig != nil && transport.TLSClientConfig.InsecureSkipVerify {
-						t.Error("Expected InsecureSkipVerify to be false for secure client")
-					}
+				tr := client.binding.Client.Transport()
+				if tr.TLSClientConfig == nil || !tr.TLSClientConfig.InsecureSkipVerify {
+					t.Error("expected insecure TLS config")
 				}
 			}
 		})
@@ -667,366 +624,107 @@ func TestNewHubClientNoAuth(t *testing.T) {
 				t.Fatal("Expected client to be created, got nil")
 			}
 
-			// Verify noAuth is set
-			if !client.noAuth {
-				t.Error("Expected noAuth to be true")
-			}
-
-			// Verify host is set correctly (without trailing slash)
 			if strings.HasSuffix(client.host, "/") {
 				t.Error("Expected host to not have trailing slash")
 			}
-
-			// Verify host has scheme
 			if !strings.HasPrefix(client.host, "http://") && !strings.HasPrefix(client.host, "https://") {
 				t.Error("Expected host to have http:// or https:// prefix")
 			}
-
-			if client.client == nil {
-				t.Error("Expected HTTP client to be initialized")
+			if client.binding == nil {
+				t.Error("expected binding client")
 			}
-
-			if client.client.Timeout != 10*time.Second {
-				t.Errorf("Expected timeout to be 10s, got %v", client.client.Timeout)
-			}
-
-			// Verify insecure setting affects TLS config
 			if tt.insecure {
-				transport, ok := client.client.Transport.(*http.Transport)
-				if !ok {
-					t.Error("Expected Transport to be *http.Transport for insecure client")
-				} else if transport.TLSClientConfig == nil || !transport.TLSClientConfig.InsecureSkipVerify {
-					t.Error("Expected InsecureSkipVerify to be true for insecure client")
+				tr := client.binding.Client.Transport()
+				if tr.TLSClientConfig == nil || !tr.TLSClientConfig.InsecureSkipVerify {
+					t.Error("expected insecure TLS config")
 				}
 			}
 		})
 	}
 }
 
-func TestHubClient_doRequestNoAuth(t *testing.T) {
-	log := logr.Discard()
-
-	t.Run("request without auth header when noAuth is true", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Verify no Authorization header is sent
-			if auth := r.Header.Get("Authorization"); auth != "" {
-				t.Errorf("Expected no Authorization header, got: %s", auth)
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "ok"}`))
-		}))
-		defer server.Close()
-
-		client := &hubClient{
-			client: &http.Client{Timeout: 5 * time.Second},
-			host:   server.URL,
-			noAuth: true,
+func TestHubClient_listApplications_noAuth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("expected no Authorization header, got %q", auth)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
+		if r.URL.Path != hubAPIPath(hubapi.ApplicationsRoute) {
+			t.Errorf("path = %q, want %q", r.URL.Path, hubAPIPath(hubapi.ApplicationsRoute))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]hubapi.Application{})
+	}))
+	defer server.Close()
 
-		resp, err := client.doRequest("/test", "application/json", log)
-		if err != nil {
-			t.Errorf("doRequest() unexpected error = %v", err)
+	client := mustTestHubClientNoAuth(t, server.URL)
+	if _, err := client.listApplications(hubfilter.Filter{}); err != nil {
+		t.Fatalf("listApplications() error = %v", err)
+	}
+}
+
+func TestHubClient_listApplications_bearer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "Bearer "+testPAT {
+			t.Errorf("Authorization = %q, want Bearer %q", auth, testPAT)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
-		if resp == nil {
-			t.Error("Expected response to be non-nil")
-		} else {
-			resp.Body.Close()
-		}
-	})
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]hubapi.Application{})
+	}))
+	defer server.Close()
+
+	client := mustTestHubClient(t, server.URL, testPAT)
+	if _, err := client.listApplications(hubfilter.Filter{}); err != nil {
+		t.Fatalf("listApplications() error = %v", err)
+	}
 }
 
 func TestSyncCommand_getHubClientWithHost(t *testing.T) {
-	t.Run("getHubClient with host creates noAuth client", func(t *testing.T) {
-		// Don't set up any auth - should still work with --host
-		setupTempAuth(t, nil)
+	setupTempAuth(t, nil)
 
-		syncCmd := &syncCommand{
-			host: "http://test-hub.example.com",
-		}
-
-		client, err := syncCmd.getHubClient()
-		if err != nil {
-			t.Fatalf("getHubClient() with host unexpected error: %v", err)
-		}
-
-		if client == nil {
-			t.Fatal("Expected client to be created")
-		}
-
-		if !client.noAuth {
-			t.Error("Expected client.noAuth to be true when host is provided")
-		}
-
-		if client.host != "http://test-hub.example.com" {
-			t.Errorf("Expected host to be 'http://test-hub.example.com', got '%s'", client.host)
-		}
-	})
-}
-
-func TestHubClient_doRequest(t *testing.T) {
-	log := logr.Discard()
-
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
+	syncCmd := &syncCommand{host: "http://test-hub.example.com"}
+	client, err := syncCmd.getHubClient()
+	if err != nil {
+		t.Fatalf("getHubClient() error = %v", err)
 	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
-
-	tests := []struct {
-		name           string
-		serverResponse func(w http.ResponseWriter, r *http.Request)
-		path           string
-		acceptHeader   string
-		wantErr        bool
-		errMsg         string
-	}{
-		{
-			name: "successful request",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": "ok"}`))
-			},
-			path:         "/test",
-			acceptHeader: "application/json",
-			wantErr:      false,
-		},
-		{
-			name: "server error response",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error"))
-			},
-			path:         "/error",
-			acceptHeader: "application/json",
-			wantErr:      false, // doRequest doesn't fail on HTTP errors, readResponseBody does
-		},
-		{
-			name: "check authentication header with token",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				auth := r.Header.Get("Authorization")
-				expectedAuth := "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTYwMDB9.Hs_ZQhwq7Uy9E7VzTpSKNqvWUdKKYKxWJhUlNhqJGKE"
-				if auth == expectedAuth {
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"authenticated": true}`))
-				} else {
-					// Return a different error code to avoid triggering token refresh
-					w.WriteHeader(http.StatusBadRequest)
-					w.Write([]byte("Bad Request"))
-				}
-			},
-			path:         "/auth",
-			acceptHeader: "application/json",
-			wantErr:      false,
-		},
+	if client.host != "http://test-hub.example.com" {
+		t.Errorf("host = %q, want http://test-hub.example.com", client.host)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
-			defer server.Close()
-
-			client := &hubClient{
-				client: &http.Client{Timeout: 5 * time.Second},
-				host:   server.URL,
-			}
-
-			resp, err := client.doRequest(tt.path, tt.acceptHeader, log)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("doRequest() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("doRequest() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("doRequest() unexpected error = %v", err)
-				}
-				if resp == nil {
-					t.Error("Expected response to be non-nil")
-				} else {
-					resp.Body.Close()
-				}
-			}
-		})
+	if client.binding == nil {
+		t.Error("expected binding client")
 	}
 }
 
-func TestHubClient_readResponseBody(t *testing.T) {
-	tests := []struct {
-		name         string
-		statusCode   int
-		responseBody string
-		wantErr      bool
-		errMsg       string
-		expectedBody string
-	}{
-		{
-			name:         "successful response",
-			statusCode:   http.StatusOK,
-			responseBody: "success response",
-			wantErr:      false,
-			expectedBody: "success response",
-		},
-		{
-			name:         "client error response",
-			statusCode:   http.StatusBadRequest,
-			responseBody: "Bad Request",
-			wantErr:      true,
-			errMsg:       "HTTP 400",
-		},
-		{
-			name:         "server error response",
-			statusCode:   http.StatusInternalServerError,
-			responseBody: "Internal Server Error",
-			wantErr:      true,
-			errMsg:       "HTTP 500",
-		},
-		{
-			name:         "empty response body",
-			statusCode:   http.StatusOK,
-			responseBody: "",
-			wantErr:      false,
-			expectedBody: "",
-		},
+func TestSyncCommand_getHubClientWithHostUsesStoredAuth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "Bearer "+testPAT {
+			t.Errorf("Authorization = %q, want Bearer %q", auth, testPAT)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]hubapi.Application{})
+	}))
+	defer server.Close()
+
+	setupTempAuth(t, &AuthConfig{Host: server.URL, Token: testPAT})
+
+	syncCmd := &syncCommand{host: server.URL}
+	client, err := syncCmd.getHubClient()
+	if err != nil {
+		t.Fatalf("getHubClient() error = %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock response
-			resp := &http.Response{
-				StatusCode: tt.statusCode,
-				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
-			}
-
-			client := &hubClient{}
-			body, err := client.readResponseBody(resp)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("readResponseBody() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("readResponseBody() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("readResponseBody() unexpected error = %v", err)
-				}
-				if string(body) != tt.expectedBody {
-					t.Errorf("readResponseBody() body = %s, expected %s", string(body), tt.expectedBody)
-				}
-			}
-		})
-	}
-}
-
-func TestParseApplicationsFromHub(t *testing.T) {
-	tests := []struct {
-		name     string
-		jsonData string
-		wantErr  bool
-		errMsg   string
-		expected int
-	}{
-		{
-			name: "valid JSON with applications",
-			jsonData: `[
-  {
-    "id": 1,
-    "name": "App1",
-    "repository": {
-      "url": "https://github.com/example/app1"
-    }
-  },
-  {
-    "id": 2,
-    "name": "App2",
-    "repository": {
-      "url": "https://github.com/example/app2"
-    }
-  }
-]`,
-			wantErr:  false,
-			expected: 2,
-		},
-		{
-			name:     "empty JSON array",
-			jsonData: "[]",
-			wantErr:  false,
-			expected: 0,
-		},
-		{
-			name:     "empty string",
-			jsonData: "",
-			wantErr:  true,
-			errMsg:   "unexpected end of JSON input",
-		},
-		{
-			name:     "invalid JSON",
-			jsonData: "invalid json content [",
-			wantErr:  true,
-			errMsg:   "invalid character",
-		},
-		{
-			name: "single application",
-			jsonData: `[
-  {
-    "id": 1,
-    "name": "SingleApp",
-    "repository": {
-      "url": "https://github.com/example/single"
-    }
-  }
-]`,
-			wantErr:  false,
-			expected: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			apps, err := parseApplicationsFromHub(tt.jsonData)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("parseApplicationsFromHub() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("parseApplicationsFromHub() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("parseApplicationsFromHub() unexpected error = %v", err)
-				}
-				if len(apps) != tt.expected {
-					t.Errorf("parseApplicationsFromHub() returned %d applications, expected %d", len(apps), tt.expected)
-				}
-			}
-		})
+	if _, err := client.listApplications(hubfilter.Filter{}); err != nil {
+		t.Fatalf("listApplications() error = %v", err)
 	}
 }
 
 func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 	log := logr.Discard()
-
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
-	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
+	setupTempAuth(t, &AuthConfig{Host: "http://test-host", Token: testPAT})
 
 	tests := []struct {
 		name           string
@@ -1058,6 +756,27 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 			expectedAppID: 1,
 		},
 		{
+			name: "repository URL matches without .git suffix",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				apps := []hubapi.Application{
+					{
+						Resource: hubapi.Resource{ID: 2},
+						Name:     "Git suffix app",
+						Repository: &hubapi.Repository{
+							URL: "https://github.com/example/test",
+						},
+					},
+				}
+				jsonData, _ := json.Marshal(apps)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write(jsonData)
+			},
+			url:           "https://github.com/example/test.git",
+			wantErr:       false,
+			expectedAppID: 2,
+		},
+		{
 			name: "application not found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				apps := []hubapi.Application{
@@ -1074,7 +793,7 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 			},
 			url:           "https://github.com/example/notfound",
 			wantErr:       true,
-			errMsg:        "URL mismatch",
+			errMsg:        "no applications found",
 			expectedAppID: 0,
 		},
 		{
@@ -1085,7 +804,7 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 			},
 			url:     "https://github.com/example/test",
 			wantErr: true,
-			errMsg:  "HTTP 500",
+			errMsg:  "500",
 		},
 	}
 
@@ -1095,12 +814,9 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 			defer server.Close()
 
 			syncCmd := &syncCommand{
-				url: tt.url,
-				log: log,
-				hubClient: &hubClient{
-					client: &http.Client{Timeout: 5 * time.Second},
-					host:   server.URL,
-				},
+				url:       tt.url,
+				log:       log,
+				hubClient: mustTestHubClient(t, server.URL, testPAT),
 			}
 
 			app, err := syncCmd.getApplicationFromHub()
@@ -1125,17 +841,7 @@ func TestSyncCommand_getApplicationFromHub(t *testing.T) {
 
 func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 	log := logr.Discard()
-
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
-	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
+	setupTempAuth(t, &AuthConfig{Host: "http://test-host", Token: testPAT})
 
 	tests := []struct {
 		name           string
@@ -1158,10 +864,8 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 						Name:     "Profile 2",
 					},
 				}
-				yamlData, _ := yaml.Marshal(profiles)
-				w.Header().Set("Content-Type", "application/x-yaml")
-				w.WriteHeader(http.StatusOK)
-				w.Write(yamlData)
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(profiles)
 			},
 			appID:         1,
 			wantErr:       false,
@@ -1170,11 +874,8 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 		{
 			name: "no profiles found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				profiles := []hubapi.AnalysisProfile{}
-				yamlData, _ := yaml.Marshal(profiles)
-				w.Header().Set("Content-Type", "application/x-yaml")
-				w.WriteHeader(http.StatusOK)
-				w.Write(yamlData)
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode([]hubapi.AnalysisProfile{})
 			},
 			appID:         1,
 			wantErr:       false,
@@ -1188,7 +889,7 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 			},
 			appID:   999,
 			wantErr: true,
-			errMsg:  "HTTP 404",
+			errMsg:  "404",
 		},
 	}
 
@@ -1198,11 +899,8 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 			defer server.Close()
 
 			syncCmd := &syncCommand{
-				log: log,
-				hubClient: &hubClient{
-					client: &http.Client{Timeout: 5 * time.Second},
-					host:   server.URL,
-				},
+				log:       log,
+				hubClient: mustTestHubClient(t, server.URL, testPAT),
 			}
 
 			profiles, err := syncCmd.getProfilesFromHubApplication(tt.appID)
@@ -1225,92 +923,39 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 	}
 }
 
-func TestHubClient_downloadToFile(t *testing.T) {
+func TestHubClient_downloadProfileBundle(t *testing.T) {
 	log := logr.Discard()
 
-	tests := []struct {
-		name         string
-		statusCode   int
-		responseBody []byte
-		wantErr      bool
-		errMsg       string
-	}{
-		{
-			name:       "successful download",
-			statusCode: http.StatusOK,
-			responseBody: func() []byte {
-				// Create a valid tar file content
-				var buf bytes.Buffer
-				tarWriter := tar.NewWriter(&buf)
+	var tarBytes bytes.Buffer
+	tarWriter := tar.NewWriter(&tarBytes)
+	_ = tarWriter.WriteHeader(&tar.Header{
+		Name: "profile.yaml",
+		Mode: 0644,
+		Size: int64(len("profile content")),
+	})
+	_, _ = tarWriter.Write([]byte("profile content"))
+	_ = tarWriter.Close()
 
-				header := &tar.Header{
-					Name: "test.txt",
-					Mode: 0644,
-					Size: int64(len("test content")),
-				}
-				tarWriter.WriteHeader(header)
-				tarWriter.Write([]byte("test content"))
-				tarWriter.Close()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/bundle") {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(tarBytes.Bytes())
+	}))
+	defer server.Close()
 
-				return buf.Bytes()
-			}(),
-			wantErr: false,
-		},
-		{
-			name:         "server error response",
-			statusCode:   http.StatusInternalServerError,
-			responseBody: []byte("Internal Server Error"),
-			wantErr:      true,
-			errMsg:       "HTTP 500",
-		},
-		{
-			name:         "empty file download",
-			statusCode:   http.StatusOK,
-			responseBody: []byte(""),
-			wantErr:      false,
-		},
+	tmpDir := t.TempDir()
+	tarPath := filepath.Join(tmpDir, "profile-1.tar")
+
+	client := mustTestHubClient(t, server.URL, testPAT)
+	if err := client.downloadProfileBundle(1, tarPath, log); err != nil {
+		t.Fatalf("downloadProfileBundle() error = %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "test-download-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			outputPath := filepath.Join(tmpDir, "test-file.tar")
-
-			// Create a mock response
-			resp := &http.Response{
-				StatusCode: tt.statusCode,
-				Body:       io.NopCloser(bytes.NewReader(tt.responseBody)),
-			}
-
-			client := &hubClient{}
-			err = client.downloadToFile(resp, outputPath, log)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("downloadToFile() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("downloadToFile() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("downloadToFile() unexpected error = %v", err)
-				}
-
-				if tt.statusCode == http.StatusOK {
-					extractDir := strings.TrimSuffix(outputPath, ".tar")
-					if _, err := os.Stat(extractDir); os.IsNotExist(err) {
-						if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-							t.Error("Expected either tar file or extracted directory to exist")
-						}
-					}
-				}
-			}
-		})
+	extractDir := trimTarExtension(tarPath)
+	if _, err := os.Stat(extractDir); err != nil {
+		t.Fatalf("expected extracted directory: %v", err)
 	}
 }
 
@@ -1594,17 +1239,7 @@ func TestDeleteTarFile(t *testing.T) {
 
 func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 	log := logr.Discard()
-
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
-	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
+	setupTempAuth(t, &AuthConfig{Host: "http://test-host", Token: testPAT})
 
 	tests := []struct {
 		name           string
@@ -1644,17 +1279,13 @@ func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 			},
 			profileID: 999,
 			wantErr:   true,
-			errMsg:    "HTTP 404",
+			errMsg:    "404",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", "test-download-profile-")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
+			tmpDir := t.TempDir()
 
 			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
 			defer server.Close()
@@ -1662,13 +1293,10 @@ func TestSyncCommand_downloadProfileBundle(t *testing.T) {
 			syncCmd := &syncCommand{
 				applicationPath: tmpDir,
 				log:             log,
-				hubClient: &hubClient{
-					client: &http.Client{Timeout: 5 * time.Second},
-					host:   server.URL,
-				},
+				hubClient:       mustTestHubClient(t, server.URL, testPAT),
 			}
 
-			err = syncCmd.downloadProfileBundle(tt.profileID)
+			err := syncCmd.downloadProfileBundle(tt.profileID)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1786,37 +1414,34 @@ func TestSyncCommand_checkAuthentication(t *testing.T) {
 		{
 			name: "valid authentication",
 			setupAuth: func(t *testing.T) {
-				validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-				testAuth := &LoginResponse{
-					Host:         "http://test-host",
-					Token:        validJWT,
-					RefreshToken: "test-refresh-token",
-				}
-				setupTempAuth(t, testAuth)
+				setupTempAuth(t, &AuthConfig{
+					Host:  "http://test-host",
+					Token: testPAT,
+				})
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing token should fail",
 			setupAuth: func(t *testing.T) {
-				testAuth := &LoginResponse{
-					Host:         "http://test-host",
-					Token:        "",
-					RefreshToken: "test-refresh-token",
-				}
-				setupTempAuth(t, testAuth)
+				tempHome := t.TempDir()
+				t.Setenv("HOME", tempHome)
+				kantraDir := filepath.Join(tempHome, ".kantra")
+				_ = os.MkdirAll(kantraDir, 0700)
+				authFile := filepath.Join(kantraDir, "auth.json")
+				legacyAuth := `{"host":"http://test-host","token":"","refresh":"old-refresh"}`
+				_ = os.WriteFile(authFile, []byte(legacyAuth), 0600)
 			},
 			wantErr: true,
-			errMsg:  "stored authentication is invalid",
+			errMsg:  "previous username/password login format",
 		},
 		{
 			name: "no auth file should fail",
 			setupAuth: func(t *testing.T) {
-				// Set up temp HOME but don't write any auth file
 				setupTempAuth(t, nil)
 			},
 			wantErr: true,
-			errMsg:  "no stored authentication found",
+			errMsg:  "no stored Hub authentication found",
 		},
 		{
 			name: "host flag bypasses authentication",
@@ -1853,148 +1478,3 @@ func TestSyncCommand_checkAuthentication(t *testing.T) {
 	}
 }
 
-func TestHubClient_doRequestWithRetry(t *testing.T) {
-	log := logr.Discard()
-
-	// Create test auth with a valid JWT token
-	validJWT := generateMockJWT(time.Now().Add(1 * time.Hour))
-	testAuth := &LoginResponse{
-		Host:         "http://test-host",
-		Token:        validJWT,
-		RefreshToken: "test-refresh-token",
-	}
-
-	// Set up temporary auth in isolated HOME
-	setupTempAuth(t, testAuth)
-
-	tests := []struct {
-		name           string
-		serverResponse func(w http.ResponseWriter, r *http.Request)
-		isRetry        bool
-		wantErr        bool
-		errMsg         string
-	}{
-		{
-			name: "successful request with retry flag",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": "ok"}`))
-			},
-			isRetry: true,
-			wantErr: false,
-		},
-		{
-			name: "unauthorized response triggers retry",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("Unauthorized"))
-			},
-			isRetry: false,
-			wantErr: true, // Will fail because refresh token logic will fail in test
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
-			defer server.Close()
-
-			client := &hubClient{
-				client: &http.Client{Timeout: 5 * time.Second},
-				host:   server.URL,
-			}
-
-			resp, err := client.doRequestWithRetry("/test", "application/json", log, tt.isRetry)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("doRequestWithRetry() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("doRequestWithRetry() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("doRequestWithRetry() unexpected error = %v", err)
-				}
-				if resp != nil {
-					resp.Body.Close()
-				}
-			}
-		})
-	}
-}
-
-func TestHubClient_refreshStoredToken(t *testing.T) {
-	log := logr.Discard()
-
-	tests := []struct {
-		name           string
-		serverResponse func(w http.ResponseWriter, r *http.Request)
-		wantErr        bool
-		errMsg         string
-	}{
-		{
-			name: "successful token refresh",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/auth/refresh" {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusOK)
-					response := LoginResponse{
-						Host:         "http://test-host",
-						Token:        "new-token",
-						RefreshToken: "new-refresh-token",
-					}
-					json.NewEncoder(w).Encode(response)
-				} else {
-					w.WriteHeader(http.StatusNotFound)
-				}
-			},
-			wantErr: false,
-		},
-		{
-			name: "refresh endpoint error",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("Refresh failed"))
-			},
-			wantErr: true,
-			errMsg:  "token refresh failed with status 401",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set up temporary auth environment to avoid touching real auth.json
-			setupTempAuth(t, nil)
-
-			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
-			defer server.Close()
-
-			client := &hubClient{
-				client: &http.Client{Timeout: 5 * time.Second},
-				host:   server.URL,
-			}
-
-			storedAuth := &LoginResponse{
-				Host:         server.URL,
-				Token:        "old-token",
-				RefreshToken: "old-refresh-token",
-			}
-
-			err := client.refreshStoredToken(storedAuth, log)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("refreshStoredToken() expected error but got none")
-				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("refreshStoredToken() error = %v, expected to contain %v", err, tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("refreshStoredToken() unexpected error = %v", err)
-				}
-			}
-		})
-	}
-}

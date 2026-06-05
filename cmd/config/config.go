@@ -4,21 +4,17 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	hubapi "github.com/konveyor/tackle2-hub/shared/api"
+	hubfilter "github.com/konveyor/tackle2-hub/shared/binding/filter"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 type configCommand struct {
@@ -45,13 +41,6 @@ type listCommand struct {
 	profileDir string
 	logLevel   *uint32
 	log        logr.Logger
-}
-
-type hubClient struct {
-	client   *http.Client
-	host     string
-	insecure bool
-	noAuth   bool
 }
 
 func NewConfigCmd(log logr.Logger) *cobra.Command {
@@ -219,7 +208,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 	syncCommand.Flags().StringVar(&syncCmd.binary, "binary", "", "identifier of the application binary in the Hub")
 	syncCommand.Flags().StringVar(&syncCmd.applicationPath, "application-path", "", "directory where Hub profiles are downloaded (required when using --url). Default is the current directory")
 	syncCommand.Flags().StringVar(&syncCmd.profilePath, "profile-path", "", "directory where Hub profiles are downloaded (required when using --binary)")
-	syncCommand.Flags().StringVar(&syncCmd.host, "host", "", "Hub host URL - for Hub instances without auth")
+	syncCommand.Flags().StringVar(&syncCmd.host, "host", "", "Hub base URL for unauthenticated instances (skips stored PAT login)")
 
 	return syncCommand
 }
@@ -282,147 +271,41 @@ func (s *syncCommand) setDefaultApplicationPath() (string, error) {
 }
 
 func (s *syncCommand) getHubClient() (*hubClient, error) {
+	if s.hubClient != nil {
+		return s.hubClient, nil
+	}
+
+	if auth, err := loadStoredAuth(); err == nil {
+		if s.host == "" || hubHostsEqual(auth.Host, s.host) {
+			s.hubClient, err = newHubClient(auth.Host, auth.Token, s.insecure)
+			return s.hubClient, err
+		}
+	}
+
 	var err error
-	if s.hubClient == nil {
-		if s.host != "" {
-			s.hubClient, err = newHubClientNoAuth(s.host, s.insecure)
-		} else {
-			s.hubClient, err = newHubClientWithOptions(s.insecure)
-		}
-		if err != nil {
-			return nil, err
-		}
+	if s.host != "" {
+		s.hubClient, err = newHubClientNoAuth(s.host, s.insecure)
+	} else {
+		s.hubClient, err = newHubClientFromAuth(s.insecure)
+	}
+	if err != nil {
+		return nil, err
 	}
 	return s.hubClient, nil
 }
 
-func newHubClientNoAuth(host string, insecure bool) (*hubClient, error) {
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		host = "http://" + host
-	}
-	host = strings.TrimSuffix(host, "/")
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	if insecure {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client.Transport = tr
-	}
-	return &hubClient{
-		client:   client,
-		host:     host,
-		insecure: insecure,
-		noAuth:   true,
-	}, nil
-}
-
-func newHubClientWithOptions(insecure bool) (*hubClient, error) {
-	storedAuth, err := loadStoredTokens()
-	if err != nil {
-		return nil, err
-	}
-	if storedAuth.Host == "" {
-		return nil, fmt.Errorf("stored authentication is invalid. Please login")
-	}
-	host := strings.TrimSuffix(storedAuth.Host, "/")
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	if insecure {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client.Transport = tr
-	}
-	return &hubClient{
-		client:   client,
-		host:     host,
-		insecure: insecure,
-	}, nil
-}
-
-func (hc *hubClient) doRequest(path, acceptHeader string, log logr.Logger) (*http.Response, error) {
-	return hc.doRequestWithRetry(path, acceptHeader, log, false)
-}
-
-func (hc *hubClient) doRequestWithRetry(path, acceptHeader string, log logr.Logger, isRetry bool) (*http.Response, error) {
-	url := hc.host + path
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", acceptHeader)
-	if hc.noAuth {
-		return hc.client.Do(req)
-	}
-	storedAuth, err := loadStoredTokens()
-	if err != nil {
-		return nil, err
-	}
-
-	var token string
-	if storedAuth != nil {
-		expired, err := isTokenExpired(storedAuth.Token)
-		if err != nil {
-			return nil, err
-		}
-		if expired && !isRetry {
-			// refresh if token if expired
-			if err := hc.refreshStoredToken(storedAuth, log); err != nil {
-				return nil, err
-			}
-			if refreshedAuth, err := loadStoredTokens(); err == nil {
-				token = refreshedAuth.Token
-			}
-		} else if !expired {
-			token = storedAuth.Token
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := hc.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized && !isRetry {
-		resp.Body.Close()
-		// refresh token if unauthorized
-		if err := hc.refreshStoredToken(storedAuth, log); err != nil {
-			return nil, err
-		}
-		return hc.doRequestWithRetry(path, acceptHeader, log, true)
-	}
-
-	return resp, nil
-}
-
-func (hc *hubClient) readResponseBody(resp *http.Response) ([]byte, error) {
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	return body, nil
-}
-
 func (s *syncCommand) checkAuthentication() error {
+	if auth, err := loadStoredAuth(); err == nil {
+		if s.host == "" || hubHostsEqual(auth.Host, s.host) {
+			return nil
+		}
+	}
 	if s.host != "" {
 		return nil
 	}
-	storedAuth, err := loadStoredTokens()
-	if err != nil {
-		return err
+	if _, err := loadStoredAuth(); err != nil {
+		return fmt.Errorf("Hub authentication required for sync: %w", err)
 	}
-	if storedAuth.Token == "" {
-		return fmt.Errorf("stored authentication is invalid. Please login")
-	}
-
 	return nil
 }
 
@@ -430,83 +313,49 @@ func (s *syncCommand) getApplicationFromHub() (hubapi.Application, error) {
 	if err := s.checkAuthentication(); err != nil {
 		return hubapi.Application{}, err
 	}
-	hubClient, err := s.getHubClient()
+	hc, err := s.getHubClient()
 	if err != nil {
 		return hubapi.Application{}, err
 	}
 
-	var path string
+	var apps []hubapi.Application
 	if s.binary != "" {
-		path = "/applications"
+		apps, err = hc.listApplications(hubfilter.Filter{})
+		if err != nil {
+			return hubapi.Application{}, err
+		}
+		apps = filterApplicationsByBinary(apps, s.binary)
 	} else {
-		path = fmt.Sprintf("/applications?filter=repository.url='%s'", s.url)
+		apps, err = hc.findApplicationsByRepositoryURL(s.url)
+		if err != nil {
+			return hubapi.Application{}, err
+		}
 	}
 
-	resp, err := hubClient.doRequest(path, "application/json", s.log)
-	if err != nil {
-		return hubapi.Application{}, err
-	}
-	body, err := hubClient.readResponseBody(resp)
-	if err != nil {
-		return hubapi.Application{}, err
-	}
-
-	apps, err := parseApplicationsFromHub(string(body))
-	if err != nil {
-		return hubapi.Application{}, err
-	}
-
+	lookup := s.url
 	if s.binary != "" {
-		var matched []hubapi.Application
-		for _, app := range apps {
-			if app.Binary == s.binary {
-				matched = append(matched, app)
-			}
-		}
-		apps = matched
+		lookup = s.binary
+	}
+	application, err := selectSingleApplication(apps, lookup)
+	if err != nil {
+		return hubapi.Application{}, err
 	}
 
-	if len(apps) == 0 {
-		return hubapi.Application{}, fmt.Errorf("no applications found in Hub for given input")
-	}
-	// TODO support multiple applications later
-	if len(apps) > 1 {
-		lookup := s.url
-		if s.binary != "" {
-			lookup = s.binary
-		}
-		return hubapi.Application{}, fmt.Errorf("multiple applications found in Hub: %s", lookup)
-	}
-	application := apps[0]
 	if s.binary == "" {
-		// Only validate repository URL and branch when lookup was by --url.
-		if apps[0].Repository == nil || apps[0].Repository.URL != s.url {
+		if application.Repository == nil || !repositoryURLsEquivalent(application.Repository.URL, s.url) {
 			gotURL := ""
-			if apps[0].Repository != nil {
-				gotURL = apps[0].Repository.URL
+			if application.Repository != nil {
+				gotURL = application.Repository.URL
 			}
 			return hubapi.Application{}, fmt.Errorf("URL mismatch: expected %s, got %s", s.url, gotURL)
 		}
-		if s.branch != "" && apps[0].Repository.Branch != "" && apps[0].Repository.Branch != s.branch {
-			return hubapi.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, apps[0].Repository.Branch)
+		if s.branch != "" && application.Repository.Branch != "" && application.Repository.Branch != s.branch {
+			return hubapi.Application{}, fmt.Errorf("branch mismatch: expected %s, got %s", s.branch, application.Repository.Branch)
 		}
-	} else {
-		if apps[0].Binary != s.binary {
-			return hubapi.Application{}, fmt.Errorf("binary mismatch: expected %s, got %s", s.binary, apps[0].Binary)
-		}
+	} else if application.Binary != s.binary {
+		return hubapi.Application{}, fmt.Errorf("binary mismatch: expected %s, got %s", s.binary, application.Binary)
 	}
 	return application, nil
-}
-
-func parseApplicationsFromHub(jsonData string) ([]hubapi.Application, error) {
-	var apps []hubapi.Application
-
-	err := json.Unmarshal([]byte(jsonData), &apps)
-	if err != nil {
-		return nil, err
-	}
-
-	return apps, nil
 }
 
 func parseURLWithBranch(input string) (url, branch string) {
@@ -523,29 +372,15 @@ func parseURLWithBranch(input string) (url, branch string) {
 }
 
 func (s *syncCommand) getProfilesFromHubApplication(appID int) ([]hubapi.AnalysisProfile, error) {
-	hubClient, err := s.getHubClient()
+	hc, err := s.getHubClient()
 	if err != nil {
 		return nil, err
 	}
-	path := fmt.Sprintf("/applications/%d/analysis/profiles", appID)
-	resp, err := hubClient.doRequest(path, "application/x-yaml", s.log)
-	if err != nil {
-		return nil, err
-	}
-	body, err := hubClient.readResponseBody(resp)
-	if err != nil {
-		return nil, err
-	}
-	profiles := []hubapi.AnalysisProfile{}
-	if err := yaml.Unmarshal(body, &profiles); err != nil {
-		return nil, err
-	}
-
-	return profiles, nil
+	return hc.listApplicationProfiles(uint(appID))
 }
 
 func (s *syncCommand) downloadProfileBundle(profileID int) error {
-	hubClient, err := s.getHubClient()
+	hc, err := s.getHubClient()
 	if err != nil {
 		return err
 	}
@@ -555,52 +390,10 @@ func (s *syncCommand) downloadProfileBundle(profileID int) error {
 	}
 	filename := fmt.Sprintf("profile-%d.tar", profileID)
 	downloadPath := filepath.Join(downloadDir, profile.Profiles, filename)
-	err = os.MkdirAll(filepath.Join(downloadDir, profile.Profiles), 0755)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Join(downloadDir, profile.Profiles), 0755); err != nil {
 		return err
 	}
-
-	path := fmt.Sprintf("/analysis/profiles/%d/bundle", profileID)
-	resp, err := hubClient.doRequest(path, "application/octet-stream", s.log)
-	if err != nil {
-		return err
-	}
-
-	return hubClient.downloadToFile(resp, downloadPath, s.log)
-}
-
-func (hc *hubClient) downloadToFile(resp *http.Response, outputPath string, log logr.Logger) error {
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	outFile, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	_, err = io.Copy(outFile, resp.Body)
-	if err != nil {
-		return err
-	}
-	log.V(7).Info("compressed bundle file downloaded successfully", "path", outputPath)
-
-	extractDir := strings.TrimSuffix(outputPath, ".tar")
-	err = extractTarFile(outputPath, extractDir, log)
-	if err != nil {
-		return err
-	}
-	err = deleteTarFile(outputPath)
-	if err != nil {
-		// don't return error here as extraction was successful
-		log.Error(err, "failed to delete tar file after extraction", "path", outputPath)
-	}
-	log.Info("profile bundle downloaded successfully", "path", outputPath)
-
-	return nil
+	return hc.downloadProfileBundle(uint(profileID), downloadPath, s.log)
 }
 
 func extractTarFile(tarPath, destDir string, log logr.Logger) error {
