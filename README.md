@@ -66,7 +66,7 @@ You can also use **Extract All** in File Explorer and choose `%USERPROFILE%\.kan
 
 1. Verify: `kantra version`
 
-Kantra resolves bundled assets in this order: `KANTRA_DIR` (if set) → current directory (when it contains `rulesets/`, `jdtls/`, and `static-report/`) → the default config directory: `$HOME/.kantra` on macOS, `%USERPROFILE%\.kantra` on Windows, and on Linux `$XDG_CONFIG_HOME/.kantra` when set or otherwise `$HOME/.kantra`. Containerless analysis requires those assets; hybrid and transform need the CLI and a container runtime (see [Prerequisites](#prerequisites)).
+Kantra resolves bundled assets in this order: `KANTRA_DIR` (if set) → binary directory (when it contains `rulesets/`, `jdtls/`, and `static-report/`) → the default config directory: `$HOME/.kantra` on macOS, `%USERPROFILE%\.kantra` on Windows, and on Linux `$XDG_CONFIG_HOME/.kantra` when set or otherwise `$HOME/.kantra`. Containerless analysis requires those assets; hybrid and transform need the CLI and a container runtime (see [Prerequisites](#prerequisites)).
 
 ### Build from source (development)
 

@@ -8,7 +8,7 @@ import (
 )
 
 const kantraInstallHint = "Install containerless dependencies by extracting the kantra release archive into ~/.kantra, " +
-	"or run from a directory that contains rulesets/, jdtls/, and static-report/. " +
+	"or place the kantra binary in a directory that contains rulesets/, jdtls/, and static-report/. " +
 	"Set KANTRA_DIR to point at an existing installation directory."
 
 // MissingKantraDirectory returns an error when the kantra installation directory does not exist.

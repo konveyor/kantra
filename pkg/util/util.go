@@ -209,7 +209,7 @@ func ConfigDirBasename() string {
 }
 
 // GetKantraDir returns the directory used for rulesets, jdtls, and static-report.
-// Resolution order: 1) KANTRA_DIR env var (if set), 2) current directory if it
+// Resolution order: 1) KANTRA_DIR env var (if set), 2) binary directory if it
 // contains "rulesets", "jdtls", and "static-report", 3) $HOME/<config dir> (or
 // $XDG_CONFIG_HOME/<config dir> on Linux when set; see ConfigDirBasename).
 func GetKantraDir() (string, error) {
@@ -231,11 +231,18 @@ func GetKantraDir() (string, error) {
 	}
 
 	set := true
-	// check current dir first for reqs
-	dir, err = os.Getwd()
+	// check binary directory first for reqs
+	exePath, err := os.Executable()
 	if err != nil {
 		return "", err
 	}
+	// resolve symlinks to get the actual binary location
+	exePath, err = filepath.EvalSymlinks(exePath)
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Dir(exePath)
+
 	for _, v := range reqs {
 		_, err := os.Stat(filepath.Join(dir, v))
 		if err != nil {
