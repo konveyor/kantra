@@ -230,31 +230,29 @@ func GetKantraDir() (string, error) {
 		return filepath.Clean(envDir), nil
 	}
 
-	set := true
-	// check binary directory first for reqs
+	// check binary directory for reqs (if binary path is resolvable)
 	exePath, err := os.Executable()
-	if err != nil {
-		return "", err
+	if err == nil {
+		// resolve symlinks to get the actual binary location
+		exePath, err = filepath.EvalSymlinks(exePath)
 	}
-	// resolve symlinks to get the actual binary location
-	exePath, err = filepath.EvalSymlinks(exePath)
-	if err != nil {
-		return "", err
-	}
-	dir = filepath.Dir(exePath)
-
-	for _, v := range reqs {
-		_, err := os.Stat(filepath.Join(dir, v))
-		if err != nil {
-			set = false
-			break
+	if err == nil {
+		dir = filepath.Dir(exePath)
+		foundAll := true
+		for _, v := range reqs {
+			_, err := os.Stat(filepath.Join(dir, v))
+			if err != nil {
+				foundAll = false
+				break
+			}
+		}
+		// all reqs found here
+		if foundAll {
+			return dir, nil
 		}
 	}
-	// all reqs found here
-	if set {
-		return dir, nil
-	}
 	// fall back to config dir under $HOME or $XDG_CONFIG_HOME (Linux).
+	var set bool
 	ops := runtime.GOOS
 	if ops == "linux" {
 		dir, set = os.LookupEnv("XDG_CONFIG_HOME")
