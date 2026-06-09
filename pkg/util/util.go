@@ -209,7 +209,7 @@ func ConfigDirBasename() string {
 }
 
 // GetKantraDir returns the directory used for rulesets, jdtls, and static-report.
-// Resolution order: 1) KANTRA_DIR env var (if set), 2) current directory if it
+// Resolution order: 1) KANTRA_DIR env var (if set), 2) binary directory if it
 // contains "rulesets", "jdtls", and "static-report", 3) $HOME/<config dir> (or
 // $XDG_CONFIG_HOME/<config dir> on Linux when set; see ConfigDirBasename).
 func GetKantraDir() (string, error) {
@@ -230,24 +230,29 @@ func GetKantraDir() (string, error) {
 		return filepath.Clean(envDir), nil
 	}
 
-	set := true
-	// check current dir first for reqs
-	dir, err = os.Getwd()
-	if err != nil {
-		return "", err
+	// check binary directory for reqs (if binary path is resolvable)
+	exePath, err := os.Executable()
+	if err == nil {
+		// resolve symlinks to get the actual binary location
+		exePath, err = filepath.EvalSymlinks(exePath)
 	}
-	for _, v := range reqs {
-		_, err := os.Stat(filepath.Join(dir, v))
-		if err != nil {
-			set = false
-			break
+	if err == nil {
+		dir = filepath.Dir(exePath)
+		foundAll := true
+		for _, v := range reqs {
+			_, err := os.Stat(filepath.Join(dir, v))
+			if err != nil {
+				foundAll = false
+				break
+			}
+		}
+		// all reqs found here
+		if foundAll {
+			return dir, nil
 		}
 	}
-	// all reqs found here
-	if set {
-		return dir, nil
-	}
 	// fall back to config dir under $HOME or $XDG_CONFIG_HOME (Linux).
+	var set bool
 	ops := runtime.GOOS
 	if ops == "linux" {
 		dir, set = os.LookupEnv("XDG_CONFIG_HOME")

@@ -358,7 +358,7 @@ func TestGetKantraDir_KANTRA_DIR_empty_unchanged_behavior(t *testing.T) {
 	}()
 	os.Unsetenv(KantraDirEnv)
 
-	// When KANTRA_DIR is unset, we get either cwd (if reqs present) or home/.kantra.
+	// When KANTRA_DIR is unset, we get either binary dir (if reqs present) or home/.kantra.
 	// We only assert we get a non-empty path and no error.
 	got, err := GetKantraDir()
 	if err != nil {
