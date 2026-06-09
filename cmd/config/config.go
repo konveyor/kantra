@@ -183,24 +183,7 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 			if insecure, err := cmd.Parent().PersistentFlags().GetBool("insecure"); err == nil {
 				syncCmd.insecure = insecure
 			}
-			application, err := syncCmd.getApplicationFromHub()
-			if err != nil {
-				log.Error(err, "failed to get application from Hub")
-				return err
-			}
-			profiles, err := syncCmd.getProfilesFromHubApplication(int(application.ID))
-			if err != nil {
-				return err
-			}
-			for _, profile := range profiles {
-				log.Info("downloading profile", "name", profile.Name, "ID", profile.ID)
-				err = syncCmd.downloadProfileBundle(int(profile.ID))
-				if err != nil {
-					log.Error(err, "failed to download profile bundle", "profileID", profile.ID, "profileName", profile.Name)
-					return err
-				}
-			}
-			return nil
+			return syncCmd.sync()
 		},
 	}
 
@@ -211,6 +194,31 @@ func NewSyncCmd(log logr.Logger) *cobra.Command {
 	syncCommand.Flags().StringVar(&syncCmd.host, "host", "", "Hub base URL for unauthenticated instances (skips stored PAT login)")
 
 	return syncCommand
+}
+
+func (s *syncCommand) sync() error {
+	application, err := s.getApplicationFromHub()
+	if err != nil {
+		s.log.Error(err, "failed to get application from Hub")
+		return err
+	}
+
+	profiles, err := s.getProfilesFromHubApplication(int(application.ID))
+	if err != nil {
+		return err
+	}
+	if len(profiles) == 0 {
+		return fmt.Errorf("no analysis profiles found in Hub for application %q (ID %d); create a profile in the Hub before syncing", application.Name, application.ID)
+	}
+
+	for _, profile := range profiles {
+		s.log.Info("downloading profile", "name", profile.Name, "ID", profile.ID)
+		if err := s.downloadProfileBundle(int(profile.ID)); err != nil {
+			s.log.Error(err, "failed to download profile bundle", "profileID", profile.ID, "profileName", profile.Name)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *syncCommand) Validate(ctx context.Context) error {
