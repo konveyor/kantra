@@ -14,6 +14,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	konveyorAnalyzer "github.com/konveyor/analyzer-lsp/core"
 	"github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -38,6 +39,9 @@ type TestOptions struct {
 	// RunLocal runs Java and builtin in containerless mode on the host (analyze --run-local).
 	// Requires ValidateContainerlessProviders to have succeeded.
 	RunLocal bool
+
+	// Mode is the default analysis mode for test cases that omit analysisParams.mode.
+	Mode string
 
 	// ContainerBinary is the path to the container runtime (podman/docker).
 	ContainerBinary string
@@ -225,6 +229,8 @@ func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFil
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
 
+	analysisParams = resolveAnalysisParams(opts.Mode, analysisParams)
+
 	var providerInfos []kantraprovider.ProviderInfo
 	if !opts.RunLocal {
 		providerInfos = buildTestProviderInfos(testsFile.Providers, opts.ProviderImages)
@@ -384,10 +390,26 @@ func buildReproducerCmd(runLocal bool, input string, outputDir string, rulesPath
 		"--rules", rulesPath,
 		"--overwrite", "--enable-default-rulesets=false",
 	)
+	if params.Mode != "" {
+		args = append(args, "--mode", string(params.Mode))
+	}
 	if params.DepLabelSelector != "" {
 		args = append(args, "--label-selector", params.DepLabelSelector)
 	}
 	return fmt.Sprintf("kantra %s", strings.Join(args, " "))
+}
+
+func resolveAnalysisParams(defaultMode string, params AnalysisParams) AnalysisParams {
+	if params.Mode != "" {
+		return params
+	}
+	if defaultMode == "" {
+		return params
+	}
+	return AnalysisParams{
+		Mode:             provider.AnalysisMode(defaultMode),
+		DepLabelSelector: params.DepLabelSelector,
+	}
 }
 
 func ensureRules(rulesPath string, tempDirPath string, group []Test) error {

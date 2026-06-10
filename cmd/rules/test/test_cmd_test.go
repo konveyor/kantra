@@ -52,6 +52,7 @@ func TestTestCommand_Flags(t *testing.T) {
 		"test-filter",
 		"prune",
 		"run-local",
+		"mode",
 	}
 
 	for _, flagName := range expectedFlags {
