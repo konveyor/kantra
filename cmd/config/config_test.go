@@ -923,6 +923,53 @@ func TestSyncCommand_getProfilesFromHubApplication(t *testing.T) {
 	}
 }
 
+func TestSyncCommand_sync_noProfiles(t *testing.T) {
+	log := logr.Discard()
+	setupTempAuth(t, &AuthConfig{Host: "http://test-host", Token: testPAT})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case hubAPIPath(hubapi.ApplicationsRoute):
+			apps := []hubapi.Application{
+				{
+					Resource: hubapi.Resource{ID: 1},
+					Name:     "book-server",
+					Repository: &hubapi.Repository{
+						URL: "https://github.com/ibraginsky/book-server.git",
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(apps)
+		case "/hub/applications/1/analysis/profiles":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]hubapi.AnalysisProfile{})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	syncCmd := &syncCommand{
+		log:             log,
+		url:             "https://github.com/ibraginsky/book-server.git",
+		applicationPath: tmpDir,
+		hubClient:       mustTestHubClient(t, server.URL, testPAT),
+	}
+
+	err := syncCmd.sync()
+	if err == nil {
+		t.Fatal("sync() expected error when Hub returns no profiles")
+	}
+	if !strings.Contains(err.Error(), "no analysis profiles found") {
+		t.Errorf("sync() error = %v, want message about missing profiles", err)
+	}
+	if !strings.Contains(err.Error(), "book-server") {
+		t.Errorf("sync() error = %v, want application name in message", err)
+	}
+}
+
 func TestHubClient_downloadProfileBundle(t *testing.T) {
 	log := logr.Discard()
 
