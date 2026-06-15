@@ -1,11 +1,16 @@
 ARG VERSION=latest
+ARG SEED_ROOT=/tackle2-seed
 
 FROM registry.access.redhat.com/ubi10-minimal as rulesets
 
+COPY . .
 ARG RULESETS_REF=main
+ARG SEED_ROOT
 RUN microdnf -y install git &&\
-    git clone https://github.com/konveyor/tackle2-seed -b ${RULESETS_REF} &&\
-    git -C tackle2-seed rev-parse HEAD > tackle2-seed/resources/rulesets/.sha &&\
+    if [ ! -d "${SEED_ROOT}" ]; then \
+        git clone https://github.com/konveyor/tackle2-seed -b ${RULESETS_REF} ${SEED_ROOT}; \
+    fi &&\
+    git -C ${SEED_ROOT} rev-parse HEAD > ${SEED_ROOT}/resources/rulesets/.sha &&\
     git clone https://github.com/windup/windup-rulesets -b 6.3.1.Final
 
 FROM quay.io/konveyor/static-report:${VERSION} as static-report
@@ -93,10 +98,11 @@ RUN chown -R 1001:1001 /home/mta
 RUN mkdir -p /opt/rulesets /opt/rulesets/input /opt/rulesets/convert /opt/openrewrite /opt/input /opt/input/rules /opt/input/rules/custom /opt/output  /tmp/source-app /tmp/source-app/input /usr/local/static-report
 RUN chown -R 0:1001 /usr/local/static-report
 
+ARG SEED_ROOT
 COPY --from=builder /workspace/kantra /usr/local/bin/kantra
 COPY --from=builder /workspace/darwin-kantra /usr/local/bin/darwin-kantra
 COPY --from=builder /workspace/windows-kantra /usr/local/bin/windows-kantra
-COPY --from=rulesets /tackle2-seed/resources/rulesets /opt/rulesets
+COPY --from=rulesets ${SEED_ROOT}/resources/rulesets /opt/rulesets
 COPY --from=rulesets /windup-rulesets/rules/rules-reviewed/openrewrite /opt/openrewrite
 COPY --from=static-report /usr/local/static-report /usr/local/static-report
 COPY --from=jaeger-builder /go/bin/all-in-one-linux /usr/local/bin/all-in-one-linux
