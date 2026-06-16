@@ -88,6 +88,9 @@ func NewListCmd(log logr.Logger) *cobra.Command {
 		Use:   "list",
 		Short: "List local Hub profiles in the application",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmd.ValidateRequiredFlags(); err != nil {
+				return err
+			}
 			err := listCmd.Validate(cmd.Context())
 			if err != nil {
 				log.Error(err, "failed to validate flags")
@@ -108,18 +111,15 @@ func NewListCmd(log logr.Logger) *cobra.Command {
 		},
 	}
 
-	listCommand.Flags().StringVar(&listCmd.profileDir, "profile-dir", "", "application directory path to look for profiles. Default is the current directory")
+	listCommand.Flags().StringVar(&listCmd.profileDir, "profile-dir", "", "application directory path to look for profiles")
+	listCommand.MarkFlagRequired("profile-dir")
 
 	return listCommand
 }
 
 func (l *listCommand) Validate(ctx context.Context) error {
 	if l.profileDir == "" {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		l.profileDir = currentDir
+		return fmt.Errorf("--profile-dir is required")
 	}
 
 	stat, err := os.Stat(l.profileDir)
@@ -130,7 +130,10 @@ func (l *listCommand) Validate(ctx context.Context) error {
 		return fmt.Errorf("application path for profile %s is not a directory", l.profileDir)
 	}
 	profilesDir := filepath.Join(l.profileDir, profile.Profiles)
-	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
+	if _, err := os.Stat(profilesDir); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("profiles directory not found at %s", profilesDir)
+		}
 		return err
 	}
 	return nil

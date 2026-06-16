@@ -146,21 +146,12 @@ func TestListCommand_Validate(t *testing.T) {
 		errMsg    string
 	}{
 		{
-			name: "empty profile-dir should use current directory",
+			name: "empty profile-dir should fail",
 			setupFunc: func() (string, func(), error) {
-				// Create profiles directory in current working directory for test
-				currentDir, err := os.Getwd()
-				if err != nil {
-					return "", nil, err
-				}
-				profilesDir := filepath.Join(currentDir, profile.Profiles)
-				err = os.MkdirAll(profilesDir, 0755)
-				if err != nil {
-					return "", nil, err
-				}
-				return "", func() { os.RemoveAll(profilesDir) }, nil
+				return "", func() {}, nil
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "--profile-dir is required",
 		},
 		{
 			name: "valid directory with profiles should pass",
@@ -215,7 +206,7 @@ func TestListCommand_Validate(t *testing.T) {
 				return tmpDir, func() { os.RemoveAll(tmpDir) }, nil
 			},
 			wantErr: true,
-			errMsg:  "no such file or directory",
+			errMsg:  "profiles directory not found",
 		},
 	}
 
@@ -1399,34 +1390,16 @@ func TestConfigCommandIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("config list subcommand without profile-dir flag (uses current directory)", func(t *testing.T) {
-		// Create profiles directory in current working directory for test
-		currentDir, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("Failed to get current directory: %v", err)
-		}
-
-		profilesDir := filepath.Join(currentDir, profile.Profiles)
-		err = os.MkdirAll(profilesDir, 0755)
-		if err != nil {
-			t.Fatalf("Failed to create profiles dir: %v", err)
-		}
-		defer os.RemoveAll(profilesDir)
-
-		profileDirs := []string{"profile1", "profile2"}
-		for _, dir := range profileDirs {
-			err = os.MkdirAll(filepath.Join(profilesDir, dir), 0755)
-			if err != nil {
-				t.Fatalf("Failed to create profile dir: %v", err)
-			}
-		}
-
+	t.Run("config list subcommand without profile-dir flag should fail", func(t *testing.T) {
 		cmd := NewConfigCmd(log)
 		cmd.SetArgs([]string{"list"})
 
-		err = cmd.Execute()
-		if err != nil {
-			t.Errorf("Command execution failed: %v", err)
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("Expected command execution to fail without --profile-dir")
+		}
+		if !strings.Contains(err.Error(), `required flag(s) "profile-dir" not set`) {
+			t.Errorf("Expected required flag error, got: %v", err)
 		}
 	})
 }

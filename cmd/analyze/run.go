@@ -169,7 +169,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 		return err
 	}
 	defer env.Stop(ctx)
-	progressMode.Printf("  ✓ Started providers\n")
+	progressMode.Printf("%sStarted providers\n", progressStatusPrefix())
 
 	// --- Provider configs + overrides ---
 	providerConfigs := env.ProviderConfigs()
@@ -265,9 +265,9 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 	operationalLog.Info("[TIMING] Analyzer created", "duration_ms", time.Since(startAnalyzer).Milliseconds())
 
 	if isBinaryAnalysis {
-		progressMode.Printf("  ✓ Decompiling complete\n")
+		progressMode.Printf("%sDecompiling complete\n", progressStatusPrefix())
 	}
-	progressMode.Printf("  ✓ Initialized providers\n")
+	progressMode.Printf("%sInitialized providers\n", progressStatusPrefix())
 
 	// Parse rules
 	startRuleLoading := time.Now()
@@ -289,7 +289,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 	}
 	operationalLog.Info("[TIMING] Provider init complete", "duration_ms", time.Since(startProviders).Milliseconds())
 
-	progressMode.Printf("  ✓ Started rules engine\n")
+	progressMode.Printf("%sStarted rules engine\n", progressStatusPrefix())
 
 	// Run analysis
 	startRuleExecution := time.Now()

@@ -79,26 +79,20 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 					// Display provider preparation progress
 					if event.Total > 0 {
 						percent := (event.Current * 100) / event.Total
-						const barWidth = 25
-						filled := (percent * barWidth) / 100
-						if filled > barWidth {
-							filled = barWidth
-						}
-						bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-						// Use \r to return to start of line and \033[K to clear to end of line
-						fmt.Fprintf(os.Stderr, "\r\033[K  ✓ %s %3d%% |%s| %d/%d files",
-							event.Message, percent, bar, event.Current, event.Total)
+						bar := buildProgressBar(percent)
+						fmt.Fprintf(os.Stderr, "%s%s%s %3d%% |%s| %d/%d files",
+							progressLinePrefix(), progressStatusPrefix(), event.Message, percent, bar, event.Current, event.Total)
 						// Print newline when prepare progress reaches 100%
 						if event.Current >= event.Total {
 							fmt.Fprintf(os.Stderr, "\n")
 						}
 					}
 				case progress.StageDependencyResolution:
-					fmt.Fprintf(os.Stderr, "  ✓ Resolved %d dependencies\n", event.Total)
+					fmt.Fprintf(os.Stderr, "%sResolved %d dependencies\n", progressStatusPrefix(), event.Total)
 				case progress.StageRuleParsing:
 					if event.Total > 0 {
 						cumulativeTotal += event.Total
-						fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n", cumulativeTotal)
+						fmt.Fprintf(os.Stderr, "%sLoaded %d rules\n", progressStatusPrefix(), cumulativeTotal)
 						justPrintedLoadedRules = true
 					}
 				case progress.StageRuleExecution:
@@ -106,7 +100,7 @@ func setupProgressReporter(ctx context.Context, noProgress bool) (
 						// Initialize cumulativeTotal from first event if not set by rule parsing
 						if cumulativeTotal == 0 {
 							cumulativeTotal = event.Total
-							fmt.Fprintf(os.Stderr, "  ✓ Loaded %d rules\n", cumulativeTotal)
+							fmt.Fprintf(os.Stderr, "%sLoaded %d rules\n", progressStatusPrefix(), cumulativeTotal)
 							justPrintedLoadedRules = true
 						}
 
