@@ -3,7 +3,6 @@ package analyze
 import (
 	"bytes"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
@@ -99,8 +98,8 @@ func Test_renderProgressBar_ContainsProgressBarChars(t *testing.T) {
 	os.Stderr = oldStderr
 
 	output := buf.String()
-	assert.True(t, strings.Contains(output, "█"), "progress bar should contain filled character")
-	assert.True(t, strings.Contains(output, "░"), "progress bar should contain empty character")
+	bar := buildProgressBar(50)
+	assert.Contains(t, output, bar)
 }
 
 func TestConsoleHook_Fire(t *testing.T) {

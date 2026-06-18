@@ -37,12 +37,7 @@ func (hook *ConsoleHook) Levels() []logrus.Level {
 
 // renderProgressBar renders a visual progress bar to stderr
 func renderProgressBar(percent int, current, total int, message string) {
-	const barWidth = 25
-	filled := (percent * barWidth) / 100
-	if filled > barWidth {
-		filled = barWidth
-	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	bar := buildProgressBar(percent)
 
 	// Truncate message if too long
 	maxMessageLen := 40
@@ -50,9 +45,8 @@ func renderProgressBar(percent int, current, total int, message string) {
 		message = message[:maxMessageLen-3] + "..."
 	}
 
-	// Use \r to return to start of line and \033[K to clear to end of line
-	fmt.Fprintf(os.Stderr, "\r\033[K  ✓ Processing rules %3d%% |%s| %d/%d  %s",
-		percent, bar, current, total, message)
+	fmt.Fprintf(os.Stderr, "%s%sProcessing rules %3d%% |%s| %d/%d  %s",
+		progressLinePrefix(), progressStatusPrefix(), percent, bar, current, total, message)
 }
 
 func (a *analyzeCommand) buildStaticReportFile(ctx context.Context, staticReportPath string, depsErr bool) error {

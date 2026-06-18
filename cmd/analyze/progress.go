@@ -3,9 +3,45 @@ package analyze
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 
 	"github.com/go-logr/logr"
 )
+
+const progressBarWidth = 25
+
+func progressCheckMark() string {
+	if runtime.GOOS == "windows" {
+		return "+"
+	}
+	return "✓"
+}
+
+func buildProgressBar(percent int) string {
+	filled := (percent * progressBarWidth) / 100
+	if filled > progressBarWidth {
+		filled = progressBarWidth
+	}
+
+	filledChar, emptyChar := "█", "░"
+	if runtime.GOOS == "windows" {
+		filledChar, emptyChar = "#", "-"
+	}
+
+	return strings.Repeat(filledChar, filled) + strings.Repeat(emptyChar, progressBarWidth-filled)
+}
+
+func progressLinePrefix() string {
+	if runtime.GOOS == "windows" {
+		return "\r"
+	}
+	return "\r\033[K"
+}
+
+func progressStatusPrefix() string {
+	return fmt.Sprintf("  %s ", progressCheckMark())
+}
 
 // ProgressMode encapsulates progress reporting behavior.
 // It provides methods to conditionally execute UI operations based on whether

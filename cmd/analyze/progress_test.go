@@ -3,7 +3,10 @@ package analyze
 import (
 	"bytes"
 	"os"
+	"runtime"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
@@ -313,5 +316,35 @@ func TestProgressMode_Println(t *testing.T) {
 
 			assert.Equal(t, tt.wantOutput, buf.String())
 		})
+	}
+}
+
+func Test_buildProgressBar(t *testing.T) {
+	bar := buildProgressBar(50)
+	assert.Equal(t, progressBarWidth, utf8.RuneCountInString(bar))
+
+	if runtime.GOOS == "windows" {
+		assert.True(t, strings.Contains(bar, "#"))
+		assert.True(t, strings.Contains(bar, "-"))
+		assert.False(t, strings.Contains(bar, "█"))
+	} else {
+		assert.True(t, strings.Contains(bar, "█"))
+		assert.True(t, strings.Contains(bar, "░"))
+	}
+}
+
+func Test_progressCheckMark(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		assert.Equal(t, "+", progressCheckMark())
+	} else {
+		assert.Equal(t, "✓", progressCheckMark())
+	}
+}
+
+func Test_progressStatusPrefix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		assert.Equal(t, "  + ", progressStatusPrefix())
+	} else {
+		assert.Equal(t, "  ✓ ", progressStatusPrefix())
 	}
 }
