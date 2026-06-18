@@ -332,3 +332,32 @@ func TestOpenRewriteCommand_WithRootCommand(t *testing.T) {
 		t.Error("OpenRewrite command was not found as a child of root command")
 	}
 }
+
+func TestOpenRewriteCommand_DeprecationWarning(t *testing.T) {
+	testLogger := logrus.New()
+	logger := logrusr.New(testLogger)
+
+	cmd := NewOpenRewriteCommand(logger)
+
+	// Create a buffer to capture stderr
+	buf := &bytes.Buffer{}
+	cmd.SetErr(buf)
+	cmd.SetOut(buf)
+
+	// Set the list-targets flag to avoid validation errors
+	cmd.SetArgs([]string{"--list-targets"})
+
+	// Execute the command
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Check that the deprecation warning was printed
+	output := buf.String()
+	expectedWarning := "WARNING: The 'openrewrite' command is deprecated and will be removed in a future version."
+
+	if !bytes.Contains(buf.Bytes(), []byte(expectedWarning)) {
+		t.Errorf("Expected deprecation warning in output.\nGot: %s", output)
+	}
+}

@@ -46,6 +46,9 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 
 		Short: "Transform application source code using OpenRewrite recipes",
 		PreRun: func(cmd *cobra.Command, args []string) {
+			// Print deprecation warning
+			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: The 'openrewrite' command is deprecated and will be removed in a future version.\n\n")
+
 			if !cmd.Flags().Lookup("list-targets").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("target")
