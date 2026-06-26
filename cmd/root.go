@@ -52,8 +52,10 @@ func init() {
 
 	logger := logrusr.New(logrusLog)
 	rootCmd.AddCommand(openrewrite.NewOpenRewriteCommand(logger))
+	rootCmd.AddCommand(openrewrite.NewTransformCommand(logger))
 	rootCmd.AddCommand(analyze.NewAnalyzeCmd(logger))
 	rootCmd.AddCommand(rules.NewRulesCommand(logger))
+	rootCmd.AddCommand(rules.NewLegacyTestCommand(logger))
 	rootCmd.AddCommand(provider.NewProviderCommand(logger))
 	rootCmd.AddCommand(NewVersionCommand())
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))

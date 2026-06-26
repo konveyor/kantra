@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bombsimon/logrusr/v3"
@@ -22,8 +23,14 @@ func TestNewOpenRewriteCommand(t *testing.T) {
 		t.Errorf("Expected Use to be 'openrewrite', got '%s'", cmd.Use)
 	}
 
-	if cmd.Short != "Transform application source code using OpenRewrite recipes" {
-		t.Errorf("Expected specific Short description, got '%s'", cmd.Short)
+	if !strings.Contains(cmd.Short, "Transform application source code using OpenRewrite recipes") {
+		t.Errorf("Expected Short to describe openrewrite, got '%s'", cmd.Short)
+	}
+	if !strings.Contains(cmd.Short, "DEPRECATED") {
+		t.Errorf("Expected DEPRECATED in Short, got '%s'", cmd.Short)
+	}
+	if !strings.Contains(cmd.Long, "will be removed") {
+		t.Errorf("Expected removal notice in Long, got '%s'", cmd.Long)
 	}
 
 	if cmd.RunE == nil {
@@ -273,7 +280,7 @@ func TestOpenRewriteCommand_HelpCommand(t *testing.T) {
 	// Check that help contains expected sections
 	expectedStrings := []string{
 		"openrewrite",
-		"Transform application source code using OpenRewrite recipes",
+		"deprecated",
 		"list-targets",
 		"input",
 		"target",
@@ -355,9 +362,37 @@ func TestOpenRewriteCommand_DeprecationWarning(t *testing.T) {
 
 	// Check that the deprecation warning was printed
 	output := buf.String()
-	expectedWarning := "WARNING: The 'openrewrite' command is deprecated and will be removed in a future version."
+	expectedWarning := "WARNING: The 'openrewrite' command is deprecated and will be removed."
 
 	if !bytes.Contains(buf.Bytes(), []byte(expectedWarning)) {
 		t.Errorf("Expected deprecation warning in output.\nGot: %s", output)
+	}
+}
+
+func TestTransformOpenRewriteCommand_BackCompatWarning(t *testing.T) {
+	testLogger := logrus.New()
+	logger := logrusr.New(testLogger)
+
+	transformCmd := NewTransformCommand(logger)
+
+	buf := &bytes.Buffer{}
+	transformCmd.SetErr(buf)
+	transformCmd.SetOut(buf)
+	transformCmd.SetArgs([]string{"openrewrite", "--list-targets"})
+
+	if err := transformCmd.Execute(); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	openRewriteDeprecationWarning := "WARNING: The 'openrewrite' command is deprecated and will be removed."
+	if strings.Contains(output, openRewriteDeprecationWarning) {
+		t.Errorf("transform openrewrite should not print the top-level openrewrite deprecation warning.\nGot: %s", output)
+	}
+	if !strings.Contains(output, "'kantra transform openrewrite'") {
+		t.Errorf("Expected transform path in warning.\nGot: %s", output)
+	}
+	if !strings.Contains(output, "'kantra openrewrite' instead") {
+		t.Errorf("Expected backwards-compatibility warning in output.\nGot: %s", output)
 	}
 }
