@@ -2,6 +2,7 @@ package rules
 
 import (
 	"testing"
+	"strings"
 
 	"github.com/go-logr/logr"
 )
@@ -48,5 +49,18 @@ func Test_newRulesTestCommand(t *testing.T) {
 	cmd := newRulesTestCommand(logr.Discard())
 	if cmd.Use != "test [paths...]" {
 		t.Fatalf("Use = %q", cmd.Use)
+	}
+}
+
+func TestNewLegacyTestCommand(t *testing.T) {
+	cmd := NewLegacyTestCommand(logr.Discard())
+	if cmd.Use != "test" {
+		t.Fatalf("Use = %q", cmd.Use)
+	}
+	if cmd.RunE == nil {
+		t.Fatal("expected RunE to be set")
+	}
+	if !strings.Contains(cmd.Short, "DEPRECATED") {
+		t.Fatalf("expected DEPRECATED in Short: %q", cmd.Short)
 	}
 }

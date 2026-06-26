@@ -14,6 +14,7 @@ import (
 	"github.com/devfile/alizer/pkg/apis/model"
 	"github.com/devfile/alizer/pkg/apis/recognizer"
 	"github.com/go-logr/logr"
+	cmdprovider "github.com/konveyor-ecosystem/kantra/cmd/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/konveyor/analyzer-lsp/provider"
 
@@ -22,6 +23,9 @@ import (
 
 // kantra analyze flags
 type analyzeCommand struct {
+	listSources              bool
+	listTargets              bool
+	listProviders            bool
 	listLanguages            bool
 	skipStaticReport         bool
 	analyzeKnownLibraries    bool
@@ -74,7 +78,10 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 		Short: "Analyze application source code",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// TODO (pgaikwad): this is nasty
-			if !cmd.Flags().Lookup("list-languages").Changed &&
+			if !cmd.Flags().Lookup("list-sources").Changed &&
+				!cmd.Flags().Lookup("list-targets").Changed &&
+				!cmd.Flags().Lookup("list-providers").Changed &&
+				!cmd.Flags().Lookup("list-languages").Changed &&
 				!cmd.Flags().Lookup("profile-dir").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("output")
@@ -124,6 +131,24 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
+
+			if analyzeCmd.listProviders {
+				util.WarnMovedDeprecation(cmd.ErrOrStderr(), analyzeCmd.log, "'kantra analyze --list-providers'", "'kantra provider list'")
+				return cmdprovider.ListProviders(os.Stdout)
+			}
+
+			if analyzeCmd.listSources || analyzeCmd.listTargets {
+				if analyzeCmd.listSources {
+					util.WarnMovedDeprecation(cmd.ErrOrStderr(), analyzeCmd.log, "'kantra analyze --list-sources'", "'kantra rules list-sources'")
+				} else {
+					util.WarnMovedDeprecation(cmd.ErrOrStderr(), analyzeCmd.log, "'kantra analyze --list-targets'", "'kantra rules list-targets'")
+				}
+				lister := analyzeCmd.labelsLister()
+				if analyzeCmd.listSources {
+					return lister.ListSources(cmd.Context(), os.Stdout)
+				}
+				return lister.ListTargets(cmd.Context(), os.Stdout)
+			}
 
 			// skip container mode check
 			if analyzeCmd.listLanguages {
@@ -260,6 +285,12 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 			return nil
 		},
 	}
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listSources, "list-sources", false, "list rules for available migration sources")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listTargets, "list-targets", false, "list rules for available migration targets")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.listProviders, "list-providers", false, "list available supported providers")
+	util.MarkFlagMoved(analyzeCommand.Flags().Lookup("list-sources"), "'kantra analyze --list-sources'", "'kantra rules list-sources'")
+	util.MarkFlagMoved(analyzeCommand.Flags().Lookup("list-targets"), "'kantra analyze --list-targets'", "'kantra rules list-targets'")
+	util.MarkFlagMoved(analyzeCommand.Flags().Lookup("list-providers"), "'kantra analyze --list-providers'", "'kantra provider list'")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.listLanguages, "list-languages", false, "list found application language(s)")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.sources, "source", "s", []string{}, "source technology to consider for analysis. Use multiple times for additional sources: --source <source1> --source <source2> ...")
 	analyzeCommand.Flags().StringArrayVarP(&analyzeCmd.targets, "target", "t", []string{}, "target technology to consider for analysis. Use multiple times for additional targets: --target <target1> --target <target2> ...")

@@ -35,6 +35,20 @@ type openRewriteCommand struct {
 	mavenDebugLog     bool
 }
 
+// NewTransformCommand returns the pre-refactor `transform` command group for backwards compatibility.
+func NewTransformCommand(log logr.Logger) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transform",
+		Short: "Transform application source code",
+		Run: func(cmd *cobra.Command, args []string) {
+			_ = cmd.Help()
+		},
+	}
+	util.AnnotateCommandDeprecation(cmd, util.MovedDeprecationMessage("'kantra transform openrewrite'", "'kantra openrewrite'"))
+	cmd.AddCommand(newTransformOpenRewriteCommand(log))
+	return cmd
+}
+
 func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 	openRewriteCmd := &openRewriteCommand{
 		log:     log,
@@ -47,38 +61,72 @@ func NewOpenRewriteCommand(log logr.Logger) *cobra.Command {
 		Short: "Transform application source code using OpenRewrite recipes",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Print deprecation warning
-			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: The 'openrewrite' command is deprecated and will be removed in a future version.\n\n")
+			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: The 'openrewrite' command is deprecated and will be removed.\n\n")
 
 			if !cmd.Flags().Lookup("list-targets").Changed {
 				cmd.MarkFlagRequired("input")
 				cmd.MarkFlagRequired("target")
 			}
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
-				openRewriteCmd.cleanup = !val
-			}
-			err := openRewriteCmd.Validate()
-			if err != nil {
-				log.Error(err, "failed validating input args")
-				return err
-			}
-			err = openRewriteCmd.Run(cmd.Context())
-			if err != nil {
-				log.Error(err, "failed executing openrewrite recipe")
-				return err
-			}
-			return nil
-		},
+		RunE: openRewriteRunE(log, openRewriteCmd),
 	}
+	registerOpenRewriteFlags(openRewriteCobra, openRewriteCmd)
+	util.AnnotateCommandDeprecation(openRewriteCobra, util.RemovedDeprecationMessage("openrewrite"))
+
+	return openRewriteCobra
+}
+
+func newTransformOpenRewriteCommand(log logr.Logger) *cobra.Command {
+	openRewriteCmd := &openRewriteCommand{
+		log:     log,
+		cleanup: true,
+	}
+
+	openRewriteCobra := &cobra.Command{
+		Use:   "openrewrite",
+		Short: "Transform application source code using OpenRewrite recipes",
+		PreRun: func(cmd *cobra.Command, args []string) {
+			util.WarnMovedDeprecation(cmd.ErrOrStderr(), log, "'kantra transform openrewrite'", "'kantra openrewrite'")
+
+			if !cmd.Flags().Lookup("list-targets").Changed {
+				cmd.MarkFlagRequired("input")
+				cmd.MarkFlagRequired("target")
+			}
+		},
+		RunE: openRewriteRunE(log, openRewriteCmd),
+	}
+	registerOpenRewriteFlags(openRewriteCobra, openRewriteCmd)
+	util.AnnotateCommandDeprecation(openRewriteCobra, util.MovedDeprecationMessage("'kantra transform openrewrite'", "'kantra openrewrite'"))
+
+	return openRewriteCobra
+}
+
+func openRewriteRunE(log logr.Logger, openRewriteCmd *openRewriteCommand) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if val, err := cmd.Flags().GetBool(noCleanupFlag); err == nil {
+			openRewriteCmd.cleanup = !val
+		}
+		err := openRewriteCmd.Validate()
+		if err != nil {
+			log.Error(err, "failed validating input args")
+			return err
+		}
+		err = openRewriteCmd.Run(cmd.Context())
+		if err != nil {
+			log.Error(err, "failed executing openrewrite recipe")
+			return err
+		}
+		return nil
+	}
+}
+
+func registerOpenRewriteFlags(openRewriteCobra *cobra.Command, openRewriteCmd *openRewriteCommand) {
 	openRewriteCobra.Flags().BoolVarP(&openRewriteCmd.listTargets, "list-targets", "l", false, "list all available OpenRewrite recipes")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.target, "target", "t", "", "target openrewrite recipe to use. Run --list-targets to get a list of packaged recipes.")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.goal, "goal", "g", "dryRun", "target goal")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.input, "input", "i", "", "path to application source code directory")
 	openRewriteCobra.Flags().StringVarP(&openRewriteCmd.mavenSettingsFile, "maven-settings", "s", "", "path to a custom maven settings file to use")
 	openRewriteCobra.Flags().BoolVarP(&openRewriteCmd.mavenDebugLog, "maven-debug-log", "x", false, "enable Maven debug logging")
-
-	return openRewriteCobra
 }
 
 func (o *openRewriteCommand) Validate() error {

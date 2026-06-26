@@ -1664,3 +1664,19 @@ func TestSetProxyEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalyzeLegacyListFlagsRegistered(t *testing.T) {
+	cmd := NewAnalyzeCmd(logr.Discard())
+	for _, name := range []string{"list-sources", "list-targets", "list-providers"} {
+		flag := cmd.Flags().Lookup(name)
+		if flag == nil {
+			t.Fatalf("missing flag %q", name)
+		}
+		if flag.Deprecated == "" {
+			t.Fatalf("expected %q to be marked deprecated", name)
+		}
+		if !strings.Contains(flag.Deprecated, "instead.") {
+			t.Fatalf("expected %q deprecation to include replacement: %q", name, flag.Deprecated)
+		}
+	}
+}
