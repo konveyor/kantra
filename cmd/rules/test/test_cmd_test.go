@@ -286,3 +286,34 @@ func TestTestCommand_Validation(t *testing.T) {
 		t.Logf("Expected error for non-existent file: %v", err)
 	}
 }
+
+func TestResolveTestCommandMode(t *testing.T) {
+	t.Run("defaults to source-only", func(t *testing.T) {
+		mode, err := resolveTestCommandMode("")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if mode != "source-only" {
+			t.Errorf("expected source-only, got %q", mode)
+		}
+	})
+
+	t.Run("accepts explicit modes", func(t *testing.T) {
+		for _, want := range []string{"full", "source-only"} {
+			mode, err := resolveTestCommandMode(want)
+			if err != nil {
+				t.Fatalf("mode %q: unexpected error: %v", want, err)
+			}
+			if mode != want {
+				t.Errorf("mode %q: got %q", want, mode)
+			}
+		}
+	})
+
+	t.Run("rejects invalid mode", func(t *testing.T) {
+		_, err := resolveTestCommandMode("invalid")
+		if err == nil {
+			t.Fatal("expected error for invalid mode")
+		}
+	})
+}

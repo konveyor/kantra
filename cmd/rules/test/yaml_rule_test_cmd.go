@@ -50,7 +50,7 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
-			mode, err := resolveTestCommandMode(testCmd.mode, testCmd.runLocal)
+			mode, err := resolveTestCommandMode(testCmd.mode)
 			if err != nil {
 				log.Error(err, "invalid analysis mode")
 				return err
@@ -87,16 +87,13 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 	testCobraCommand.Flags().BoolVar(&testCmd.runLocal, "run-local", false,
 		"run Java and builtin providers on the host (containerless); default is hybrid mode (providers in containers), required for Go, Python, Node.js, and C# tests")
 	testCobraCommand.Flags().StringVarP(&testCmd.mode, "mode", "m", "",
-		"analysis mode. Must be one of 'full' (source + dependencies) or 'source-only'.")
+		"analysis mode. Must be one of 'full' (source + dependencies) or 'source-only' (default).")
 	return testCobraCommand
 }
 
-func resolveTestCommandMode(mode string, runLocal bool) (string, error) {
+func resolveTestCommandMode(mode string) (string, error) {
 	if mode == "" {
-		if runLocal {
-			return string(provider.SourceOnlyAnalysisMode), nil
-		}
-		return string(provider.FullAnalysisMode), nil
+		return string(provider.SourceOnlyAnalysisMode), nil
 	}
 	if mode != string(provider.FullAnalysisMode) &&
 		mode != string(provider.SourceOnlyAnalysisMode) {
