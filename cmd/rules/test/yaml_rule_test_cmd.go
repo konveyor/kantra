@@ -1,10 +1,12 @@
 package test
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
+	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +14,7 @@ type testCommand struct {
 	testFilterString string
 	prune            bool
 	runLocal         bool
+	mode             string
 }
 
 func NewTestCommand(log logr.Logger) *cobra.Command {
@@ -47,9 +50,15 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 					return err
 				}
 			}
+			mode, err := resolveTestCommandMode(testCmd.mode)
+			if err != nil {
+				log.Error(err, "invalid analysis mode")
+				return err
+			}
 			results, err := NewRunner().Run(tests, TestOptions{
 				Context:         cmd.Context(),
 				RunLocal:        testCmd.runLocal,
+				Mode:            mode,
 				ContainerBinary: settings.Settings.ContainerBinary,
 				ProviderImages: map[string]string{
 					"java":   settings.Settings.JavaProviderImage,
@@ -77,5 +86,18 @@ func NewTestCommand(log logr.Logger) *cobra.Command {
 	testCobraCommand.Flags().BoolVarP(&testCmd.prune, "prune", "p", false, "whether to prune after the execution; defaults to false")
 	testCobraCommand.Flags().BoolVar(&testCmd.runLocal, "run-local", false,
 		"run Java and builtin providers on the host (containerless); default is hybrid mode (providers in containers), required for Go, Python, Node.js, and C# tests")
+	testCobraCommand.Flags().StringVarP(&testCmd.mode, "mode", "m", "",
+		"analysis mode. Must be one of 'full' (source + dependencies) or 'source-only' (default).")
 	return testCobraCommand
+}
+
+func resolveTestCommandMode(mode string) (string, error) {
+	if mode == "" {
+		return string(provider.SourceOnlyAnalysisMode), nil
+	}
+	if mode != string(provider.FullAnalysisMode) &&
+		mode != string(provider.SourceOnlyAnalysisMode) {
+		return "", fmt.Errorf("mode must be one of 'full' or 'source-only'")
+	}
+	return mode, nil
 }
