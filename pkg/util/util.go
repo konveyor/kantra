@@ -2,12 +2,17 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -265,4 +270,44 @@ func GetKantraDir() (string, error) {
 		}
 	}
 	return filepath.Join(dir, ConfigDirBasename()), nil
+}
+
+// MovedDeprecationMessage returns a deprecation message for a moved command or flag.
+func MovedDeprecationMessage(oldUsage, newUsage string) string {
+	return fmt.Sprintf("%s is deprecated; use %s instead.", oldUsage, newUsage)
+}
+
+// RemovedDeprecationMessage returns a deprecation message for a command that will be removed.
+func RemovedDeprecationMessage(command string) string {
+	return fmt.Sprintf("The '%s' command is deprecated and will be removed", command)
+}
+
+// AnnotateCommandDeprecation adds deprecation text to command Short and Long for --help output.
+func AnnotateCommandDeprecation(cmd *cobra.Command, message string) {
+	if cmd == nil || message == "" {
+		return
+	}
+	if cmd.Short != "" && !strings.Contains(cmd.Short, "DEPRECATED") {
+		cmd.Short = fmt.Sprintf("%s (DEPRECATED: %s)", cmd.Short, message)
+	}
+	cmd.Long = message
+}
+
+// MarkFlagMoved sets runtime and --help deprecation text on a moved flag.
+func MarkFlagMoved(flag *pflag.Flag, oldUsage, newUsage string) {
+	if flag == nil {
+		return
+	}
+	flag.Deprecated = MovedDeprecationMessage(oldUsage, newUsage)
+}
+
+// WarnDeprecation writes a deprecation warning to w and emits an info log entry.
+func WarnDeprecation(w io.Writer, log logr.Logger, message string) {
+	fmt.Fprintf(w, "WARNING: %s\n\n", message)
+	log.Info(message)
+}
+
+// WarnMovedDeprecation writes a deprecation warning for a moved command or flag.
+func WarnMovedDeprecation(w io.Writer, log logr.Logger, oldUsage, newUsage string) {
+	WarnDeprecation(w, log, MovedDeprecationMessage(oldUsage, newUsage))
 }
