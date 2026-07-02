@@ -2,14 +2,15 @@ name: Koncur Integration Tests
 
 on:
   push:
-    branches:
-      - main
-      - 'release-*'
   pull_request:
   workflow_dispatch:
 
 jobs:
   koncur-test:
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'main' ||
+      startsWith(github.ref_name, 'release-')
     uses: konveyor/ci/.github/workflows/e2e-kantra-koncur.yaml@main
     secrets: inherit
 
