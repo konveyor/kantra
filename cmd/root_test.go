@@ -4,8 +4,13 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/cmd/analyze"
+	"github.com/konveyor-ecosystem/kantra/cmd/openrewrite"
+	"github.com/konveyor-ecosystem/kantra/cmd/rules"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -342,5 +347,152 @@ func TestRootCommand_Context(t *testing.T) {
 	
 	if testCmd.Context() == nil {
 		t.Error("Expected command context to be set")
+	}
+}
+
+func TestBackCompatCommandsRegistered(t *testing.T) {
+	names := make(map[string]bool, len(rootCmd.Commands()))
+	for _, cmd := range rootCmd.Commands() {
+		names[cmd.Name()] = true
+	}
+
+	for _, want := range []string{"test", "transform", "rules", "provider", "analyze", "openrewrite"} {
+		if !names[want] {
+			t.Fatalf("missing root command %q, have %v", want, names)
+		}
+	}
+}
+
+func TestLegacyTestCommand(t *testing.T) {
+	cmd := rules.NewLegacyTestCommand(logr.Discard())
+	if cmd.Use != "test" {
+		t.Fatalf("Use = %q", cmd.Use)
+	}
+	if cmd.RunE == nil {
+		t.Fatal("expected RunE to be set")
+	}
+}
+
+func TestTransformCommandStructure(t *testing.T) {
+	cmd := openrewrite.NewTransformCommand(logr.Discard())
+	if cmd.Use != "transform" {
+		t.Fatalf("Use = %q", cmd.Use)
+	}
+
+	subcommands := make(map[string]bool, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		subcommands[sub.Name()] = true
+	}
+	if !subcommands["openrewrite"] {
+		t.Fatalf("expected openrewrite subcommand, have %v", subcommands)
+	}
+}
+
+func backCompatCommandHelp(t *testing.T, cmd *cobra.Command, args ...string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if len(args) == 0 {
+		args = []string{"--help"}
+	}
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("help failed: %v", err)
+	}
+	return buf.String()
+}
+
+func TestBackCompatCommandsHelp(t *testing.T) {
+	log := logr.Discard()
+
+	tests := []struct {
+		name    string
+		help    func() string
+		contain []string
+	}{
+		{
+			name: "legacy test",
+			help: func() string {
+				return backCompatCommandHelp(t, rules.NewLegacyTestCommand(log))
+			},
+			contain: []string{
+				"deprecated",
+				"'kantra rules test'",
+			},
+		},
+		{
+			name: "transform",
+			help: func() string {
+				return backCompatCommandHelp(t, openrewrite.NewTransformCommand(log))
+			},
+			contain: []string{
+				"DEPRECATED",
+				"'kantra openrewrite'",
+			},
+		},
+		{
+			name: "transform openrewrite",
+			help: func() string {
+				return backCompatCommandHelp(t, openrewrite.NewTransformCommand(log), "openrewrite", "--help")
+			},
+			contain: []string{
+				"deprecated",
+				"'kantra transform openrewrite'",
+			},
+		},
+		{
+			name: "openrewrite",
+			help: func() string {
+				return backCompatCommandHelp(t, openrewrite.NewOpenRewriteCommand(log))
+			},
+			contain: []string{
+				"deprecated",
+				"will be removed",
+			},
+		},
+		{
+			name: "analyze list flags",
+			help: func() string {
+				return backCompatCommandHelp(t, analyze.NewAnalyzeCmd(log))
+			},
+			contain: []string{
+				"--list-sources",
+				"DEPRECATED",
+				"'kantra rules list-sources'",
+				"--list-targets",
+				"'kantra rules list-targets'",
+				"--list-providers",
+				"'kantra provider list'",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			help := tt.help()
+			for _, want := range tt.contain {
+				if !strings.Contains(help, want) {
+					t.Fatalf("help missing %q:\n%s", want, help)
+				}
+			}
+		})
+	}
+}
+
+func TestRootHelpListsDeprecatedCommands(t *testing.T) {
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"--help"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("root help failed: %v", err)
+	}
+
+	help := buf.String()
+	for _, want := range []string{"test", "transform", "openrewrite", "DEPRECATED"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("root help missing %q:\n%s", want, help)
+		}
 	}
 }
