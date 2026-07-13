@@ -354,6 +354,87 @@ func TestJavaProvider_GetConfig_ProviderSpecificConfig(t *testing.T) {
 	assert.Equal(t, ContainerJDTLSPath, initConfig.ProviderSpecificConfig[provider.LspServerPathConfigKey])
 }
 
+func TestJavaProvider_GetConfig_MavenInsecure(t *testing.T) {
+	tests := []struct {
+		name          string
+		mode          ExecutionMode
+		mavenInsecure bool
+		expectInConfig bool
+	}{
+		{
+			name:          "mavenInsecure true in container mode",
+			mode:          ModeContainer,
+			mavenInsecure: true,
+			expectInConfig: true,
+		},
+		{
+			name:          "mavenInsecure false in container mode",
+			mode:          ModeContainer,
+			mavenInsecure: false,
+			expectInConfig: false,
+		},
+		{
+			name:          "mavenInsecure true in local mode",
+			mode:          ModeLocal,
+			mavenInsecure: true,
+			expectInConfig: true,
+		},
+		{
+			name:          "mavenInsecure false in local mode",
+			mode:          ModeLocal,
+			mavenInsecure: false,
+			expectInConfig: false,
+		},
+		{
+			name:          "mavenInsecure true in network mode",
+			mode:          ModeNetwork,
+			mavenInsecure: true,
+			expectInConfig: true,
+		},
+		{
+			name:          "mavenInsecure false in network mode",
+			mode:          ModeNetwork,
+			mavenInsecure: false,
+			expectInConfig: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &JavaProvider{}
+			opts := BaseOptions{
+				Location:     "/opt/input/source",
+				AnalysisMode: "source-only",
+			}
+
+			// Set mode-specific options
+			switch tt.mode {
+			case ModeLocal:
+				opts.KantraDir = "/home/user/.kantra"
+			case ModeNetwork:
+				opts.Address = "localhost:12345"
+			}
+
+			config, err := p.GetConfig(tt.mode, opts, JavaOptions{
+				MavenInsecure: tt.mavenInsecure,
+			})
+			require.NoError(t, err)
+
+			require.Len(t, config.InitConfig, 1)
+			psc := config.InitConfig[0].ProviderSpecificConfig
+
+			// mavenInsecure is only set in config when true
+			mavenInsecureValue, exists := psc["mavenInsecure"]
+			if tt.expectInConfig {
+				assert.True(t, exists, "Expected mavenInsecure to be present in ProviderSpecificConfig")
+				assert.Equal(t, true, mavenInsecureValue, "Expected mavenInsecure to be true")
+			} else {
+				assert.False(t, exists, "Expected mavenInsecure to not be present in ProviderSpecificConfig when false")
+			}
+		})
+	}
+}
+
 // Helper function to create a temporary maven settings file
 func createTempMavenSettings(t *testing.T, tmpDir string) string {
 	settingsFile := filepath.Join(tmpDir, "settings.xml")

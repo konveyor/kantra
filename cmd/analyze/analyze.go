@@ -29,6 +29,7 @@ type analyzeCommand struct {
 	overwrite                bool
 	bulk                     bool
 	mavenSettingsFile        string
+	mavenInsecure            bool
 	sources                  []string
 	targets                  []string
 	labelSelector            string
@@ -270,6 +271,7 @@ func NewAnalyzeCmd(log logr.Logger) *cobra.Command {
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.skipStaticReport, "skip-static-report", false, "do not generate static report")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.analyzeKnownLibraries, "analyze-known-libraries", false, "analyze known open-source libraries")
 	analyzeCommand.Flags().StringVar(&analyzeCmd.mavenSettingsFile, "maven-settings", "", "path to a custom maven settings file to use")
+	analyzeCommand.Flags().BoolVar(&analyzeCmd.mavenInsecure, "maven-insecure", false, "allow insecure HTTPS connections to Maven repositories")
 	analyzeCommand.Flags().StringVarP(&analyzeCmd.mode, "mode", "m", string(provider.FullAnalysisMode), "analysis mode. Must be one of 'full' (source + dependencies) or 'source-only'")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.noDepRules, "no-dependency-rules", false, "disable dependency analysis rules")
 	analyzeCommand.Flags().BoolVar(&analyzeCmd.jsonOutput, "json-output", false, "create analysis and dependency output as json")

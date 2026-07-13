@@ -130,6 +130,7 @@ func (e *containerEnvironment) Start(ctx context.Context) error {
 		HTTPSProxy:        e.cfg.HTTPSProxy,
 		NoProxy:           e.cfg.NoProxy,
 		MavenSettingsFile: mavenSettingsPath,
+		MavenInsecure:     e.cfg.MavenInsecure,
 		JvmMaxMem:         e.cfg.JvmMaxMem,
 		MavenCacheDir:     mavenCacheDir,
 	})
