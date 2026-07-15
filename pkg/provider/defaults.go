@@ -5,6 +5,12 @@ import (
 	"github.com/konveyor/analyzer-lsp/provider"
 )
 
+// Java bundle paths, overridable at build time via ldflags -X.
+var (
+	ContainerJavaBundlePath = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	LocalJavaBundlePath     = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+)
+
 // ExecutionMode determines how providers are located and connected.
 type ExecutionMode int
 
@@ -38,13 +44,11 @@ const (
 
 	// Java provider resources (container absolute paths)
 	ContainerJDTLSPath           = "/jdtls/bin/jdtls"
-	ContainerJavaBundlePath      = "/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
 	ContainerMavenIndexPath      = "/usr/local/etc/maven-index.txt"
 	ContainerDepOpenSourceLabels = "/usr/local/etc/maven.default.index"
 
 	// Java provider resources (local relative paths for ModeLocal, relative to KantraDir)
-	LocalJDTLSPath      = "jdtls/bin/jdtls"
-	LocalJavaBundlePath = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
+	LocalJDTLSPath = "jdtls/bin/jdtls"
 
 	// Go provider resources
 	ContainerGoplsPath = "/usr/local/bin/gopls"

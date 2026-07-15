@@ -30,15 +30,15 @@ type RulesVolumesFunc func(log logr.Logger, rules []string) (volumes map[string]
 
 // HybridConfig is used when listing via the runner image (analyze hybrid mode).
 type HybridConfig struct {
-	Cleanup               bool
-	HTTPProxy             string
-	HTTPSProxy            string
+	Cleanup              bool
+	HTTPProxy            string
+	HTTPSProxy           string
 	NoProxy              string
 	ContainerRuntimeArgs []string
-	RunnerImage           string
-	RootCommandName       string
-	ContainerBinary       string
-	PrepareRulesVolumes   RulesVolumesFunc
+	RunnerImage          string
+	RootCommandName      string
+	ContainerBinary      string
+	PrepareRulesVolumes  RulesVolumesFunc
 }
 
 // AnalyzeListerOptions configures rule label listing with the same settings as kantra analyze.
@@ -48,9 +48,9 @@ type AnalyzeListerOptions struct {
 	Rules     []string
 	RunLocal  bool
 
-	Cleanup               bool
-	HTTPProxy             string
-	HTTPSProxy            string
+	Cleanup              bool
+	HTTPProxy            string
+	HTTPSProxy           string
 	NoProxy              string
 	ContainerRuntimeArgs []string
 
@@ -70,15 +70,15 @@ func NewListerFromAnalyze(o AnalyzeListerOptions) *Lister {
 	}
 	if !o.RunLocal {
 		cfg.Hybrid = &HybridConfig{
-			Cleanup:               o.Cleanup,
-			HTTPProxy:             o.HTTPProxy,
-			HTTPSProxy:            o.HTTPSProxy,
+			Cleanup:              o.Cleanup,
+			HTTPProxy:            o.HTTPProxy,
+			HTTPSProxy:           o.HTTPSProxy,
 			NoProxy:              o.NoProxy,
 			ContainerRuntimeArgs: o.ContainerRuntimeArgs,
-			RunnerImage:           o.RunnerImage,
-			RootCommandName:       o.RootCommandName,
-			ContainerBinary:       o.ContainerBinary,
-			PrepareRulesVolumes:   o.PrepareRulesVolumes,
+			RunnerImage:          o.RunnerImage,
+			RootCommandName:      o.RootCommandName,
+			ContainerBinary:      o.ContainerBinary,
+			PrepareRulesVolumes:  o.PrepareRulesVolumes,
 		}
 	}
 	return New(cfg)
