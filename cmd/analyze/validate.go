@@ -15,8 +15,8 @@ import (
 	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	"github.com/konveyor-ecosystem/kantra/pkg/util"
-	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/konveyor/analyzer-lsp/provider"
+	hubapi "github.com/konveyor/tackle2-hub/shared/api"
 	"github.com/spf13/cobra"
 )
 
@@ -305,18 +305,18 @@ func (a *analyzeCommand) validateRulesPath(rulePath string) error {
 
 func (a *analyzeCommand) labelsLister() *labels.Lister {
 	return labels.NewListerFromAnalyze(labels.AnalyzeListerOptions{
-		Log:                   a.log,
-		KantraDir:             a.kantraDir,
-		Rules:                 a.rules,
-		RunLocal:              a.runLocal,
-		Cleanup:               a.cleanup,
-		HTTPProxy:             a.httpProxy,
-		HTTPSProxy:            a.httpsProxy,
+		Log:                  a.log,
+		KantraDir:            a.kantraDir,
+		Rules:                a.rules,
+		RunLocal:             a.runLocal,
+		Cleanup:              a.cleanup,
+		HTTPProxy:            a.httpProxy,
+		HTTPSProxy:           a.httpsProxy,
 		NoProxy:              a.noProxy,
 		ContainerRuntimeArgs: a.parsedContainerRuntime,
-		RunnerImage:           settings.Settings.RunnerImage,
-		RootCommandName:       settings.Settings.RootCommandName,
-		ContainerBinary:       settings.Settings.ContainerBinary,
-		PrepareRulesVolumes:   PrepareRulesVolumes,
+		RunnerImage:          settings.Settings.RunnerImage,
+		RootCommandName:      settings.Settings.RootCommandName,
+		ContainerBinary:      settings.Settings.ContainerBinary,
+		PrepareRulesVolumes:  PrepareRulesVolumes,
 	})
 }
