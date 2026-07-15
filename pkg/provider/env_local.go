@@ -18,10 +18,9 @@ import (
 // Well-known subdirectory paths within the kantra installation directory.
 // These must match the paths used by the kantra install/setup process.
 const (
-	rulesetsSubdir    = "rulesets"
-	javaBundlesSubdir = "jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar"
-	jdtlsBinSubdir    = "jdtls/bin/jdtls"
-	fernflowerJar     = "fernflower.jar"
+	rulesetsSubdir = "rulesets"
+	jdtlsBinSubdir = "jdtls/bin/jdtls"
+	fernflowerJar  = "fernflower.jar"
 )
 
 const javaBinaryProjectDirName = "java-project"
@@ -154,7 +153,7 @@ func (e *localEnvironment) validateKantraDir() error {
 	if !e.cfg.ExternalOnly {
 		// Java-specific paths only needed when running Java provider
 		requiredPaths = append(requiredPaths,
-			filepath.Join(kantraDir, javaBundlesSubdir),
+			filepath.Join(kantraDir, LocalJavaBundlePath),
 			filepath.Join(kantraDir, jdtlsBinSubdir),
 			filepath.Join(kantraDir, fernflowerJar),
 		)
