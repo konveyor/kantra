@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/konveyor-ecosystem/kantra/pkg/profile"
 	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
-	"github.com/konveyor-ecosystem/kantra/pkg/labels"
 	"github.com/konveyor/analyzer-lsp/provider"
 	"github.com/spf13/cobra"
 )

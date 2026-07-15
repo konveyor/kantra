@@ -36,12 +36,12 @@ func TestLocalEnvironment_Start_ExternalOnly_NoJavaRequired(t *testing.T) {
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: false,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err := env.Start(context.Background())
@@ -55,12 +55,12 @@ func TestLocalEnvironment_Start_ExternalOnly_ProviderConfigsBuiltinOnly(t *testi
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: false,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err := env.Start(context.Background())
@@ -77,12 +77,12 @@ func TestLocalEnvironment_Start_ExternalOnly_WithDefaultRulesets(t *testing.T) {
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: true,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err := env.Start(context.Background())
@@ -102,12 +102,12 @@ func TestLocalEnvironment_Start_ExternalOnly_MissingRulesetsDir(t *testing.T) {
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: true,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err := env.Start(context.Background())
@@ -121,12 +121,12 @@ func TestLocalEnvironment_Start_ExternalOnly_RulesWithoutDefaults(t *testing.T) 
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: false,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err := env.Start(context.Background())
@@ -147,12 +147,12 @@ func TestLocalEnvironment_Start_InputIsCwd(t *testing.T) {
 	require.NoError(t, err)
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                cwd,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 cwd,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: false,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	err = env.Start(context.Background())
@@ -165,12 +165,12 @@ func TestLocalEnvironment_Stop_CleansUpEclipseDirs(t *testing.T) {
 	inputDir := t.TempDir()
 
 	env := newLocalEnvironment(EnvironmentConfig{
-		Mode:                 ModeLocal,
-		Input:                inputDir,
-		KantraDir:            kantraDir,
-		ExternalOnly:         true,
+		Mode:                  ModeLocal,
+		Input:                 inputDir,
+		KantraDir:             kantraDir,
+		ExternalOnly:          true,
 		EnableDefaultRulesets: false,
-		Log:                  logr.Discard(),
+		Log:                   logr.Discard(),
 	})
 
 	// Stop should not error even if no eclipse dirs exist

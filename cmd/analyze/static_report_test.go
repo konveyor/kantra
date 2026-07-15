@@ -16,8 +16,8 @@ func TestValidateFlags(t *testing.T) {
 	logger := logrusr.New(testLogger)
 
 	tests := []struct {
-		name                 string
-		analysisOutputPaths  []string
+		name                string
+		analysisOutputPaths []string
 		appNames            []string
 		depsOutputs         []string
 		expectError         bool
@@ -35,17 +35,17 @@ func TestValidateFlags(t *testing.T) {
 		{
 			name:                "valid inputs",
 			analysisOutputPaths: []string{"path1", "path2"},
-			appNames:           []string{"app1", "app2"},
-			depsOutputs:        []string{"deps1", "deps2"},
-			expectError:        false,
-			expectedAppCount:   2,
+			appNames:            []string{"app1", "app2"},
+			depsOutputs:         []string{"deps1", "deps2"},
+			expectError:         false,
+			expectedAppCount:    2,
 		},
 		{
 			name:                "valid inputs without deps",
 			analysisOutputPaths: []string{"path1"},
-			appNames:           []string{"app1"},
-			expectError:        false,
-			expectedAppCount:   1,
+			appNames:            []string{"app1"},
+			expectError:         false,
+			expectedAppCount:    1,
 		},
 	}
 
@@ -303,4 +303,3 @@ func TestApplication_Structure(t *testing.T) {
 		t.Error("Expected DepItems to be initialized")
 	}
 }
-

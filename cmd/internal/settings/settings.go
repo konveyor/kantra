@@ -25,14 +25,14 @@ var (
 	RootCommandName = "kantra"
 	// ConfigDirName is the basename (without leading dot) of the user config directory
 	// under $HOME or $XDG_CONFIG_HOME (e.g. "kantra" -> ~/.kantra). Override at build time.
-	ConfigDirName    = "kantra"
-	RulesetsLocation = "rulesets"
-	JavaProviderImage    = "quay.io/konveyor/java-external-provider"
-	GoProviderImage      = "quay.io/konveyor/go-external-provider"
-	PythonProviderImage  = "quay.io/konveyor/python-external-provider"
-	NodeJSProviderImage  = "quay.io/konveyor/nodejs-external-provider"
-	CsharpProviderImage  = "quay.io/konveyor/c-sharp-provider"
-	RunnerImage          = "quay.io/konveyor/kantra"
+	ConfigDirName       = "kantra"
+	RulesetsLocation    = "rulesets"
+	JavaProviderImage   = "quay.io/konveyor/java-external-provider"
+	GoProviderImage     = "quay.io/konveyor/go-external-provider"
+	PythonProviderImage = "quay.io/konveyor/python-external-provider"
+	NodeJSProviderImage = "quay.io/konveyor/nodejs-external-provider"
+	CsharpProviderImage = "quay.io/konveyor/c-sharp-provider"
+	RunnerImage         = "quay.io/konveyor/kantra"
 )
 
 // Settings is the global configuration instance, loaded once at startup.
