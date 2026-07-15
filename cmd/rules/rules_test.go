@@ -1,8 +1,8 @@
 package rules
 
 import (
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/go-logr/logr"
 )

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/konveyor-ecosystem/kantra/pkg/labels"
+	kantraProvider "github.com/konveyor-ecosystem/kantra/pkg/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

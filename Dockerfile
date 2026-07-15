@@ -36,7 +36,8 @@ ARG VERSION=latest
 ARG BUILD_COMMIT
 ARG IMAGE=quay.io/konveyor/kantra
 ARG NAME=kantra
-ARG JAVA_BUNDLE=/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
+ARG JAVA_BUNDLE_CONTAINER=/jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
+ARG JAVA_BUNDLE_LOCAL=jdtls/java-analyzer-bundle/java-analyzer-bundle.core/target/java-analyzer-bundle.core-1.0.0-SNAPSHOT.jar
 ARG JAVA_PROVIDER_IMG=quay.io/konveyor/java-external-provider
 ARG GO_PROVIDER_IMG=quay.io/konveyor/go-external-provider
 ARG PYTHON_PROVIDER_IMG=quay.io/konveyor/python-external-provider
@@ -45,7 +46,9 @@ ARG CSHARP_PROVIDER_IMG=quay.io/konveyor/c-sharp-provider
 
 RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.ContainerJavaBundlePath=$JAVA_BUNDLE_CONTAINER' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.LocalJavaBundlePath=$JAVA_BUNDLE_LOCAL' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \
@@ -53,7 +56,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build --ldflags="-X 'github.com/konveyor-ecosyst
 
 RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.ContainerJavaBundlePath=$JAVA_BUNDLE_CONTAINER' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.LocalJavaBundlePath=$JAVA_BUNDLE_LOCAL' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \
@@ -61,7 +66,9 @@ RUN CGO_ENABLED=0 GOOS=darwin go build --ldflags="-X 'github.com/konveyor-ecosys
 
 RUN CGO_ENABLED=0 GOOS=windows go build --ldflags="-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.Version=$VERSION' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.RunnerImage=$IMAGE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.BuildCommit=$BUILD_COMMIT' \
--X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaBundlesLocation=$JAVA_BUNDLE' -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.ContainerJavaBundlePath=$JAVA_BUNDLE_CONTAINER' \
+-X 'github.com/konveyor-ecosystem/kantra/pkg/provider.LocalJavaBundlePath=$JAVA_BUNDLE_LOCAL' \
+-X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.JavaProviderImage=$JAVA_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.CsharpProviderImage=$CSHARP_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.GoProviderImage=$GO_PROVIDER_IMG' \
 -X 'github.com/konveyor-ecosystem/kantra/cmd/internal/settings.PythonProviderImage=$PYTHON_PROVIDER_IMG' \

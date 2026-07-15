@@ -2,8 +2,8 @@ package rules
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	yamlruletest "github.com/konveyor-ecosystem/kantra/cmd/rules/test"
+	"github.com/konveyor-ecosystem/kantra/pkg/util"
 	"github.com/spf13/cobra"
 )
 

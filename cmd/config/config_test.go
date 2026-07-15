@@ -438,7 +438,7 @@ func TestSyncCommand_Validate(t *testing.T) {
 			errMsg:  "is not a directory",
 		},
 		{
-			name:   "neither url nor binary should fail",
+			name: "neither url nor binary should fail",
 			setupFunc: func() (string, func(), error) {
 				return "", func() {}, nil
 			},
@@ -1497,4 +1497,3 @@ func TestSyncCommand_checkAuthentication(t *testing.T) {
 		})
 	}
 }
-
