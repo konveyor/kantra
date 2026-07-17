@@ -225,8 +225,12 @@ func (e *localEnvironment) Rules(userRules []string, enableDefaults bool) ([]str
 	rules := make([]string, len(userRules))
 	copy(rules, userRules)
 	if enableDefaults {
-		rulesetsPath := filepath.Join(e.cfg.KantraDir, rulesetsSubdir)
-		rules = append(rules, rulesetsPath)
+		rulesetsRoot := filepath.Join(e.cfg.KantraDir, rulesetsSubdir)
+		localProviders := []ProviderInfo{{
+			Name:                 util.JavaProvider,
+			DefaultRulesetSubdir: BundledDefaultRulesetSubdir(util.JavaProvider),
+		}}
+		rules = append(rules, DefaultRulesetPathsForProviders(rulesetsRoot, localProviders)...)
 	}
 	return rules, nil
 }
