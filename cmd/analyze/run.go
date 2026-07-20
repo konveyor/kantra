@@ -145,6 +145,7 @@ func (a *analyzeCommand) runAnalysis(ctx context.Context, cmd *cobra.Command, mo
 		AnalysisMode:          a.mode,
 		ContextLines:          a.contextLines,
 		MavenSettingsFile:     a.mavenSettingsFile,
+		MavenInsecure:         a.mavenInsecure,
 		JvmMaxMem:             settings.Settings.JvmMaxMem,
 		HTTPProxy:             a.httpProxy,
 		HTTPSProxy:            a.httpsProxy,

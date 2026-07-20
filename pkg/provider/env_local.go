@@ -93,6 +93,7 @@ func (e *localEnvironment) Start(ctx context.Context) error {
 		AnalysisMode:       e.cfg.AnalysisMode,
 		DisableMavenSearch: e.cfg.DisableMavenSearch,
 		MavenSettingsFile:  e.cfg.MavenSettingsFile,
+		MavenInsecure:      e.cfg.MavenInsecure,
 		JvmMaxMem:          e.cfg.JvmMaxMem,
 		ContextLines:       e.cfg.ContextLines,
 		HTTPProxy:          e.cfg.HTTPProxy,

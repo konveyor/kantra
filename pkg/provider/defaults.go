@@ -140,6 +140,9 @@ type DefaultOptions struct {
 	// MavenSettingsFile path for the Java provider.
 	MavenSettingsFile string
 
+	// MavenInsecure allows insecure HTTPS connections to Maven repositories.
+	MavenInsecure bool
+
 	// JvmMaxMem sets JVM max memory for the Java provider.
 	JvmMaxMem string
 
@@ -202,6 +205,7 @@ func DefaultProviderConfig(mode ExecutionMode, opts DefaultOptions) []provider.C
 		extraOpts := []ProviderOption{
 			JavaOptions{
 				MavenSettingsFile:  opts.MavenSettingsFile,
+				MavenInsecure:      opts.MavenInsecure,
 				JvmMaxMem:          opts.JvmMaxMem,
 				DisableMavenSearch: opts.DisableMavenSearch,
 				MavenCacheDir:      opts.MavenCacheDir,

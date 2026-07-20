@@ -73,6 +73,9 @@ func (p *JavaProvider) GetConfig(mode ExecutionMode, opts BaseOptions, extra ...
 	if javaOpts.MavenSettingsFile != "" {
 		psc["mavenSettingsFile"] = javaOpts.MavenSettingsFile
 	}
+	if javaOpts.MavenInsecure {
+		psc["mavenInsecure"] = javaOpts.MavenInsecure
+	}
 	if javaOpts.JvmMaxMem != "" {
 		psc["jvmMaxMem"] = javaOpts.JvmMaxMem
 	}
