@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	outputv1 "github.com/konveyor/analyzer-lsp/output/v1/konveyor"
+	"github.com/konveyor/analyzer-lsp/provider"
 )
 
 func TestParseLabelLines(t *testing.T) {
@@ -70,6 +71,39 @@ func TestListOptionsFromLabels_sources(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "eap7") {
 		t.Fatalf("output = %s", buf.String())
+	}
+}
+
+func TestDepLabelSelectorForAnalysis(t *testing.T) {
+	t.Parallel()
+
+	excludeOSS := "!" + provider.DepSourceLabel + "=open-source"
+	includeAll := provider.DepSourceLabel + "=open-source || !" + provider.DepSourceLabel + "=open-source"
+
+	tests := []struct {
+		name                  string
+		analyzeKnownLibraries bool
+		want                  string
+	}{
+		{
+			name:                  "exclude open source by default",
+			analyzeKnownLibraries: false,
+			want:                  excludeOSS,
+		},
+		{
+			name:                  "include known libraries uses tautology",
+			analyzeKnownLibraries: true,
+			want:                  includeAll,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := DepLabelSelectorForAnalysis(tt.analyzeKnownLibraries); got != tt.want {
+				t.Errorf("DepLabelSelectorForAnalysis() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
