@@ -63,12 +63,6 @@ FROM quay.io/konveyor/java-external-provider:${VERSION}
 
 
 USER 0
-RUN echo -e "[almalinux9-appstream]" \
- "\nname = almalinux9-appstream" \
- "\nbaseurl = https://repo.almalinux.org/almalinux/9/AppStream/\$basearch/os/" \
- "\nenabled = 1" \
- "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
-
 RUN microdnf -y install podman nodejs
 RUN npm install -g typescript-language-server typescript
 RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
