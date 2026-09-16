@@ -265,7 +265,7 @@ func runWithEnvironment(logger logr.Logger, opts TestOptions, testsFile TestsFil
 		konveyorAnalyzer.WithLogger(logger),
 		konveyorAnalyzer.WithContext(ctx),
 		konveyorAnalyzer.WithContextLinesLimit(defaultTestContextLines),
-		konveyorAnalyzer.WithDependencyRulesDisabled(),
+		// konveyorAnalyzer.WithDependencyRulesDisabled(), // DISABLED: This prevents java.dependency rules from being tested
 	}
 	// Match cmd/analyze/run.go: path mappings apply to binary file inputs (jar/war/ear/class),
 	// not to "full" vs "source-only" analysis mode.
