@@ -19,11 +19,11 @@ func mkMinimalKantraDir(t *testing.T) string {
 	return dir
 }
 
-// mkKantraDirWithRulesets creates a kantra directory with a rulesets subdirectory.
+// mkKantraDirWithRulesets creates a kantra directory with a rulesets/java subdirectory.
 func mkKantraDirWithRulesets(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	err := os.MkdirAll(filepath.Join(dir, rulesetsSubdir), 0755)
+	err := os.MkdirAll(filepath.Join(dir, rulesetsSubdir, "java"), 0755)
 	require.NoError(t, err)
 	return dir
 }
@@ -88,11 +88,11 @@ func TestLocalEnvironment_Start_ExternalOnly_WithDefaultRulesets(t *testing.T) {
 	err := env.Start(context.Background())
 	require.NoError(t, err, "Start() should succeed when rulesets dir exists")
 
-	// Rules should include the default rulesets path
+	// Rules should include the java default rulesets path
 	rules, err := env.Rules(nil, true)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
-	assert.Equal(t, filepath.Join(kantraDir, rulesetsSubdir), rules[0])
+	assert.Equal(t, filepath.Join(kantraDir, rulesetsSubdir, "java"), rules[0])
 }
 
 func TestLocalEnvironment_Start_ExternalOnly_MissingRulesetsDir(t *testing.T) {
