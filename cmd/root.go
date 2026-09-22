@@ -11,6 +11,7 @@ import (
 	"github.com/konveyor-ecosystem/kantra/cmd/asset_generation/generate"
 	"github.com/konveyor-ecosystem/kantra/cmd/config"
 	"github.com/konveyor-ecosystem/kantra/cmd/internal/settings"
+	"github.com/konveyor-ecosystem/kantra/cmd/kai"
 	"github.com/konveyor-ecosystem/kantra/cmd/openrewrite"
 	provider "github.com/konveyor-ecosystem/kantra/cmd/provider"
 	"github.com/konveyor-ecosystem/kantra/cmd/rules"
@@ -61,6 +62,7 @@ func init() {
 	rootCmd.AddCommand(discover.NewDiscoverCommand(logger))
 	rootCmd.AddCommand(generate.NewGenerateCommand(logger))
 	rootCmd.AddCommand(config.NewConfigCmd(logger))
+	rootCmd.AddCommand(kai.NewKaiCommand(logger))
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
