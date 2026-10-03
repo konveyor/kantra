@@ -190,7 +190,7 @@ func (e *containerEnvironment) Rules(userRules []string, enableDefaults bool) ([
 	rules := make([]string, len(userRules))
 	copy(rules, userRules)
 	if enableDefaults && e.rulesetsDir != "" {
-		rules = append(rules, e.rulesetsDir)
+		rules = append(rules, DefaultRulesetPathsForProviders(e.rulesetsDir, e.cfg.Providers)...)
 	}
 	return rules, nil
 }
