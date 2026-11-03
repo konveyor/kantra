@@ -5,7 +5,7 @@ go 1.25.13
 require (
 	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.12.0.20250712142925-13a7dc5466ad
 	github.com/devfile/alizer v1.6.1
-	github.com/getkin/kin-openapi v0.144.0
+	github.com/getkin/kin-openapi v0.145.0
 	github.com/go-logr/logr v1.4.3
 	github.com/konveyor/asset-generation v0.2.2
 	github.com/konveyor/tackle2-hub/shared v0.0.0-20260604122507-623f9d5b3bb1
