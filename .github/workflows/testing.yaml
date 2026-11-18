@@ -27,10 +27,13 @@ jobs:
         run: |
           echo "${{ github.event.pull_request.body }}"
           PULL_REQUEST_NUMBER=$(echo "${{ github.event.pull_request.body }}" | grep -oP 'Analyzer PR: \K\d+' || true)
+          # PRs: use the target branch; branch pushes: use the pushed branch.
+          KONVEYOR_REF="${{ github.base_ref || github.ref_name }}"
+          echo "KONVEYOR_REF=$KONVEYOR_REF" >> "$GITHUB_ENV"
           if [ -z "$PULL_REQUEST_NUMBER" ]; then
-            echo "ANALYZER_REF=main" >>$GITHUB_ENV
+            echo "ANALYZER_REF=$KONVEYOR_REF" >> "$GITHUB_ENV"
           else
-            echo "ANALYZER_REF=refs/pull/$PULL_REQUEST_NUMBER/merge" >>$GITHUB_ENV
+            echo "ANALYZER_REF=refs/pull/$PULL_REQUEST_NUMBER/merge" >> "$GITHUB_ENV"
           fi
       
       - uses: actions/checkout@v3
@@ -54,7 +57,8 @@ jobs:
       
       - name: Build image and binary
         run: |
-          podman build -t localhost/kantra:latest -f Dockerfile .
+          podman build -t localhost/kantra:latest -f Dockerfile \
+            --build-arg RULESETS_REF="${{ env.KONVEYOR_REF }}" .
           go build -o kantra main.go
 
       - name: Extract containerless requirements from container
@@ -88,6 +92,7 @@ jobs:
       # TODO (pgaikwad): Change this to a yaml test and run `kantra test`
       - name: Fail if analysis output does not match expected
         run: |
+          set -o pipefail
           expected_file=./test-data/analysis/analysis-output.yaml
           actual_file=./output/output.yaml
           function filter_and_sort() {
@@ -102,6 +107,7 @@ jobs:
 
       - name: Fail if dependencies output does not match expected
         run: |
+          set -o pipefail
           expected_file=./test-data/analysis/deps-output.yaml
           actual_file=./output/dependencies.yaml
           sed 's/^[ \t-]*//' $expected_file | sort -s > /tmp/expected_file

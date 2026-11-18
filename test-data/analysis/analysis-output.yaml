@@ -1599,6 +1599,12 @@
     to 6.0, since EAP XP 6.0 has EAP 8.1 underlying.
   skipped:
   - eap_channel_manifest_8_0_upgrade-00001
+- name: eap82/eap8
+  description: This ruleset provides analysis of Maven built applications when migrating
+    from EAP 6/7/8 to 8.2. This ruleset also applies to migrations from EAP XP 6.0
+    to 7.0, since EAP XP 7.0 has EAP 8.2 underlying.
+  skipped:
+  - eap_channel_manifest_8_1_upgrade-00001
 - name: eapxp/thorntail
   description: This ruleset provides analysis of Maven built applications that use
     Thorntail Maven Plugin, which should be replaced by JBoss EAP XP Bootable JAR
@@ -1672,6 +1678,12 @@
   - eapxp_microprofile_openapi_4.0-00003
   - eapxp_microprofile_openapi_4.0-00004
   - eapxp_microprofile_openapi_4.0-00005
+- name: eapxp7/eapxp6
+  description: This ruleset provides analysis of Maven built applications when migrating
+    from EAP XP 6 to 7.
+  skipped:
+  - eapxp_channel_manifest_6_0_upgrade-00001
+  - eapxp_wildfly_jar_maven_plugin_upgrade-00001
 - name: fuse-service-works/soa-p-5
   description: This ruleset provides analysis of JBoss SOA Platform 5 applications
     and provides information on how to migrate these to Red Hat JBoss Fuse Service
@@ -1754,6 +1766,50 @@
   - sonic-esb-20000
   - sonic-esb-21000
   - xml-sonic-esb-01000
+- name: gateway-api-go/k8s-ingress-go
+  description: Rules for migrating from k8s-ingress-go to gateway-api-go
+  skipped:
+  - annotations-pattern-00010
+  - annotations-pattern-00020
+  - annotations-pattern-00030
+  - annotations-pattern-00040
+  - annotations-pattern-00050
+  - annotations-pattern-00060
+  - annotations-pattern-00070
+  - annotations-pattern-00080
+  - annotations-pattern-00090
+  - annotations-pattern-00100
+  - annotations-pattern-00110
+  - annotations-pattern-00120
+  - annotations-pattern-00130
+  - annotations-pattern-00140
+  - client-pattern-00010
+  - client-pattern-00020
+- name: go-fips-combined
+  description: Go FIPS 140-3 compliance rules — weak algorithms, cipher modes, key
+    strength, TLS, crypto hygiene, PQC readiness, build config, gRPC, K8s, database,
+    HTTP, JWT, OAuth, X.509, SSH
+  skipped:
+  - build-pattern-00010
+  - build-pattern-00020
+  - build-pattern-00030
+  - build-pattern-00040
+  - crypto-hygiene-pattern-00010
+  - crypto-hygiene-pattern-00020
+  - database-tls-pattern-00010
+  - database-tls-pattern-00020
+  - http-transport-pattern-00010
+  - jwt-pattern-00010
+  - jwt-pattern-00020
+  - jwt-pattern-00030
+  - jwt-pattern-00040
+  - jwt-pattern-00050
+  - key-strength-pattern-00010
+  - kubernetes-tls-change-00010
+  - tls-config-pattern-00010
+  - tls-extended-pattern-00010
+  - tls-extended-pattern-00020
+  - tls-pattern-00010
 - name: hibernate
   description: This ruleset provides analysis of deprecated Hibernate java constructs
     and their migration to newer one.
@@ -1842,6 +1898,104 @@
   - utf-8-by-default-00010
   - utf-8-by-default-00020
   - utf-8-by-default-00030
+- name: openjdk25+/openjdk21
+  description: Rules for migrating from openjdk21 to openjdk25+
+  skipped:
+  - beans-deprecation-00010
+  - jmx-removal-00010
+  - jmx-removal-00020
+  - jmx-removal-00030
+  - jndi-removal-00010
+  - jndi-removal-00020
+  - jndi-removal-00030
+  - jvm-options-change-00110
+  - jvm-options-deprecation-00010
+  - jvm-options-deprecation-00020
+  - jvm-options-deprecation-00040
+  - jvm-options-removal-00030
+  - jvm-options-removal-00050
+  - jvm-options-removal-00060
+  - jvm-options-removal-00070
+  - jvm-options-removal-00080
+  - jvm-options-removal-00090
+  - jvm-options-removal-00100
+  - jvm-options-removal-00120
+  - jvm-options-removal-00130
+  - language-removal-00010
+  - locale-deprecation-00020
+  - locale-removal-00010
+  - locale-removal-00030
+  - modules-removal-00010
+  - modules-removal-00020
+  - runtime-removal-00010
+  - runtime-removal-00020
+  - runtime-removal-00030
+  - runtime-removal-00040
+  - security-removal-00010
+  - security-removal-00020
+  - security-removal-00030
+  - security-removal-00040
+  - security-removal-00050
+  - security-removal-00060
+  - security-removal-00070
+  - security-removal-00080
+  - security-removal-00090
+  - security-removal-00100
+  - security-removal-00110
+  - security-removal-00120
+  - security-removal-00130
+  - security-removal-00140
+  - security-removal-00150
+  - security-removal-00160
+  - security-removal-00170
+  - security-removal-00180
+  - security-removal-00190
+  - security-removal-00200
+  - security-removal-00210
+  - security-removal-00220
+  - security-removal-00230
+  - security-removal-00240
+  - security-removal-00250
+  - security-removal-00260
+  - threading-removal-00010
+  - threading-removal-00020
+  - threading-removal-00030
+  - threading-removal-00040
+  - threading-removal-00050
+  - threading-removal-00060
+  - tooling-removal-00010
+  - unsafe-removal-00010
+  - unsafe-removal-00020
+  - unsafe-removal-00030
+  - unsafe-removal-00040
+  - unsafe-removal-00050
+  - unsafe-removal-00060
+  - unsafe-removal-00070
+  - unsafe-removal-00080
+  - unsafe-removal-00090
+  - unsafe-removal-00100
+  - unsafe-removal-00110
+  - unsafe-removal-00120
+  - unsafe-removal-00130
+  - unsafe-removal-00140
+  - unsafe-removal-00150
+  - unsafe-removal-00160
+  - unsafe-removal-00170
+  - unsafe-removal-00180
+  - unsafe-removal-00190
+  - unsafe-removal-00200
+  - unsafe-removal-00210
+  - unsafe-removal-00220
+  - unsafe-removal-00230
+  - unsafe-removal-00240
+  - unsafe-removal-00250
+  - unsafe-removal-00260
+  - unsafe-removal-00270
+  - unsafe-removal-00280
+  - unsafe-removal-00290
+  - unsafe-removal-00300
+  - unsafe-removal-00310
+  - util-deprecation-00010
 - name: openjdk7/oraclejdk7
   description: This ruleset provides analysis with respect to the migration from OracleJDK
     to OpenJDK.
@@ -1853,6 +2007,30 @@
   - oracle2openjdk-00004
   - oracle2openjdk-00005
   - oracle2openjdk-00006
+- name: openjdk8/openjdk7
+  description: Rules for migrating from openjdk7 to openjdk8
+  skipped:
+  - collections-import-00010
+  - collections-import-00020
+  - collections-method-00010
+  - compilation-annotation-00010
+  - datetime-change-00010
+  - datetime-change-00020
+  - internal-api-dependency-00010
+  - internal-api-dependency-00020
+  - internal-api-dependency-00030
+  - internal-api-import-00010
+  - jdbc-type-00010
+  - jdbc-type-00020
+  - jdbc-type-00030
+  - jvm-flags-pattern-00010
+  - jvm-flags-pattern-00020
+  - jvm-flags-pattern-00030
+  - jvm-pattern-00010
+  - jvm-pattern-00020
+  - security-method-00010
+  - security-pattern-00010
+  - security-pattern-00020
 - name: openliberty/websphere
   description: This ruleset identifies usage of Java APIs and technologies which are
     not provided by Open Liberty.
@@ -2017,6 +2195,19 @@
   - patternfly-v5-to-patternfly-v6-toolbar-00070
   - patternfly-v5-to-patternfly-v6-toolbar-00080
   - patternfly-v5-to-patternfly-v6-unauthorized-access-00010
+- name: quarkus-rh
+  description: This ruleset provides Red Hat build of Quarkus 3.33-specific hints
+    that layer on top of the shared Java EE/Jakarta EE to Quarkus rules (which also
+    carry the konveyor.io/target=quarkus-rh label). It covers the Red Hat build of
+    Quarkus BOM/plugin coordinates, the Red Hat Maven repository, and extensions that
+    are not productized/supported in Red Hat build of Quarkus.
+  skipped:
+  - quarkus-rh-pom-00010
+  - quarkus-rh-pom-00020
+  - quarkus-rh-pom-00030
+  - quarkus-rh-unsupported-extensions-00010
+  - quarkus-rh-unsupported-extensions-00020
+  - quarkus-rh-unsupported-extensions-00030
 - name: quarkus/springboot
   description: This ruleset gives hints to migrate from SpringBoot devtools to Quarkus
   skipped:
@@ -2028,6 +2219,15 @@
   - ee-to-quarkus-00000
   - ee-to-quarkus-00010
   - ee-to-quarkus-00020
+  - hibernate-orm7-to-quarkus-00010
+  - hibernate-orm7-to-quarkus-00020
+  - hibernate-orm7-to-quarkus-00030
+  - hibernate-orm7-to-quarkus-00040
+  - hibernate-orm7-to-quarkus-00050
+  - hibernate-orm7-to-quarkus-00060
+  - hibernate-orm7-to-quarkus-00070
+  - hibernate-orm7-to-quarkus-00080
+  - hibernate-orm7-to-quarkus-00090
   - jakarta-cdi-to-quarkus-00000
   - jakarta-cdi-to-quarkus-00020
   - jakarta-cdi-to-quarkus-00030
@@ -2067,13 +2267,22 @@
   - remote-ejb-to-quarkus-00000
   - springboot-actuator-to-quarkus-0100
   - springboot-actuator-to-quarkus-0200
+  - springboot-actuator-to-quarkus-0210
   - springboot-annotations-to-quarkus-00000
+  - springboot-annotations-to-quarkus-00001
+  - springboot-annotations-to-quarkus-00002
+  - springboot-annotations-to-quarkus-00003
   - springboot-cache-to-quarkus-00000
   - springboot-cloud-config-client-to-quarkus-00000
+  - springboot-cloud-consul-to-quarkus-stork-00000
+  - springboot-cloud-consul-to-quarkus-stork-00001
+  - springboot-devservices-to-quarkus-00000
   - springboot-devtools-to-quarkus-0000
   - springboot-di-to-quarkus-00000
   - springboot-di-to-quarkus-00001
   - springboot-di-to-quarkus-00002
+  - springboot-di-to-quarkus-00003
+  - springboot-di-to-quarkus-00004
   - springboot-generic-catchall-00100
   - springboot-integration-to-quarkus-00010
   - springboot-integration-to-quarkus-00020
@@ -2296,6 +2505,82 @@
   - spring-boot-2.x-to-3.0-webapp-changes-00020
   - spring-boot-2.x-to-3.0-webapp-changes-00030
   - spring-boot-2.x-to-3.0-webapp-changes-00040
+- name: spring-boot-4
+  description: Ruleset for migration from Spring Boot 3.x to Spring Boot 4.0
+  skipped:
+  - actuator-annotation-00010
+  - actuator-dependency-00010
+  - actuator-pattern-00010
+  - actuator-pattern-00020
+  - actuator-pattern-00030
+  - batch-dependency-00010
+  - build-pattern-00010
+  - build-pattern-00020
+  - build-xml-00010
+  - config-pattern-00010
+  - config-pattern-00020
+  - config-pattern-00030
+  - core-import-00010
+  - core-import-00020
+  - core-method-00010
+  - data-annotation-00010
+  - data-change-00010
+  - data-dependency-00010
+  - data-dependency-00020
+  - data-dependency-00030
+  - data-dependency-00040
+  - data-dependency-00050
+  - data-dependency-00060
+  - data-pattern-00010
+  - data-pattern-00020
+  - data-pattern-00030
+  - data-pattern-00040
+  - data-pattern-00050
+  - data-pattern-00060
+  - data-pattern-00070
+  - data-pattern-00080
+  - data-pattern-00090
+  - data-pattern-00100
+  - database-migration-dependency-00010
+  - database-migration-dependency-00020
+  - dependencies-dependency-00010
+  - dependencies-dependency-00020
+  - dependencies-dependency-00030
+  - dependencies-dependency-00040
+  - dependencies-dependency-00050
+  - dependencies-dependency-00060
+  - dependencies-dependency-00070
+  - dependencies-pattern-00010
+  - devtools-dependency-00010
+  - json-annotation-00010
+  - json-annotation-00020
+  - json-import-00010
+  - json-import-00020
+  - json-import-00030
+  - json-import-00040
+  - messaging-change-00010
+  - messaging-change-00020
+  - messaging-pattern-00010
+  - security-method-00010
+  - session-dependency-00010
+  - session-dependency-00020
+  - session-pattern-00010
+  - session-pattern-00020
+  - test-annotation-00010
+  - test-annotation-00020
+  - test-annotation-00030
+  - test-annotation-00040
+  - test-change-00010
+  - test-change-00020
+  - test-dependency-00010
+  - testing-annotation-00010
+  - testing-annotation-00020
+  - testing-dependency-00010
+  - web-change-00010
+  - web-dependency-00010
+  - web-dependency-00020
+  - web-pattern-00010
+  - web-server-dependency-00010
 - name: spring-framework
   description: Ruleset for migration of Spring Framework versions
   skipped:
@@ -2353,6 +2638,45 @@
   - spring-framework-5.x-to-6.0-web-applications-00010
   - spring-framework-5.x-to-6.0-web-applications-00030
   - spring-framework-5.x-to-6.0-web-applications-00040
+- name: spring-framework-7
+  description: Ruleset for migration from Spring Framework 6.x to Spring Framework
+    7.0
+  skipped:
+  - aop-annotation-00010
+  - core-dependency-00010
+  - core-import-00010
+  - core-import-00020
+  - core-import-00030
+  - core-import-00040
+  - core-import-00050
+  - core-method-00010
+  - dependencies-dependency-00010
+  - dependencies-dependency-00020
+  - dependencies-dependency-00030
+  - graalvm-change-00010
+  - graalvm-change-00020
+  - graalvm-change-00030
+  - jms-import-00010
+  - orm-import-00010
+  - orm-import-00020
+  - resilience-import-00010
+  - resilience-import-00020
+  - test-change-00010
+  - test-import-00010
+  - test-import-00020
+  - test-import-00030
+  - testing-annotation-00010
+  - web-import-00010
+  - web-import-00020
+  - web-import-00030
+  - web-import-00040
+  - web-import-00050
+  - web-import-00060
+  - web-import-00070
+  - web-import-00080
+  - web-import-00090
+  - web-import-00100
+  - web-method-00010
 - name: technology-usage
   description: This ruleset provides analysis of logging libraries.
   tags:
