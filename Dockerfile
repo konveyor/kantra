@@ -86,13 +86,26 @@ FROM quay.io/konveyor/java-external-provider:${VERSION}
 
 
 USER 0
+# Workaround for RHEL-305253 (https://issues.redhat.com/browse/RHEL-305253):
+# UBI 9 AppStream publishes netavark 3:1.17.2-3.el9, which requires
+# aardvark-dns >= 3:1.17, but UBI only ships aardvark-dns 2:1.17.1-1.el9_8.
+# AlmaLinux 9 moved the matching aardvark-dns 3:1.17.1-1.el9 to BaseOS, so
+# enable BaseOS for the podman install only. containers-common is excluded to
+# avoid the AlmaLinux/UBI GPG-key file conflict (see konveyor/kantra#869).
+# TODO: remove this workaround once RHEL-305253 is fixed.
 RUN echo -e "[almalinux9-appstream]" \
  "\nname = almalinux9-appstream" \
  "\nbaseurl = https://repo.almalinux.org/almalinux/9/AppStream/\$basearch/os/" \
  "\nenabled = 1" \
- "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
+ "\ngpgcheck = 0" \
+ "\n[almalinux9-baseos]" \
+ "\nname = almalinux9-baseos" \
+ "\nbaseurl = https://repo.almalinux.org/almalinux/9/BaseOS/\$basearch/os/" \
+ "\nenabled = 0" \
+ "\ngpgcheck = 0" \
+ "\nexcludepkgs = containers-common" > /etc/yum.repos.d/almalinux.repo
 
-RUN microdnf -y install podman
+RUN microdnf -y --enablerepo=almalinux9-baseos install podman
 RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
 RUN echo mta:10000:5000 > /etc/subuid
 RUN echo mta:10000:5000 > /etc/subgid
