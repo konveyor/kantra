@@ -17,6 +17,7 @@ type ProviderOption interface {
 // Pass as a ProviderOption to GetConfig; non-Java providers ignore it.
 type JavaOptions struct {
 	MavenSettingsFile  string
+	MavenInsecure      bool
 	JvmMaxMem          string
 	DisableMavenSearch bool
 	MavenCacheDir      string

@@ -85,6 +85,9 @@ type EnvironmentConfig struct {
 	// MavenSettingsFile path for the Java provider.
 	MavenSettingsFile string
 
+	// MavenInsecure allows insecure HTTPS connections to Maven repositories.
+	MavenInsecure bool
+
 	// JvmMaxMem sets JVM max memory for the Java provider.
 	JvmMaxMem string
 

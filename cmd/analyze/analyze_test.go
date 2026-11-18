@@ -1347,6 +1347,59 @@ func Test_analyzeCommand_disableMavenSearch_flagParsing(t *testing.T) {
 	}
 }
 
+func Test_analyzeCommand_mavenInsecure_flagParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected bool
+	}{
+		{
+			name:     "maven-insecure flag set to true",
+			args:     []string{"analyze", "--maven-insecure=true", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+		{
+			name:     "maven-insecure flag set to false",
+			args:     []string{"analyze", "--maven-insecure=false", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "maven-insecure flag not provided (default false)",
+			args:     []string{"analyze", "--input", "/test", "--output", "/output"},
+			expected: false,
+		},
+		{
+			name:     "maven-insecure flag provided without value (true)",
+			args:     []string{"analyze", "--maven-insecure", "--input", "/test", "--output", "/output"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logr.Discard()
+			cmd := NewAnalyzeCmd(log)
+
+			// Set args and parse
+			cmd.SetArgs(tt.args[1:]) // Remove "analyze" since that's the command name
+			err := cmd.ParseFlags(tt.args[1:])
+			if err != nil {
+				t.Fatalf("Failed to parse flags: %v", err)
+			}
+
+			// Check flag value via flag lookup
+			flagValue, err := cmd.Flags().GetBool("maven-insecure")
+			if err != nil {
+				t.Fatalf("Failed to get maven-insecure flag: %v", err)
+			}
+
+			if flagValue != tt.expected {
+				t.Errorf("mavenInsecure = %v, want %v", flagValue, tt.expected)
+			}
+		})
+	}
+}
+
 func Test_analyzeCommand_containerRuntimeFlagsParsing(t *testing.T) {
 	a := &analyzeCommand{
 		containerRuntimeFlags: "--memory 4G --cpus 4",
@@ -1457,6 +1510,67 @@ func Test_JavaProvider_GetConfig_disableMavenSearch(t *testing.T) {
 			if disableMavenSearchValue != tt.expectedDisableMavenSearch {
 				t.Errorf("ProviderSpecificConfig[\"disableMavenSearch\"] = %v, want %v",
 					disableMavenSearchValue, tt.expectedDisableMavenSearch)
+			}
+		})
+	}
+}
+
+func Test_JavaProvider_GetConfig_mavenInsecure(t *testing.T) {
+	tests := []struct {
+		name                 string
+		mavenInsecure        bool
+		expectedMavenInsecure bool
+	}{
+		{
+			name:                 "mavenInsecure true in config",
+			mavenInsecure:        true,
+			expectedMavenInsecure: true,
+		},
+		{
+			name:                 "mavenInsecure false in config",
+			mavenInsecure:        false,
+			expectedMavenInsecure: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			javaProvider := &kantraProvider.JavaProvider{}
+
+			// Test that mavenInsecure is properly passed to provider config
+			config, err := javaProvider.GetConfig(kantraProvider.ModeLocal, kantraProvider.BaseOptions{
+				Location:     "/tmp/project",
+				AnalysisMode: "source-only",
+				KantraDir:    "/home/user/.kantra",
+			}, kantraProvider.JavaOptions{
+				MavenInsecure: tt.mavenInsecure,
+			})
+			if err != nil {
+				t.Fatalf("JavaProvider.GetConfig() error = %v", err)
+			}
+
+			if len(config.InitConfig) == 0 {
+				t.Fatal("Expected InitConfig to have at least one entry")
+			}
+
+			providerConfig := config.InitConfig[0].ProviderSpecificConfig
+
+			// mavenInsecure is only set when true
+			mavenInsecureValue, exists := providerConfig["mavenInsecure"]
+			if tt.expectedMavenInsecure {
+				if !exists {
+					t.Fatal("Expected mavenInsecure to be present in ProviderSpecificConfig when true")
+				}
+				if mavenInsecureValue != tt.expectedMavenInsecure {
+					t.Errorf("ProviderSpecificConfig[\"mavenInsecure\"] = %v, want %v",
+						mavenInsecureValue, tt.expectedMavenInsecure)
+				}
+			} else {
+				// When false, the key should not be set (since we only set it when true)
+				if exists {
+					t.Errorf("Expected mavenInsecure to not be present in ProviderSpecificConfig when false, but got %v",
+						mavenInsecureValue)
+				}
 			}
 		})
 	}
