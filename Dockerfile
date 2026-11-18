@@ -1,6 +1,6 @@
 FROM quay.io/konveyor/windup-shim:latest as shim
 
-FROM registry.access.redhat.com/ubi9-minimal as rulesets
+FROM registry.access.redhat.com/rhel9 as rulesets
 
 RUN microdnf -y install git &&\
     git clone https://github.com/konveyor/rulesets &&\
