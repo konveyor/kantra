@@ -90,9 +90,15 @@ RUN echo -e "[almalinux9-appstream]" \
  "\nname = almalinux9-appstream" \
  "\nbaseurl = https://repo.almalinux.org/almalinux/9/AppStream/\$basearch/os/" \
  "\nenabled = 1" \
+ "\ngpgcheck = 0" \
+ "\n[almalinux9-baseos]" \
+ "\nname = almalinux9-baseos" \
+ "\nbaseurl = https://repo.almalinux.org/almalinux/9/BaseOS/\$basearch/os/" \
+ "\nenabled = 1" \
  "\ngpgcheck = 0" > /etc/yum.repos.d/almalinux.repo
 
-RUN microdnf -y install podman
+RUN rpm -e --nodeps --justdb redhat-release && \
+    microdnf -y install podman
 RUN echo mta:x:1001:0:1001 user:/home/mta:/sbin/nologin > /etc/passwd
 RUN echo mta:10000:5000 > /etc/subuid
 RUN echo mta:10000:5000 > /etc/subgid
