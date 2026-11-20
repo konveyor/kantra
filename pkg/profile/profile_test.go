@@ -1857,3 +1857,56 @@ func TestFindSingleProfile_ErrorHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestSetSettingsFromProfile_RelativePath(t *testing.T) {
+	tests := []struct {
+		name      string
+		path      string
+		wantInput string
+	}{
+		{
+			name:      "path starting with .konveyor",
+			path:      filepath.Join(".konveyor", "profiles", "test-profile", "profile.yaml"),
+			wantInput: ".",
+		},
+		{
+			name:      "path with a leading dot slash",
+			path:      "./" + filepath.Join(".konveyor", "profiles", "test-profile", "profile.yaml"),
+			wantInput: ".",
+		},
+		{
+			name:      "path inside a project directory",
+			path:      filepath.Join("app", ".konveyor", "profiles", "test-profile", "profile.yaml"),
+			wantInput: "app",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			profileDir := filepath.Join(tmpDir, filepath.Dir(strings.TrimPrefix(tt.path, "./")))
+			if err := os.MkdirAll(profileDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(profileDir, "profile.yaml"), []byte("mode:\n  withDeps: true\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(tmpDir)
+
+			cmd := &cobra.Command{}
+			cmd.Flags().String("input", "", "input flag")
+			cmd.Flags().String("mode", "", "mode flag")
+			cmd.Flags().Bool("analyze-known-libraries", false, "analyze known libraries flag")
+			cmd.Flags().String("incident-selector", "", "incident selector flag")
+			cmd.Flags().String("label-selector", "", "label selector flag")
+			cmd.Flags().StringSlice("rules", []string{}, "rules flag")
+
+			settings := &ProfileSettings{}
+			if err := SetSettingsFromProfile(tt.path, cmd, settings); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if settings.Input != tt.wantInput {
+				t.Errorf("Input = %q, want %q", settings.Input, tt.wantInput)
+			}
+		})
+	}
+}
