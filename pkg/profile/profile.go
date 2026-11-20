@@ -78,17 +78,31 @@ func UnmarshalProfile(path string) (*hubapi.AnalysisProfile, error) {
 	return &prof, nil
 }
 
+// dirBeforeKonveyor returns the directory that holds the .konveyor directory
+// the profile at path lives in. For a relative path that starts with .konveyor
+// this is ".".
+func dirBeforeKonveyor(path string) (string, bool) {
+	for dir := filepath.Dir(path); ; {
+		if filepath.Base(dir) == ".konveyor" {
+			return filepath.Dir(dir), true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+}
+
 func SetSettingsFromProfile(path string, cmd *cobra.Command, settings *ProfileSettings) error {
 	prof, err := UnmarshalProfile(path)
 	if err != nil {
 		return err
 	}
-	konveyorIndex := strings.Index(path, ".konveyor")
-	if konveyorIndex == -1 {
+	locationDir, ok := dirBeforeKonveyor(path)
+	if !ok {
 		return fmt.Errorf("profile path does not contain .konveyor directory: %s", path)
 	}
-	// get dir before .konveyor/
-	locationDir := path[:konveyorIndex-1]
 
 	if !cmd.Flags().Lookup("input").Changed {
 		settings.Input = locationDir
